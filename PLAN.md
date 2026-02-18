@@ -6,12 +6,31 @@ Notes on key design decisions and the reasoning behind them.
 
 The UBC Workday site is a JavaScript SPA, so browser automation (Playwright) was the initial plan. However, we discovered its underlying REST API:
 
-- **`POST /wday/cxs/ubc/ubcstaffjobs/jobs`** — paginated job listings (20 per page)
-- **`GET /wday/cxs/ubc/ubcstaffjobs/job/{path}`** — full job details (HTML description, metadata)
+- **`POST /wday/cxs/{tenant}/{site}/jobs`** — paginated job listings (20 per page)
+- **`GET /wday/cxs/{tenant}/{site}/job/{path}`** — full job details (HTML description, metadata)
 
 These endpoints are publicly accessible with no authentication or anti-bot measures, so we use direct HTTP calls via `httpx` — no browser automation needed. This is ~100× faster and avoids the ~150 MB Playwright browser download.
 
-**Important:** This same API pattern (`/wday/cxs/{tenant}/{site}/jobs`) is used by every organisation running Workday. Extending the scraper to other employers (SFU, PHSA, TransLink, etc.) would require only adding their tenant/site identifiers.
+## Multi-Source Architecture
+
+The same Workday CXS API pattern works for **every** organisation running Workday — only the `tenant`, `wd` instance number, and `site` identifiers change. The scraper accepts these as constructor parameters and the CLI loops through all enabled sources defined in `config/settings.yaml`.
+
+Current Vancouver-area sources:
+
+| Source | Tenant | Jobs |
+|--------|--------|------|
+| UBC | `ubc.wd10` / `ubcstaffjobs` | ~190 |
+| City of Vancouver | `cityofvancouver.wd5` / `COV` | ~17 |
+| TRIUMF | `triumf.wd10` / `careers-at-triumf-job-postings` | ~20 |
+| BCI | `bci.wd10` / `BCI_Careers` | ~9 |
+| BCAA | `bcaa.wd3` / `bcaacareers` | ~46 |
+| TELUS International | `telusinternational.wd3` / `External` | ~52 |
+
+Large global employers (Salesforce, NVIDIA, Autodesk, Activision Blizzard) are configured but disabled by default because they list thousands of jobs worldwide. They should be enabled once location-based filtering is added.
+
+The `--source` CLI flag allows scraping a single source by name (e.g. `--source UBC`).
+
+Each job's metadata includes a `source` field for traceability.
 
 ## Tier Classification
 
@@ -52,7 +71,8 @@ Using a single persistent Word COM instance for PDF conversion avoids the startu
 
 ## Future Enhancements
 
-- Multi-source scraping (Greenhouse, Lever, other Workday tenants)
+- Non-Workday sources (Greenhouse API, government job boards)
+- Location-based filtering for large global employers
 - Job-resume match scoring (LLM-based fit assessment)
 - Application status tracker
 - Resume variant generator (emphasise different skills per job)

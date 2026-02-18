@@ -1,11 +1,14 @@
-"""Workday API client for the UBC staff job board.
+"""Workday API client for scraping job boards.
 
 Uses the undocumented Workday CXS API directly (no browser needed):
-  - POST /wday/cxs/ubc/ubcstaffjobs/jobs  → paginated job listings
-  - GET  /wday/cxs/ubc/ubcstaffjobs/job/{path} → full job details
+  - POST /wday/cxs/{tenant}/{site}/jobs  → paginated job listings
+  - GET  /wday/cxs/{tenant}/{site}/job/{path} → full job details
 
-Supports both sync and async modes. Async mode uses concurrent requests
-with a configurable semaphore for speed.
+Supports both sync and async modes.  Async mode uses concurrent
+requests with a configurable semaphore for speed.
+
+The same API pattern works for *any* organisation running Workday —
+just supply the appropriate tenant and site identifiers.
 """
 
 from __future__ import annotations
@@ -20,9 +23,27 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://ubc.wd10.myworkdayjobs.com"
-JOBS_ENDPOINT = f"{BASE_URL}/wday/cxs/ubc/ubcstaffjobs/jobs"
-JOB_DETAIL_ENDPOINT = f"{BASE_URL}/wday/cxs/ubc/ubcstaffjobs"
+# ── Default Workday instance (UBC) ─────────────────────────────────
+DEFAULT_TENANT = "ubc"
+DEFAULT_SITE = "ubcstaffjobs"
+DEFAULT_WD = "wd10"
+
+
+def _workday_urls(
+    tenant: str = DEFAULT_TENANT,
+    site: str = DEFAULT_SITE,
+    wd: str = DEFAULT_WD,
+) -> tuple[str, str, str]:
+    """Build Workday API URLs from tenant/site identifiers.
+
+    Returns:
+        (base_url, jobs_endpoint, detail_endpoint)
+    """
+    base = f"https://{tenant}.{wd}.myworkdayjobs.com"
+    jobs = f"{base}/wday/cxs/{tenant}/{site}/jobs"
+    detail = f"{base}/wday/cxs/{tenant}/{site}"
+    return base, jobs, detail
+
 
 DEFAULT_HEADERS = {
     "Accept": "application/json",
@@ -48,6 +69,7 @@ class JobSummary:
     location: str
     posted_on: str
     job_req_id: str  # e.g. "JR22878"
+    source: str = ""  # human-readable source name, e.g. "UBC"
     bullet_fields: list[str] = field(default_factory=list)
 
     @classmethod
@@ -81,6 +103,7 @@ class JobDetail:
     description_html: str
     external_url: str
     external_path: str
+    source: str = ""  # human-readable source name
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
@@ -103,11 +126,15 @@ class JobDetail:
 
 
 class WorkdayScraper:
-    """Stateless HTTP client for the UBC Workday job board API."""
+    """Stateless HTTP client for a Workday job board API."""
 
     def __init__(
         self,
         *,
+        tenant: str = DEFAULT_TENANT,
+        site: str = DEFAULT_SITE,
+        wd: str = DEFAULT_WD,
+        source_name: str = "",
         delay: float = 2.0,
         timeout: float = 30.0,
         max_jobs: int = 0,
@@ -115,10 +142,16 @@ class WorkdayScraper:
         """Initialise the synchronous Workday scraper.
 
         Args:
+            tenant: Workday tenant identifier (e.g. ``"ubc"``).
+            site: Workday site identifier (e.g. ``"ubcstaffjobs"``).
+            wd: Workday instance number (e.g. ``"wd10"``).
+            source_name: Human-readable name attached to each job.
             delay: Seconds to wait between paginated requests.
             timeout: HTTP request timeout in seconds.
             max_jobs: Stop after this many jobs (0 = unlimited).
         """
+        _base, self._jobs_url, self._detail_url = _workday_urls(tenant, site, wd)
+        self.source_name = source_name or tenant.upper()
         self.delay = delay
         self.timeout = timeout
         self.max_jobs = max_jobs
@@ -154,6 +187,7 @@ class WorkdayScraper:
             for p in postings:
                 job = JobSummary.from_api(p)
                 if job is not None:
+                    job.source = self.source_name
                     all_jobs.append(job)
                 else:
                     logger.warning("Skipping malformed job posting: %s", p)
@@ -174,11 +208,13 @@ class WorkdayScraper:
 
     def get_job_detail(self, external_path: str) -> JobDetail:
         """Fetch the full details for a single job posting."""
-        url = f"{JOB_DETAIL_ENDPOINT}{external_path}"
+        url = f"{self._detail_url}{external_path}"
         logger.debug("GET %s", url)
         resp = self._client.get(url)
         resp.raise_for_status()
-        return JobDetail.from_api(resp.json(), external_path)
+        detail = JobDetail.from_api(resp.json(), external_path)
+        detail.source = self.source_name
+        return detail
 
     # -- Internal ------------------------------------------------------------
 
@@ -189,8 +225,8 @@ class WorkdayScraper:
             "offset": offset,
             "searchText": "",
         }
-        logger.debug("POST %s offset=%d", JOBS_ENDPOINT, offset)
-        resp = self._client.post(JOBS_ENDPOINT, json=payload)
+        logger.debug("POST %s offset=%d", self._jobs_url, offset)
+        resp = self._client.post(self._jobs_url, json=payload)
         resp.raise_for_status()
         return resp.json()
 
@@ -206,6 +242,10 @@ class AsyncWorkdayScraper:
     def __init__(
         self,
         *,
+        tenant: str = DEFAULT_TENANT,
+        site: str = DEFAULT_SITE,
+        wd: str = DEFAULT_WD,
+        source_name: str = "",
         concurrency: int = 5,
         timeout: float = 30.0,
         max_jobs: int = 0,
@@ -213,10 +253,16 @@ class AsyncWorkdayScraper:
         """Initialise the async Workday scraper.
 
         Args:
+            tenant: Workday tenant identifier (e.g. ``"ubc"``).
+            site: Workday site identifier (e.g. ``"ubcstaffjobs"``).
+            wd: Workday instance number (e.g. ``"wd10"``).
+            source_name: Human-readable name attached to each job.
             concurrency: Maximum number of simultaneous HTTP requests.
             timeout: HTTP request timeout in seconds.
             max_jobs: Stop after this many jobs (0 = unlimited).
         """
+        _base, self._jobs_url, self._detail_url = _workday_urls(tenant, site, wd)
+        self.source_name = source_name or tenant.upper()
         self.concurrency = concurrency
         self.timeout = timeout
         self.max_jobs = max_jobs
@@ -246,7 +292,7 @@ class AsyncWorkdayScraper:
             data = await self._fetch_jobs_page(offset)
             if total is None:
                 total = data.get("total", 0)
-                logger.info("Total jobs on board: %d", total)
+                logger.info("%s: %d jobs on board", self.source_name, total)
 
             postings = data.get("jobPostings", [])
             if not postings:
@@ -255,6 +301,7 @@ class AsyncWorkdayScraper:
             for p in postings:
                 job = JobSummary.from_api(p)
                 if job is not None:
+                    job.source = self.source_name
                     all_jobs.append(job)
 
             offset += len(postings)
@@ -299,14 +346,14 @@ class AsyncWorkdayScraper:
             "offset": offset,
             "searchText": "",
         }
-        resp = await self.client.post(JOBS_ENDPOINT, json=payload)
+        resp = await self.client.post(self._jobs_url, json=payload)
         resp.raise_for_status()
         return resp.json()
 
     async def _get_with_retry(
         self, external_path: str, retries: int = MAX_RETRIES
     ) -> JobDetail:
-        url = f"{JOB_DETAIL_ENDPOINT}{external_path}"
+        url = f"{self._detail_url}{external_path}"
         for attempt in range(retries):
             resp = await self.client.get(url)
 
@@ -323,9 +370,13 @@ class AsyncWorkdayScraper:
                 continue
 
             resp.raise_for_status()
-            return JobDetail.from_api(resp.json(), external_path)
+            detail = JobDetail.from_api(resp.json(), external_path)
+            detail.source = self.source_name
+            return detail
 
         # Final attempt — let it raise
         resp = await self.client.get(url)
         resp.raise_for_status()
-        return JobDetail.from_api(resp.json(), external_path)
+        detail = JobDetail.from_api(resp.json(), external_path)
+        detail.source = self.source_name
+        return detail
