@@ -1,0 +1,211 @@
+# UBC Job Scraper Configuration
+
+scraper:
+  # Maximum number of jobs to scrape per run (0 = unlimited)
+  max_jobs: 0
+
+# ─── Tier Classification ────────────────────────────────────────────
+
+tier:
+  # Jobs requiring MORE than this many years experience → LOW tier
+  experience_cutoff: 5
+
+  # Location keywords that trigger LOW tier (too far from Vancouver to commute)
+  low_location_keywords:
+    - "Kelowna"
+    - "Okanagan"
+    - "Prince George"
+    - "Victoria"
+    - "Kamloops"
+    - "Nanaimo"
+
+  # Minimum description keyword matches needed for HIGH tier
+  high_description_min_matches: 2
+
+  # Title keywords that trigger LOW tier (case-insensitive, word-boundary match)
+  low_title_keywords:
+    # Trades / maintenance
+    - "Mechanical"
+    - "Mechanic"
+    - "Electrician"
+    - "Plumber"
+    - "Carpenter"
+    - "HVAC"
+    - "Millwright"
+    - "Custodial"
+    - "Janitorial"
+    - "Trades"
+    - "Refrigeration"
+    # Clinical / credentialed roles
+    - "Physician"
+    - "Nurse"
+    - "Nursing"
+    - "Pharmacist"
+    - "Dentist"
+    - "Veterinarian"
+    - "Physiotherapist"
+    - "Occupational Therapist"
+    - "Medical Office"
+    # Senior leadership (new grad filter)
+    - "Senior Director"
+    - "Vice President"
+    - "VP "
+    - "Principal"
+    - "Chief"
+    # Academic faculty / postdoc (requires PhD)
+    - "Professor"
+    - "Postdoctoral"
+    - "Postdoc"
+    - "Head Coach"
+    # Manual labour
+    - "Labourer"
+    # Wrong-domain technical
+    - "Animal Care"
+    - "Cleanroom"
+    # Specialized licensed professions
+    - "CPA"
+    - "Lawyer"
+    - "Barrister"
+
+  # Job category keywords that trigger LOW tier
+  low_category_keywords:
+    - "Trades"
+    - "Custodial"
+    - "Facilities Maintenance"
+
+  # Description keywords that trigger LOW tier (≥2 matches = wrong domain)
+  # Catches wet-lab/bench-science "Research Assistant" roles
+  low_description_keywords:
+    - "molecular cloning"
+    - "cloning of"
+    - "cell culture"
+    - "cell biology"
+    - "wet lab"
+    - "confocal microscopy"
+    - "histology"
+    - "Western Blot"
+    - "PCR"
+    - "protein purification"
+    - "FPLC"
+    - "SDS-PAGE"
+    - "immunohistochemistry"
+    - "immunofluorescence"
+    - "nanoparticle"
+    - "RNA synthesis"
+    - "synthesizes RNA"
+    - "mammalian cell"
+    - "murine"
+    - "tissue culture"
+    - "gel electrophoresis"
+    - "centrifugation"
+    - "autoclave"
+    - "biospecimen"
+    - "necropsy"
+    - "animal husbandry"
+    - "laboratory animal"
+    - "breeding colonies"
+    - "growth chamber"
+    - "plant transformation"
+    - "greenhouse"
+    - "bioengineering"
+    - "immunology"
+    - "RNA vaccine"
+  low_description_min_matches: 2
+
+  # Title keywords that trigger HIGH tier (case-insensitive, substring match)
+  high_title_keywords:
+    - "Software"
+    - "Developer"
+    - "Engineer"
+    - "Programmer"
+    - "Data"
+    - "Analyst"
+    - "AI"
+    - "ML"
+    - "Machine Learning"
+    - "Research Assistant"
+    - "Research Analyst"
+    - "Web"
+    - "Full Stack"
+    - "Frontend"
+    - "Backend"
+    - "IT "
+    - "Technology"
+    - "DevOps"
+    - "QA"
+    - "Junior"
+
+  # Description keywords for HIGH tier (need ≥2 matches, word-boundary matching)
+  # These catch generic titles like "Research Assistant" that involve your skills
+  high_description_keywords:
+    - "Python"
+    - "JavaScript"
+    - "TypeScript"
+    - "machine learning"
+    - "NLP"
+    - "LLM"
+    - "data analysis"
+    - "REST API"
+    - "React"
+    - "Jupyter"
+    - "SQL"
+    - "software development"
+    - "coding"
+    - "artificial intelligence"
+    - "deep learning"
+    - "neural network"
+    - "AWS"
+    - "Azure"
+    - "Docker"
+    - "GitHub"
+    - "version control"
+    - "full stack"
+    - "web development"
+    - "data science"
+    - "statistical analysis"
+    - "R programming"
+
+  # Title keywords that trigger MID-HIGH tier (B tier)
+  # Good secondary fit: children/education roles, easy entry-level jobs
+  midhigh_title_keywords:
+    # Children / education / youth
+    - "Child"
+    - "Youth"
+    - "Camp"
+    - "Education"
+    - "Teaching"
+    - "After-School"
+    - "Daycare"
+    - "Childcare"
+    - "K-12"
+    - "Early Learning"
+    - "Student Support"
+    - "Student Info"
+    # Easy / entry-level roles
+    - "Receptionist"
+    - "Attendant"
+    - "Front Counter"
+    - "Front Desk"
+    - "Server"
+    - "Waiter"
+    - "Event Assistant"
+    - "Sales Attendant"
+    - "Admissions Desk"
+    - "Banquet"
+    - "Catering"
+
+# ─── Output Paths ───────────────────────────────────────────────────
+
+output:
+  # Directory for job description .md files (relative to project root)
+  job_descriptions_dir: "job_descriptions"
+
+  # Directory for generated cover letters (relative to project root)
+  cover_letters_dir: "cover_letters"
+
+profile:
+  # Path to resume (for reference in cover letter generation)
+  resume: "profile/Jacob Andersen-Lum Resume.md"
+
+  # Path to cover letter template
+  cover_letter_template: "profile/Jacob Andersen-Lum Cover Letter Template.md"

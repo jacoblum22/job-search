@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# Conda
+.conda/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Personal documents — binary formats (markdown sources are tracked)
+profile/*.docx
+profile/*.pdf
+
+# Scraped job descriptions (generated output)
+job_descriptions/*.md
+
+# Cover letters — all formats (generated output)
+cover_letters/**/*.md
+cover_letters/**/*.docx
+cover_letters/**/*.pdf
+
+# Playwright (fallback — not actively used)
+playwright-report/
+test-results/
+
+# Misc
+*.log
+.cache/
