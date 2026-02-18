@@ -68,14 +68,38 @@ sources:
     location_filter:
       - "Vancouver"
       - "Burnaby"
-      - "Richmond"
 
-  - name: "Salesforce"
-    tenant: "salesforce"
-    wd: "wd12"
-    site: "External_Career_Site"
+  - name: "Shoppers Drug Mart"
+    tenant: "myview"
+    wd: "wd3"
+    site: "sdm_careers"
     enabled: true
-    location_filter: "Vancouver"  # ~1300 total, has "Canada - Vancouver"
+    location_filter:
+      - "Vancouver"
+      - "Burnaby"
+      - "Richmond,"   # trailing comma to avoid matching "Richmond Hill, ON"
+      - "New Westminster"
+
+  - name: "CIBC"
+    tenant: "cibc"
+    wd: "wd3"
+    site: "search"
+    enabled: true
+    location_filter:
+      - "Vancouver"
+      - "Burnaby"
+      - "Richmond, BC"  # avoid Richmond Hill, ON
+
+  - name: "BDO Canada"
+    tenant: "bdo"
+    wd: "wd3"
+    site: "BDO"
+    enabled: true
+    location_filter: "Vancouver"
+
+  # ── Disabled sources ──
+
+  - name: "TELUS International"
     tenant: "telusinternational"
     wd: "wd3"
     site: "External"
@@ -86,7 +110,7 @@ sources:
     tenant: "salesforce"
     wd: "wd12"
     site: "External_Career_Site"
-    enabled: false  # ~1300 jobs globally
+    enabled: false  # Zero Vancouver jobs currently
     location_filter: "Vancouver"
 
   - name: "Autodesk"
@@ -100,7 +124,7 @@ sources:
     tenant: "nvidia"
     wd: "wd5"
     site: "NVIDIAExternalCareerSite"
-    enabled: false  # ~2000 jobs globally
+    enabled: false  # ~2000 jobs globally, zero in Canada
     location_filter: "Vancouver"
 
   - name: "Activision Blizzard"
@@ -110,38 +134,34 @@ sources:
     enabled: false  # ~100 jobs globally
     location_filter: "Vancouver"
 
-  # ── Additional Workday tenants (disabled — needs Vancouver check) ──
-
-  - name: "CIBC"
-    tenant: "cibc"
-    wd: "wd3"
-    site: "search"
-    enabled: false  # ~612 jobs, check for Vancouver
-    location_filter: "Vancouver"
-
   - name: "Canadian Tire"
     tenant: "canadiantirecorporation"
     wd: "wd3"
     site: "Enterprise_External_Careers_Site"
-    enabled: false  # ~103 jobs, check for Vancouver
+    enabled: false  # ~4 Vancouver jobs
     location_filter: "Vancouver"
 
-  - name: "BDO Canada"
-    tenant: "bdo"
+  - name: "TELUS Health"
+    tenant: "lifeworks"
     wd: "wd3"
-    site: "BDO"
-    enabled: false  # ~185 jobs, check for Vancouver
+    site: "External"
+    enabled: false  # Only 1 Vancouver job
     location_filter: "Vancouver"
 
   - name: "SCM / ClaimsPro"
     tenant: "scm"
     wd: "wd3"
     site: "SCM"
-    enabled: false  # ~47 jobs, some in BC
+    enabled: false  # ~2 Vancouver-area jobs
     location_filter:
       - "Vancouver"
-      - "Burnaby"
       - "New Westminster"
+
+  - name: "Loblaw"
+    tenant: "myview"
+    wd: "wd3"
+    site: "loblaw_careers"
+    enabled: false  # ~1 job total
 
 # ─── Tier Classification ────────────────────────────────────────────
 
@@ -157,6 +177,9 @@ tier:
     - "Victoria"
     - "Kamloops"
     - "Nanaimo"
+    - "Coquitlam"
+    - "Surrey"
+    - "North Vancouver"
 
   # Minimum description keyword matches needed for HIGH tier
   high_description_min_matches: 2
