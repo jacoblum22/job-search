@@ -79,6 +79,7 @@ async def _scrape_source(
     """Scrape a single Workday source. Returns (written, errors, tier_counts)."""
     log = logging.getLogger("scrape")
     name = source["name"]
+    location_filter = source.get("location_filter", "").lower()
 
     log.info("━━━ %s ━━━", name)
 
@@ -125,6 +126,17 @@ async def _scrape_source(
                 continue
 
             detail = detail_or_err
+
+            # Optional location filter (e.g. only Vancouver jobs from global boards)
+            if location_filter and location_filter not in detail.location.lower():
+                log.debug(
+                    "  ⊘ %s: skipped (location '%s' doesn't match filter '%s')",
+                    summary.job_req_id,
+                    detail.location,
+                    source.get("location_filter", ""),
+                )
+                continue
+
             tier_val, reason, filename = classify_and_write(
                 detail, tier_cfg, output_dir, dry_run=dry_run
             )
@@ -183,19 +195,25 @@ async def run_scraper(
     if max_jobs:
         log.info("Max jobs per source: %d", max_jobs)
 
+    # Scrape all sources in parallel (each is a different server)
+    source_results = await asyncio.gather(
+        *[
+            _scrape_source(
+                source,
+                tier_cfg=tier_cfg,
+                output_dir=output_dir,
+                max_jobs=max_jobs,
+                dry_run=dry_run,
+                concurrency=concurrency,
+            )
+            for source in active
+        ]
+    )
+
     total_written = 0
     total_errors = 0
     total_tiers: Counter[Tier] = Counter()
-
-    for source in active:
-        written, errors, tier_counts = await _scrape_source(
-            source,
-            tier_cfg=tier_cfg,
-            output_dir=output_dir,
-            max_jobs=max_jobs,
-            dry_run=dry_run,
-            concurrency=concurrency,
-        )
+    for written, errors, tier_counts in source_results:
         total_written += written
         total_errors += errors
         total_tiers += tier_counts
@@ -234,8 +252,8 @@ async def run_scraper(
 @click.option(
     "--concurrency",
     type=int,
-    default=5,
-    help="Number of concurrent requests (default: 5)",
+    default=10,
+    help="Number of concurrent requests per source (default: 10)",
 )
 @click.option(
     "--source",

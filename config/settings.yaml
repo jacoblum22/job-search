@@ -33,7 +33,7 @@ sources:
     tenant: "bci"
     wd: "wd10"
     site: "BCI_Careers"
-    enabled: true
+    enabled: false  # All jobs in Victoria — enable if they post Vancouver roles
 
   - name: "BCAA"
     tenant: "bcaa"
@@ -46,6 +46,7 @@ sources:
     wd: "wd3"
     site: "External"
     enabled: true
+    location_filter: "Vancouver"  # Only keep jobs whose location contains this
 
   - name: "Salesforce"
     tenant: "salesforce"
@@ -115,10 +116,13 @@ tier:
     - "Medical Office"
     # Senior leadership (new grad filter)
     - "Senior Director"
+    - "Sr. Director"
+    - "Sr Director"
     - "Vice President"
     - "VP "
     - "Principal"
     - "Chief"
+    - "Director of"
     # Academic faculty / postdoc (requires PhD)
     - "Professor"
     - "Postdoctoral"
