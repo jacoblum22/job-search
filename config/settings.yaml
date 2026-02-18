@@ -41,7 +41,41 @@ sources:
     site: "bcaacareers"
     enabled: true
 
-  - name: "TELUS International"
+  # ── New Vancouver-area sources (discovered via API probing) ──
+
+  - name: "STEMCELL Technologies"
+    tenant: "stemcell"
+    wd: "wd3"
+    site: "External_Careers"
+    enabled: true
+    location_filter:   # OR match — job passes if location contains ANY of these
+      - "Vancouver"
+      - "Burnaby"
+      - "Greater Vancouver"
+
+  - name: "Workday"
+    tenant: "workday"
+    wd: "wd5"
+    site: "Workday"
+    enabled: true
+    location_filter: "Vancouver"  # ~411 total, ~7 in Vancouver
+
+  - name: "RBC"
+    tenant: "rbc"
+    wd: "wd3"
+    site: "RBCGLOBAL1"
+    enabled: true
+    location_filter:
+      - "Vancouver"
+      - "Burnaby"
+      - "Richmond"
+
+  - name: "Salesforce"
+    tenant: "salesforce"
+    wd: "wd12"
+    site: "External_Career_Site"
+    enabled: true
+    location_filter: "Vancouver"  # ~1300 total, has "Canada - Vancouver"
     tenant: "telusinternational"
     wd: "wd3"
     site: "External"
@@ -75,6 +109,39 @@ sources:
     site: "External"
     enabled: false  # ~100 jobs globally
     location_filter: "Vancouver"
+
+  # ── Additional Workday tenants (disabled — needs Vancouver check) ──
+
+  - name: "CIBC"
+    tenant: "cibc"
+    wd: "wd3"
+    site: "search"
+    enabled: false  # ~612 jobs, check for Vancouver
+    location_filter: "Vancouver"
+
+  - name: "Canadian Tire"
+    tenant: "canadiantirecorporation"
+    wd: "wd3"
+    site: "Enterprise_External_Careers_Site"
+    enabled: false  # ~103 jobs, check for Vancouver
+    location_filter: "Vancouver"
+
+  - name: "BDO Canada"
+    tenant: "bdo"
+    wd: "wd3"
+    site: "BDO"
+    enabled: false  # ~185 jobs, check for Vancouver
+    location_filter: "Vancouver"
+
+  - name: "SCM / ClaimsPro"
+    tenant: "scm"
+    wd: "wd3"
+    site: "SCM"
+    enabled: false  # ~47 jobs, some in BC
+    location_filter:
+      - "Vancouver"
+      - "Burnaby"
+      - "New Westminster"
 
 # ─── Tier Classification ────────────────────────────────────────────
 

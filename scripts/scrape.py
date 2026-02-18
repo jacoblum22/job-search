@@ -79,7 +79,13 @@ async def _scrape_source(
     """Scrape a single Workday source. Returns (written, errors, tier_counts)."""
     log = logging.getLogger("scrape")
     name = source["name"]
-    location_filter = source.get("location_filter", "").lower()
+
+    # location_filter can be a string or a list of strings (OR match)
+    raw_filter = source.get("location_filter", "")
+    if isinstance(raw_filter, str):
+        location_keywords = [raw_filter.lower()] if raw_filter else []
+    else:
+        location_keywords = [kw.lower() for kw in raw_filter]
 
     log.info("━━━ %s ━━━", name)
 
@@ -103,15 +109,17 @@ async def _scrape_source(
             log.info("%s: skipping %d already-scraped jobs", name, skipped)
 
         # Step 3: Pre-filter by location (before fetching expensive details)
-        if location_filter:
+        if location_keywords:
             before = len(new_jobs)
             new_jobs = [
-                s for s in new_jobs if location_filter in s.location.lower()
+                s
+                for s in new_jobs
+                if any(kw in s.location.lower() for kw in location_keywords)
             ]
             filtered = before - len(new_jobs)
             if filtered:
                 log.info(
-                    "%s: filtered out %d jobs outside '%s'",
+                    "%s: filtered out %d jobs outside %s",
                     name,
                     filtered,
                     source.get("location_filter", ""),
