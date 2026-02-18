@@ -45,8 +45,8 @@ sources:
     tenant: "telusinternational"
     wd: "wd3"
     site: "External"
-    enabled: true
-    location_filter: "Vancouver"  # Only keep jobs whose location contains this
+    enabled: false  # Zero Vancouver jobs currently
+    location_filter: "Vancouver"
 
   - name: "Salesforce"
     tenant: "salesforce"
