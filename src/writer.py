@@ -41,6 +41,7 @@ def job_to_post(
     metadata = {
         "job_id": job.job_req_id,
         "title": job.title,
+        "source": job.source or "",
         "location": job.location,
         "time_type": job.time_type,
         "date_posted": job.start_date,

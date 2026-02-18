@@ -1,8 +1,75 @@
-# UBC Job Scraper Configuration
+# Job Scraper Configuration
 
 scraper:
-  # Maximum number of jobs to scrape per run (0 = unlimited)
+  # Maximum number of jobs to scrape per run per source (0 = unlimited)
   max_jobs: 0
+
+# ─── Workday Sources ────────────────────────────────────────────────
+# Each entry defines a Workday job board to scrape.
+# The API pattern is: https://{tenant}.{wd}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs
+#
+# Set enabled: false to skip a source without removing it.
+
+sources:
+  - name: "UBC"
+    tenant: "ubc"
+    wd: "wd10"
+    site: "ubcstaffjobs"
+    enabled: true
+
+  - name: "City of Vancouver"
+    tenant: "cityofvancouver"
+    wd: "wd5"
+    site: "COV"
+    enabled: true
+
+  - name: "TRIUMF"
+    tenant: "triumf"
+    wd: "wd10"
+    site: "careers-at-triumf-job-postings"
+    enabled: true
+
+  - name: "BCI"
+    tenant: "bci"
+    wd: "wd10"
+    site: "BCI_Careers"
+    enabled: true
+
+  - name: "BCAA"
+    tenant: "bcaa"
+    wd: "wd3"
+    site: "bcaacareers"
+    enabled: true
+
+  - name: "TELUS International"
+    tenant: "telusinternational"
+    wd: "wd3"
+    site: "External"
+    enabled: true
+
+  - name: "Salesforce"
+    tenant: "salesforce"
+    wd: "wd12"
+    site: "External_Career_Site"
+    enabled: false  # ~1300 jobs globally, enable when location filtering is added
+
+  - name: "Autodesk"
+    tenant: "autodesk"
+    wd: "wd1"
+    site: "Ext"
+    enabled: false  # ~600 jobs globally, enable when location filtering is added
+
+  - name: "NVIDIA"
+    tenant: "nvidia"
+    wd: "wd5"
+    site: "NVIDIAExternalCareerSite"
+    enabled: false  # ~2000 jobs globally, enable when location filtering is added
+
+  - name: "Activision Blizzard"
+    tenant: "activision"
+    wd: "wd1"
+    site: "External"
+    enabled: false  # ~100 jobs globally, enable when location filtering is added
 
 # ─── Tier Classification ────────────────────────────────────────────
 
