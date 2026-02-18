@@ -1,7 +1,7 @@
-"""CLI entry point for the UBC job scraper.
+"""CLI entry point for the job scraper.
 
-Uses async concurrency (5 simultaneous requests) for speed,
-with automatic retry on rate-limit errors.
+Scrapes one or more Workday job boards (configured in settings.yaml),
+classifies each posting into fit tiers, and saves structured markdown files.
 """
 
 from __future__ import annotations
@@ -67,36 +67,31 @@ def classify_and_write(
     return tier_result.tier.value, tier_result.reason, filename
 
 
-async def run_scraper(
-    cfg: dict,
+async def _scrape_source(
+    source: dict,
     *,
-    limit: int,
+    tier_cfg: dict,
+    output_dir: Path,
+    max_jobs: int,
     dry_run: bool,
     concurrency: int,
-) -> None:
-    """Main async scraping workflow."""
+) -> tuple[int, int, Counter[Tier]]:
+    """Scrape a single Workday source. Returns (written, errors, tier_counts)."""
     log = logging.getLogger("scrape")
+    name = source["name"]
 
-    output_cfg = cfg.get("output", {})
-    tier_cfg = cfg.get("tier", {})
-    max_jobs = limit or cfg.get("scraper", {}).get("max_jobs", 0)
-
-    output_dir = PROJECT_ROOT / output_cfg.get(
-        "job_descriptions_dir", "job_descriptions"
-    )
-
-    log.info("Output directory: %s", output_dir)
-    log.info("Concurrency: %d", concurrency)
-    if max_jobs:
-        log.info("Max jobs: %d", max_jobs)
+    log.info("━━━ %s ━━━", name)
 
     async with AsyncWorkdayScraper(
-        concurrency=concurrency, max_jobs=max_jobs
+        tenant=source["tenant"],
+        site=source["site"],
+        wd=source.get("wd", "wd10"),
+        source_name=name,
+        concurrency=concurrency,
+        max_jobs=max_jobs,
     ) as scraper:
         # Step 1: Get all job summaries
-        log.info("Fetching job listings...")
         summaries = await scraper.list_all_jobs()
-        log.info("Found %d jobs on the board", len(summaries))
 
         # Step 2: Filter out already-scraped jobs
         new_jobs = [
@@ -104,15 +99,13 @@ async def run_scraper(
         ]
         skipped = len(summaries) - len(new_jobs)
         if skipped:
-            log.info("Skipping %d already-scraped jobs", skipped)
-        log.info("New jobs to scrape: %d", len(new_jobs))
+            log.info("%s: skipping %d already-scraped jobs", name, skipped)
+        log.info("%s: %d new jobs to scrape", name, len(new_jobs))
 
         if not new_jobs:
-            log.info("Nothing new to scrape. Done!")
-            return
+            return 0, 0, Counter()
 
         # Step 3: Fetch all details concurrently
-        log.info("Fetching job details (%d concurrent)...", concurrency)
         results = await scraper.get_job_details_batch(new_jobs)
 
         # Step 4: Classify and write
@@ -143,7 +136,7 @@ async def run_scraper(
                     f"  {tier_obj.icon} [{tier_val.upper():7s}] "
                     f"{summary.job_req_id}: {summary.title} ({detail.location})"
                 )
-                click.echo(f"         reason: {reason}")
+                click.echo(f"         source: {name}  reason: {reason}")
             else:
                 log.info(
                     "  → %s [%s: %s]",
@@ -153,19 +146,78 @@ async def run_scraper(
                 )
                 written += 1
 
-        # Summary
-        log.info("─" * 50)
-        if dry_run:
-            log.info("DRY RUN complete.")
-        else:
-            log.info("Wrote %d jobs, %d errors", written, errors)
-        log.info(
-            "Tiers: HIGH=%d  MID-HIGH=%d  MID=%d  LOW=%d",
-            tier_counts.get(Tier.HIGH, 0),
-            tier_counts.get(Tier.MID_HIGH, 0),
-            tier_counts.get(Tier.MID, 0),
-            tier_counts.get(Tier.LOW, 0),
+    return written, errors, tier_counts
+
+
+async def run_scraper(
+    cfg: dict,
+    *,
+    limit: int,
+    dry_run: bool,
+    concurrency: int,
+    source_filter: str,
+) -> None:
+    """Main async scraping workflow — iterates over all enabled sources."""
+    log = logging.getLogger("scrape")
+
+    output_cfg = cfg.get("output", {})
+    tier_cfg = cfg.get("tier", {})
+    max_jobs = limit or cfg.get("scraper", {}).get("max_jobs", 0)
+    sources = cfg.get("sources", [])
+
+    output_dir = PROJECT_ROOT / output_cfg.get(
+        "job_descriptions_dir", "job_descriptions"
+    )
+
+    # Filter to enabled sources (and optionally by name)
+    active = [s for s in sources if s.get("enabled", True)]
+    if source_filter:
+        active = [s for s in active if source_filter.lower() in s["name"].lower()]
+
+    if not active:
+        log.warning("No matching enabled sources found.")
+        return
+
+    log.info("Output directory: %s", output_dir)
+    log.info("Sources: %s", ", ".join(s["name"] for s in active))
+    if max_jobs:
+        log.info("Max jobs per source: %d", max_jobs)
+
+    total_written = 0
+    total_errors = 0
+    total_tiers: Counter[Tier] = Counter()
+
+    for source in active:
+        written, errors, tier_counts = await _scrape_source(
+            source,
+            tier_cfg=tier_cfg,
+            output_dir=output_dir,
+            max_jobs=max_jobs,
+            dry_run=dry_run,
+            concurrency=concurrency,
         )
+        total_written += written
+        total_errors += errors
+        total_tiers += tier_counts
+
+    # Summary
+    log.info("═" * 50)
+    if dry_run:
+        log.info("DRY RUN complete (%d sources).", len(active))
+    else:
+        log.info(
+            "Done: %d jobs written, %d errors across %d source(s)",
+            total_written,
+            total_errors,
+            len(active),
+        )
+    log.info(
+        "Tiers: HIGH=%d  MID-HIGH=%d  MID=%d  LOW=%d",
+        total_tiers.get(Tier.HIGH, 0),
+        total_tiers.get(Tier.MID_HIGH, 0),
+        total_tiers.get(Tier.MID, 0),
+        total_tiers.get(Tier.LOW, 0),
+    )
 
 
 @click.command()
@@ -178,12 +230,18 @@ async def run_scraper(
 )
 @click.option("--verbose", "-v", is_flag=True, help="Enable debug logging")
 @click.option("--dry-run", is_flag=True, help="List jobs but don't write files")
-@click.option("--limit", type=int, default=0, help="Max jobs to scrape (0 = all)")
+@click.option("--limit", type=int, default=0, help="Max jobs per source (0 = all)")
 @click.option(
     "--concurrency",
     type=int,
     default=5,
     help="Number of concurrent requests (default: 5)",
+)
+@click.option(
+    "--source",
+    "source_filter",
+    default="",
+    help="Only scrape sources whose name contains this string",
 )
 def main(
     config_path: Path,
@@ -191,8 +249,9 @@ def main(
     dry_run: bool,
     limit: int,
     concurrency: int,
+    source_filter: str,
 ) -> None:
-    """Scrape UBC Workday job board and save descriptions as markdown."""
+    """Scrape Workday job boards and save descriptions as markdown."""
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s %(levelname)-8s %(message)s",
@@ -200,7 +259,15 @@ def main(
     )
 
     cfg = load_config(config_path)
-    asyncio.run(run_scraper(cfg, limit=limit, dry_run=dry_run, concurrency=concurrency))
+    asyncio.run(
+        run_scraper(
+            cfg,
+            limit=limit,
+            dry_run=dry_run,
+            concurrency=concurrency,
+            source_filter=source_filter,
+        )
+    )
 
 
 if __name__ == "__main__":
