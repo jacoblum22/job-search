@@ -101,12 +101,28 @@ async def _scrape_source(
         skipped = len(summaries) - len(new_jobs)
         if skipped:
             log.info("%s: skipping %d already-scraped jobs", name, skipped)
+
+        # Step 3: Pre-filter by location (before fetching expensive details)
+        if location_filter:
+            before = len(new_jobs)
+            new_jobs = [
+                s for s in new_jobs if location_filter in s.location.lower()
+            ]
+            filtered = before - len(new_jobs)
+            if filtered:
+                log.info(
+                    "%s: filtered out %d jobs outside '%s'",
+                    name,
+                    filtered,
+                    source.get("location_filter", ""),
+                )
+
         log.info("%s: %d new jobs to scrape", name, len(new_jobs))
 
         if not new_jobs:
             return 0, 0, Counter()
 
-        # Step 3: Fetch all details concurrently
+        # Step 4: Fetch details concurrently (only for jobs that passed filters)
         results = await scraper.get_job_details_batch(new_jobs)
 
         # Step 4: Classify and write
@@ -126,17 +142,6 @@ async def _scrape_source(
                 continue
 
             detail = detail_or_err
-
-            # Optional location filter (e.g. only Vancouver jobs from global boards)
-            if location_filter and location_filter not in detail.location.lower():
-                log.debug(
-                    "  ⊘ %s: skipped (location '%s' doesn't match filter '%s')",
-                    summary.job_req_id,
-                    detail.location,
-                    source.get("location_filter", ""),
-                )
-                continue
-
             tier_val, reason, filename = classify_and_write(
                 detail, tier_cfg, output_dir, dry_run=dry_run
             )

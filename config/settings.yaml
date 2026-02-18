@@ -52,25 +52,29 @@ sources:
     tenant: "salesforce"
     wd: "wd12"
     site: "External_Career_Site"
-    enabled: false  # ~1300 jobs globally, enable when location filtering is added
+    enabled: false  # ~1300 jobs globally
+    location_filter: "Vancouver"
 
   - name: "Autodesk"
     tenant: "autodesk"
     wd: "wd1"
     site: "Ext"
-    enabled: false  # ~600 jobs globally, enable when location filtering is added
+    enabled: false  # ~600 jobs globally
+    location_filter: "Vancouver"
 
   - name: "NVIDIA"
     tenant: "nvidia"
     wd: "wd5"
     site: "NVIDIAExternalCareerSite"
-    enabled: false  # ~2000 jobs globally, enable when location filtering is added
+    enabled: false  # ~2000 jobs globally
+    location_filter: "Vancouver"
 
   - name: "Activision Blizzard"
     tenant: "activision"
     wd: "wd1"
     site: "External"
-    enabled: false  # ~100 jobs globally, enable when location filtering is added
+    enabled: false  # ~100 jobs globally
+    location_filter: "Vancouver"
 
 # ─── Tier Classification ────────────────────────────────────────────
 
