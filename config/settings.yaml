@@ -198,6 +198,14 @@ tier:
     - "Janitorial"
     - "Trades"
     - "Refrigeration"
+    # Non-software engineering (requires licensed P.Eng or specialized degree)
+    - "Civil Engineer"
+    - "Structural Engineer"
+    - "Traffic Engineer"
+    - "Electrical Engineer"
+    - "Cryogenic Engineer"
+    - "Construction Inspector"
+    - "Wastewater"
     # Clinical / credentialed roles
     - "Physician"
     - "Nurse"
@@ -207,6 +215,7 @@ tier:
     - "Veterinarian"
     - "Physiotherapist"
     - "Occupational Therapist"
+    - "Physical Therapist"
     - "Medical Office"
     # Senior leadership (new grad filter)
     - "Senior Director"
@@ -221,6 +230,7 @@ tier:
     - "Professor"
     - "Postdoctoral"
     - "Postdoc"
+    - "Post-Doc"
     - "Head Coach"
     # Manual labour
     - "Labourer"
@@ -229,8 +239,16 @@ tier:
     - "Cleanroom"
     # Specialized licensed professions
     - "CPA"
+    - "Accountant"
     - "Lawyer"
     - "Barrister"
+    - "Police Officer"
+    - "Lifeguard"
+    - "Swim Instructor"
+    - "Fitness Instructor"
+    - "Financial Planner"
+    - "Insurance Advisor"
+    - "Pharmacy Technician"
 
   # Job category keywords that trigger LOW tier
   low_category_keywords:
@@ -277,28 +295,38 @@ tier:
     - "RNA vaccine"
   low_description_min_matches: 2
 
-  # Title keywords that trigger HIGH tier (case-insensitive, substring match)
+  # Title keywords that trigger HIGH tier (case-insensitive, word-boundary match)
+  # Focus: AI/ML, data, software development — matching your CogSys background
   high_title_keywords:
-    - "Software"
-    - "Developer"
-    - "Engineer"
-    - "Programmer"
-    - "Data"
-    - "Analyst"
+    # AI / ML / Data (primary fit)
     - "AI"
     - "ML"
     - "Machine Learning"
-    - "Research Assistant"
+    - "Data Analyst"
+    - "Data Scientist"
+    - "Data Engineer"
+    - "Data Science"
     - "Research Analyst"
-    - "Web"
+    - "Research Assistant"
+    - "Research Technician"
+    # Software development (primary fit)
+    - "Software Developer"
+    - "Software Engineer"
+    - "Programmer"
     - "Full Stack"
     - "Frontend"
     - "Backend"
-    - "IT "
-    - "Technology"
+    - "Web Developer"
+    - "Web Designer"
     - "DevOps"
     - "QA"
-    - "Junior"
+    # Entry-level tech signals
+    - "Junior Developer"
+    - "Junior Software"
+    - "Junior Programmer"
+    - "Junior Analyst"
+    - "Co-op"
+    - "Intern"
 
   # Description keywords for HIGH tier (need ≥2 matches, word-boundary matching)
   # These catch generic titles like "Research Assistant" that involve your skills
@@ -331,14 +359,15 @@ tier:
     - "R programming"
 
   # Title keywords that trigger MID-HIGH tier (B tier)
-  # Good secondary fit: children/education roles, easy entry-level jobs
+  # Good secondary fit: easy entry-level jobs you could pick up quickly
   midhigh_title_keywords:
-    # Children / education / youth
+    # Children / education / youth (camp counselor background)
     - "Child"
     - "Youth"
     - "Camp"
     - "Education"
     - "Teaching"
+    - "Instructor"
     - "After-School"
     - "Daycare"
     - "Childcare"
@@ -346,18 +375,38 @@ tier:
     - "Early Learning"
     - "Student Support"
     - "Student Info"
-    # Easy / entry-level roles
+    - "Tutor"
+    # Retail / cashier / grocer
+    - "Cashier"
+    - "Grocer"
+    - "Sales Attendant"
+    - "Sales Associate"
+    - "Sales Clerk"
+    - "Retail"
+    - "Store Associate"
+    - "Merchandiser"
+    # Front desk / reception / customer facing
     - "Receptionist"
-    - "Attendant"
     - "Front Counter"
     - "Front Desk"
+    - "Admissions Desk"
+    - "Patron Services"
+    # Food service / hospitality
     - "Server"
     - "Waiter"
-    - "Event Assistant"
-    - "Sales Attendant"
-    - "Admissions Desk"
+    - "Barista"
     - "Banquet"
     - "Catering"
+    # General entry-level
+    - "Attendant"
+    - "Event Assistant"
+    - "Clerk"
+    - "Assistant"  # generic assistant roles
+    # Tech-adjacent (not quite HIGH, but interesting)
+    - "IT Support"
+    - "Help Desk"
+    - "Technical Support"
+    - "Coordinator"
 
 # ─── Output Paths ───────────────────────────────────────────────────
 
