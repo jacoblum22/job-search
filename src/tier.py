@@ -46,8 +46,8 @@ class Tier(Enum):
 
     @property
     def icon(self) -> str:
-        """Single-character icon for CLI output."""
-        return {"high": "★", "midhigh": "◆", "mid": "•", "low": "○"}[self.value]
+        """ASCII-safe icon for CLI output (avoids cp1252 encoding issues)."""
+        return {"high": "*", "midhigh": "+", "mid": "-", "low": "."}[self.value]
 
 
 @dataclass
@@ -76,15 +76,18 @@ _WORD_TO_NUM = {
     "ten": 10,
 }
 
+# Negative lookahead: skip "years of age", "years old", "years or older", etc.
+_NOT_AGE = r"(?!s?\s+(?:of\s+age|old|young|or\s+older))"
+
 # Matches: "2-5 years", "2 to 5 years", "2–5 years"
 _RANGE_PATTERN = re.compile(
-    r"(\d+)\s*[-–to]+\s*(\d+)\s*(?:\+\s*)?years?",
+    r"(\d+)\s*[-–to]+\s*(\d+)\s*(?:\+\s*)?year" + _NOT_AGE + r"s?",
     re.IGNORECASE,
 )
 
 # Matches: "5+ years", "5 years", "minimum 5 years", "at least 5 years"
 _SINGLE_PATTERN = re.compile(
-    r"(?:minimum|at\s+least|over|more\s+than)?\s*(\d+)\s*\+?\s*years?",
+    r"(?:minimum|at\s+least|over|more\s+than)?\s*(\d+)\s*\+?\s*year" + _NOT_AGE + r"s?",
     re.IGNORECASE,
 )
 
@@ -92,7 +95,7 @@ _SINGLE_PATTERN = re.compile(
 _WORD_PATTERN = re.compile(
     r"(?:minimum|at\s+least|over|more\s+than)?\s*("
     + "|".join(_WORD_TO_NUM.keys())
-    + r")\s*\+?\s*years?",
+    + r")\s*\+?\s*year" + _NOT_AGE + r"s?",
     re.IGNORECASE,
 )
 
