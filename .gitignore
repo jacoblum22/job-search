@@ -29,9 +29,11 @@ venv/
 Thumbs.db
 desktop.ini
 
-# Personal documents — binary formats (markdown sources are tracked)
+# Personal documents — binary formats and personal markdown sources
 profile/*.docx
 profile/*.pdf
+profile/Jacob Andersen-Lum Resume.md
+profile/Jacob Andersen-Lum Cover Letter Template.md
 
 # Scraped job descriptions (generated output)
 job_descriptions/*.md
