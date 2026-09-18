@@ -50,3 +50,12 @@ test-results/
 # Misc
 *.log
 .cache/
+
+# Aggregator — generated output, regenerated on every run
+jobs.db
+dashboard.html
+export.xlsx
+
+# Gmail OAuth — per-person, never shared/committed
+credentials.json
+token.json
