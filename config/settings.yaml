@@ -4,6 +4,25 @@ scraper:
   # Maximum number of jobs to scrape per run per source (0 = unlimited)
   max_jobs: 0
 
+# ─── API job-board aggregators (Adzuna, CareerJet) ─────────────────
+# Each keyword is run as a separate search query per API, per location.
+# Credentials come from .env (see .env.example) — never put keys here.
+
+api_sources:
+  location: "Vancouver, BC"
+  keywords:
+    - "data scientist"
+    - "data analyst"
+    - "software engineer"
+  results_per_page: 20
+  adzuna:
+    enabled: true
+    country: "ca"  # Adzuna country code
+  careerjet:
+    enabled: true
+    locale_code: "en_CA"
+    referer: "http://jacoblum.com"  # must match the site registered on the publisher dashboard
+
 # ─── Workday Sources ────────────────────────────────────────────────
 # Each entry defines a Workday job board to scrape.
 # The API pattern is: https://{tenant}.{wd}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs
