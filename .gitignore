@@ -55,7 +55,14 @@ test-results/
 jobs.db
 dashboard.html
 export.xlsx
+.aggregate.lock
 
 # Gmail OAuth — per-person, never shared/committed
 credentials.json
 token.json
+
+# Outlook OAuth — per-person, never shared/committed
+token_outlook.json
+
+# Downloaded Google OAuth client secret — never commit
+client_secret_*.json

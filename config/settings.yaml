@@ -23,6 +23,19 @@ api_sources:
     locale_code: "en_CA"
     referer: "http://jacoblum.com"  # must match the site registered on the publisher dashboard
 
+# ─── Email-alert sources (LinkedIn/Indeed/Glassdoor via Gmail) ────────
+# Job-alert emails are forwarded from an Outlook inbox to Gmail. Outlook's
+# "Forward" rule rewrites the envelope sender to the forwarding mailbox, so
+# adapters can't identify the source by From header alone — set
+# forward_from to that forwarding mailbox and each adapter additionally
+# matches on content (original sender name/domain still appears in the
+# forwarded body). Leave blank if alerts land in Gmail directly (no
+# forwarding), in which case adapters fall back to matching the original
+# sender's From header only.
+
+email_sources:
+  forward_from: ""
+
 # ─── Workday Sources ────────────────────────────────────────────────
 # Each entry defines a Workday job board to scrape.
 # The API pattern is: https://{tenant}.{wd}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs
