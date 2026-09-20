@@ -8,8 +8,10 @@ against an embedded JSON blob, so it works offline.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from html import escape
 from pathlib import Path
 
@@ -19,6 +21,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="refresh" content="300">
 <title>Job Aggregator Dashboard</title>
 <style>
   :root {
@@ -49,6 +52,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .status-expired { background: var(--dismissed); }
   .wrap { max-width: 1400px; margin: 0 auto; }
   #count { color: var(--muted); font-size: 13px; margin-left: auto; }
+  .tabs { display: flex; gap: 4px; padding: 12px 24px 0; border-bottom: 1px solid var(--border); }
+  .tab { background: none; border: 1px solid transparent; border-bottom: none; color: var(--muted); padding: 8px 16px; font-size: 14px; cursor: pointer; border-radius: 6px 6px 0 0; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); background: var(--panel); border-color: var(--border); font-weight: 600; margin-bottom: -1px; }
+  .tab .n { color: var(--muted); font-weight: 400; margin-left: 6px; }
 </style>
 </head>
 <body>
@@ -57,6 +65,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <h1>Job Aggregator Dashboard</h1>
   <div class="meta">Generated __GENERATED_AT__ &middot; __TOTAL__ postings across __SOURCES__ sources</div>
 </header>
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" data-tab="internship" id="tab-internship">Co-op / Internships<span class="n"></span></button>
+  <button class="tab" role="tab" data-tab="fulltime" id="tab-fulltime">Full-time<span class="n"></span></button>
+</div>
 <div class="controls">
   <input type="text" id="search" placeholder="Search title / company / location...">
   <select id="statusFilter">
@@ -80,7 +92,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
       <th data-key="status">Status</th>
       <th data-key="years_experience">Years Exp</th>
       <th data-key="sourcesStr">Sources</th>
-      <th data-key="posted_date">Posted</th>
+      <th data-key="posted_sort">Posted</th>
       <th data-key="first_seen">First Seen</th>
     </tr>
   </thead>
@@ -100,7 +112,25 @@ for (const s of allSources) {
   sourceFilterEl.appendChild(opt);
 }
 
-let sortKey = 'first_seen', sortDir = -1;
+let sortKey = 'posted_sort', sortDir = -1;
+// The page auto-reloads, so keep the chosen tab in the URL hash.
+let activeTab = location.hash === '#fulltime' ? 'fulltime' : 'internship';
+
+function updateTabs() {
+  for (const t of ['internship', 'fulltime']) {
+    const el = document.getElementById('tab-' + t);
+    el.classList.toggle('active', t === activeTab);
+    el.setAttribute('aria-selected', String(t === activeTab));
+    el.querySelector('.n').textContent = jobs.filter(j => j.job_type === t).length;
+  }
+}
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeTab = btn.dataset.tab;
+    location.hash = activeTab === 'fulltime' ? '#fulltime' : '';
+    render();
+  });
+});
 
 function escapeHtml(s) {
   const div = document.createElement('div');
@@ -113,7 +143,9 @@ function render() {
   const status = document.getElementById('statusFilter').value;
   const source = sourceFilterEl.value;
 
+  updateTabs();
   let filtered = jobs.filter(j => {
+    if (j.job_type !== activeTab) return false;
     if (status && j.status !== status) return false;
     if (source && !j.sources.includes(source)) return false;
     if (q) {
@@ -130,7 +162,8 @@ function render() {
     return 0;
   });
 
-  document.getElementById('count').textContent = `${filtered.length} of ${jobs.length} shown`;
+  const tabTotal = jobs.filter(j => j.job_type === activeTab).length;
+  document.getElementById('count').textContent = `${filtered.length} of ${tabTotal} shown`;
 
   const body = document.getElementById('jobsBody');
   body.innerHTML = filtered.map(j => {
@@ -172,10 +205,42 @@ render();
 """
 
 
+# Title-only: descriptions mention "internship" in unrelated ways (e.g. "prior
+# internship experience"), which would misfile full-time roles.
+_INTERNSHIP_RE = re.compile(
+    r"\b(interns?|internships?|co-?ops?|students?|undergraduate|practicum|work[- ]term|work placement"
+    r"|stagiaires?|stage crédité|étudiant(?:e|s|es)?)\b",
+    re.IGNORECASE,
+)
+
+
+def _sort_date(posted: str | None, first_seen: str | None) -> str:
+    """Normalize the mixed posted_date formats (ISO, 'YYYY-MM-DD', RFC 2822) to
+    a UTC ISO string for sorting; jobs with no posted date fall back to when
+    they were first seen."""
+    for value in (posted, first_seen):
+        if not value:
+            continue
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            try:
+                dt = parsedate_to_datetime(value)
+            except (TypeError, ValueError):
+                continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat()
+    return ""
+
+
 def generate_dashboard(conn: sqlite3.Connection, output_path: str | Path) -> Path:
     """Write the static dashboard HTML file. Returns the path written."""
     output_path = Path(output_path)
     rows = grouped_jobs(conn)
+    for r in rows:
+        r["posted_sort"] = _sort_date(r.get("posted_date"), r.get("first_seen"))
+        r["job_type"] = "internship" if _INTERNSHIP_RE.search(r["title"]) else "fulltime"
 
     all_sources = sorted({s for r in rows for s in r["sources"]})
     generated_at = escape(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
