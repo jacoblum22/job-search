@@ -4,16 +4,50 @@ scraper:
   # Maximum number of jobs to scrape per run per source (0 = unlimited)
   max_jobs: 0
 
+# ─── Shared job search (applies to every source) ────────────────────
+# Adzuna/CareerJet run one query per keyword x level term (e.g. "public
+# affairs intern"). Workday and email alerts return unfiltered postings, so
+# their titles must contain one of the keywords. All sources then drop
+# senior titles and postings asking for more than max_years_experience.
+
+search:
+  location: "Canada"
+  keywords:
+    - "Public affairs"
+    - "Talent acquisition"
+    - "Indigenous Relations"
+    - "Events"
+    - "Market Intelligence"
+    - "Market Research"
+    - "Business strategy"
+    - "Business Development"
+    - "Business Analyst"
+    - "Human Resources"
+    - "Campus Recruitment"
+  level_terms:          # API queries only: internships and entry-level roles
+    - "intern"
+    - "entry level"
+  exclude_title_terms:
+    - "senior"
+    - "sr"
+    - "director"
+    - "manager"
+    - "lead"
+    - "principal"
+    - "vice president"
+    - "vp"
+    - "head"
+    - "chief"
+    - "ux"
+    - "ui/ux"
+    - "user experience"
+  max_years_experience: 2
+
 # ─── API job-board aggregators (Adzuna, CareerJet) ─────────────────
 # Each keyword is run as a separate search query per API, per location.
 # Credentials come from .env (see .env.example) — never put keys here.
 
 api_sources:
-  location: "Vancouver, BC"
-  keywords:
-    - "data scientist"
-    - "data analyst"
-    - "software engineer"
   results_per_page: 20
   adzuna:
     enabled: true
@@ -21,7 +55,7 @@ api_sources:
   careerjet:
     enabled: true
     locale_code: "en_CA"
-    referer: "http://jacoblum.com"  # must match the site registered on the publisher dashboard
+    referer: "https://martinuydesign.framer.website"  # must match the site registered on the publisher dashboard
 
 # ─── Email-alert sources (LinkedIn/Indeed/Glassdoor via Gmail) ────────
 # Job-alert emails are forwarded from an Outlook inbox to Gmail. Outlook's
