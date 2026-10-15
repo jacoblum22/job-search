@@ -1,0 +1,359 @@
+# Company job boards scraped by scripts/aggregate.py.
+#
+# workday: merged into settings.yaml `sources:` (tenant+site pairs already there
+#   are skipped). Keep Vancouver-area words OUT of `name`: a source whose name
+#   matches a Vancouver-area keyword keeps every posting, wherever it is.
+# greenhouse / lever / ashby / smartrecruiters / workable: `slug` is the board id
+#   in the public URL (boards.greenhouse.io/<slug>, jobs.lever.co/<slug>,
+#   jobs.ashbyhq.com/<slug>, careers.smartrecruiters.com/<slug>,
+#   apply.workable.com/<slug>). These feeds return the full posting; only
+#   Vancouver-area and Canada-open remote jobs are kept.
+# Add `enabled: false` to pause a board.
+
+# Postings whose Workday location contains any of these (or reads as remote) are
+# fetched; keep_job() then drops anything outside Metro Vancouver / remote.
+bc_locations: &bc_locations
+  - "Vancouver"
+  - "Burnaby"
+  - "Richmond, B"
+  - "Surrey"
+  - "Coquitlam"
+  - "New Westminster"
+  - "Langley"
+  - "Delta, B"
+  - "Port Moody"
+  - "British Columbia"
+  - ", BC"
+
+workday:
+  - name: "Accenture"
+    tenant: "accenture"
+    wd: "wd103"
+    site: "AccentureCareers"
+    location_filter: *bc_locations
+  - name: "Baker Tilly"
+    tenant: "bakertilly"
+    wd: "wd5"
+    site: "btcareers"
+    location_filter: *bc_locations
+  - name: "Clio"
+    tenant: "clio"
+    wd: "wd3"
+    site: "cliocareersite"
+    location_filter: *bc_locations
+  - name: "BlackLine"
+    tenant: "blackline"
+    wd: "wd108"
+    site: "BlackLineCareers"
+    location_filter: *bc_locations
+  - name: "Canaccord Genuity"
+    tenant: "cgf"
+    wd: "wd10"
+    site: "cg"
+    location_filter: *bc_locations
+  - name: "Central 1"
+    tenant: "central1resources"
+    wd: "wd10"
+    site: "Central1"
+    location_filter: *bc_locations
+  - name: "HUB International"
+    tenant: "hubinternational"
+    wd: "wd1"
+    site: "HUBInternational"
+    location_filter: *bc_locations
+  - name: "Mastercard"
+    tenant: "mastercard"
+    wd: "wd1"
+    site: "CorporateCareers"
+    location_filter: *bc_locations
+  - name: "Raymond James"
+    tenant: "raymondjames"
+    wd: "wd1"
+    site: "raymondjamescareers"
+    location_filter: *bc_locations
+  - name: "Remitly"
+    tenant: "remitly"
+    wd: "wd5"
+    site: "Remitly_Careers"
+    location_filter: *bc_locations
+  - name: "Sun Life"
+    tenant: "sunlife"
+    wd: "wd3"
+    site: "Experienced-Jobs"
+    location_filter: *bc_locations
+  - name: "Capilano University"
+    tenant: "capilanou"
+    wd: "wd10"
+    site: "Capilano_University_External_Career_Site"
+    location_filter: *bc_locations
+  - name: "Edelman"
+    tenant: "djeholdings"
+    wd: "wd5"
+    site: "edelman-careers-E200"
+    location_filter: *bc_locations
+  - name: "Langara College"
+    tenant: "langara"
+    wd: "wd10"
+    site: "External_Employment_Opportunities"
+    location_filter: *bc_locations
+  - name: "Northeastern University"
+    tenant: "northeastern"
+    wd: "wd1"
+    site: "careers"
+    location_filter: *bc_locations
+  - name: "Novartis (Chinook)"
+    tenant: "novartis"
+    wd: "wd3"
+    site: "Novartis_Careers"
+    location_filter: *bc_locations
+  - name: "Boeing"
+    tenant: "boeing"
+    wd: "wd1"
+    site: "EXTERNAL_CAREERS"
+    location_filter: *bc_locations
+  - name: "Canem"
+    tenant: "bird"
+    wd: "wd3"
+    site: "CanemCareers"
+    location_filter: *bc_locations
+  - name: "Finning"
+    tenant: "finning"
+    wd: "wd3"
+    site: "External"
+    location_filter: *bc_locations
+  - name: "Cayenta (Harris)"
+    tenant: "harriscomputer"
+    wd: "wd3"
+    site: "Cayenta"
+    location_filter: *bc_locations
+  - name: "First Quantum Minerals"
+    tenant: "firstquantum"
+    wd: "wd3"
+    site: "First_Quantum_Careers"
+    location_filter: *bc_locations
+  - name: "Pan American Silver"
+    tenant: "palig"
+    wd: "wd5"
+    site: "PALIG"
+    location_filter: *bc_locations
+  - name: "Acciona"
+    tenant: "acciona"
+    wd: "wd3"
+    site: "ACCIONA_Employment_Channel"
+    location_filter: *bc_locations
+  - name: "Colliers"
+    tenant: "colliers"
+    wd: "wd3"
+    site: "Colliers-External-Career-Site"
+    location_filter: *bc_locations
+  - name: "Cushman & Wakefield"
+    tenant: "cw"
+    wd: "wd1"
+    site: "External"
+    location_filter: *bc_locations
+  - name: "EllisDon"
+    tenant: "ellisdon"
+    wd: "wd3"
+    site: "Ellis-Don"
+    location_filter: *bc_locations
+  - name: "Ledcor"
+    tenant: "ledcor"
+    wd: "wd3"
+    site: "Ledcor_External"
+    location_filter: *bc_locations
+  - name: "Onni Group"
+    tenant: "onni"
+    wd: "wd10"
+    site: "Onni_External_Careers"
+    location_filter: *bc_locations
+  - name: "QuadReal"
+    tenant: "quadreal"
+    wd: "wd10"
+    site: "quadreal"
+    location_filter: *bc_locations
+  - name: "T.Y. Lin"
+    tenant: "gi"
+    wd: "wd1"
+    site: "Global_Infrastructure"
+    location_filter: *bc_locations
+  - name: "Aritzia"
+    tenant: "aritzia"
+    wd: "wd3"
+    site: "external"
+    location_filter: *bc_locations
+  - name: "Pattison Food Group"
+    tenant: "pfg"
+    wd: "wd3"
+    site: "pfgcareers"
+    location_filter: *bc_locations
+  - name: "Save-On-Foods"
+    tenant: "pfg"
+    wd: "wd3"
+    site: "saveonfoodscareers"
+    location_filter: *bc_locations
+  - name: "Aquatic Informatics (Veralto)"
+    tenant: "veralto"
+    wd: "wd1"
+    site: "HachJobs"
+    location_filter: *bc_locations
+  - name: "Motorola Solutions (Avigilon)"
+    tenant: "motorolasolutions"
+    wd: "wd5"
+    site: "Careers"
+    location_filter: *bc_locations
+  - name: "Beanworks (Quadient)"
+    tenant: "quadient"
+    wd: "wd3"
+    site: "beanworkscareers"
+    location_filter: *bc_locations
+  - name: "Broadcom"
+    tenant: "broadcom"
+    wd: "wd1"
+    site: "External_Career"
+    location_filter: *bc_locations
+  - name: "Generac (Neurio)"
+    tenant: "generac"
+    wd: "wd5"
+    site: "External"
+    location_filter: *bc_locations
+  - name: "Saab"
+    tenant: "saabgroup"
+    wd: "wd116"
+    site: "Saab_careers"
+    location_filter: *bc_locations
+  - name: "Semtech (Sierra Wireless)"
+    tenant: "semtech"
+    wd: "wd1"
+    site: "SemtechCareers"
+    location_filter: *bc_locations
+  - name: "HP (Teradici)"
+    tenant: "hp"
+    wd: "wd5"
+    site: "ExternalCareerSite"
+    location_filter: *bc_locations
+  - name: "Snap"
+    tenant: "snapchat"
+    wd: "wd1"
+    site: "snap"
+    location_filter: *bc_locations
+  - name: "DraftKings"
+    tenant: "draftkings"
+    wd: "wd1"
+    site: "draftkings"
+    location_filter: *bc_locations
+  - name: "Unity"
+    tenant: "unitytech"
+    wd: "wd1"
+    site: "unity"
+    location_filter: *bc_locations
+
+greenhouse:
+  - {name: "Angus Reid", slug: "angusreid"}
+  - {name: "Fulcrum GT", slug: "fulcrumglobaltechnologies"}
+  - {name: "Later", slug: "later"}
+  - {name: "Unbounce", slug: "unbounce"}
+  - {name: "8am (AffiniPay)", slug: "affinipay1"}
+  - {name: "Connor, Clark & Lunn", slug: "cclfg"}
+  - {name: "LayerZero Labs", slug: "layerzerolabs"}
+  - {name: "Nicola Wealth", slug: "nicolawealth"}
+  - {name: "AlphaSense (Tegus)", slug: "alphasense"}
+  - {name: "Robinhood (WonderFi)", slug: "robinhood"}
+  - {name: "DDB Canada", slug: "ddbcanada"}
+  - {name: "TAXI (VML Canada)", slug: "vmlcanadaen"}
+  - {name: "AbCellera", slug: "abcellera"}
+  - {name: "AspectBiosystems", slug: "aspectbiosystems"}
+  - {name: "Evismart", slug: "evismart"}
+  - {name: "1-800-GOT-JUNK?", slug: "1800gotjunk"}
+  - {name: "Moment Energy", slug: "momentenergy"}
+  - {name: "Bosa Properties", slug: "bosapropertiesinc"}
+  - {name: "Herschel Supply Co.", slug: "herschelsupplyco"}
+  - {name: "Diligent (Galvanize)", slug: "diligentcorporation"}
+  - {name: "Apera AI", slug: "aperaaiinc"}
+  - {name: "Appnovation", slug: "appnovation"}
+  - {name: "Asana", slug: "asana"}
+  - {name: "Boomi", slug: "boomilp"}
+  - {name: "Clariti", slug: "clariticloudinc"}
+  - {name: "Cockroach Labs", slug: "cockroachlabs"}
+  - {name: "Dropbox", slug: "dropbox"}
+  - {name: "Global Relay", slug: "globalrelay"}
+  - {name: "Lumen5", slug: "lumen5"}
+  - {name: "MediaValet", slug: "mediavalet"}
+  - {name: "Motive", slug: "gomotive"}
+  - {name: "Rival Technologies", slug: "rivaltechnologies"}
+  - {name: "Rubrik", slug: "rubrik"}
+  - {name: "Samsara", slug: "samsara"}
+  - {name: "SEDNA", slug: "sedna"}
+  - {name: "Zscaler", slug: "zscaler"}
+  - {name: "Hootsuite", slug: "hootsuite"}
+  - {name: "DoorDash", slug: "doordashusa"}
+  - {name: "2K", slug: "2k"}
+  - {name: "A Thinking Ape", slug: "athinkingape"}
+  - {name: "Atomic Cartoons", slug: "atomiccartoons"}
+  - {name: "Sony Pictures Imageworks", slug: "sonypicturesimageworks"}
+  - {name: "Take-Two Interactive", slug: "taketwo"}
+
+lever:
+  - {name: "Luxury Presence", slug: "luxurypresence"}
+  - {name: "Wishpond", slug: "wishpond"}
+  - {name: "GeoComply", slug: "geocomply-2"}
+  - {name: "Quandri", slug: "quandri"}
+  - {name: "Beedie", slug: "beedie"}
+  - {name: "Arc'teryx", slug: "arcteryx.com"}
+  - {name: "360Learning", slug: "360learning"}
+  - {name: "Apryse", slug: "apryse"}
+  - {name: "Equativ", slug: "equativ"}
+  - {name: "Match Group (PlentyOfFish)", slug: "matchgroup"}
+  - {name: "Sign In Solutions (Traction Guest)", slug: "signinsolutions"}
+  - {name: "Blackbird Interactive", slug: "blackbirdinteractive"}
+  - {name: "Kabam", slug: "kabam"}
+  - {name: "Sandbox VR", slug: "sandboxvr"}
+  - {name: "Skybox Labs", slug: "skyboxlabs"}
+
+ashby:
+  - {name: "Unblocked", slug: "Unblocked"}
+  - {name: "Xero", slug: "xero"}
+  - {name: "Koho", slug: "koho"}
+  - {name: "Neo Financial", slug: "neofinancial"}
+  - {name: "Wealthsimple", slug: "wealthsimple"}
+  - {name: "Spare Labs", slug: "spare"}
+  - {name: "EliseAI", slug: "eliseai"}
+  - {name: "Xenon Pharmaceuticals", slug: "xenon"}
+  - {name: "Remarcable", slug: "remarcable-inc"}
+  - {name: "Airspeed", slug: "airspeed"}
+  - {name: "Artemis", slug: "artemisanalytics"}
+  - {name: "Gumloop", slug: "gumloop"}
+  - {name: "Klue", slug: "klue"}
+  - {name: "Monte Carlo", slug: "montecarlodata"}
+  - {name: "Netgear", slug: "netgear"}
+  - {name: "Notion", slug: "notion"}
+  - {name: "Procurify", slug: "procurify"}
+  - {name: "Spexi", slug: "spexi"}
+  - {name: "Superhuman (Grammarly)", slug: "superhuman-platform-inc"}
+  - {name: "Thinkific", slug: "thinkific"}
+  - {name: "Trulioo", slug: "trulioo"}
+
+smartrecruiters:
+  - {name: "Leger", slug: "Leger2"}
+  - {name: "OnActuate", slug: "OnActuate"}
+  - {name: "Accor (Fairmont)", slug: "AccorHotel"}
+  - {name: "IFS (Clevest)", slug: "IFS1"}
+  - {name: "De Beers", slug: "AngloAmericanDeBeersGroup"}
+  - {name: "Arista Networks", slug: "AristaNetworks"}
+  - {name: "Course Hero", slug: "CourseHero"}
+  - {name: "ServiceNow", slug: "ServiceNow"}
+
+workable:
+  - {name: "Media.Monks (Jam3)", slug: "mediamonks"}
+  - {name: "COBS Bread", slug: "cobs-bread-2"}
+  - {name: "Joey Restaurant Group", slug: "joey-restaurants-1"}
+  - {name: "Rokt", slug: "rokt"}
+  - {name: "Staffbase (Bananatag)", slug: "staffbasecanada"}
+  - {name: "CadMakers", slug: "cadmakers"}
+  - {name: "CoPilot AI", slug: "copilotadvisor"}
+  - {name: "Fresha", slug: "fresha"}
+  - {name: "Hubb", slug: "de-hubb"}
+  - {name: "Keycafe", slug: "keycafe"}
+  - {name: "Optix", slug: "optix"}
+  - {name: "Semios", slug: "semios"}
+  - {name: "Bardel Entertainment", slug: "bardel-entertainment"}
+  - {name: "Smoking Gun Interactive", slug: "smoking-gun-interactive-1"}

@@ -23,7 +23,7 @@ $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 "[$timestamp] Starting email check" | Add-Content $logFile
 
 $proc = Start-Process -FilePath $venvPython `
-    -ArgumentList "scripts/aggregate.py", "--skip-workday", "--skip-apis" `
+    -ArgumentList "scripts/aggregate.py", "--skip-workday", "--skip-apis", "--skip-ats" `
     -WorkingDirectory $projectRoot `
     -RedirectStandardOutput $stdoutTmp `
     -RedirectStandardError $stderrTmp `

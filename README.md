@@ -22,8 +22,13 @@ uv sync --all-groups   # includes pytest
 ## Multi-source aggregator
 
 The current job-search workflow is `scripts/aggregate.py`: Workday boards, Adzuna,
-CareerJet, and LinkedIn/Indeed/Glassdoor **alert emails** (Gmail and/or Outlook)
-are normalized into `jobs.db`, then `dashboard.html` and `export.xlsx`.
+CareerJet, company boards on Greenhouse/Lever/Ashby/SmartRecruiters/Workable, and
+LinkedIn/Indeed/Glassdoor **alert emails** (Gmail and/or Outlook) are normalized
+into `jobs.db`, then `dashboard.html` and `export.xlsx`.
+
+Company boards live in `config/ats_boards.yaml` (Workday tenants there are added
+to `settings.yaml`'s `sources:`). The five public ATS feeds return the full
+posting, so those jobs skip snippet enrichment. `--skip-ats` leaves them out.
 
 ```bash
 uv run python scripts/aggregate.py -v
