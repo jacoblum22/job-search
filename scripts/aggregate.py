@@ -23,14 +23,23 @@ from src.enrich import enrich_descriptions
 from src.export_xlsx import generate_xlsx
 from src.search_match import api_queries, keep_job, should_hydrate_record
 from src.sources.adzuna import fetch_adzuna_jobs
+from src.sources.ashby import fetch_ashby_jobs
 from src.sources.careerjet import fetch_careerjet_jobs
 from src.sources.glassdoor_email import fetch_glassdoor_jobs
+from src.sources.greenhouse import fetch_greenhouse_jobs
 from src.sources.indeed_email import fetch_indeed_jobs
+from src.sources.lever import fetch_lever_jobs
 from src.sources.linkedin_email import fetch_linkedin_jobs
+from src.sources.smartrecruiters import fetch_smartrecruiters_jobs
+from src.sources.workable import fetch_workable_jobs
 from src.sources.workday import fetch_workday_jobs
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = PROJECT_ROOT / "config" / "settings.yaml"
+# Company job boards (Workday tenants + Greenhouse/Lever/Ashby/SmartRecruiters/
+# Workable slugs), kept apart from settings.yaml so the list can grow without
+# touching search settings.
+DEFAULT_BOARDS = PROJECT_ROOT / "config" / "ats_boards.yaml"
 DEFAULT_DB = PROJECT_ROOT / "jobs.db"
 DEFAULT_DASHBOARD = PROJECT_ROOT / "dashboard.html"
 DEFAULT_XLSX = PROJECT_ROOT / "export.xlsx"
@@ -46,6 +55,24 @@ log = logging.getLogger("aggregate")
 def load_config(path: Path) -> dict:
     with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def merge_boards(cfg: dict, boards_path: Path | None) -> dict:
+    """Fold config/ats_boards.yaml into cfg: its `workday` entries join
+    cfg["sources"] (skipping tenant/site pairs already there) and the other
+    platforms land under cfg["ats_boards"]."""
+    if not boards_path or not boards_path.exists():
+        return cfg
+    boards = load_config(boards_path) or {}
+    boards.pop("bc_locations", None)  # YAML anchor holder, not a platform
+    sources = list(cfg.get("sources") or [])
+    seen = {(s.get("tenant"), s.get("site")) for s in sources}
+    for entry in boards.pop("workday", None) or []:
+        key = (entry.get("tenant"), entry.get("site"))
+        if key not in seen:
+            sources.append(entry)
+            seen.add(key)
+    return {**cfg, "sources": sources, "ats_boards": boards}
 
 
 def _acquire_lock() -> bool:
@@ -83,6 +110,7 @@ def run(
     skip_apis: bool,
     skip_email: bool,
     workday_limit: int,
+    skip_ats: bool = False,
 ) -> None:
     conn = connect(db_path)
     new_count = 0
@@ -165,6 +193,22 @@ def run(
         except Exception:
             log.exception("Workday fetch failed — continuing")
 
+    if not skip_ats:
+        ats = cfg.get("ats_boards", {})
+        for platform, fetch in (
+            ("greenhouse", fetch_greenhouse_jobs),
+            ("lever", fetch_lever_jobs),
+            ("ashby", fetch_ashby_jobs),
+            ("workable", fetch_workable_jobs),
+            ("smartrecruiters", lambda b: fetch_smartrecruiters_jobs(b, search=search)),
+        ):
+            if not ats.get(platform):
+                continue
+            try:
+                ingest(fetch(ats[platform]), match_keywords=True)
+            except Exception:
+                log.exception("%s fetch failed — continuing with other sources", platform)
+
     if not skip_email:
         forward_from = cfg.get("email_sources", {}).get("forward_from") or None
         for fetch_fn in (fetch_linkedin_jobs, fetch_indeed_jobs, fetch_glassdoor_jobs):
@@ -199,6 +243,14 @@ def run(
 @click.option("--xlsx", "xlsx_path", type=click.Path(path_type=Path), default=DEFAULT_XLSX)
 @click.option("--skip-workday", is_flag=True, help="Skip Workday sources this run")
 @click.option("--skip-apis", is_flag=True, help="Skip Adzuna/CareerJet this run")
+@click.option(
+    "--boards",
+    "boards_path",
+    type=click.Path(path_type=Path),
+    default=DEFAULT_BOARDS,
+    help="Company job-board list (Workday/Greenhouse/Lever/Ashby/SmartRecruiters/Workable)",
+)
+@click.option("--skip-ats", is_flag=True, help="Skip Greenhouse/Lever/Ashby/SmartRecruiters/Workable boards this run")
 @click.option("--skip-email", is_flag=True, help="Skip LinkedIn/Indeed/Glassdoor email alerts this run")
 @click.option("--workday-limit", type=int, default=0, help="Max jobs per Workday source (0 = all)")
 @click.option("--verbose", "-v", is_flag=True)
@@ -211,6 +263,8 @@ def main(
     skip_apis: bool,
     skip_email: bool,
     workday_limit: int,
+    boards_path: Path,
+    skip_ats: bool,
     verbose: bool,
 ) -> None:
     """Aggregate jobs from all configured sources into the DB + dashboard + xlsx."""
@@ -227,7 +281,7 @@ def main(
         return
     try:
         load_dotenv()
-        cfg = load_config(config_path)
+        cfg = merge_boards(load_config(config_path), boards_path)
         run(
             cfg,
             db_path=db_path,
@@ -237,6 +291,7 @@ def main(
             skip_apis=skip_apis,
             skip_email=skip_email,
             workday_limit=workday_limit,
+            skip_ats=skip_ats,
         )
     finally:
         _release_lock()
