@@ -289,3 +289,42 @@ def _record_attempt(conn: sqlite3.Connection, job: Job, ok: bool) -> None:
         """,
         (job.source, job.external_id, datetime.now(timezone.utc).isoformat(timespec="seconds"), int(ok)),
     )
+
+
+def backfill_stored(
+    conn: sqlite3.Connection,
+    *,
+    should_fetch: Callable[[Job], bool] | None = None,
+    limit: int | None = None,
+    **kwargs: Any,
+) -> Counter:
+    """Enrich jobs already in the DB that still hold only a snippet.
+
+    The scrape-time step only sees listings the APIs return that run; this
+    catches up rows stored before enrichment existed. Newest first.
+    """
+    rows = conn.execute(
+        """
+        SELECT source, external_id, title, company, location, description, url
+        FROM jobs WHERE length(description) < ? AND url != ''
+        ORDER BY last_seen DESC
+        """,
+        (SNIPPET_MAX_CHARS,),
+    ).fetchall()
+    jobs = [Job(*row) for row in rows]
+    jobs = [j for j in jobs if needs_enrichment(j)]
+    if limit is not None:
+        jobs = jobs[:limit]
+    # conn=None: we want the fetch even though these rows exist in the DB.
+    stats = enrich_descriptions(jobs, should_fetch=should_fetch, **kwargs)
+    for job in jobs:
+        if len(job.description) >= SNIPPET_MAX_CHARS:
+            conn.execute(
+                """
+                UPDATE jobs SET description = ?, years_experience = ?
+                WHERE source = ? AND external_id = ? AND length(description) < length(?)
+                """,
+                (job.description, job.years_experience, job.source, job.external_id, job.description),
+            )
+    conn.commit()
+    return stats

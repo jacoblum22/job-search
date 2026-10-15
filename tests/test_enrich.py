@@ -140,3 +140,18 @@ def test_db_does_not_refetch_enriched_but_unstored(tmp_path):
     )
     assert calls == ["https://example.com/a", "https://example.com/b"]
     assert stats["skipped_recent"] == 1 and stats["enriched"] == 1
+
+
+def test_backfill_updates_stored_snippets(tmp_path):
+    from src.enrich import backfill_stored
+
+    conn = connect(tmp_path / "jobs.db")
+    upsert_job(conn, _job("x", url="https://example.com/x"))
+    upsert_job(conn, _job("y", url="https://www.linkedin.com/jobs/view/1"))
+    stats = backfill_stored(
+        conn, client=_client(lambda r: httpx.Response(200, text=_page(FULL))), host_pause=0
+    )
+    assert stats["enriched"] == 1
+    rows = dict(conn.execute("SELECT external_id, description FROM jobs").fetchall())
+    assert rows["x"].startswith("Requires 2 years")
+    assert rows["y"] == "Short snippet…"
