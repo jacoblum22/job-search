@@ -9,6 +9,15 @@
 #   apply.workable.com/<slug>). These feeds return the full posting; only
 #   Vancouver-area and Canada-open remote jobs are kept.
 # Add `enabled: false` to pause a board.
+#
+# Other platforms (adapters in src/sources/, wired up in src/sources/registry.py):
+#   oracle (host, site) · jibe (host) · icims (host) · successfactors (host) ·
+#   taleo (host, dc, org, cws) · adp (cid, ccId) · ukg (host, tenant, guid) ·
+#   dayforce (client, board) · peoplesoft (base_url, site_id) · bamboohr ·
+#   pinpoint (slug or host) · breezy · rippling · teamtailor (slug or host) ·
+#   jobvite (company_id) · jazzhr (slug or host) · humi
+# `fallback_location` (+ `vague_locations`) pins region-wide postings such as
+# "Various Locations, BC" to the employer's area so the location filter keeps them.
 
 # Postings whose Workday location contains any of these (or reads as remote) are
 # fetched; keep_job() then drops anything outside Metro Vancouver / remote.
@@ -253,6 +262,10 @@ workday:
     location_filter: *bc_locations
 
 greenhouse:
+  - {name: "Phoenix Labs", slug: "phoenixlabsyvren"}
+  - {name: "Bench Accounting", slug: "bench"}
+  - {name: "FINCAD (Numerix)", slug: "numerix"}
+  - {name: "Urban Systems", slug: "urbansystems"}
   - {name: "Angus Reid", slug: "angusreid"}
   - {name: "Fulcrum GT", slug: "fulcrumglobaltechnologies"}
   - {name: "Later", slug: "later"}
@@ -298,6 +311,7 @@ greenhouse:
   - {name: "Take-Two Interactive", slug: "taketwo"}
 
 lever:
+  - {name: "Quartech", slug: "quartech-systems"}
   - {name: "Luxury Presence", slug: "luxurypresence"}
   - {name: "Wishpond", slug: "wishpond"}
   - {name: "GeoComply", slug: "geocomply-2"}
@@ -315,6 +329,9 @@ lever:
   - {name: "Skybox Labs", slug: "skyboxlabs"}
 
 ashby:
+  - {name: "Visier", slug: "visier"}
+  - {name: "Grow Technologies", slug: "grow-inc"}
+  - {name: "Shopify", slug: "shopify"}
   - {name: "Unblocked", slug: "Unblocked"}
   - {name: "Xero", slug: "xero"}
   - {name: "Koho", slug: "koho"}
@@ -362,3 +379,182 @@ workable:
   - {name: "Semios", slug: "semios"}
   - {name: "Bardel Entertainment", slug: "bardel-entertainment"}
   - {name: "Smoking Gun Interactive", slug: "smoking-gun-interactive-1"}
+
+oracle:
+  - {name: "Earth's Own Food", slug: "earth-s-own-food", host: "ibanqy.fa.ocs.oraclecloud.com", site: "CX_1"}
+  - {name: "First West Credit Union (Envision/Valley First)", slug: "first-west-credit-union", host: "fa-eomj-saasfaprod1.fa.ocs.oraclecloud.com", site: "CX_1001"}
+  - {name: "WorkSafeBC", slug: "worksafebc", host: "eqzw-dev2.fa.ocs.oraclecloud.com", site: "CX_3", job_url: "https://careers-wcb.attainsolutions.net/en/sites/WorkSafeBC/job/{id}", fallback_location: "Lower Mainland, BC", vague_locations: ["Various"]}
+  - {name: "Ritchie Bros. (RB Global)", slug: "ritchie-bros", host: "fa-exew-saasfaprod1.fa.ocs.oraclecloud.com", site: "CX_1"}
+  - {name: "BC Ferries", slug: "bc-ferries", host: "bcferries-iacdzv.fa.ocs.oraclecloud.com", site: "CX_1"}
+  - {name: "Fortinet", slug: "fortinet", host: "edel.fa.us2.oraclecloud.com", site: "CX_2001"}
+  - {name: "Great Canadian Entertainment", slug: "great-canadian-entertainment", host: "elvk.fa.ca3.oraclecloud.com", site: "CX_1001"}
+  - {name: "DP World Canada", slug: "dp-world-canada", host: "ehpv.fa.em2.oraclecloud.com", site: "CX_1"}
+  - {name: "Seaspan", slug: "seaspan", host: "hckz.fa.us2.oraclecloud.com", site: "CX_1"}
+  - {name: "WSP Canada", slug: "wsp-canada", host: "emit.fa.ca3.oraclecloud.com", site: "CX_2001"}
+
+jibe:
+  - {name: "Fraser Health", slug: "fraserhealth", host: "jobs.fraserhealth.ca", fallback_location: "Lower Mainland, BC", vague_locations: ["Fraser Health"]}
+  - {name: "Western Pacific Enterprises (MYR Group)", slug: "myrgroup", host: "careers.myrgroup.com"}
+  - {name: "KPMG Canada", slug: "kpmg", host: "careers.kpmg.ca"}
+
+icims:
+  - {name: "Boston Pizza International", slug: "boston-pizza-international", host: "careers-bostonpizza.icims.com"}
+  - {name: "Providence Health Care", slug: "providence-health-care", host: "careers-phc.icims.com", fallback_location: "Vancouver, BC"}
+  - {name: "Vancouver Coastal Health", slug: "vancouver-coastal-health", host: "careers-vch.icims.com", fallback_location: "Vancouver, BC"}
+  - {name: "Persistent Systems", slug: "persistent-systems", host: "careers-persistentsystems.icims.com"}
+
+successfactors:
+  - {name: "SAP", slug: "sap", host: "jobs.sap.com"}
+  - {name: "ICBC", slug: "icbc", host: "careers.icbc.com"}
+  - {name: "TELUS", slug: "telus", host: "careers.telus.com"}
+  - {name: "Rogers", slug: "rogers", host: "jobs.rogers.com"}
+  - {name: "Shaw / Freedom Mobile", slug: "shaw-freedom-mobile", host: "carrieres-careers.quebecor.com"}
+  - {name: "Teck Resources", slug: "teck-resources", host: "jobs.teck.com"}
+  - {name: "B2Gold", slug: "b2gold", host: "careers.b2gold.com"}
+  - {name: "Canfor", slug: "canfor", host: "jobs.canfor.com"}
+  - {name: "Paper Excellence Group", slug: "paper-excellence-group", host: "jobs.domtar.com"}
+  - {name: "Mott MacDonald Canada Limited", slug: "mott-macdonald-canada-limited", host: "apply.mottmac.com"}
+  - {name: "Hatch", slug: "hatch", host: "jobs.hatch.com"}
+  - {name: "PCL Constructors", slug: "pcl-constructors", host: "careers.pcl.com"}
+  - {name: "Coast Capital Savings", slug: "coast-capital-savings", host: "careers.coastcapitalsavings.com"}
+  - {name: "FortisBC", slug: "fortisbc", host: "careers.fortisbc.com"}
+  - {name: "Deloitte Canada", slug: "deloitte-canada", host: "careers.deloitte.ca"}
+  - {name: "BCLC", slug: "bclc", host: "careers.bclc.com"}
+  - {name: "Canadian Blood Services", slug: "canadian-blood-services", host: "careers.blood.ca"}
+
+taleo:
+  - {name: "Kwantlen Polytechnic University", slug: "kwantlen-polytechnic-university", host: "tre.tbe.taleo.net", dc: "tre01", org: "JT63GS", cws: "37"}
+  - {name: "City of", slug: "city-of", host: "tre.tbe.taleo.net", dc: "tre01", org: "CITYBURNABY", cws: "37"}
+  - {name: "City of Richmond", slug: "city-of-richmond", host: "tre.tbe.taleo.net", dc: "tre01", org: "TRQS8M", cws: "37"}
+  - {name: "Grant Thornton", slug: "grant-thornton", host: "phh.tbe.taleo.net", dc: "phh01", org: "GRANTTHORNTON", cws: "56"}
+
+adp:
+  - {name: "Cymax Group", slug: "cymax-group", cid: "33a9306c-011d-4f55-84d4-d407c2ff126d"}
+  - {name: "General Fusion", slug: "general-fusion", cid: "3196ba6f-d49c-4493-9290-3d91489bdfa9"}
+  - {name: "Louis Brier Home & Hospital", slug: "louis-brier-home-hospital", cid: "d570c199-c04e-4a45-9c54-17a8cc0a513d", ccId: "19000101_000001"}
+  - {name: "Peterson Investments (Canada) Inc.", slug: "peterson-investments-inc", cid: "81ab8a95-37a7-45e5-9444-966c9805462c", ccId: "19000101_000001"}
+  - {name: "Netskrt", slug: "netskrt", cid: "15ae1420-5037-4fe3-bfc0-af04bf39b313", ccId: "19000101_000003"}
+  - {name: "GCT Global Container Terminals", slug: "gct-global-container-terminals", cid: "3610e95b-f114-4044-bdee-00673368eb44", ccId: "19000101_000001", lang: "en_US"}
+  - {name: "United Way British Columbia", slug: "united-way-british-columbia", cid: "e394d57c-e44f-4cce-9a86-72d5801535d2", ccId: "19000101_000001"}
+  - {name: "Western Forest Products Inc.", slug: "western-forest-products-inc", cid: "03e232f7-4ad2-44ca-9e5d-fa35c31b335a", ccId: "19000101_000001"}
+  - {name: "Harbour Air", slug: "harbour-air", cid: "a6e23444-8323-4a76-810f-89467dcb07d8", ccId: "19000101_000001"}
+  - {name: "MEC", slug: "mec", cid: "22926ccf-d482-4536-b105-60751470f17e"}
+  - {name: "Rennie", slug: "rennie", cid: "9dbdcf16-bc30-4103-b579-2eb20a9558ee"}
+
+ukg:
+  - {name: "Nature's Path Foods", slug: "nature-s-path-foods", host: "recruiting.ultipro.ca", tenant: "NAT5000NATUR", guid: "dd2692af-6e2b-4330-abd8-ee8736002e07"}
+  - {name: "Vancity", slug: "vancity", host: "recruiting.ultipro.com", tenant: "VAN5000VCSCU", guid: "a46cbdaa-ca2c-49b6-8d2b-e0ceaafa0e25"}
+  - {name: "BlueShore Financial", slug: "blueshore-financial", host: "recruiting.ultipro.ca", tenant: "NOR5001", guid: "640b0dc0-73ad-4367-0d97-4b45d40cfdb7"}
+  - {name: "Indochino", slug: "indochino", host: "recruiting.ultipro.ca", tenant: "IND5101ICHI", guid: "6d3ae396-2ff9-42ad-b7ad-3381945aa8f4"}
+  - {name: "Doctors of BC", slug: "doctors-of-bc", host: "recruiting.ultipro.ca", tenant: "BRI5001", guid: "49f08ec7-1822-e682-8e87-fb72484999c5"}
+  - {name: "MDA Space", slug: "mda-space", host: "recruiting.ultipro.ca", tenant: "MAC5000MCDW", guid: "664818ff-3594-4bec-9f30-3394e59e19f3"}
+  - {name: "Mark Anthony Group", slug: "mark-anthony-group", host: "recruiting2.ultipro.com", tenant: "MAR5000MAG", guid: "8febf0ae-8776-428e-b625-2faa005b7fc1"}
+  - {name: "Peoples Bank", slug: "peoples-bank", host: "recruiting.ultipro.ca", tenant: "PEO5000PTC", guid: "6694b516-8e57-41f9-b4c2-78527f59c1f4"}
+  - {name: "Canucks Sports & Entertainment", slug: "canucks-sports-entertainment", host: "recruiting.ultipro.ca", tenant: "CAN5003AQG", guid: "ef431574-c057-4f55-95ac-f11092acb8de"}
+  - {name: "Great Little Box Company Ltd.", slug: "great-little-box-company-ltd", host: "recruiting.ultipro.ca", tenant: "GRE5002GLTB", guid: "161a5068-e6ac-413e-bbb7-026100cfb0ce"}
+  - {name: "Perkins&Will Canada Architects Co.", slug: "perkins-will-canada-architects-co", host: "recruiting2.ultipro.com", tenant: "PER1007PWILL", guid: "0ca393a4-bf82-4db6-acae-91e6a0315a4a"}
+  - {name: "Mainroad Group", slug: "mainroad-group", host: "recruiting.ultipro.ca", tenant: "MAI5100MLMC", guid: "9564b48b-b04c-4c28-a506-3d441c26b17a"}
+  - {name: "Ocean Wise (Aquarium)", slug: "ocean-wise", host: "recruiting.ultipro.ca", tenant: "VAN5001VAMSC", guid: "a1d98b58-5f76-4d33-8dd0-2fcf331615bf"}
+  - {name: "West Fraser", slug: "west-fraser", host: "recruiting.ultipro.ca", tenant: "WES5001WFML", guid: "0a498053-7ed9-e62f-75be-4ea1cdd9e382"}
+  - {name: "Aquilini Group", slug: "aquilini-group", host: "recruiting.ultipro.ca", tenant: "CAN5003AQG", guid: "5c6d9d30-6280-4162-8fd3-84de66235ad9"}
+  - {name: "StarFish Medical", slug: "starfish-medical", host: "recruiting.ultipro.ca", tenant: "STA5002SRFH", guid: "f6efecf3-f002-4502-8b5f-2a336f51e2dd"}
+  - {name: "Jim Pattison Group", slug: "jim-pattison", host: "recruiting.ultipro.ca", tenant: "PAT5000PSG", guid: "bbefb216-7e9d-49a9-98fe-b37d948e3aad"}
+
+dayforce:
+  - {name: "Odlum Brown", slug: "odlum-brown", client: "odlumbrown", board: "candidateportal"}
+  - {name: "Dye & Durham", slug: "dye-durham", client: "dyedurham", board: "CANDIDATEPORTAL"}
+  - {name: "Westland Insurance", slug: "westland-insurance", client: "westlandcorp", board: "CANDIDATEPORTAL"}
+  - {name: "PavCo", slug: "pavco", client: "pavco", board: "BCPlaceClientCareerSite"}
+  - {name: "Wesgroup Properties", slug: "wesgroup-properties", client: "wesgroup", board: "CANDIDATEPORTAL"}
+  - {name: "LifeLabs", slug: "lifelabs", client: "lifelabs", board: "CANDIDATEPORTAL"}
+  - {name: "Vancouver Convention Centre", slug: "vancouver-convention-centre", client: "pavco", board: "BCPavcoClientCareerSite"}
+  - {name: "Postmedia", slug: "postmedia", client: "postmedia", board: "PostmediaCareers"}
+  - {name: "Corus / Global BC", slug: "corus-global-bc", client: "corusent", board: "CORUS"}
+  - {name: "LandSure Systems Ltd.", slug: "landsure-systems-ltd", client: "ltsa", board: "landsure"}
+  - {name: "Axiom Builders", slug: "axiom-builders", client: "companyhris", board: "AxiomBuilders"}
+  - {name: "OSI Maritime Systems", slug: "osi-maritime-systems", client: "osimaritime", board: "CANDIDATEPORTAL"}
+  - {name: "KWL (Kerr Wood Leidal)", slug: "kwl", client: "kwl", board: "CANDIDATEPORTAL"}
+  - {name: "McElhanney", slug: "mcelhanney", client: "mcelhanney", board: "CANDIDATEPORTAL"}
+  - {name: "SkilledTradesBC", slug: "skilledtradesbc", client: "stbc", board: "CANDIDATEPORTAL"}
+  - {name: "Pacific Coastal Airlines", slug: "pacific-coastal-airlines", client: "pasco", board: "PCACLIENTCAREERSSITE"}
+  - {name: "Kardium", slug: "kardium", client: "kardium", board: "CANDIDATEPORTAL"}
+  - {name: "Concert Properties", slug: "concert-properties", client: "concert", board: "CONCERT"}
+
+peoplesoft:
+  - {name: "TransLink", slug: "translink", base_url: "https://careersconnect.translink.bc.ca/psc/EXT/EMPLOYEE/HRMS/c/HRS_HRAM_FL.HRS_CG_SEARCH_FL.GBL", site_id: 2, fallback_location: "Lower Mainland, BC", vague_locations: ["Greater Vancouver"]}
+
+bamboohr:
+  - {name: "ScalePad", slug: "scalepad"}
+  - {name: "Rethink Canada", slug: "rethinkcanada"}
+  - {name: "Native Shoes", slug: "nativeshoes"}
+  - {name: "Vancouver Whitecaps FC", slug: "whitecapsfc"}
+  - {name: "Response Biomedical", slug: "responsebio"}
+  - {name: "Anthem Properties", slug: "anthemproperties"}
+  - {name: "Vision Critical (Alida)", slug: "alida"}
+  - {name: "Plurilock", slug: "plurilock"}
+  - {name: "Elastic Path", slug: "elasticpath"}
+  - {name: "Crowe MacKay LLP", slug: "crowemackay"}
+  - {name: "VRIFY", slug: "vrify"}
+  - {name: "Machool Technologies Ltd.", slug: "machool"}
+  - {name: "Encepta", slug: "encepta"}
+  - {name: "FI.SPAN", slug: "fispan"}
+  - {name: "IGG", slug: "igg"}
+  - {name: "PayByPhone", slug: "paybyphone"}
+  - {name: "Tantalus Systems", slug: "tantalussystems"}
+  - {name: "Smith Bros. & Wilson Ltd.", slug: "sbw"}
+  - {name: "Svante", slug: "svante"}
+  - {name: "Ventana Construction Corp.", slug: "ventanaconstructionc"}
+  - {name: "Hothead Games", slug: "hotheadgames"}
+  - {name: "ReadyMode", slug: "readymode"}
+  - {name: "Kobalt", slug: "kobalt"}
+  - {name: "BGC Engineering", slug: "bgcengineering"}
+  - {name: "Indiegraf", slug: "indiegraf"}
+  - {name: "ITC Construction Group", slug: "itcgroup"}
+
+pinpoint:
+  - {name: "Article", slug: "article"}
+  - {name: "Riipen", slug: "riipen"}
+  - {name: "Eventbase", slug: "eventbase"}
+  - {name: "Photonic Inc.", slug: "photonic-inc", host: "careers.photonic.com"}
+
+breezy:
+  - {name: "Intiveo (EasyMarkit)", slug: "intiveo"}
+  - {name: "Pagefreezer", slug: "pagefreezer-software-inc"}
+
+rippling:
+  - {name: "D-Wave Quantum", slug: "d-wave-quantum"}
+  - {name: "Topicflow", slug: "topicflow"}
+  - {name: "Piranha Games", slug: "pgicareers"}
+  - {name: "Zymeworks", slug: "zymeworks-careers"}
+
+teamtailor:
+  - {name: "Kixeye", slug: "kixeye"}
+  - {name: "Uptempo (Allocadia)", slug: "uptempo"}
+  - {name: "Corvus Energy", slug: "corvusenergy"}
+  - {name: "Owl.co", slug: "owl-co", host: "owlco.na.teamtailor.com"}
+  - {name: "Klohn Crippen Berger", slug: "klohn-crippen-berger", host: "careers.klohn.com"}
+
+jobvite:
+  - {name: "Absolute Software", slug: "absolute", company_id: "ql9aVfwj", board_slug: "absolute"}
+  - {name: "DNEG", slug: "double-negative-visual-effects", company_id: "qSnaVfw4", board_slug: "double-negative-visual-effects"}
+  - {name: "Taseko Mines", slug: "tasekomines", company_id: "qLPaVfwp", board_slug: "tasekomines"}
+
+jazzhr:
+  - {name: "New/Mode", slug: "newmode"}
+  - {name: "iQmetrix", slug: "iqmetrix"}
+  - {name: "Payfirma / Merchant Advocate", slug: "payfirma-merchant-advocate", host: "careers.kortpayments.com"}
+  - {name: "Mogo", slug: "mogo"}
+  - {name: "Engineers and Geoscientists BC", slug: "egbc"}
+  - {name: "Wesgroup Equipment LP", slug: "wesgroup-equipment-lp", host: "jobs.wesgroupequipment.com"}
+  - {name: "Carbon Engineering (Occidental)", slug: "carbonengineering"}
+
+humi:
+  - {name: "Comm100", slug: "comm100"}
+  - {name: "Inverite", slug: "inverite"}
+
+# Whole-market feeds (not per company). `queries` defaults to search.keywords.
+feeds:
+  jobbank: {enabled: true, max_pages: 2}   # Government of Canada Job Bank, BC postings
+  bcps: {enabled: true}                    # BC Public Service (all ministries)
+  hn: {enabled: true}                      # latest Hacker News "Who is hiring?" thread
+  jooble: {enabled: true, location: "Vancouver, BC", max_pages: 1}  # needs JOOBLE_API_KEY in .env

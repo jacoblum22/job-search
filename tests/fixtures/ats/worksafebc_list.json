@@ -1,0 +1,224 @@
+{
+ "items": [
+  {
+   "SearchId": 1,
+   "Keyword": "analyst",
+   "CorrectedKeyword": null,
+   "UseExactKeywordFlag": false,
+   "SuggestedKeyword": null,
+   "ExecuteSpellCheckFlag": true,
+   "Location": null,
+   "LocationId": null,
+   "Radius": 0,
+   "RadiusUnit": "MI",
+   "SelectedTitlesFacet": null,
+   "SelectedCategoriesFacet": null,
+   "SelectedPostingDatesFacet": null,
+   "SelectedLocationsFacet": null,
+   "LastSelectedFacet": null,
+   "Facets": "TITLES;LOCATIONS;LOCATION_LEVEL1;LOCATION_LEVEL2;LOCATION_LEVEL3;CATEGORIES;POSTING_DATES;WORK_LOCATIONS;FLEX_FIELDS;ORGANIZATIONS;WORKPLACE_TYPES",
+   "Offset": 0,
+   "Limit": 2,
+   "SortBy": "POSTING_DATES_DESC",
+   "TotalJobsCount": 2,
+   "Latitude": null,
+   "Longitude": null,
+   "SiteNumber": "CX_3",
+   "JobFamilyId": null,
+   "PostingStartDate": null,
+   "PostingEndDate": null,
+   "SelectedWorkLocationsFacet": null,
+   "RequisitionId": null,
+   "CandidateNumber": null,
+   "WorkLocationZipCode": null,
+   "WorkLocationCountryCode": null,
+   "SelectedFlexFieldsFacets": null,
+   "OrganizationId": null,
+   "SelectedOrganizationsFacet": null,
+   "UserTargetFacetName": null,
+   "UserTargetFacetInputTerm": null,
+   "HotJobFlag": null,
+   "WorkplaceType": null,
+   "SelectedWorkplaceTypesFacet": null,
+   "BotQRShortCode": null,
+   "requisitionList": [
+    {
+     "Id": "40414",
+     "Title": "Business Analyst - Pipeline",
+     "PostedDate": "2026-10-06",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "CA",
+     "GeographyId": 300000444314029,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000005333015,
+     "LegalEmployerId": 300000002363326,
+     "OrganizationId": 1,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "This is an Evergreen Requisition (Pipeline) Talent Pool and not a direct hire for Business Analyst.",
+     "PrimaryLocation": "Various Locations, BC, Canada",
+     "Distance": 1791244800000.0,
+     "TrendingFlag": true,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 32.813133239746094,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": []
+    },
+    {
+     "Id": "40390",
+     "Title": "Support Analyst I",
+     "PostedDate": "2026-08-16",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "CA",
+     "GeographyId": 300000444314025,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": "ORA_ON_SITE",
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000005333015,
+     "LegalEmployerId": 300000002363326,
+     "OrganizationId": 1,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "Provide first-level technical support for all business and technology inquires.",
+     "PrimaryLocation": "Surrey, BC, Canada",
+     "Distance": 1786838400000.0,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": true,
+     "Relevancy": 15.850768089294434,
+     "WorkplaceType": "Work arrangement: On-site",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": []
+    }
+   ],
+   "categoriesFacet": [
+    {
+     "Id": 300000452249221,
+     "Name": "Technology, Data & Digital Services",
+     "TotalCount": 2
+    }
+   ],
+   "locationsFacet": [
+    {
+     "Id": 300000000425151,
+     "Name": "Canada",
+     "TotalCount": 2
+    },
+    {
+     "Id": 300000395182008,
+     "Name": "BC, Canada",
+     "TotalCount": 2
+    },
+    {
+     "Id": 300000444314025,
+     "Name": "Surrey, BC, Canada",
+     "TotalCount": 1
+    },
+    {
+     "Id": 300000444314029,
+     "Name": "Various Locations, BC, Canada",
+     "TotalCount": 1
+    }
+   ],
+   "postingDatesFacet": [
+    {
+     "Id": 30,
+     "Name": "Less than 30 days",
+     "TotalCount": 1
+    },
+    {
+     "Id": 31,
+     "Name": "Greater than 30 days",
+     "TotalCount": 1
+    }
+   ],
+   "titlesFacet": [
+    {
+     "Id": "A",
+     "Name": "A Type",
+     "TotalCount": 2
+    }
+   ],
+   "workLocationsFacet": [],
+   "flexFieldsFacet": [],
+   "organizationsFacet": [
+    {
+     "Id": 1,
+     "Name": "Workers' Compensation Board of British Columbia",
+     "TotalCount": 2
+    }
+   ],
+   "workplaceTypesFacet": [
+    {
+     "Id": "ORA_ON_SITE",
+     "Name": "Work arrangement: On-site",
+     "TotalCount": 2
+    }
+   ]
+  }
+ ],
+ "count": 1,
+ "hasMore": false,
+ "limit": 200,
+ "offset": 0,
+ "links": [
+  {
+   "rel": "self",
+   "href": "https://eqzw-dev2.fa.ocs.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitions",
+   "name": "recruitingCEJobRequisitions",
+   "kind": "collection"
+  },
+  {
+   "rel": "action",
+   "href": "https://eqzw-dev2.fa.ocs.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitions/action/getRequisitionsLocationCoordinates",
+   "name": "getRequisitionsLocationCoordinates",
+   "kind": "other"
+  },
+  {
+   "rel": "action",
+   "href": "https://eqzw-dev2.fa.ocs.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitions/action/getRequisitionDetailsForMap",
+   "name": "getRequisitionDetailsForMap",
+   "kind": "other"
+  }
+ ]
+}

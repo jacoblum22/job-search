@@ -13,7 +13,7 @@ import base64
 import logging
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from googleapiclient.discovery import Resource
 
@@ -86,7 +86,7 @@ def fetch_new_messages(
     after_epoch = (
         int(cursor)
         if cursor
-        else int((datetime.now(timezone.utc) - timedelta(days=DEFAULT_LOOKBACK_DAYS)).timestamp())
+        else int((datetime.now(UTC) - timedelta(days=DEFAULT_LOOKBACK_DAYS)).timestamp())
     )
 
     full_query = f"{query} after:{after_epoch}"
@@ -137,9 +137,9 @@ def fetch_new_outlook_messages(
     after_epoch = (
         int(cursor)
         if cursor
-        else int((datetime.now(timezone.utc) - timedelta(days=DEFAULT_LOOKBACK_DAYS)).timestamp())
+        else int((datetime.now(UTC) - timedelta(days=DEFAULT_LOOKBACK_DAYS)).timestamp())
     )
-    after_dt = datetime.fromtimestamp(after_epoch, tz=timezone.utc)
+    after_dt = datetime.fromtimestamp(after_epoch, tz=UTC)
 
     token = get_access_token()
     headers = {
@@ -180,7 +180,7 @@ def _parse_gmail_message(raw: dict) -> EmailMessage | None:
     payload = raw.get("payload", {})
     headers = {h["name"].lower(): h["value"] for h in payload.get("headers", [])}
     subject = headers.get("subject", "")
-    internal_date = datetime.fromtimestamp(int(raw["internalDate"]) / 1000, tz=timezone.utc)
+    internal_date = datetime.fromtimestamp(int(raw["internalDate"]) / 1000, tz=UTC)
 
     plain_text, html = _extract_bodies(payload)
     return EmailMessage(
@@ -195,7 +195,7 @@ def _parse_outlook_message(raw: dict) -> EmailMessage | None:
     except ValueError:
         return None
     if internal_date.tzinfo is None:
-        internal_date = internal_date.replace(tzinfo=timezone.utc)
+        internal_date = internal_date.replace(tzinfo=UTC)
 
     body = raw.get("body") or {}
     content = body.get("content") or ""

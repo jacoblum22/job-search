@@ -1,0 +1,118 @@
+{
+ "_fixture_note": "Real ADP WFN detail response for General Fusion job 9201435363006_1; requisitionDescription HTML shortened (real one ~9KB, deeply nested divs, Froala CSS <link> tags)",
+ "itemID": "9201435363006_1",
+ "postingInstructions": [],
+ "links": [],
+ "additionalProperties": {},
+ "requisitionTitle": "Electronics Engineer, Diagnostics & Data Acquisition",
+ "postDate": "2026-10-09T19:27:00.000-04:00",
+ "screeningRequirements": [],
+ "organizationalUnits": [],
+ "payGradeRange": {
+  "minimumRate": {
+   "amountValue": 140000.0,
+   "currencyCode": "CAD"
+  },
+  "maximumRate": {
+   "amountValue": 170000.0,
+   "currencyCode": "CAD"
+  }
+ },
+ "sponsoredVisaTypeCodes": [],
+ "customFieldGroup": {
+  "codeFields": [
+   {
+    "codeValue": "AN",
+    "shortName": "Annually",
+    "nameCode": {
+     "codeValue": "SalaryType"
+    }
+   },
+   {
+    "codeValue": "RANGE",
+    "shortName": "RANGE",
+    "nameCode": {
+     "codeValue": "SalaryRangeType"
+    }
+   }
+  ],
+  "dateFields": [
+   {
+    "dateValue": "2026-10-09T19:27Z",
+    "nameCode": {
+     "codeValue": "PostingDate"
+    }
+   },
+   {
+    "dateValue": "2026-10-15T14:38Z",
+    "nameCode": {
+     "codeValue": "CurrentServerDateTime"
+    }
+   }
+  ],
+  "indicatorFields": [
+   {
+    "indicatorValue": false,
+    "nameCode": {
+     "codeValue": "PriortyStatusFlag"
+    }
+   },
+   {
+    "indicatorValue": false,
+    "nameCode": {
+     "codeValue": "InternalPostingFlag"
+    }
+   }
+  ],
+  "numberFields": [
+   {
+    "numberValue": 0.0,
+    "categoryCode": {
+     "codeValue": "ApplicantCount"
+    }
+   }
+  ],
+  "stringFields": [
+   {
+    "stringValue": "567505",
+    "nameCode": {
+     "codeValue": "ExternalJobID"
+    }
+   },
+   {
+    "nameCode": {
+     "codeValue": "CareerCenterRefId"
+    }
+   },
+   {
+    "stringValue": "",
+    "nameCode": {
+     "codeValue": "HomeDepartment"
+    }
+   },
+   {
+    "stringValue": "140000.00 To 170000.00 (CAD) Annually",
+    "nameCode": {
+     "codeValue": "SalaryRange"
+    }
+   }
+  ]
+ },
+ "clientRequisitionID": "1215",
+ "requisitionLocations": [
+  {
+   "aliasNames": [],
+   "address": {
+    "cityName": "Richmond",
+    "countrySubdivisionLevel1": {
+     "codeValue": "BC"
+    },
+    "postalCode": "V7B 1C3"
+   },
+   "nameCode": {
+    "shortName": " Richmond, BC, CA"
+   }
+  }
+ ],
+ "requisitionDescription": "<div><link href=\"https://static.workforcenow.adp.com/mas/mdf-components/24.32.25/styles/froala_style.min.css\" rel=\"stylesheet\" type=\"text/css\"><div class=\"fr-view\"><p data-pasted=\"true\"><strong><u>About Us:&nbsp;</u></strong></p><p>Established in 2002, General Fusion is a global leader in the race to commercialize clean fusion energy. We are pursuing a uniquely practical approach, Magnetized Target Fusion, and aim to provide zero-carbon fusion power to the grid in the early to mid-2030s. Today at our state-of-the-art labs in Richmond, BC, we&rsquo;re operating a groundbreaking fusion demonstration machine called Lawson Machine 26 (LM26)...</p><p><strong><u>Position Overview:</u></strong></p><p>General Fusion is seeking a Senior Electronics Engineer to join our Controls &amp; Electronics team. ...</p><p><strong><u>Key Responsibilities:</u></strong></p><ul style=\"margin-left: 0in;\"><li>Serve as the electronics group&#39;s technical authority on analog and digital design, signal integrity, and measurement methodology.&nbsp;</li><li>Own the hardware development lifecycle from requirements through schematic design, PCB layout, prototyping, test, and release.</li></ul><p><strong><em>Required</em></strong></p><ul style=\"list-style-type: disc;margin-left: 0in;\"><li>Bachelor&rsquo;s degree in Electrical Engineering, Electronics Engineering, or equivalent.&nbsp;</li><li>Minimum of 10 years of progressive experience designing, deploying, and commissioning electronic systems in R&amp;D, scientific, or industrial environments.&nbsp;</li></ul><p>The typical hiring range for this position is $140,000 - $170,000.</p></div></div>\n"
+}

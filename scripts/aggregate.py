@@ -23,15 +23,11 @@ from src.enrich import enrich_descriptions
 from src.export_xlsx import generate_xlsx
 from src.search_match import api_queries, keep_job, should_hydrate_record
 from src.sources.adzuna import fetch_adzuna_jobs
-from src.sources.ashby import fetch_ashby_jobs
 from src.sources.careerjet import fetch_careerjet_jobs
 from src.sources.glassdoor_email import fetch_glassdoor_jobs
-from src.sources.greenhouse import fetch_greenhouse_jobs
 from src.sources.indeed_email import fetch_indeed_jobs
-from src.sources.lever import fetch_lever_jobs
 from src.sources.linkedin_email import fetch_linkedin_jobs
-from src.sources.smartrecruiters import fetch_smartrecruiters_jobs
-from src.sources.workable import fetch_workable_jobs
+from src.sources.registry import BOARD_PLATFORMS, FEEDS
 from src.sources.workday import fetch_workday_jobs
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -195,19 +191,26 @@ def run(
 
     if not skip_ats:
         ats = cfg.get("ats_boards", {})
-        for platform, fetch in (
-            ("greenhouse", fetch_greenhouse_jobs),
-            ("lever", fetch_lever_jobs),
-            ("ashby", fetch_ashby_jobs),
-            ("workable", fetch_workable_jobs),
-            ("smartrecruiters", lambda b: fetch_smartrecruiters_jobs(b, search=search)),
-        ):
+        for platform, fetch in BOARD_PLATFORMS.items():
             if not ats.get(platform):
                 continue
             try:
-                ingest(fetch(ats[platform]), match_keywords=True)
+                ingest(fetch(ats[platform], search), match_keywords=True)
             except Exception:
                 log.exception("%s fetch failed — continuing with other sources", platform)
+
+        for name, options in (ats.get("feeds") or {}).items():
+            options = options or {}
+            if name not in FEEDS or options.get("enabled", True) is False:
+                continue
+            try:
+                ingest(FEEDS[name](options, search, list(search.get("keywords") or [])), match_keywords=True)
+            except Exception:
+                log.exception("%s feed failed — continuing with other sources", name)
+
+        unknown = set(ats) - set(BOARD_PLATFORMS) - {"feeds"}
+        if unknown:
+            log.warning("Unknown sections in the board list (ignored): %s", ", ".join(sorted(unknown)))
 
     if not skip_email:
         forward_from = cfg.get("email_sources", {}).get("forward_from") or None
