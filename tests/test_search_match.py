@@ -4,15 +4,38 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import yaml
-from pathlib import Path
-
 from src.search_match import api_queries, keep_job, text_matches_canonical
+
+# Fixed search config so these tests exercise the matching logic, not whatever
+# keywords the live config/settings.yaml happens to target.
+_SEARCH = {
+    "location": "Vancouver, BC",
+    "remote_sweep_location": "Canada",
+    "require_relevant_location": True,
+    "keywords": [
+        "Public affairs",
+        "Talent acquisition",
+        "Indigenous Relations",
+        "Events",
+        "Market Intelligence",
+        "Market Research",
+        "Business strategy",
+        "Business Development",
+        "Business Analyst",
+        "Human Resources",
+        "Campus Recruitment",
+    ],
+    "level_terms": ["intern", "internship", "co-op", "coop", "new grad", "entry level", "student", "junior"],
+    "exclude_title_terms": [
+        "senior", "sr", "director", "manager", "lead", "principal", "vice president",
+        "vice-president", "vp", "head", "chief", "ux", "ui/ux", "user experience",
+    ],
+    "max_years_experience": 2,
+}
 
 
 def _search() -> dict:
-    cfg = yaml.safe_load((Path("config/settings.yaml")).read_text(encoding="utf-8"))
-    return cfg["search"]
+    return {k: list(v) if isinstance(v, list) else v for k, v in _SEARCH.items()}
 
 
 def _job(**kwargs):

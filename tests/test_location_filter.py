@@ -17,9 +17,14 @@ def test_remote_canada_and_bare_canada():
     assert classify_location("Canada") == "remote"
 
 
-def test_remote_united_states_rejected():
-    assert not is_remote("Remote (United States)")
-    assert classify_location("Remote (United States)") == "other"
+def test_remote_united_states_kept():
+    assert is_remote("Remote (United States)")
+    assert classify_location("Remote - USA") == "remote"
+
+
+def test_remote_elsewhere_rejected():
+    assert not is_remote("Remote - India")
+    assert classify_location("Remote (United Kingdom)") == "other"
 
 
 def test_company_fallback_city_of_vancouver():

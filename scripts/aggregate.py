@@ -21,6 +21,7 @@ from src.db import connect, upsert_job
 from src.dedup import run_dedup
 from src.enrich import enrich_descriptions
 from src.export_xlsx import generate_xlsx
+from src.score import rescore_all
 from src.search_match import api_queries, keep_job, should_hydrate_record
 from src.sources.adzuna import fetch_adzuna_jobs
 from src.sources.ashby import fetch_ashby_jobs
@@ -222,6 +223,9 @@ def run(
 
     merged = run_dedup(conn)
     log.info("Dedup merged %d job(s)", merged)
+
+    tiers = rescore_all(conn, cfg.get("score", {}))
+    log.info("Scored jobs by tier: %s", dict(sorted(tiers.items())))
 
     generate_dashboard(conn, dashboard_path)
     generate_xlsx(conn, xlsx_path)

@@ -45,11 +45,10 @@ _REMOTE_PATTERN = re.compile(r"\b(remote|work from home|wfh|anywhere)\b", re.IGN
 
 # If the location mentions remote AND one of these, it's probably not
 # actually open to a Canada-based applicant — unless "canada" is also
-# explicitly mentioned (e.g. "Remote - Canada/US").
+# explicitly mentioned (e.g. "Remote - Canada/US"). Remote US is kept: Jake
+# is a US citizen living in Canada, so US work authorization is fine; roles
+# that require living in the US are skipped later by the score (src/score.py).
 _NON_CANADA_MARKERS = [
-    "united states",
-    "usa",
-    "u.s.",
     "india",
     "philippines",
     "united kingdom",
