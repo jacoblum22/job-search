@@ -1,4 +1,4 @@
-from src.sources.adzuna import _search, _to_job, description_from_adzuna_html
+from src.sources.adzuna import _search, _to_job
 
 
 class _Resp:
@@ -123,15 +123,3 @@ def test_to_job_accepts_numeric_zero_id():
     assert job is not None
     assert job.external_id == "0"
 
-
-def test_description_from_json_ld():
-    html = """
-    <html><head>
-    <script type="application/ld+json">
-    {"@type":"JobPosting","description":"<p>Requires 2 years of experience in analysis.</p>"}
-    </script>
-    </head><body></body></html>
-    """
-    text = description_from_adzuna_html(html)
-    assert "2 years" in text
-    assert "analysis" in text

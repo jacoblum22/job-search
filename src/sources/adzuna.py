@@ -4,9 +4,8 @@ Docs: https://developer.adzuna.com/docs/search
 Auth: app_id + app_key as query params (no header-based auth).
 
 The search endpoint only returns ~500-character snippets (confirmed against
-live JSON). Adzuna has no public job-details API. The full posting is on
-Adzuna's own land/ad page for that id — first-party HTML, not employer
-scraping. We hydrate kept listings from that page (JSON-LD JobPosting).
+live JSON). Adzuna has no public job-details API; the full posting is
+filled in afterwards from each result's redirect_url by src/enrich.py.
 
 Runs two geo passes: `location` (e.g. Vancouver) plus `remote_sweep_location`
 filtered to `is_remote()` so Ottawa-tagged WFH is not missed.
@@ -14,32 +13,20 @@ filtered to `is_remote()` so Ottawa-tagged WFH is not missed.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
-import re
 import time
 from typing import Any
 
 import httpx
-from bs4 import BeautifulSoup
 
 from src.db import Job
 from src.http_retry import request_with_retry
 from src.location_filter import is_remote
-from src.parser import html_to_markdown
-from src.search_match import should_hydrate_record
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.adzuna.com/v1/api/jobs"
-# Public Adzuna job pages (same publisher as the API), keyed by country code.
-_LAND_HOST = {
-    "ca": "https://www.adzuna.ca",
-    "gb": "https://www.adzuna.co.uk",
-    "us": "https://www.adzuna.com",
-    "au": "https://www.adzuna.com.au",
-}
 
 
 def fetch_adzuna_jobs(
@@ -51,8 +38,6 @@ def fetch_adzuna_jobs(
     max_pages: int = 3,
     remote_sweep_location: str | None = "Canada",
     request_pause: float = 0.35,
-    hydrate: bool = True,
-    search: dict[str, Any] | None = None,
     app_id: str | None = None,
     app_key: str | None = None,
     client: httpx.Client | None = None,
@@ -123,8 +108,6 @@ def fetch_adzuna_jobs(
                     )
 
         jobs = list(by_id.values())
-        if hydrate:
-            hydrate_adzuna_descriptions(jobs, country=country, client=client, search=search)
     finally:
         if owns_client:
             client.close()
@@ -186,71 +169,6 @@ def _search(
         if isinstance(total, int) and page * results_per_page >= total:
             break
     return jobs
-
-
-def hydrate_adzuna_descriptions(
-    jobs: list[Job],
-    *,
-    country: str,
-    client: httpx.Client,
-    search: dict[str, Any] | None = None,
-) -> None:
-    """Replace search snippets with Adzuna land/ad JSON-LD when present."""
-    host = _LAND_HOST.get(country, _LAND_HOST["ca"])
-    for job in jobs:
-        if search and not should_hydrate_record(
-            job.title, search, company=job.company, location=job.location
-        ):
-            continue
-        url = f"{host}/land/ad/{job.external_id}"
-        try:
-            resp = request_with_retry(client, "GET", url, retries=3, backoff=1.0)
-            if resp.status_code != 200:
-                continue
-            full = description_from_adzuna_html(resp.text)
-            if full and len(full) > len(job.description or ""):
-                job.description = full
-                # Recompute derived fields from the longer text.
-                job.__post_init__()
-        except httpx.RequestError:
-            logger.warning("Adzuna land page failed for %s", job.external_id)
-
-
-def description_from_adzuna_html(html: str) -> str:
-    """Pull JobPosting.description from JSON-LD; fall back to #job-description."""
-    soup = BeautifulSoup(html, "html.parser")
-    for script in soup.find_all("script", attrs={"type": re.compile(r"ld\+json", re.I)}):
-        raw = script.string or script.get_text() or ""
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-        blocks = data if isinstance(data, list) else [data]
-        for block in blocks:
-            desc = _ld_job_description(block)
-            if desc:
-                return html_to_markdown(desc) if "<" in desc else desc.strip()
-    node = soup.select_one("#job-description, .job-description, [itemprop=description]")
-    if node:
-        return html_to_markdown(str(node))
-    return ""
-
-
-def _ld_job_description(block: Any) -> str:
-    if not isinstance(block, dict):
-        return ""
-    types = block.get("@type")
-    type_list = types if isinstance(types, list) else [types]
-    if any(str(t).lower() == "jobposting" for t in type_list if t):
-        desc = block.get("description") or ""
-        return desc if isinstance(desc, str) else ""
-    graph = block.get("@graph")
-    if isinstance(graph, list):
-        for item in graph:
-            found = _ld_job_description(item)
-            if found:
-                return found
-    return ""
 
 
 def _to_job(result: dict[str, Any]) -> Job | None:

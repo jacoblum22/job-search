@@ -19,8 +19,9 @@ from dotenv import load_dotenv
 from src.dashboard import generate_dashboard
 from src.db import connect, upsert_job
 from src.dedup import run_dedup
+from src.enrich import enrich_descriptions
 from src.export_xlsx import generate_xlsx
-from src.search_match import api_queries, keep_job
+from src.search_match import api_queries, keep_job, should_hydrate_record
 from src.sources.adzuna import fetch_adzuna_jobs
 from src.sources.careerjet import fetch_careerjet_jobs
 from src.sources.glassdoor_email import fetch_glassdoor_jobs
@@ -87,9 +88,25 @@ def run(
     new_count = 0
     total_fetched = 0
     search = cfg.get("search", {})
+    enrich_cfg = cfg.get("enrich", {})
 
     def ingest(jobs: list, *, match_keywords: bool) -> None:
         nonlocal new_count, total_fetched
+        # Before filtering, so a keyword that only appears in the full posting
+        # (not the snippet or title) still counts.
+        if enrich_cfg.get("enabled", True):
+            try:
+                enrich_descriptions(
+                    jobs,
+                    conn=conn,
+                    should_fetch=lambda j: should_hydrate_record(
+                        j.title, search, company=j.company, location=j.location
+                    ),
+                    host_pause=enrich_cfg.get("host_pause_seconds", 1.0),
+                    max_fetches=enrich_cfg.get("max_fetches_per_source", 150),
+                )
+            except Exception:
+                log.exception("Description enrichment failed — keeping snippets")
         kept = [j for j in jobs if keep_job(j, search, match_keywords=match_keywords)]
         if len(kept) != len(jobs):
             log.info("Filtered out %d of %d job(s) (keywords/location/level)", len(jobs) - len(kept), len(jobs))
