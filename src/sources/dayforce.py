@@ -3,11 +3,13 @@
 List:   POST https://jobs.dayforcehcm.com/api/geo/{client}/jobposting/search
         JSON `{clientNamespace, jobBoardCode, cultureCode, paginationStart, ...}`
         -> `{"jobPostings": [...], "maxCount": N}`, 25 per page.
+        Needs an `X-CSRF-TOKEN` header from GET /api/auth/csrf plus the
+        next-auth cookie that call sets (the client keeps it); without them
+        the POST is a bare 403.
 Detail: GET https://jobs.dayforcehcm.com/{culture}/{client}/{board}/jobs/{jobPostingId}
         (Next.js page; `__NEXT_DATA__` holds the posting with
         jobPostingContent.{jobDescriptionHeader, jobDescription, jobDescriptionFooter}).
-The list call is POST-only and could not be exercised from the build sandbox;
-the request shape follows the portal's own JavaScript.
+The request shape follows the portal's own JavaScript (verified live Oct 2026).
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from src.db import Job
 from src.search_match import should_hydrate_record
 from src.sources.ats_common import (
     fetch_boards,
+    get_json,
     get_text,
     join_locations,
     join_sections,
@@ -98,21 +101,24 @@ def to_job(summary: dict, detail: dict, board: dict) -> Job:
     )
 
 
+def csrf_headers(client: httpx.Client) -> dict:
+    token = (get_json(client, f"{HOST}/api/auth/csrf") or {}).get("csrfToken")
+    return {"X-CSRF-TOKEN": token} if token else {}
+
+
 def fetch_dayforce_jobs(boards: list, *, search: dict | None = None, client: httpx.Client | None = None) -> list[Job]:
     def fetch_one(client: httpx.Client, board: dict) -> list[Job]:
+        headers = csrf_headers(client)
         postings: list[dict] = []
         for page in range(MAX_PAGES):
             body = {
                 "clientNamespace": board["client"],
                 "jobBoardCode": board["board"],
                 "cultureCode": board.get("culture", "en-US"),
-                "searchText": "",
-                "locationString": "",
-                "distance": 50,
                 "distanceUnit": 0,
                 "paginationStart": page * PAGE_SIZE,
             }
-            data = post_json(client, f"{HOST}/api/geo/{board['client']}/jobposting/search", body)
+            data = post_json(client, f"{HOST}/api/geo/{board['client']}/jobposting/search", body, headers=headers)
             batch = (data or {}).get("jobPostings") or []
             postings.extend(batch)
             if len(batch) < PAGE_SIZE or len(postings) >= ((data or {}).get("maxCount") or 0):

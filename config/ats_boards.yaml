@@ -481,7 +481,7 @@ dayforce:
   - {name: "Concert Properties", slug: "concert-properties", client: "concert", board: "CONCERT"}
 
 peoplesoft:
-  - {name: "TransLink", slug: "translink", base_url: "https://careersconnect.translink.bc.ca/psc/EXT/EMPLOYEE/HRMS/c/HRS_HRAM_FL.HRS_CG_SEARCH_FL.GBL", site_id: 2, fallback_location: "Lower Mainland, BC", vague_locations: ["Greater Vancouver"]}
+  - {name: "TransLink", slug: "translink", base_url: "https://careersconnect.translink.bc.ca/psc/EXT/EMPLOYEE/HRMS/c/HRS_HRAM_FL.HRS_CG_SEARCH_FL.GBL", site_id: 2, company_site_ids: {"Coast Mountain Bus Company Ltd": 1, "BC Rapid Transit Co. Ltd": 5}, fallback_location: "Lower Mainland, BC", vague_locations: ["Greater Vancouver"]}
 
 bamboohr:
   - {name: "ScalePad", slug: "scalepad"}

@@ -6,6 +6,9 @@ List:   GET {base}?Page=HRS_APP_SCHJOB_FL&Action=U&FOCUS=Applicant&SiteId={site}
 Detail: GET {base}?Page=HRS_APP_JBPST_FL&Action=U&FOCUS=Applicant&SiteId={site}
             &JobOpeningId={id}&PostingSeq=1
         (sections HRS_SCH_WRK_DESCR100$N headings + HRS_SCH_PSTDSC_DESCRLONG$N bodies)
+        Postings from another company on the same gateway (TransLink's
+        Coast Mountain Bus, BC Rapid Transit) only open under that company's
+        SiteId; the board's `company_site_ids` maps COMPANY_DESCR -> SiteId.
 Limitation: a plain GET returns only the first page (about 50 postings); later
 pages need PeopleSoft's stateful POST round-trips, which this adapter skips.
 """
@@ -52,6 +55,7 @@ def parse_list(page: str | None) -> list[dict]:
                 "title": el.get_text(" ", strip=True),
                 "location": _text(soup, f"LOCATION${n}"),
                 "department": _text(soup, f"HRS_APP_JBSCH_I_HRS_DEPT_DESCR${n}"),
+                "company": _text(soup, f"COMPANY_DESCR${n}"),
                 "opened": _text(soup, f"SCH_OPENED${n}").replace("/", "-") or None,
             }
         )
@@ -71,8 +75,9 @@ def parse_detail(page: str | None) -> str:
     return join_sections(*parts)
 
 
-def _url(board: dict, page: str, **extra: str) -> tuple[str, dict]:
-    params = {"Page": page, "Action": "U", "FOCUS": "Applicant", "SiteId": str(board.get("site_id", 1)), **extra}
+def _url(board: dict, page: str, *, company: str = "", **extra: str) -> tuple[str, dict]:
+    site = (board.get("company_site_ids") or {}).get(company, board.get("site_id", 1))
+    params = {"Page": page, "Action": "U", "FOCUS": "Applicant", "SiteId": str(site), **extra}
     return board["base_url"], params
 
 
@@ -88,7 +93,9 @@ def fetch_peoplesoft_jobs(
                 continue
             if search and not should_hydrate_record(row["title"], search, company=board["name"], location=location):
                 continue
-            durl, dparams = _url(board, "HRS_APP_JBPST_FL", JobOpeningId=row["id"], PostingSeq="1")
+            durl, dparams = _url(
+                board, "HRS_APP_JBPST_FL", company=row["company"], JobOpeningId=row["id"], PostingSeq="1"
+            )
             jobs.append(
                 Job(
                     source=f"peoplesoft:{board['slug']}",
@@ -99,7 +106,7 @@ def fetch_peoplesoft_jobs(
                     description=parse_detail(get_text(client, durl, params=dparams)),
                     url=str(httpx.URL(durl, params=dparams)),
                     posted_date=row["opened"],
-                    raw={k: row.get(k) for k in ("department", "location")},
+                    raw={k: row.get(k) for k in ("department", "company", "location")},
                 )
             )
         return jobs

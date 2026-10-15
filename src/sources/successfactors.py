@@ -36,6 +36,8 @@ _TOTAL_RE = re.compile(r"of\s+([\d,]+)")
 
 _TITLE_RE = re.compile(r"^(?P<title>.*?)\s*\((?P<loc>[^()]*)\)\s*$")
 _ID_RE = re.compile(r"/(\d+)/?$")
+# The shared client asks for JSON; the RSS endpoint answers that with 406.
+RSS_HEADERS = {"Accept": "application/rss+xml, application/xml;q=0.9, */*;q=0.8"}
 
 
 def split_title(raw: str) -> tuple[str, str]:
@@ -140,7 +142,7 @@ def _fetch_one(client: httpx.Client, board: dict, search: dict | None) -> list[J
     params = {"locale": board.get("locale", "en_US")}
     if board.get("keywords"):
         params["keywords"] = f"({board['keywords']})"
-    jobs = {j.external_id: j for j in parse_feed(get_text(client, f"{base}/services/rss/job/", params=params), board)}
+    jobs = {j.external_id: j for j in parse_feed(get_text(client, f"{base}/services/rss/job/", params=params, headers=RSS_HEADERS), board)}
 
     startrow, total, pages = 0, None, 0
     while pages < MAX_SEARCH_PAGES and (total is None or startrow < total):

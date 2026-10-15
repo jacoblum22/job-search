@@ -166,6 +166,15 @@ def test_successfactors_search_page_rows_and_detail_microdata():
     assert len(detail["description"]) > 2000
 
 
+def test_successfactors_rss_requests_xml():
+    client = FakeClient([("rss/job", text("successfactors_list.xml"))])
+    jobs = successfactors.fetch_successfactors_jobs([{"slug": "icbc", "name": "ICBC", "host": "careers.icbc.com"}], client=client)
+    assert jobs
+    # The live endpoint returns 406 to the client's default Accept: application/json.
+    _method, url, kwargs = client.calls[0]
+    assert "rss/job" in url and "xml" in kwargs["headers"]["Accept"]
+
+
 def test_icims_cards_and_detail():
     cards, pages = icims.parse_list(text("vch_list.html"))
     assert pages >= 1 and len(cards) == 5
@@ -228,6 +237,11 @@ def test_peoplesoft_translink():
     rows = peoplesoft.parse_list(text("translink_list.html"))
     assert len(rows) == 5 and rows[0]["location"] == "Greater Vancouver"
     assert rows[0]["opened"] == "2026-10-15"
+    assert rows[0]["company"]
+    board = {"base_url": "https://x/c", "site_id": 2, "company_site_ids": {"BC Rapid Transit Co. Ltd": 5}}
+    # Subsidiary postings 404 under TransLink's SiteId; they open under their own.
+    assert peoplesoft._url(board, "P", company="BC Rapid Transit Co. Ltd")[1]["SiteId"] == "5"
+    assert peoplesoft._url(board, "P", company="TransLink")[1]["SiteId"] == "2"
     body = peoplesoft.parse_detail(text("translink_detail.html"))
     assert "TransLink" in body and len(body) > 2000
 
@@ -274,10 +288,17 @@ def test_dayforce_next_data_detail():
     assert dayforce.location_of(parsed) == "Calgary, AB"
     assert len(dayforce.description_of(parsed)) > 500
     summary = {"jobPostingId": 8581, "jobTitle": "Junior Survey Assistant", "postingLocations": [{"cityName": "Burnaby", "stateCode": "BC"}]}
-    client = FakeClient([("jobposting/search", {"jobPostings": [summary], "maxCount": 1}), ("/jobs/8581", page)])
+    client = FakeClient([
+        ("api/auth/csrf", {"csrfToken": "tok123"}),
+        ("jobposting/search", {"jobPostings": [summary], "maxCount": 1}),
+        ("/jobs/8581", page),
+    ])
     board = {"slug": "mcelhanney", "name": "McElhanney", "client": "mcelhanney", "board": "CANDIDATEPORTAL"}
     # Detail says Calgary, so the posting is dropped after the detail fetch.
     assert dayforce.fetch_dayforce_jobs([board], client=client) == []
+    # The search POST carries the CSRF token fetched first; without it Dayforce answers 403.
+    _method, _url, kwargs = next(c for c in client.calls if c[0] == "POST")
+    assert kwargs["headers"] == {"X-CSRF-TOKEN": "tok123"}
 
 
 def test_jooble_skips_without_key(monkeypatch):
