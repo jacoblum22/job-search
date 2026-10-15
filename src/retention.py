@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from email.utils import parsedate_to_datetime
 from datetime import UTC, date, datetime, timedelta
+from email.utils import parsedate_to_datetime
 
 DEFAULT_MAX_AGE_DAYS = 30
 KEEP_STATUSES = ("applied",)
