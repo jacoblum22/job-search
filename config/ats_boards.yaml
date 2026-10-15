@@ -40,6 +40,8 @@ workday:
     wd: "wd103"
     site: "AccentureCareers"
     location_filter: *bc_locations
+    # Workday stops listing at 2,000 jobs; filter to Canada server-side.
+    applied_facets: {locationCountry: ["a30a87ed25634629aa6c3958aa2b91ea"]}
   - name: "Baker Tilly"
     tenant: "bakertilly"
     wd: "wd5"
@@ -110,6 +112,8 @@ workday:
     wd: "wd10"
     site: "External_Employment_Opportunities"
     location_filter: *bc_locations
+    fallback_location: "Vancouver, BC"   # postings say "Main Campus"
+    vague_locations: ["Main Campus"]
   - name: "Northeastern University"
     tenant: "northeastern"
     wd: "wd1"
@@ -215,11 +219,6 @@ workday:
     wd: "wd5"
     site: "Careers"
     location_filter: *bc_locations
-  - name: "Beanworks (Quadient)"
-    tenant: "quadient"
-    wd: "wd3"
-    site: "beanworkscareers"
-    location_filter: *bc_locations
   - name: "Broadcom"
     tenant: "broadcom"
     wd: "wd1"
@@ -262,8 +261,6 @@ workday:
     location_filter: *bc_locations
 
 greenhouse:
-  - {name: "Phoenix Labs", slug: "phoenixlabsyvren"}
-  - {name: "Bench Accounting", slug: "bench"}
   - {name: "FINCAD (Numerix)", slug: "numerix"}
   - {name: "Urban Systems", slug: "urbansystems"}
   - {name: "Angus Reid", slug: "angusreid"}
@@ -331,7 +328,6 @@ lever:
 ashby:
   - {name: "Visier", slug: "visier"}
   - {name: "Grow Technologies", slug: "grow-inc"}
-  - {name: "Shopify", slug: "shopify"}
   - {name: "Unblocked", slug: "Unblocked"}
   - {name: "Xero", slug: "xero"}
   - {name: "Koho", slug: "koho"}
@@ -342,7 +338,6 @@ ashby:
   - {name: "Xenon Pharmaceuticals", slug: "xenon"}
   - {name: "Remarcable", slug: "remarcable-inc"}
   - {name: "Airspeed", slug: "airspeed"}
-  - {name: "Artemis", slug: "artemisanalytics"}
   - {name: "Gumloop", slug: "gumloop"}
   - {name: "Klue", slug: "klue"}
   - {name: "Monte Carlo", slug: "montecarlodata"}
@@ -350,7 +345,6 @@ ashby:
   - {name: "Notion", slug: "notion"}
   - {name: "Procurify", slug: "procurify"}
   - {name: "Spexi", slug: "spexi"}
-  - {name: "Superhuman (Grammarly)", slug: "superhuman-platform-inc"}
   - {name: "Thinkific", slug: "thinkific"}
   - {name: "Trulioo", slug: "trulioo"}
 
@@ -423,7 +417,7 @@ successfactors:
   - {name: "Canadian Blood Services", slug: "canadian-blood-services", host: "careers.blood.ca"}
 
 taleo:
-  - {name: "Kwantlen Polytechnic University", slug: "kwantlen-polytechnic-university", host: "tre.tbe.taleo.net", dc: "tre01", org: "JT63GS", cws: "37"}
+  - {name: "Kwantlen Polytechnic University", slug: "kwantlen-polytechnic-university", host: "tre.tbe.taleo.net", dc: "tre01", org: "JT63GS", cws: "37", fallback_location: "Surrey, BC"}  # feed leaves location blank
   - {name: "City of", slug: "city-of", host: "tre.tbe.taleo.net", dc: "tre01", org: "CITYBURNABY", cws: "37"}
   - {name: "City of Richmond", slug: "city-of-richmond", host: "tre.tbe.taleo.net", dc: "tre01", org: "TRQS8M", cws: "37"}
   - {name: "Grant Thornton", slug: "grant-thornton", host: "phh.tbe.taleo.net", dc: "phh01", org: "GRANTTHORNTON", cws: "56"}
@@ -567,6 +561,10 @@ html:
   - {name: "Leith Wheeler", slug: "leith-wheeler", list_url: "https://www.leithwheeler.com/careers", link_pattern: '/career/([^/?#]+)$', fallback_location: "Vancouver, BC", exclude_pattern: 'montr|gestionnaire|administrateur'}
   - {name: "Oppy", slug: "oppy", list_url: "https://oppy.com/careers/", link_pattern: '/position/([a-z0-9-]+)/?$', fallback_location: "Vancouver, BC"}
   - {name: "Glotman Simpson", slug: "glotman-simpson", list_url: "https://glotmansimpson.com/careers", link_pattern: '/career/([a-z0-9-]+)/?$', title_separator: "•", fallback_location: "Vancouver, BC"}
+  # Loblaw and Shoppers left Workday (myview.wd3) for their own sites; job pages carry JSON-LD.
+  # The keyword search is Canada-wide, so list everything near Vancouver instead.
+  - {name: "Loblaw Companies", slug: "loblaw", list_url: "https://careers.loblaw.ca/jobs/page/{page}?location_name=Vancouver%2C%20BC%2C%20Canada&location_type=2", page_start: 1, max_pages: 10, link_pattern: '/job/(R\d+)$'}
+  - {name: "Shoppers Drug Mart", slug: "shoppers-drug-mart", list_url: "https://careers.shoppersdrugmart.ca/jobs/page/{page}?location_name=Vancouver%2C%20BC%2C%20Canada&location_type=2", page_start: 1, max_pages: 20, link_pattern: '/job/(R\d+)$'}
 
 # Whole-market feeds (not per company). `queries` defaults to search.keywords.
 feeds:

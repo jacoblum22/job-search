@@ -10,10 +10,19 @@ ICBC, TELUS, Rogers, Teck, Canfor, PCL, Coast Capital, FortisBC, Deloitte...
    "Results 1 – 25 of N". Postings beyond the RSS get their description from
    the job page's schema.org microdata (itemprop="description"), fetched only
    when the title passes `should_hydrate_record`.
+3. Newer "Unify" sites (Teck, Deloitte) render search results in the browser,
+   so /search/ has no rows. Their listing comes from
+   POST https://{host}/services/recruiting/v1/jobs
+   `{"keywords": "", "locale": "en_US", "location": "", "pageNumber": N, "sortBy": "recent"}`
+   -> `{"totalJobs": N, "jobSearchResult": [{"response": {id, unifiedStandardTitle,
+   urlTitle, jobLocationShort[]}}]}`, 10 per page. Job pages are
+   /job/{urlTitle}/{id}-{locale}/ and split the description over several
+   itemprop="description" blocks. Classic sites answer that API with 401.
 """
 
 from __future__ import annotations
 
+import html
 import re
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
@@ -26,12 +35,15 @@ from src.search_match import should_hydrate_record
 from src.sources.ats_common import (
     fetch_boards,
     get_text,
+    join_locations,
     localize,
     location_ok,
+    post_json,
     to_markdown,
 )
 
 MAX_SEARCH_PAGES = 40
+UNIFY_MAX_PAGES = 60  # 10 postings per page
 _TOTAL_RE = re.compile(r"of\s+([\d,]+)")
 
 _TITLE_RE = re.compile(r"^(?P<title>.*?)\s*\((?P<loc>[^()]*)\)\s*$")
@@ -129,12 +141,64 @@ def parse_detail(page: str | None) -> dict:
             return None
         return el.get("content") or el
 
-    desc = prop("description")
+    blocks: list[str] = []
+    for el in soup.find_all(attrs={"itemprop": "description"}):
+        # Unify pages split the posting into header/body/footer blocks (and
+        # some repeat them); classic pages have one.
+        text = el.get("content") if el.get("content") else to_markdown(str(el))
+        if text and text not in blocks:
+            blocks.append(text)
     city, region = prop("addressLocality"), prop("addressRegion")
     return {
-        "description": to_markdown(str(desc)) if desc is not None and not isinstance(desc, str) else (desc or ""),
+        "description": "\n\n".join(blocks),
         "location": ", ".join(str(p) for p in (city, region) if isinstance(p, str) and p),
     }
+
+
+def parse_unify(data: dict | None, base: str, locale: str) -> tuple[list[dict], int]:
+    """Rows (same shape as parse_search) from the Unify jobs API."""
+    rows = []
+    for item in (data or {}).get("jobSearchResult") or []:
+        r = item.get("response") or {}
+        if not r.get("id"):
+            continue
+        places = [re.sub(r"<[^>]+>", "", html.unescape(p)).strip() for p in r.get("jobLocationShort") or []]
+        url_title = html.unescape(r.get("urlTitle") or r.get("unifiedUrlTitle") or "job")
+        rows.append(
+            {
+                "id": str(r["id"]),
+                "title": html.unescape(r.get("unifiedStandardTitle") or ""),
+                "url": f"{base}/job/{url_title}/{r['id']}-{locale}/",
+                "path": "",
+                "location": join_locations(*places),
+                "date": r.get("unifiedStandardStart"),
+            }
+        )
+    return rows, int((data or {}).get("totalJobs") or 0)
+
+
+def _classic_pages(client: httpx.Client, base: str):
+    startrow, total, pages = 0, None, 0
+    while pages < MAX_SEARCH_PAGES and (total is None or startrow < total):
+        rows, total = parse_search(get_text(client, f"{base}/search/", params={"q": "", "startrow": startrow}))
+        if not rows:
+            return
+        yield rows
+        startrow += len(rows)
+        pages += 1
+
+
+def _unify_pages(client: httpx.Client, base: str, locale: str):
+    seen = 0
+    for page in range(UNIFY_MAX_PAGES):
+        body = {"keywords": "", "locale": locale, "location": "", "pageNumber": page, "sortBy": "recent"}
+        rows, total = parse_unify(post_json(client, f"{base}/services/recruiting/v1/jobs", body), base, locale)
+        if not rows:
+            return
+        yield rows
+        seen += len(rows)
+        if seen >= total:
+            return
 
 
 def _fetch_one(client: httpx.Client, board: dict, search: dict | None) -> list[Job]:
@@ -144,16 +208,18 @@ def _fetch_one(client: httpx.Client, board: dict, search: dict | None) -> list[J
         params["keywords"] = f"({board['keywords']})"
     jobs = {j.external_id: j for j in parse_feed(get_text(client, f"{base}/services/rss/job/", params=params, headers=RSS_HEADERS), board)}
 
-    startrow, total, pages = 0, None, 0
-    while pages < MAX_SEARCH_PAGES and (total is None or startrow < total):
-        rows, total = parse_search(get_text(client, f"{base}/search/", params={"q": "", "startrow": startrow}))
-        if not rows:
-            break
+    pages = _classic_pages(client, base)
+    first = next(pages, None)
+    if first is None:  # no server-rendered rows: a Unify site
+        pages = _unify_pages(client, base, params["locale"])
+    else:
+        pages = iter([first, *pages])
+    for rows in pages:
         for row in rows:
             if row["id"] in jobs:
                 continue
             location = localize(row["location"], board)
-            multi = "more" in row["location"].lower()  # "Kamloops, BC +5 more…"
+            multi = "more" in row["location"].lower() or ";" in row["location"]  # "Kamloops, BC +5 more…"
             if row["location"] and not multi and not location_ok(location):
                 continue
             if search and not should_hydrate_record(row["title"], search, company=board["name"], location=location):
@@ -176,8 +242,6 @@ def _fetch_one(client: httpx.Client, board: dict, search: dict | None) -> list[J
                 posted_date=None,
                 raw={"listed_date": row["date"]},
             )
-        startrow += len(rows)
-        pages += 1
     return list(jobs.values())
 
 
