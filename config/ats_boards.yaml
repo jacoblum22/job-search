@@ -81,6 +81,11 @@ workday:
     wd: "wd3"
     site: "Experienced-Jobs"
     location_filter: *bc_locations
+  - name: "TD"
+    tenant: "td"
+    wd: "wd3"
+    site: "TD_Bank_Careers"
+    location_filter: *bc_locations
   - name: "Capilano University"
     tenant: "capilanou"
     wd: "wd10"
