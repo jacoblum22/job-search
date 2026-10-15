@@ -11,8 +11,10 @@ own signed-in Chrome:
     python scripts/browser_queue.py fail ID         # page gone / no description / bot check
     python scripts/browser_queue.py dashboard       # rebuild dashboard.html afterwards
 
-CareerJet is deliberately excluded: its links sit behind a Cloudflare bot
-check, and the browser session must not be used to get past one.
+CareerJet links block plain HTTP fetches but open in a real browser
+(4/5 in testing, 2026-10-15; added at Jake's request). The browser session
+must never solve or interact with a CAPTCHA or bot check; a page that still
+shows one after its own short wait is marked failed.
 
 Standard library only, so it runs from any Python that can see the folder.
 """
@@ -31,7 +33,7 @@ DEFAULT_DB = PROJECT_ROOT / "jobs.db"
 
 SNIPPET_MAX_CHARS = 1000  # same threshold as src/enrich.py
 MIN_FULL_CHARS = 300
-BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor")
+BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet")
 RETRY_AFTER = timedelta(days=3)
 
 ATTEMPTS_SCHEMA = """
