@@ -303,8 +303,10 @@ INTERNSHIP_TITLE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Not "assistant" or "coordinator": they pulled in Pharmacy Assistant and
+# Events Coordinator listings that never matched a keyword after the fetch.
 _EARLY_CAREER_TITLE_RE = re.compile(
-    r"\b(junior|new[\s-]?grad|graduates?|entry[\s-]level|analyst|coordinator|assistant)\b",
+    r"\b(junior|new[\s-]?grad|graduates?|entry[\s-]level|analyst)\b",
     re.IGNORECASE,
 )
 

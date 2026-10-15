@@ -210,3 +210,13 @@ def test_broad_fetch_title_terms_respect_exclusions():
     assert not should_hydrate_record("Senior Data Operations Specialist", search)
     assert not should_hydrate_record("HR Business Partner", search)
     assert not should_hydrate_record("Database of Nothing Manager", search)
+
+
+def test_assistant_and_coordinator_titles_are_not_fetched_on_their_own():
+    from src.search_match import should_hydrate_record
+
+    search = {"keywords": ["data analyst"]}
+    assert not should_hydrate_record("Pharmacy Assistant", search)
+    assert not should_hydrate_record("Events Coordinator", search)
+    assert should_hydrate_record("Junior Accountant", search)
+    assert should_hydrate_record("Entry Level Marketing", search)
