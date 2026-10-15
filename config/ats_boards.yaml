@@ -404,7 +404,7 @@ icims:
   - {name: "Persistent Systems", slug: "persistent-systems", host: "careers-persistentsystems.icims.com"}
 
 successfactors:
-  - {name: "SAP", slug: "sap", host: "jobs.sap.com"}
+  # SAP moved jobs.sap.com to a custom Next.js site (no RSS or /search/), so it is left out.
   - {name: "ICBC", slug: "icbc", host: "careers.icbc.com"}
   - {name: "TELUS", slug: "telus", host: "careers.telus.com"}
   - {name: "Rogers", slug: "rogers", host: "jobs.rogers.com"}
