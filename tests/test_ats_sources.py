@@ -207,3 +207,30 @@ def test_shipped_board_list_names_are_not_vancouver_words():
         assert normalize_boards(data[platform]), platform
     assert set(data) - {"bc_locations", "workday", "feeds"} <= set(BOARD_PLATFORMS)
     assert set(data["feeds"]) <= set(FEEDS)
+
+
+def test_dashboard_refreshes_after_each_source(tmp_path, monkeypatch):
+    from src.db import Job
+
+    module = _aggregate_module()
+    dashboard = tmp_path / "dashboard.html"
+    seen_on_disk = []
+
+    def job(ext):
+        return Job(source="t", external_id=ext, title=f"Data Analyst {ext}", company="C", location="Vancouver, BC",
+                   description="Analyze data with SQL and Python. " * 20)
+
+    def first(boards, search):
+        return [job("first")]
+
+    def second(boards, search):
+        seen_on_disk.append(dashboard.read_text(encoding="utf-8") if dashboard.exists() else "")
+        return [job("second")]
+
+    monkeypatch.setattr(module, "BOARD_PLATFORMS", {"a": first, "b": second})
+    cfg = {"search": {"keywords": ["data analyst"]}, "enrich": {"enabled": False},
+           "ats_boards": {"a": ["x"], "b": ["y"]}}
+    module.run(cfg, db_path=tmp_path / "jobs.db", dashboard_path=dashboard, xlsx_path=tmp_path / "x.xlsx",
+               skip_workday=True, skip_apis=True, skip_email=True, workday_limit=0)
+    assert "Data Analyst first" in seen_on_disk[0]
+    assert "Data Analyst second" in dashboard.read_text(encoding="utf-8")

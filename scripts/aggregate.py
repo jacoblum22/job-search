@@ -2,7 +2,7 @@
 
 Pulls from Workday sources + the API sources (Adzuna, CareerJet) + Gmail
 email-alert sources (LinkedIn/Indeed/Glassdoor), dedups everything, and
-regenerates the dashboard + xlsx export.
+regenerates the dashboard (after each source, and again at the end) + xlsx export.
 """
 
 from __future__ import annotations
@@ -118,6 +118,11 @@ def run(
 
     max_days = max_age_days(cfg)
     pruned = pruned_keys(conn)
+    # Prune first, so the dashboard refreshed after each source never shows them.
+    removed = prune(conn, max_days)
+    if removed:
+        log.info("Deleted %d job(s) older than %d days", removed, max_days)
+    conn.commit()
 
     def wanted(j) -> bool:
         return should_hydrate_record(j.title, search, company=j.company, location=j.location)
@@ -154,6 +159,19 @@ def run(
         for j in kept:
             _, was_new = upsert_job(conn, j)
             new_count += was_new
+        if kept:
+            refresh_dashboard()
+
+    def refresh_dashboard() -> None:
+        # Save and redraw after every source, so a long run shows results as it
+        # goes instead of only at the end. Dedup and the xlsx still wait for the end.
+        conn.commit()
+        try:
+            rescore_all(conn, cfg.get("score", {}))
+            conn.commit()
+            generate_dashboard(conn, dashboard_path)
+        except Exception:
+            log.exception("Dashboard refresh failed — continuing")
 
     if not skip_apis:
         api_cfg = cfg.get("api_sources", {})
@@ -236,9 +254,6 @@ def run(
             except Exception:
                 log.exception("%s fetch failed — continuing with other sources", fetch_fn.__module__)
 
-    removed = prune(conn, max_days)
-    if removed:
-        log.info("Deleted %d job(s) older than %d days", removed, max_days)
     conn.commit()
     log.info("Fetched %d jobs total (%d new)", total_fetched, new_count)
 
