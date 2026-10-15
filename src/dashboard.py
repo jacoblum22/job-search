@@ -53,6 +53,12 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .cat-vancouver { background: var(--new); }
   .cat-remote { background: var(--accent); }
   .cat-other { background: var(--dismissed); }
+  .tier-A { background: var(--new); }
+  .tier-B { background: var(--accent); }
+  .tier-C { background: var(--panel); border: 1px solid var(--border); }
+  .tier-D, .tier-skip { background: var(--dismissed); }
+  .score { white-space: nowrap; cursor: help; }
+  label.chk { color: var(--muted); font-size: 13px; display: flex; gap: 6px; align-items: center; }
   .wrap { max-width: 1400px; margin: 0 auto; }
   #count { color: var(--muted); font-size: 13px; margin-left: auto; }
   .tabs { display: flex; gap: 4px; padding: 12px 24px 0; border-bottom: 1px solid var(--border); }
@@ -84,6 +90,15 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <select id="sourceFilter">
     <option value="">All sources</option>
   </select>
+  <select id="tierFilter">
+    <option value="">All tiers</option>
+    <option value="A">Tier A (60+)</option>
+    <option value="B">Tier B (40-59)</option>
+    <option value="C">Tier C (20-39)</option>
+    <option value="D">Tier D (&lt;20)</option>
+    <option value="skip">Skipped</option>
+  </select>
+  <label class="chk"><input type="checkbox" id="hideSkipped" checked> Hide skipped</label>
   <select id="locationFilter">
     <option value="">All locations</option>
     <option value="vancouver">Vancouver-area</option>
@@ -95,6 +110,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <table id="jobsTable">
   <thead>
     <tr>
+      <th data-key="score_sort">Score</th>
       <th data-key="title">Title</th>
       <th data-key="company">Company</th>
       <th data-key="location">Location</th>
@@ -122,7 +138,7 @@ for (const s of allSources) {
   sourceFilterEl.appendChild(opt);
 }
 
-let sortKey = 'posted_sort', sortDir = -1;
+let sortKey = 'score_sort', sortDir = -1;
 // The page auto-reloads, so keep the chosen tab in the URL hash.
 let activeTab = location.hash === '#fulltime' ? 'fulltime' : 'internship';
 
@@ -153,6 +169,8 @@ function render() {
   const status = document.getElementById('statusFilter').value;
   const source = sourceFilterEl.value;
   const locationCat = document.getElementById('locationFilter').value;
+  const tier = document.getElementById('tierFilter').value;
+  const hideSkipped = document.getElementById('hideSkipped').checked;
 
   updateTabs();
   let filtered = jobs.filter(j => {
@@ -160,6 +178,8 @@ function render() {
     if (status && j.status !== status) return false;
     if (source && !j.sources.includes(source)) return false;
     if (locationCat && j.location_category !== locationCat) return false;
+    if (tier && j.tier !== tier) return false;
+    if (hideSkipped && tier !== 'skip' && j.tier === 'skip') return false;
     if (q) {
       const hay = (j.title + ' ' + j.company + ' ' + j.location).toLowerCase();
       if (!hay.includes(q)) return false;
@@ -185,7 +205,9 @@ function render() {
       ? `<a href="${escapeHtml(safeLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j.title)}</a>`
       : escapeHtml(j.title);
     const srcBadges = j.sources.map(s => `<span class="badge src">${escapeHtml(s)}</span>`).join('');
+    const scoreText = j.tier === 'skip' ? 'skip' : (j.score ?? '');
     return `<tr>
+      <td class="score" title="${escapeHtml(j.score_reasons)}"><span class="badge tier-${escapeHtml(j.tier)}">${escapeHtml(j.tier)}</span> ${escapeHtml(String(scoreText))}</td>
       <td>${titleCell}</td>
       <td>${escapeHtml(j.company)}</td>
       <td>${escapeHtml(j.location)}</td>
@@ -210,6 +232,8 @@ document.querySelectorAll('th[data-key]').forEach(th => {
 document.getElementById('search').addEventListener('input', render);
 document.getElementById('statusFilter').addEventListener('change', render);
 document.getElementById('locationFilter').addEventListener('change', render);
+document.getElementById('tierFilter').addEventListener('change', render);
+document.getElementById('hideSkipped').addEventListener('change', render);
 sourceFilterEl.addEventListener('change', render);
 
 render();
@@ -246,6 +270,8 @@ def generate_dashboard(conn: sqlite3.Connection, output_path: str | Path) -> Pat
     for r in rows:
         r["posted_sort"] = _sort_date(r.get("posted_date"), r.get("first_seen"))
         r["job_type"] = "internship" if _INTERNSHIP_RE.search(r["title"]) else "fulltime"
+        # Skipped / never-scored rows sort below every real score.
+        r["score_sort"] = r["score"] if r.get("score") is not None else -9999
 
     all_sources = sorted({s for r in rows for s in r["sources"]})
     generated_at = escape(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))

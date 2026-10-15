@@ -9,7 +9,7 @@ scraper:
 # event coordinator, …), and level terms. Workday and email alerts return
 # unfiltered postings; titles *or* descriptions must match the same phrase
 # table. All sources then drop senior titles, max_years_experience, and
-# on-site jobs outside Metro Vancouver (remote Canada is kept).
+# on-site jobs outside Metro Vancouver (remote Canada and remote US are kept).
 #
 # `location` is the primary geo for API search. `remote_sweep_location` is a
 # second pass that only keeps postings classified as remote — so a Vancouver
@@ -20,27 +20,86 @@ search:
   location: "Vancouver, BC"
   remote_sweep_location: "Canada"
   require_relevant_location: true
+  # Target: entry-level data science / data analyst / BI / ML / software roles.
   keywords:
-    - "Public affairs"
-    - "Talent acquisition"
-    - "Indigenous Relations"
-    - "Events"
-    - "Market Intelligence"
-    - "Market Research"
-    - "Business strategy"
-    - "Business Development"
-    - "Business Analyst"
-    - "Human Resources"
-    - "Campus Recruitment"
-  level_terms:          # API queries: internships, co-op, new-grad, entry-level
-    - "intern"
-    - "internship"
-    - "co-op"
-    - "coop"
-    - "new grad"
-    - "entry level"
-    - "student"
+    - "Data Scientist"
+    - "Data Analyst"
+    - "Data Science"
+    - "Machine Learning"
+    - "Business Intelligence"
+    - "Analytics"
+    - "Data Engineer"
+    - "Software Engineer"
+    - "Software Developer"
+    - "Python Developer"
+  level_terms:          # API queries: early-career levels (not internships)
     - "junior"
+    - "entry level"
+    - "new grad"
+    - "associate"
+  # Extra title phrases per keyword (merged with DEFAULT_ALIASES in search_match.py)
+  keyword_aliases:
+    "Data Scientist":
+      - "associate data scientist"
+      - "junior data scientist"
+      - "data science analyst"
+      - "applied scientist"
+      - "decision scientist"
+    "Data Analyst":
+      - "data analytics"
+      - "analytics analyst"
+      - "reporting analyst"
+      - "insights analyst"
+      - "bi analyst"
+      - "product analyst"
+      - "marketing analyst"
+      - "quantitative analyst"
+      - "junior analyst"
+      - "research analyst"
+      - "data specialist"
+    "Machine Learning":
+      - "ml engineer"
+      - "machine learning engineer"
+      - "ai engineer"
+      - "mlops"
+      - "nlp engineer"
+      - "computer vision"
+      - "ai developer"
+    "Business Intelligence":
+      - "bi developer"
+      - "power bi"
+      - "tableau developer"
+      - "looker"
+    "Analytics":
+      - "analytics engineer"
+      - "analytics developer"
+      - "growth analyst"
+      - "customer analytics"
+    "Software Engineer":
+      - "software developer"
+      - "full stack"
+      - "full-stack"
+      - "backend developer"
+      - "back-end developer"
+      - "programmer analyst"
+      - "new grad software"
+  # Replaces PRIORITY_API_QUERIES in search_match.py (those are HR/events-focused)
+  extra_api_queries:
+    - "junior data scientist"
+    - "associate data scientist"
+    - "junior data analyst"
+    - "entry level data analyst"
+    - "business intelligence analyst"
+    - "BI analyst"
+    - "reporting analyst"
+    - "product analyst"
+    - "analytics engineer"
+    - "machine learning engineer junior"
+    - "junior python developer"
+    - "new grad software engineer"
+    - "SQL analyst"
+    - "Looker analyst"
+    - "BigQuery"
   exclude_title_terms:
     - "senior"
     - "sr"
@@ -56,7 +115,13 @@ search:
     - "ux"
     - "ui/ux"
     - "user experience"
-  max_years_experience: 2
+    - "staff"
+    - "architect"
+    - "trainer"     # AI-trainer / annotation gigs
+    - "annotator"
+    - "tutor"
+  # Stored up to 5 years; 3-5 is a score penalty, not a drop (see score: below).
+  max_years_experience: 5
 
 # ─── API job-board aggregators (Adzuna, CareerJet) ─────────────────
 # Each keyword is run as a separate search query per API, per location.
@@ -71,7 +136,7 @@ api_sources:
   careerjet:
     enabled: true
     locale_code: "en_CA"
-    referer: "https://martinuydesign.framer.website"  # must match the site registered on the publisher dashboard
+    referer: "https://jacoblum.com"  # must match the site registered on the publisher dashboard
 
 # ─── Email-alert sources (LinkedIn/Indeed/Glassdoor via Gmail) ────────
 # Job-alert emails are forwarded from an Outlook inbox to Gmail. Outlook's
@@ -245,7 +310,181 @@ sources:
     site: "loblaw_careers"
     enabled: false  # ~1 job total
 
-# ─── Tier Classification ────────────────────────────────────────────
+# ─── Fit score (src/score.py) ──────────────────────────────────────
+# Points system run over every job in jobs.db on each aggregator run, before
+# the dashboard is built. The dashboard shows the score, its tier, and the
+# reasons. Edit weights here and re-run `python scripts/rescore.py` to see the
+# effect without scraping.
+
+score:
+  # Hard skips (tier "skip", no score)
+  skip_years_over: 5          # more than 5 years required
+  skip_other_locations: true  # not Vancouver-area or remote
+  skip_title_terms:
+    - "senior"
+    - "sr."
+    - "sr"
+    - "staff"
+    - "principal"
+    - "lead"
+    - "manager"
+    - "director"
+    - "head of"
+    - "vice president"
+    - "architect"
+    - "business development"
+    - "talent acquisition"
+    - "recruiter"
+    - "recruitment"
+    - "human resources"
+    - "hr"
+    - "people & culture"
+    - "customer service"
+    - "sales"
+    - "account executive"
+    - "administrative assistant"
+    - "event coordinator"
+    - "pathologists' assistant"
+    - "nurse"
+    - "embedded"
+    - "firmware"
+    - "trainer"
+    - "annotator"
+    - "tutor"
+    # Jake graduated May 2026, so student-only roles are out
+    - "intern"
+    - "internship"
+    - "co-op"
+    - "coop"
+    - "student"
+    - "undergraduate"
+    - "practicum"
+    - "work term"
+  # Regexes over the description; any hit = skip (remote US that needs US residence)
+  skip_description_patterns:
+    - "must (?:reside|live|be located|be based) (?:in|within) the (?:U\\.?S\\.?A?\\.?|United States)"
+    - "(?:U\\.?S\\.?|United States)[- ]based (?:candidates|applicants) only"
+    - "only (?:considering|accepting) (?:candidates|applicants) (?:located|residing|based) in the (?:U\\.?S\\.?|United States)"
+    - "(?:reside|located|live) in (?:one of )?the following (?:U\\.?S\\.? )?states"
+
+  # Title family: only the best-matching family counts
+  title_families:
+    - name: "data science"
+      points: 35
+      keywords: ["data scientist", "data science", "decision scientist", "applied scientist", "machine learning scientist"]
+    - name: "data analyst"
+      points: 32
+      keywords: ["data analyst", "data analytics", "analytics analyst", "bi analyst", "business intelligence", "reporting analyst", "insights analyst", "product analyst", "analytics engineer", "sql analyst", "marketing analyst", "growth analyst", "customer analytics", "quantitative analyst", "data specialist", "business analytics", "analytics specialist", "analytics developer"]
+    - name: "ML / AI"
+      points: 30
+      keywords: ["machine learning", "ml engineer", "ai engineer", "ai developer", "mlops", "nlp", "llm", "computer vision", "applied ai"]
+    - name: "data engineering"
+      points: 22
+      keywords: ["data engineer", "etl developer", "bi developer", "bi engineer", "business intel engineer"]
+    - name: "software"
+      points: 20
+      keywords: ["software engineer", "software developer", "software development engineer", "python developer", "backend developer", "back-end developer", "full stack", "full-stack", "programmer analyst", "web developer"]
+    - name: "general analyst"
+      points: 12
+      keywords: ["business analyst", "research analyst", "analyst"]
+
+  entry_level:
+    title_points: 15
+    title_keywords: ["junior", "jr.", "jr", "entry level", "entry-level", "new grad", "new graduate", "graduate", "associate", "level i", "level 1", "i"]
+    description_points: 8
+    description_keywords: ["new grad", "new graduate", "recent graduate", "recent graduates", "entry-level", "entry level", "early career", "early-career", "0-2 years", "0–2 years", "1-2 years", "1+ years", "no experience required"]
+
+  seniority:
+    title_penalties:          # first match only
+      - keywords: ["iii", "iv", "3", "level 3", "level iii"]
+        points: -25
+      - keywords: ["ii", "2", "level 2", "level ii", "intermediate"]
+        points: -10
+    years_penalties:          # by minimum years the posting asks for
+      - {min: 0, max: 2, points: 5}
+      - {min: 3, max: 3, points: -10}
+      - {min: 4, max: 4, points: -15}
+      - {min: 5, max: 5, points: -25}
+
+  # Skills in title + description, weighted by how strong Jake's evidence is
+  # (experience-vault/skills-map.md). Sum is capped.
+  skills:
+    have_cap: 40
+    have:
+      "sql": 8
+      "bigquery": 8
+      "python": 6
+      "looker": 6
+      "dashboard": 4
+      "pandas": 4
+      "scikit-learn": 4
+      "sklearn": 4
+      "xgboost": 3
+      "statistics": 3
+      "statistical": 3
+      "machine learning": 3
+      "data modeling": 3
+      "data modelling": 3
+      "star schema": 3
+      "data warehouse": 3
+      "etl": 3
+      "data quality": 3
+      "churn": 3
+      "survival analysis": 3
+      "a/b test": 2
+      "a/b testing": 2
+      "google sheets": 2
+      "apps script": 3
+      "pytorch": 3
+      "deep learning": 2
+      "llm": 3
+      "large language model": 3
+      "nlp": 2
+      "fastapi": 3
+      "docker": 2
+      "git": 2
+      "jupyter": 2
+      "numpy": 2
+      "e-commerce": 3
+      "ecommerce": 3
+      "shopify": 3
+      "stakeholders": 2
+      "typescript": 2
+      "react": 2
+    gap_cap: 15
+    gaps:
+      "spark": -3
+      "pyspark": -3
+      "scala": -4
+      "hadoop": -3
+      "kubernetes": -3
+      "airflow": -2
+      "databricks": -2
+      "snowflake": -2
+      "dbt": -2
+      "c++": -3
+      "java": -2
+      ".net": -3
+      "c#": -3
+      "golang": -3
+      "kafka": -2
+      "phd": -6
+      "master's degree required": -4
+
+  location_points:
+    vancouver: 5
+    remote: 0
+
+  short_description_chars: 300
+
+  # Score bands → tier shown on the dashboard (first match wins)
+  tiers:
+    - {tier: "A", min: 60}
+    - {tier: "B", min: 40}
+    - {tier: "C", min: 20}
+    - {tier: "D", min: -1000}
+
+# ─── Tier Classification (old UBC scraper, scripts/scrape.py only) ────────────────────────────────────────────
 
 tier:
   # Jobs requiring MORE than this many years experience → LOW tier
@@ -409,6 +648,13 @@ tier:
     - "Junior Analyst"
     - "Co-op"
     - "Intern"
+    # Analytics / BI (current Associate Data Scientist work)
+    - "Analytics"
+    - "Business Intelligence"
+    - "BI"
+    - "Insights"
+    - "Data Specialist"
+    - "Python"
 
   # Description keywords for HIGH tier (need ≥2 matches, word-boundary matching)
   # These catch generic titles like "Research Assistant" that involve your skills
@@ -439,6 +685,18 @@ tier:
     - "data science"
     - "statistical analysis"
     - "R programming"
+    - "BigQuery"
+    - "Looker"
+    - "Tableau"
+    - "Power BI"
+    - "dbt"
+    - "pandas"
+    - "scikit-learn"
+    - "churn"
+    - "A/B test"
+    - "GCP"
+    - "Google Cloud"
+    - "predictive model"
 
   # Title keywords that trigger MID-HIGH tier (B tier)
   # Good secondary fit: easy entry-level jobs you could pick up quickly

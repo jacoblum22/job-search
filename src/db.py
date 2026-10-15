@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     years_experience INTEGER,
     location_category TEXT,
     raw TEXT,
+    score INTEGER,
+    score_reasons TEXT,
     UNIQUE(source, external_id)
 );
 
@@ -96,7 +98,20 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    _add_missing_columns(conn)
     return conn
+
+
+# Columns added after the first release; CREATE TABLE IF NOT EXISTS won't add
+# them to an existing jobs.db, so ALTER them in.
+_LATER_COLUMNS = {"score": "INTEGER", "score_reasons": "TEXT"}
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    existing = {r[1] for r in conn.execute("PRAGMA table_info(jobs)")}
+    for col, typ in _LATER_COLUMNS.items():
+        if col not in existing:
+            conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {typ}")
 
 
 def upsert_job(conn: sqlite3.Connection, job: Job) -> tuple[int, bool]:
@@ -258,6 +273,8 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
                 "status": status,
                 "years_experience": years_experience,
                 "tier": primary["tier"],
+                "score": primary["score"],
+                "score_reasons": primary["score_reasons"],
                 "posted_date": primary["posted_date"],
                 "first_seen": min(m["first_seen"] for m in members),
                 "last_seen": max(m["last_seen"] for m in members),
