@@ -188,3 +188,9 @@ def test_should_hydrate_skips_hvac_and_keeps_intern():
     assert not should_hydrate_record("Facilities HVAC Technician", s, company="City of Vancouver")
     assert should_hydrate_record("Recruiter", s)
     assert should_hydrate_record("Co-op Student, Information Systems", s)
+
+
+def test_graduate_program_titles_are_worth_a_fetch():
+    from src.search_match import should_hydrate_record
+
+    assert should_hydrate_record("2K Games – Engineering Graduate Program – Vancouver", {"keywords": ["data analyst"]})
