@@ -45,3 +45,8 @@ def test_bc_qualified_locations_stay_local():
     assert classify_location("Richmond, BC") == "vancouver"
     assert classify_location("Vancouver, British Columbia, Canada") == "vancouver"
     assert classify_location("Greater Vancouver, British Columbia") == "vancouver"
+
+
+def test_multi_location_judged_per_place():
+    assert classify_location("Toronto, Canada; Vancouver, Canada; Louisville, United States") == "vancouver"
+    assert classify_location("Richmond, VA; Austin, TX") == "other"

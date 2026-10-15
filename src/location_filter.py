@@ -89,11 +89,17 @@ def _names_other_region(location: str) -> bool:
     return bool(_OTHER_REGION_NAMES.search(location))
 
 
+# Multi-location postings join places with ";" (ats_common.join_locations) or
+# "|"; each place is judged on its own, so "Vancouver, Canada; Louisville,
+# United States" still counts as local.
+_PLACE_SEP = re.compile(r"[;|]")
+
+
 def is_vancouver_area(location: str) -> bool:
-    loc = (location or "").lower()
-    if not any(kw in loc for kw in VANCOUVER_KEYWORDS):
-        return False
-    return not _names_other_region(location or "")
+    for place in _PLACE_SEP.split(location or ""):
+        if any(kw in place.lower() for kw in VANCOUVER_KEYWORDS) and not _names_other_region(place):
+            return True
+    return False
 
 
 def is_remote(location: str) -> bool:
