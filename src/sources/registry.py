@@ -21,7 +21,6 @@ from src.sources.icims import fetch_icims_jobs
 from src.sources.jibe import fetch_jibe_jobs
 from src.sources.jobbank import fetch_jobbank_jobs
 from src.sources.jobvite import fetch_jobvite_jobs
-from src.sources.jooble import fetch_jooble_jobs
 from src.sources.jsonld_board import fetch_jsonld_board_jobs
 from src.sources.lever import fetch_lever_jobs
 from src.sources.oracle_hcm import fetch_oracle_jobs
@@ -61,6 +60,7 @@ BOARD_PLATFORMS: dict[str, BoardFetcher] = {
     "jobvite": lambda b, s: fetch_jobvite_jobs(b),
     "jazzhr": lambda b, s: fetch_jsonld_board_jobs([{**x, "kind": "jazzhr"} for x in b], search=s),
     "humi": lambda b, s: fetch_jsonld_board_jobs([{**x, "kind": "humi"} for x in b], search=s),
+    "html": lambda b, s: fetch_jsonld_board_jobs([{**x, "kind": "html"} for x in b], search=s),
 }
 
 FEEDS: dict[str, FeedFetcher] = {
@@ -69,7 +69,4 @@ FEEDS: dict[str, FeedFetcher] = {
     ),
     "bcps": lambda o, s, q: fetch_bcps_jobs(search=s),
     "hn": lambda o, s, q: fetch_hn_jobs(),
-    "jooble": lambda o, s, q: fetch_jooble_jobs(
-        queries=o.get("queries") or q, location=o.get("location", "Vancouver, BC"), max_pages=o.get("max_pages", 2)
-    ),
 }

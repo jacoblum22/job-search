@@ -21,7 +21,6 @@ from src.sources import (
     jibe,
     jobbank,
     jobvite,
-    jooble,
     jsonld_board,
     oracle_hcm,
     peoplesoft,
@@ -301,23 +300,6 @@ def test_dayforce_next_data_detail():
     assert kwargs["headers"] == {"X-CSRF-TOKEN": "tok123"}
 
 
-def test_jooble_skips_without_key(monkeypatch):
-    monkeypatch.delenv("JOOBLE_API_KEY", raising=False)
-    assert jooble.fetch_jooble_jobs(queries=["data analyst"], location="Vancouver, BC") == []
-
-
-def test_jooble_posts_and_filters():
-    client = FakeClient(
-        [("jooble.org/api/", {"totalCount": 2, "jobs": [
-            {"id": 1, "title": "Data Analyst", "location": "Vancouver, BC", "snippet": "<b>SQL</b>", "link": "https://x/1"},
-            {"id": 2, "title": "Data Analyst", "location": "Toronto, ON", "snippet": "", "link": "https://x/2"},
-        ]})]
-    )
-    jobs = jooble.fetch_jooble_jobs(queries=["data analyst"], location="Vancouver, BC", api_key="k", max_pages=1, client=client)
-    assert [j.external_id for j in jobs] == ["1"]
-    assert client.calls[0][0] == "POST"
-
-
 # --- smaller ATS platforms -------------------------------------------------
 
 
@@ -375,3 +357,65 @@ def test_jazzhr_and_humi_links_then_jsonld():
     jobs = jsonld_board.fetch_jsonld_board_jobs([humi], search=SEARCH, client=client)
     assert all(j.source == "humi:comm100" for j in jobs)
     assert all("Account Executive" not in j.title for j in jobs)  # title gate skipped sales roles
+
+
+def test_html_board_phsa_search_pages_with_jsonld_details():
+    board = {
+        "slug": "phsa",
+        "name": "PHSA",
+        "kind": "html",
+        "list_url": "https://jobs.phsa.ca/jobs?search_api_fulltext={query}&page={page}",
+        "link_pattern": r"^/job/([a-z0-9-]+)$",
+        "max_pages": 4,
+        "browser_user_agent": True,
+    }
+    client = FakeClient([("jobs.phsa.ca/job/", text("phsa_job.html")), ("search_api_fulltext=analyst&page=0", text("phsa_search.html"))])
+    jobs = jsonld_board.fetch_jsonld_board_jobs([board], search=SEARCH, client=client)
+    # PHSA's CloudFront 403s the bot User-Agent, so every request sends a browser one.
+    assert all(kw["headers"]["User-Agent"].startswith("Mozilla/") for _, _, kw in client.calls)
+    assert jobs and all(j.source == "html:phsa" for j in jobs)
+    assert jobs[0].location == "Burnaby, British Columbia, Canada"
+    assert len(jobs[0].description) > 5000
+    # page 1 of "analyst" 404s, so paging stops there
+    assert any("analyst&page=1" in url for _, url, _ in client.calls)
+    assert not any("analyst&page=2" in url for _, url, _ in client.calls)
+
+
+def test_html_board_without_jsonld_uses_page_text():
+    poly = {"slug": "polygon-homes", "name": "Polygon Homes", "kind": "html", "list_url": "https://polyhomes.com/careers/",
+            "link_pattern": r"/careers/([a-z0-9-]+)/?$", "fallback_location": "Vancouver, BC"}
+    client = FakeClient([("/careers/digital-ai-analyst/", text("polygon_job.html")), ("polyhomes.com/careers/", text("polygon_list.html"))])
+    jobs = jsonld_board.fetch_jsonld_board_jobs([poly], search=SEARCH, client=client)
+    assert [j.title for j in jobs] == ["Digital & AI Analyst (12-Month Contract)"]
+    assert jobs[0].location == "Vancouver, BC"
+    assert "Director of Digital & AI" in jobs[0].description
+    assert "careers@polyhomes.com" in jobs[0].description
+
+
+def test_html_board_title_separator_gives_location():
+    glot = {"slug": "glotman-simpson", "name": "Glotman Simpson", "kind": "html", "list_url": "https://glotmansimpson.com/careers",
+            "link_pattern": r"/career/([a-z0-9-]+)/?$", "title_separator": "•", "fallback_location": "Vancouver, BC"}
+    client = FakeClient([("/career/", text("glotman_job.html")), ("glotmansimpson.com/careers", text("glotman_list.html"))])
+    jobs = jsonld_board.fetch_jsonld_board_jobs([glot], client=client)
+    assert jobs and all(j.location == "Vancouver Office" for j in jobs)
+    assert not any("los-angeles" in j.url or "victoria" in j.url for j in jobs)
+    assert len(jobs[0].description) > 1000
+
+
+def test_html_board_exclude_pattern_checks_page_title():
+    # Leith Wheeler's list only says "View Details" and the slug omits the office.
+    board = {"slug": "leith-wheeler", "name": "Leith Wheeler", "kind": "html", "list_url": "https://lw.example/careers",
+             "link_pattern": r"/career/([^/?#]+)$", "fallback_location": "Vancouver, BC", "exclude_pattern": "montr"}
+    listing = '<a href="/career/portfolio-administrator">View Details</a><a href="/career/analyst">View Details</a>'
+
+    def page(title):
+        body = "".join(f"<p>Responsibility number {i} for this role, described at some length.</p>" for i in range(8))
+        return f'<html><head><meta property="og:title" content="{title} | Leith Wheeler"></head><body><main>{body}</main></body></html>'
+
+    client = FakeClient([
+        ("/career/portfolio-administrator", page("Portfolio Administrator, Montréal Office")),
+        ("/career/analyst", page("Analyst, Mutual Fund Operations")),
+        ("lw.example/careers", listing),
+    ])
+    jobs = jsonld_board.fetch_jsonld_board_jobs([board], client=client)
+    assert [j.title for j in jobs] == ["Analyst, Mutual Fund Operations"]

@@ -7,6 +7,7 @@ posting with the full HTML description, location and date. `company_id` (the
 
 from __future__ import annotations
 
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
@@ -66,5 +67,17 @@ def _fetch_one(client: httpx.Client, board: dict) -> list[Job]:
     return parse_feed(get_text(client, FEED, params={"c": board["company_id"]}), board)
 
 
-def fetch_jobvite_jobs(boards: list, *, client: httpx.Client | None = None) -> list[Job]:
-    return fetch_boards("Jobvite", boards, _fetch_one, client=client)
+BOARD_PAUSE = 5  # seconds; app.jobvite.com answers 429 to back-to-back boards
+
+
+def fetch_jobvite_jobs(boards: list, *, client: httpx.Client | None = None, pause: float = BOARD_PAUSE) -> list[Job]:
+    seen = 0
+
+    def fetch_one(client: httpx.Client, board: dict) -> list[Job]:
+        nonlocal seen
+        if seen and pause:
+            time.sleep(pause)
+        seen += 1
+        return _fetch_one(client, board)
+
+    return fetch_boards("Jobvite", boards, fetch_one, client=client)
