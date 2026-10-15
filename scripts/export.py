@@ -3,9 +3,13 @@
 Converts cover letter markdown files into professionally formatted Word
 documents and (on Windows) converts those to PDF via Word COM automation.
 
+Incremental by default: only rebuilds when the markdown is newer than
+its docx/pdf siblings.
+
 Usage:
-    uv run python scripts/export.py                        # convert all .md in cover_letters/
-    uv run python scripts/export.py cover_letters/foo.md   # convert specific file(s)
+    uv run python scripts/export.py                        # incremental: only modified
+    uv run python scripts/export.py --force                # rebuild all
+    uv run python scripts/export.py path/to/letter.md   # convert specific file(s)
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ import sys
 import time
 from pathlib import Path
 
+import yaml
 from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -28,13 +33,22 @@ FONT_SIZE_BODY = Pt(11)
 FONT_SIZE_HEADER = Pt(10)
 LINE_SPACING = 1.15
 
-CONTACT = {
-    "name": "Jake Andersen-Lum",
-    "email": "jacobdavidandersenlum@gmail.com",
-    "phone": "XXX-XXX-XXXX",
-    "linkedin": "linkedin.com/in/jacob-andersen-lum",
-    "github": "github.com/jacoblum22",
-}
+CONTACT_PATH = Path(__file__).resolve().parent.parent / "config" / "contact.yaml"
+
+
+def _load_contact() -> dict[str, str]:
+    """Load personal contact details from the git-ignored ``config/contact.yaml``.
+
+    Copy ``config/contact.example.yaml`` to ``config/contact.yaml`` and fill it in.
+    """
+    if not CONTACT_PATH.exists():
+        sys.exit(
+            f"Missing {CONTACT_PATH}. Copy config/contact.example.yaml to "
+            "config/contact.yaml and fill in your details."
+        )
+    data = yaml.safe_load(CONTACT_PATH.read_text(encoding="utf-8")) or {}
+    keys = ("name", "email", "phone", "linkedin", "github")
+    return {k: str(data.get(k) or "") for k in keys}
 
 
 # ---------------------------------------------------------------------------
@@ -57,21 +71,26 @@ def _set_run_font(run, *, size=FONT_SIZE_BODY, bold=False):  # noqa: ANN001
 
 def _add_header(doc: Document):
     """Add contact info header (name centred, details below)."""
+    contact = _load_contact()
     # Name
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_after = Pt(2)
     p.paragraph_format.space_before = Pt(0)
-    run = p.add_run(CONTACT["name"])
+    run = p.add_run(contact["name"])
     _set_run_font(run, size=Pt(14), bold=True)
 
     # Contact line
     contact_line = " | ".join(
         [
-            CONTACT["email"],
-            CONTACT["phone"],
-            CONTACT["linkedin"],
-            CONTACT["github"],
+            v
+            for v in (
+                contact["email"],
+                contact["phone"],
+                contact["linkedin"],
+                contact["github"],
+            )
+            if v
         ]
     )
     p2 = doc.add_paragraph()
@@ -87,7 +106,7 @@ def _add_body(doc: Document, text: str):
     paragraphs = [p.strip() for p in text.strip().split("\n\n") if p.strip()]
 
     for para_text in paragraphs:
-        # Handle "Best regards,\nJake Andersen-Lum" as two lines
+        # Handle "Best regards,\nJacob Andersen-Lum" as two lines
         lines = para_text.split("\n")
         p = doc.add_paragraph()
         p.paragraph_format.space_after = Pt(6)
@@ -100,21 +119,42 @@ def _add_body(doc: Document, text: str):
             _set_run_font(run)
 
 
-def md_to_docx(md_path: Path, out_dir: Path | None = None) -> Path:
-    """Convert a single markdown cover letter to a .docx file."""
-    text = md_path.read_text(encoding="utf-8").strip()
+COVER_LETTER_OUTPUT_PREFIX = "Jacob Andersen-Lum Cover Letter"
 
+
+def build_cover_letter_document(text: str) -> Document:
+    """Return a formatted cover letter Document (margins + contact header + body).
+
+    Markdown should separate paragraphs with a blank line; see ``_add_body``.
+    """
+    text = text.strip()
     doc = Document()
-
-    # Set narrow margins
     for section in doc.sections:
         section.top_margin = Inches(0.75)
         section.bottom_margin = Inches(0.75)
         section.left_margin = Inches(1.0)
         section.right_margin = Inches(1.0)
-
     _add_header(doc)
     _add_body(doc, text)
+    return doc
+
+
+def slug_from_cover_letter_md_path(md_path: Path) -> str:
+    """Infer slug from ``Jacob Andersen-Lum Cover Letter - <slug>.md``; else stem."""
+    stem = md_path.stem
+    prefixed = COVER_LETTER_OUTPUT_PREFIX + " - "
+    if stem.startswith(prefixed):
+        s = stem[len(prefixed) :].strip()
+        return s if s else stem
+    return stem
+
+
+def md_to_docx(md_path: Path, out_dir: Path | None = None) -> Path:
+    """Convert a single markdown cover letter to a .docx file."""
+    raw = md_path.read_text(encoding="utf-8")
+    if "\n---\n" in raw:
+        raw = raw.split("\n---\n", 1)[0]
+    doc = build_cover_letter_document(raw)
 
     # Output path
     if out_dir is None:
@@ -147,43 +187,87 @@ def _convert_pdfs_via_com(pairs: list[tuple[str, str]]):
             doc = word.Documents.Open(docx_path)
             doc.SaveAs(pdf_path, FileFormat=17)  # 17 = wdFormatPDF
             doc.Close(0)
-            print(f"  ✓ {Path(pdf_path).name}")
+            # Avoid Unicode checks on narrow Windows consoles (cp1252).
+            print(f"  OK {Path(pdf_path).name}")
     finally:
         word.Quit()
         pythoncom.CoUninitialize()
 
 
+def _needs_rebuild(md_path: Path) -> bool:
+    """Check if the markdown file is newer than its docx or pdf siblings.
+
+    Returns True if either output is missing or the markdown was modified
+    after the most recent output file.
+    """
+    docx_path = md_path.with_suffix(".docx")
+    pdf_path = md_path.with_suffix(".pdf")
+    md_mtime = md_path.stat().st_mtime
+
+    if not docx_path.exists() or not pdf_path.exists():
+        return True
+    return md_mtime > min(docx_path.stat().st_mtime, pdf_path.stat().st_mtime)
+
+
 def main():
-    """CLI entry point: convert all (or specified) markdown cover letters to DOCX and PDF."""
+    """CLI entry point: convert cover letters from markdown to DOCX and PDF.
+
+    Batch mode is legacy (old cover_letters/*/*.md tree). Prefer editing Word
+    under cover_letters/ and resumes/ (see README.txt files there).
+
+    Usage:
+        uv run python scripts/export.py                 # no-op message unless legacy paths exist
+        uv run python scripts/export.py --force         # rebuild all discovered .md
+        uv run python scripts/export.py path/to/file.md # specific file(s)
+    """
     project_root = Path(__file__).resolve().parent.parent
     cover_dir = project_root / "cover_letters"
-    md_dir = cover_dir / "markdown"
-    docx_dir = cover_dir / "docx"
-    pdf_dir = cover_dir / "pdf"
-    docx_dir.mkdir(exist_ok=True)
-    pdf_dir.mkdir(exist_ok=True)
 
-    if len(sys.argv) > 1:
-        files = [Path(a) for a in sys.argv[1:]]
+    force = "--force" in sys.argv
+    explicit_files = [Path(a) for a in sys.argv[1:] if a != "--force"]
+
+    # Collect markdown files to process
+    if explicit_files:
+        md_files = explicit_files
     else:
-        files = sorted(md_dir.glob("*.md"))
+        # Legacy batch: cover_letters/<job-name>/*.md (tree removed; kept for one-off recovery)
+        md_files = sorted(cover_dir.glob("*/*.md"))
 
-    if not files:
-        print("No markdown files found in cover_letters/markdown/")
+    if not md_files:
+        print(
+            "No markdown cover letters found. Maintain Word originals under "
+            "cover_letters/ and resumes/ (see README.txt). "
+            "To convert a single .md file: uv run python scripts/export.py path/to/file.md"
+        )
         return
 
+    # Filter to only those needing rebuild (unless --force)
+    if force:
+        to_build = md_files
+    else:
+        to_build = [f for f in md_files if _needs_rebuild(f)]
+
+    skipped = len(md_files) - len(to_build)
+    if skipped:
+        print(f"Skipping {skipped} up-to-date cover letter(s)")
+
+    if not to_build:
+        print("All cover letters are up to date.")
+        return
+
+    # Generate DOCX files (output in same folder as markdown)
     docx_paths = []
-    for md_file in files:
-        out = md_to_docx(md_file, out_dir=docx_dir)
+    for md_file in to_build:
+        out = md_to_docx(md_file, out_dir=md_file.parent)
         docx_paths.append(out)
-        print(f"  ✓ {out.name}")
+        print(f"  OK {md_file.parent.name}/{out.name}")
 
-    print(f"\nConverted {len(files)} cover letter(s) to .docx")
+    print(f"\nConverted {len(to_build)} cover letter(s) to .docx")
 
-    # PDF conversion — single persistent Word instance (no startup cost per file)
+    # PDF conversion — single persistent Word instance
     try:
         pairs = [
-            (str(dp.resolve()), str((pdf_dir / dp.with_suffix(".pdf").name).resolve()))
+            (str(dp.resolve()), str(dp.with_suffix(".pdf").resolve()))
             for dp in docx_paths
         ]
 

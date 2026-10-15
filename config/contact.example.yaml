@@ -1,0 +1,7 @@
+# Copy to config/contact.yaml (git-ignored) and fill in. Used by scripts/export.py
+# for the cover letter header. Leave a field blank to omit it.
+name: "Your Name"
+email: "you@example.com"
+phone: ""
+linkedin: "linkedin.com/in/your-handle"
+github: "github.com/your-handle"

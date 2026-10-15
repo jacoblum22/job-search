@@ -66,3 +66,9 @@ token_outlook.json
 
 # Downloaded Google OAuth client secret — never commit
 client_secret_*.json
+
+# Personal application materials (resumes, cover letters, vault, screening answers) — never commit, repo is public
+materials/
+
+# Personal contact details for cover letter headers — never commit
+config/contact.yaml

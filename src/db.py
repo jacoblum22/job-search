@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.location_filter import classify_location
 from src.tier import parse_min_years_experience
 
 SCHEMA = """
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     status TEXT NOT NULL DEFAULT 'new',
     tier TEXT,
     years_experience INTEGER,
+    location_category TEXT,
     raw TEXT,
     UNIQUE(source, external_id)
 );
@@ -64,13 +66,15 @@ class Job:
     raw: dict[str, Any] | None = None
     dedup_group_id: str | None = None  # assigned on first insert if not set
     years_experience: int | None = field(init=False, default=None)
+    location_category: str = field(init=False, default="other")
 
     def __post_init__(self) -> None:
-        # Derived from the description, not settable by adapters directly —
-        # every source's description text is parsed the same way.
+        # Derived fields, not settable by adapters directly — every source's
+        # location/description text is parsed the same way.
         self.years_experience = (
             parse_min_years_experience(self.description) if self.description else None
         )
+        self.location_category = classify_location(self.location, self.company)
 
     @property
     def norm_key(self) -> tuple[str, str, str]:
@@ -107,7 +111,41 @@ def upsert_job(conn: sqlite3.Connection, job: Job) -> tuple[int, bool]:
     ).fetchone()
 
     if existing:
-        conn.execute("UPDATE jobs SET last_seen = ? WHERE id = ?", (now, existing["id"]))
+        existing_row = conn.execute(
+            "SELECT description FROM jobs WHERE id = ?", (existing["id"],)
+        ).fetchone()
+        old_desc = (existing_row["description"] if existing_row else "") or ""
+        new_desc = job.description or ""
+        description = new_desc if len(new_desc) >= len(old_desc) else old_desc
+        conn.execute(
+            """
+            UPDATE jobs SET
+                last_seen = ?,
+                title = ?,
+                company = ?,
+                location = ?,
+                description = ?,
+                url = ?,
+                posted_date = ?,
+                years_experience = ?,
+                location_category = ?,
+                raw = ?
+            WHERE id = ?
+            """,
+            (
+                now,
+                job.title,
+                job.company,
+                job.location,
+                description,
+                job.url,
+                job.posted_date,
+                job.years_experience,
+                job.location_category,
+                json.dumps(job.raw) if job.raw is not None else None,
+                existing["id"],
+            ),
+        )
         return existing["id"], False
 
     dedup_group_id = job.dedup_group_id or f"{job.source}:{job.external_id}"
@@ -116,8 +154,8 @@ def upsert_job(conn: sqlite3.Connection, job: Job) -> tuple[int, bool]:
         INSERT INTO jobs (
             dedup_group_id, source, external_id, title, company, location,
             description, url, posted_date, first_seen, last_seen, status,
-            years_experience, raw
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)
+            years_experience, location_category, raw
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)
         """,
         (
             dedup_group_id,
@@ -132,6 +170,7 @@ def upsert_job(conn: sqlite3.Connection, job: Job) -> tuple[int, bool]:
             now,
             now,
             job.years_experience,
+            job.location_category,
             json.dumps(job.raw) if job.raw is not None else None,
         ),
     )
@@ -212,6 +251,7 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
                 "title": primary["title"],
                 "company": primary["company"],
                 "location": primary["location"],
+                "location_category": primary["location_category"],
                 "description": primary["description"],
                 "sources": sorted({m["source"] for m in members}),
                 "urls": sorted({(m["source"], m["url"]) for m in members if m["url"]}),

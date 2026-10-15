@@ -8,7 +8,6 @@ against an embedded JSON blob, so it works offline.
 from __future__ import annotations
 
 import json
-import re
 import sqlite3
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -16,6 +15,7 @@ from html import escape
 from pathlib import Path
 
 from src.db import grouped_jobs
+from src.search_match import INTERNSHIP_TITLE_RE as _INTERNSHIP_RE
 
 _TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -50,6 +50,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .status-applied { background: var(--applied); }
   .status-dismissed { background: var(--dismissed); }
   .status-expired { background: var(--dismissed); }
+  .cat-vancouver { background: var(--new); }
+  .cat-remote { background: var(--accent); }
+  .cat-other { background: var(--dismissed); }
   .wrap { max-width: 1400px; margin: 0 auto; }
   #count { color: var(--muted); font-size: 13px; margin-left: auto; }
   .tabs { display: flex; gap: 4px; padding: 12px 24px 0; border-bottom: 1px solid var(--border); }
@@ -81,6 +84,12 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <select id="sourceFilter">
     <option value="">All sources</option>
   </select>
+  <select id="locationFilter">
+    <option value="">All locations</option>
+    <option value="vancouver">Vancouver-area</option>
+    <option value="remote">Remote</option>
+    <option value="other">Other</option>
+  </select>
   <span id="count"></span>
 </div>
 <table id="jobsTable">
@@ -89,6 +98,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
       <th data-key="title">Title</th>
       <th data-key="company">Company</th>
       <th data-key="location">Location</th>
+      <th data-key="location_category">Category</th>
       <th data-key="status">Status</th>
       <th data-key="years_experience">Years Exp</th>
       <th data-key="sourcesStr">Sources</th>
@@ -142,12 +152,14 @@ function render() {
   const q = document.getElementById('search').value.toLowerCase();
   const status = document.getElementById('statusFilter').value;
   const source = sourceFilterEl.value;
+  const locationCat = document.getElementById('locationFilter').value;
 
   updateTabs();
   let filtered = jobs.filter(j => {
     if (j.job_type !== activeTab) return false;
     if (status && j.status !== status) return false;
     if (source && !j.sources.includes(source)) return false;
+    if (locationCat && j.location_category !== locationCat) return false;
     if (q) {
       const hay = (j.title + ' ' + j.company + ' ' + j.location).toLowerCase();
       if (!hay.includes(q)) return false;
@@ -177,6 +189,7 @@ function render() {
       <td>${titleCell}</td>
       <td>${escapeHtml(j.company)}</td>
       <td>${escapeHtml(j.location)}</td>
+      <td><span class="badge cat-${escapeHtml(j.location_category)}">${escapeHtml(j.location_category)}</span></td>
       <td><span class="badge status-${escapeHtml(j.status)}">${escapeHtml(j.status)}</span></td>
       <td>${j.years_experience ?? ''}</td>
       <td>${srcBadges}</td>
@@ -196,6 +209,7 @@ document.querySelectorAll('th[data-key]').forEach(th => {
 
 document.getElementById('search').addEventListener('input', render);
 document.getElementById('statusFilter').addEventListener('change', render);
+document.getElementById('locationFilter').addEventListener('change', render);
 sourceFilterEl.addEventListener('change', render);
 
 render();
@@ -203,15 +217,6 @@ render();
 </body>
 </html>
 """
-
-
-# Title-only: descriptions mention "internship" in unrelated ways (e.g. "prior
-# internship experience"), which would misfile full-time roles.
-_INTERNSHIP_RE = re.compile(
-    r"\b(interns?|internships?|co-?ops?|students?|undergraduate|practicum|work[- ]term|work placement"
-    r"|stagiaires?|stage crédité|étudiant(?:e|s|es)?)\b",
-    re.IGNORECASE,
-)
 
 
 def _sort_date(posted: str | None, first_seen: str | None) -> str:

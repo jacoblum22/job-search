@@ -357,7 +357,7 @@ class AsyncWorkdayScraper:
         for attempt in range(retries):
             resp = await self.client.get(url)
 
-            if resp.status_code == 429:
+            if resp.status_code in (429, 503):
                 wait = RETRY_BACKOFF * (2**attempt)
                 logger.warning(
                     "Rate limited (429) on %s — retrying in %.1fs (attempt %d/%d)",

@@ -26,7 +26,7 @@ from bs4 import BeautifulSoup
 from googleapiclient.discovery import Resource
 
 from src.db import Job
-from src.sources.email_common import EmailMessage, fetch_new_messages
+from src.sources.email_common import EmailMessage, collect_alert_messages, fetch_new_messages
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,10 @@ JOB_ID_RE = re.compile(r"jobListingId=(\d+)")
 
 
 def fetch_glassdoor_jobs(
-    service: Resource, conn: sqlite3.Connection, *, forward_from: str | None = None
+    conn: sqlite3.Connection,
+    *,
+    forward_from: str | None = None,
+    service: Resource | None = None,
 ) -> list[Job]:
     """Fetch + parse new Glassdoor job-alert emails since the last run.
 
@@ -47,7 +50,10 @@ def fetch_glassdoor_jobs(
     query = f"from:{SENDER}"
     if forward_from:
         query = f"({query}) OR (from:{forward_from} {SENDER})"
-    messages = fetch_new_messages(service, conn, source=SOURCE, query=query)
+    if service is not None:
+        messages = fetch_new_messages(service, conn, source=SOURCE, query=query)
+    else:
+        messages = collect_alert_messages(conn, source=SOURCE, query=query)
 
     jobs: list[Job] = []
     seen_ids: set[str] = set()

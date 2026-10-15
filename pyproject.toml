@@ -20,6 +20,15 @@ dependencies = [
     "msal>=1.31",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
 [project.optional-dependencies]
 pdf = ["pywin32>=306"]  # Windows-only COM automation for DOCX→PDF
 

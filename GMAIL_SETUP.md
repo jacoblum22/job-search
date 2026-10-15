@@ -2,7 +2,8 @@
 
 This project reads LinkedIn/Indeed/Glassdoor job-alert emails from **your own** Gmail inbox.
 Everyone who runs this project connects their own Google account — nothing is shared between
-users, and your email contents never leave your machine.
+users, and your email contents never leave your machine. If alerts live in Outlook instead
+(or as well), you can skip Gmail and use `OUTLOOK_SETUP.md` — the aggregator tries both.
 
 There's no way around a small amount of one-time clicking in Google's own console (Google
 requires every app to have its own OAuth client — there's no "just works" option for reading

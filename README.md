@@ -16,10 +16,43 @@ Automated scraper for UBC's Workday staff job board. Fetches job postings via th
 git clone <repo-url> && cd <repo-dir>
 
 # Create a virtual environment and install dependencies
-uv sync
+uv sync --all-groups   # includes pytest
 ```
 
-## Usage
+## Multi-source aggregator
+
+The current job-search workflow is `scripts/aggregate.py`: Workday boards, Adzuna,
+CareerJet, and LinkedIn/Indeed/Glassdoor **alert emails** (Gmail and/or Outlook)
+are normalized into `jobs.db`, then `dashboard.html` and `export.xlsx`.
+
+```bash
+uv run python scripts/aggregate.py -v
+uv run pytest
+```
+
+Search behaviour lives in `config/settings.yaml` (`search:`) and
+`src/search_match.py`:
+
+- **Queries** — canonical keywords, aliases (e.g. HR intern), and level terms
+  (intern, co-op, new grad, …). Adzuna paginates (`max_pages`) and retries
+  429/503; one failed query does not abort the source. Search snippets are
+  replaced with Adzuna’s own land/ad JSON-LD when the listing is worth hydrating.
+- **CareerJet** — paginates (`page` / `pages`), retries timeouts, skips 403s
+  per query (no details API; snippets only).
+- **Workday** — skips detail-fetches for titles that cannot match (HVAC, VP);
+  one failed tenant does not abort the others. Re-runs refresh stored text.
+- **Keep rules** — same phrase table on title *or* precise description phrases;
+  API hits are re-checked. Senior title words and `max_years_experience` apply.
+- **Location** — primary API geo is Metro Vancouver; a Canada **remote sweep**
+  keeps WFH tagged in other cities. On-site Toronto/Calgary is not stored
+  (`require_relevant_location`).
+- **Mail** — optional; missing Gmail no longer disables Outlook. See
+  `GMAIL_SETUP.md` and `OUTLOOK_SETUP.md`.
+
+Tune phrases in `src/search_match.py` (`DEFAULT_ALIASES`) or
+`search.keyword_aliases` in YAML.
+
+## Usage (legacy UBC markdown scrape)
 
 ```bash
 # Scrape all current UBC staff job listings

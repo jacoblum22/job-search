@@ -31,7 +31,7 @@ import sqlite3
 from googleapiclient.discovery import Resource
 
 from src.db import Job
-from src.sources.email_common import EmailMessage, fetch_new_messages
+from src.sources.email_common import EmailMessage, collect_alert_messages, fetch_new_messages
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,10 @@ _TAG_OR_BREAK_RE = re.compile(r"<[^>]+>|[\r\n]+")
 
 
 def fetch_indeed_jobs(
-    service: Resource, conn: sqlite3.Connection, *, forward_from: str | None = None
+    conn: sqlite3.Connection,
+    *,
+    forward_from: str | None = None,
+    service: Resource | None = None,
 ) -> list[Job]:
     """Fetch + parse new Indeed job-alert emails since the last run.
 
@@ -53,7 +56,10 @@ def fetch_indeed_jobs(
     query = f"from:{SENDER}"
     if forward_from:
         query = f"({query}) OR (from:{forward_from} {SENDER})"
-    messages = fetch_new_messages(service, conn, source=SOURCE, query=query)
+    if service is not None:
+        messages = fetch_new_messages(service, conn, source=SOURCE, query=query)
+    else:
+        messages = collect_alert_messages(conn, source=SOURCE, query=query)
 
     jobs: list[Job] = []
     seen_ids: set[str] = set()

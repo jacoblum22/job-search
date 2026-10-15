@@ -38,7 +38,7 @@ from bs4 import BeautifulSoup
 from googleapiclient.discovery import Resource
 
 from src.db import Job
-from src.sources.email_common import EmailMessage, fetch_new_messages
+from src.sources.email_common import EmailMessage, collect_alert_messages, fetch_new_messages
 
 logger = logging.getLogger(__name__)
 
@@ -48,18 +48,26 @@ JOB_URL_RE = re.compile(r"linkedin\.com/(?:comm/)?jobs/view/(\d+)")
 
 
 def fetch_linkedin_jobs(
-    service: Resource, conn: sqlite3.Connection, *, forward_from: str | None = None
+    conn: sqlite3.Connection,
+    *,
+    forward_from: str | None = None,
+    service: Resource | None = None,
 ) -> list[Job]:
     """Fetch + parse new LinkedIn job-alert emails since the last run.
 
     `forward_from` is the forwarding mailbox address (config/settings.yaml's
     `email_sources.forward_from`) if alerts are relayed through another
     inbox rather than landing in Gmail directly.
+    `service` is an optional injected Gmail client (tests); when omitted,
+    both Gmail and Outlook are tried.
     """
     query = f"from:{SENDER}"
     if forward_from:
         query = f"({query}) OR (from:{forward_from} {SENDER})"
-    messages = fetch_new_messages(service, conn, source=SOURCE, query=query)
+    if service is not None:
+        messages = fetch_new_messages(service, conn, source=SOURCE, query=query)
+    else:
+        messages = collect_alert_messages(conn, source=SOURCE, query=query)
 
     jobs: list[Job] = []
     for msg in messages:

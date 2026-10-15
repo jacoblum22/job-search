@@ -5,13 +5,21 @@ scraper:
   max_jobs: 0
 
 # ─── Shared job search (applies to every source) ────────────────────
-# Adzuna/CareerJet run one query per keyword x level term (e.g. "public
-# affairs intern"). Workday and email alerts return unfiltered postings, so
-# their titles must contain one of the keywords. All sources then drop
-# senior titles and postings asking for more than max_years_experience.
+# Adzuna/CareerJet are queried with canonical phrases, aliases (HR intern,
+# event coordinator, …), and level terms. Workday and email alerts return
+# unfiltered postings; titles *or* descriptions must match the same phrase
+# table. All sources then drop senior titles, max_years_experience, and
+# on-site jobs outside Metro Vancouver (remote Canada is kept).
+#
+# `location` is the primary geo for API search. `remote_sweep_location` is a
+# second pass that only keeps postings classified as remote — so a Vancouver
+# search does not miss Ottawa-tagged WFH roles, and a Canada search does not
+# flood Toronto on-site jobs into the DB.
 
 search:
-  location: "Canada"
+  location: "Vancouver, BC"
+  remote_sweep_location: "Canada"
+  require_relevant_location: true
   keywords:
     - "Public affairs"
     - "Talent acquisition"
@@ -24,9 +32,15 @@ search:
     - "Business Analyst"
     - "Human Resources"
     - "Campus Recruitment"
-  level_terms:          # API queries only: internships and entry-level roles
+  level_terms:          # API queries: internships, co-op, new-grad, entry-level
     - "intern"
+    - "internship"
+    - "co-op"
+    - "coop"
+    - "new grad"
     - "entry level"
+    - "student"
+    - "junior"
   exclude_title_terms:
     - "senior"
     - "sr"
@@ -35,6 +49,7 @@ search:
     - "lead"
     - "principal"
     - "vice president"
+    - "vice-president"
     - "vp"
     - "head"
     - "chief"
@@ -48,7 +63,8 @@ search:
 # Credentials come from .env (see .env.example) — never put keys here.
 
 api_sources:
-  results_per_page: 20
+  results_per_page: 50
+  max_pages: 3
   adzuna:
     enabled: true
     country: "ca"  # Adzuna country code

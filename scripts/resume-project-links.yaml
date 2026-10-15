@@ -1,0 +1,27 @@
+# Project title → URL for resume → DOCX export (Technical Projects lines).
+# Matching: text BEFORE the first " | " must start with `prefix`. Longer prefixes win (sorted in script).
+#
+# Live demo for Little Philosophy: https://jacoblum22.github.io/Little-Philosophy/ (title link uses GitHub below).
+
+projects:
+  - prefix: "LLM-Based Spam Classification"
+    url: "https://github.com/jacoblum22/llm-spam-classifier"
+
+  - prefix: "Women in Data Science"
+    url: "https://github.com/wend1k3/Wussap"
+
+  - prefix: "Job Aggregator & Dashboard"
+    url: "https://github.com/jacoblum22/job-search"
+
+  - prefix: "Firmament"
+    url: "https://github.com/jacoblum22/Firmament"
+
+  - prefix: "AID&D"
+    url: "https://github.com/jacoblum22/AID-D"
+
+  - prefix: "Little Philosophy"
+    url: "https://github.com/jacoblum22/Little-Philosophy"
+
+  # Matches "D&D Battlemap AI Training Pipeline | …" and similar
+  - prefix: "D&D Battlemap"
+    url: "https://github.com/jacoblum22/D-D-Battlemaps"

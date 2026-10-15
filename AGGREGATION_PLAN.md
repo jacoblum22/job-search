@@ -57,7 +57,7 @@ jobs first seen in the last ~45 days. A match merges into the existing `dedup_gr
 
 ## Email ingestion (LinkedIn / Indeed / Glassdoor)
 
-Mechanism: search `jacobdavidandersenlum@gmail.com` by sender, parse new messages, track a
+Mechanism: search my own inbox by sender, parse new messages, track a
 per-source "last processed" cursor in the DB so re-runs don't reprocess old mail.
 
 Parsing notes, from live samples pulled during planning:
@@ -229,3 +229,141 @@ different cities apart (Nanaimo vs. Greater Vancouver scores 30).
 - New dependencies added: `python-dotenv`, `rapidfuzz`, `openpyxl` (via `uv add`).
 - Scheduling (step 7) — not started.
 - Tiering — still deferred per the earlier decision.
+
+**2026-09-18 — location filtering (Vancouver-area or remote only):**
+
+Turned out the aggregator was pulling in a lot more than intended: Workday only filtered by
+city keywords (no remote allowance), and Adzuna/CareerJet were scoped to `where=Vancouver, BC`
+only. Tested empirically before building anything: a Canada-wide Adzuna search for "data
+scientist" surfaced 12 remote-mentioning postings vs. only 7 from the Vancouver-scoped search
+— genuinely remote jobs tagged with other cities (Ottawa, Calgary, Saskatoon) were being missed
+entirely, not just mis-categorized.
+
+Fix, decided with Jacob to filter at the source rather than just hide-in-dashboard (so the
+aggregator stops wasting rows on irrelevant on-site postings from other cities), while keeping
+everything visible/auditable rather than silently dropping anything:
+
+- [src/location_filter.py](src/location_filter.py) — `classify_location()` returns
+  `"vancouver"` / `"remote"` / `"other"`. Vancouver keyword list is generous (all Metro
+  Vancouver municipalities) to avoid false negatives. Remote detection checks the location
+  field (not description — too noisy) for "remote"/"wfh"/bare "Canada", with a guard against
+  "Remote (United States)"-style non-Canada postings. Tested against 17 real location strings
+  pulled from actual API responses — all correct.
+- Every job gets `location_category` computed automatically (same pattern as
+  `years_experience`) — visible as its own dashboard column + filter dropdown, and in the xlsx
+  export. Nothing is hidden by default.
+- Adzuna/CareerJet adapters now run **two search passes** per keyword: the existing
+  Vancouver-scoped one (unchanged), plus a second `where=Canada` pass filtered down to only
+  `is_remote()` matches before merging — this is what catches the Ottawa/Calgary/Saskatoon-
+  tagged remote jobs without flooding in their on-site counterparts.
+- Workday's per-source `location_filter` now also admits a job if `is_remote()` matches, so a
+  remote posting from an org whose filter only lists specific cities doesn't get silently
+  dropped before we even see it.
+
+Tested end-to-end against live data: 127 jobs fetched, split 112 vancouver / 14 remote / only
+**1** stray "other" (a Calgary job Adzuna's own geo-matching loosely included in the Vancouver-
+scoped search — correctly flagged as "other" by the classifier and visible/filterable, not
+hidden). Re-confirmed idempotency still holds after these changes (0 new / 0 merged on re-run).
+
+**One dashboard bug found in testing**: added the new location-category filter dropdown but
+forgot to wire up its `change` event listener — selecting a value did nothing. Caught by
+actually clicking it in the browser rather than just checking the HTML rendered; fixed and
+re-verified (111 → 14 shown when filtering to "Remote").
+
+**2026-09-19 — `years_experience` false positives + low hit rate, investigated:**
+
+Jacob flagged a specific bad value: a Champion Petfoods posting showed "35 years" required.
+Root-caused to two separate issues, only one of which is fixable:
+
+1. **Real bug**: [tier.py](src/tier.py)'s `parse_min_years_experience()` matched any bare "N
+   years" in the text — no check that it was actually about experience. The Champion Petfoods
+   description said "a reputation of trust spanning 35 years" (company history, not a job
+   requirement) and the regex happily matched it, then `max()` picked it over any real
+   (smaller) figure. Fixed by requiring the word "experience" within 80 characters of the
+   match — tuned by testing against both false positives (company history, warranties, "21
+   years of age") and real phrasings, including one where the gap between the number and
+   "experience" was 66 characters ("3+ years of non-internship professional software
+   development experience") — an earlier, narrower 50-char window I tried first actually broke
+   that legitimate case, caught by testing against real Amazon posting text before settling on
+   80. Recomputed against the existing DB (no need to re-fetch): 17 → 14 jobs with a value, net
+   change reflecting the false positives removed.
+2. **Not a bug — a real data limit**: Adzuna's and CareerJet's *search* endpoints only return
+   truncated description snippets (Adzuna: ~500 chars, CareerJet: ~300 chars — confirmed by
+   checking the raw API response, not something our code is doing). Experience requirements
+   are often stated further down in a "Requirements" section that's simply not present in what
+   we receive. This is why the column is empty most of the time — it's not a parsing failure,
+   it's data we don't have. The only way to get the full text would be to fetch each job's own
+   page (the `redirect_url`/`url`), which reopens the scraping-arbitrary-third-party-sites
+   question we deliberately avoided elsewhere in this project. Left as-is for now — flagging
+   the tradeoff rather than silently adding scraping.
+
+**2026-09-19 (cont'd) — Workday location_category gap, found by actually running Workday.**
+
+Jacob asked why the dashboard's source list only showed adzuna/careerjet — turned out every
+test run since the location-filter work used `--skip-workday` for speed, so Workday simply
+hadn't been re-run since those fields were added (confirmed: the DB genuinely only had
+71+56=127 rows, no Workday). Ran it fresh to check it still worked with the new fields, and
+that surfaced a real, related gap: 3/3 City of Vancouver postings were marked `other` because
+that Workday board lists an internal facility code as the location ("LOC0049 Brookside
+Utilities Building") with no city name at all — even though the employer itself, "City of
+Vancouver," makes it unambiguous. A BCAA posting in "Victoria, BC" was correctly excluded in
+the same check, confirming the classifier wasn't just being loose — Victoria isn't Vancouver
+despite the name similarity.
+
+Fixed by falling back to checking the **company name** for a Vancouver-area match when the
+location text doesn't resolve one — `classify_location()` now takes an optional `company`
+param. Verified this doesn't accidentally "fix" the Victoria/BCAA case (company name "BCAA"
+doesn't mention Vancouver, so it correctly stays `other`). Recomputed against the existing DB:
+3 rows corrected, all City of Vancouver.
+
+**2026-09-30 — recall was the bottleneck, not experience parsing.**
+
+A live run after merging email-alert-sources showed the pipeline was not "too strict on
+descriptions": Adzuna snippets still had **0** parsed `years_experience` values. What actually
+starved the set:
+
+1. Workday/email matching was **title substring of the canonical phrase only** — "HR
+   Coordinator" never matched "Human Resources".
+2. `search.location: Canada` made the Adzuna *primary* pass national, so ingest filled with
+   Toronto/Calgary on-site jobs; Vancouver+remote was a small slice.
+3. API queries were only `intern` / `entry level`, page 1, 20 hits — no co-op/new-grad/alias
+   queries, no pagination.
+4. CareerJet **403 on the first query** aborted the whole source.
+5. No Gmail token caused **all** email adapters to skip, even if Outlook was the inbox.
+
+Fix (this change):
+
+- [src/search_match.py](src/search_match.py) — shared `keep_job()` + `api_queries()` with
+  alias table, title-only weak words (`recruiting`), noisy "events" not matching
+  "in the event of", location gate via `classify_location(location, company)`.
+- Settings: `location: Vancouver, BC`, `remote_sweep_location: Canada`,
+  `require_relevant_location: true`, expanded `level_terms`, Adzuna `max_pages: 3` /
+  `results_per_page: 50`.
+- Adzuna paginates the documented `/search/{page}` path until a short page.
+- CareerJet sends `User-Agent` as an HTTP header and **continues** after per-query 403.
+- Email: `collect_alert_messages()` tries Gmail and Outlook independently
+  (`{source}:gmail` / `{source}:outlook` cursors). Adapter signatures take `conn` first;
+  inject `service=` in tests.
+- Tests under `tests/` (`uv run pytest`).
+
+**2026-10-01 — Adzuna, CareerJet, and Workday made to finish a run.**
+
+Adzuna 503 used to abort the entire API source; CareerJet timeouts aborted the rest
+of the keyword list; Workday `asyncio.gather` without `return_exceptions` could
+drop every tenant if one board failed. Search snippets were never refreshed on
+upsert (`last_seen` only).
+
+- [src/http_retry.py](src/http_retry.py) — shared GET retries for 429/502/503/504 and
+  network errors.
+- Adzuna: per-query isolation, request pacing, pagination stop on persistent 503
+  (keep pages already fetched), hydrate descriptions from `adzuna.ca/land/ad/{id}`
+  JSON-LD (Adzuna has no details API; this is their public job page, not employer
+  scraping).
+- CareerJet: 90s read timeout, pagination via `page`/`pages`, per-query 403/timeout
+  skip. Still snippet-only (no details API).
+- Workday: `should_hydrate_record()` so HVAC/VP never get a details round-trip;
+  `return_exceptions=True` per tenant; 503 retried like 429.
+- `upsert_job` updates title/location/description/years/category when the new
+  description is at least as long as the stored one.
+
+
