@@ -385,9 +385,12 @@ def test_html_board_phsa_search_pages_with_jsonld_details():
         "list_url": "https://jobs.phsa.ca/jobs?search_api_fulltext={query}&page={page}",
         "link_pattern": r"^/job/([a-z0-9-]+)$",
         "max_pages": 4,
+        "browser_user_agent": True,
     }
     client = FakeClient([("jobs.phsa.ca/job/", text("phsa_job.html")), ("search_api_fulltext=analyst&page=0", text("phsa_search.html"))])
     jobs = jsonld_board.fetch_jsonld_board_jobs([board], search=SEARCH, client=client)
+    # PHSA's CloudFront 403s the bot User-Agent, so every request sends a browser one.
+    assert all(kw["headers"]["User-Agent"].startswith("Mozilla/") for _, _, kw in client.calls)
     assert jobs and all(j.source == "html:phsa" for j in jobs)
     assert jobs[0].location == "Burnaby, British Columbia, Canada"
     assert len(jobs[0].description) > 5000
@@ -415,3 +418,22 @@ def test_html_board_title_separator_gives_location():
     assert jobs and all(j.location == "Vancouver Office" for j in jobs)
     assert not any("los-angeles" in j.url or "victoria" in j.url for j in jobs)
     assert len(jobs[0].description) > 1000
+
+
+def test_html_board_exclude_pattern_checks_page_title():
+    # Leith Wheeler's list only says "View Details" and the slug omits the office.
+    board = {"slug": "leith-wheeler", "name": "Leith Wheeler", "kind": "html", "list_url": "https://lw.example/careers",
+             "link_pattern": r"/career/([^/?#]+)$", "fallback_location": "Vancouver, BC", "exclude_pattern": "montr"}
+    listing = '<a href="/career/portfolio-administrator">View Details</a><a href="/career/analyst">View Details</a>'
+
+    def page(title):
+        body = "".join(f"<p>Responsibility number {i} for this role, described at some length.</p>" for i in range(8))
+        return f'<html><head><meta property="og:title" content="{title} | Leith Wheeler"></head><body><main>{body}</main></body></html>'
+
+    client = FakeClient([
+        ("/career/portfolio-administrator", page("Portfolio Administrator, Montréal Office")),
+        ("/career/analyst", page("Analyst, Mutual Fund Operations")),
+        ("lw.example/careers", listing),
+    ])
+    jobs = jsonld_board.fetch_jsonld_board_jobs([board], client=client)
+    assert [j.title for j in jobs] == ["Analyst, Mutual Fund Operations"]

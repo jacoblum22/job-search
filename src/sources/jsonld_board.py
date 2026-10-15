@@ -12,6 +12,8 @@
           off the link text ("Engineer • Victoria Office").
   Details are fetched only when the link text (the title) passes
   `should_hydrate_record`; `exclude_pattern` (regex on URL + title) skips links.
+  `browser_user_agent: true` sends a browser User-Agent, for sites whose CDN
+  firewall 403s anything else (PHSA's CloudFront).
 Built-in patterns: `kind: jazzhr` (https://{slug}.applytojob.com/apply) and
 `kind: humi` (https://{slug}.applytojobs.ca/).
 """
@@ -42,6 +44,11 @@ KINDS = {
 MAX_LINKS = 200
 CTA_TEXT = {"learn more", "view details", "view job details", "read more", "apply", "apply now", "details", "more"}
 DEFAULT_MAX_PAGES = 5
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/141.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
 DROP_TAGS = ("script", "style", "noscript", "header", "footer", "nav", "form", "aside", "svg", "iframe")
 
 
@@ -152,11 +159,12 @@ def fetch_jsonld_board_jobs(boards: list, *, search: dict | None = None, client:
     def fetch_one(client: httpx.Client, board: dict) -> list[Job]:
         list_url, pattern = _settings(board)
         exclude = re.compile(board["exclude_pattern"], re.IGNORECASE) if board.get("exclude_pattern") else None
+        headers = BROWSER_HEADERS if board.get("browser_user_agent") else None
         links: dict[str, dict] = {}
         for group in list_urls(list_url, board, search):
             for url in group:
                 before = len(links)
-                for link in parse_links(get_text(client, url), url, pattern):
+                for link in parse_links(get_text(client, url, headers=headers), url, pattern):
                     links.setdefault(link["id"], link)
                 if len(links) == before or len(links) >= MAX_LINKS:
                     break
@@ -167,7 +175,7 @@ def fetch_jsonld_board_jobs(boards: list, *, search: dict | None = None, client:
                 continue
             if search and title and not should_hydrate_record(title, search, company=board["name"]):
                 continue
-            page = get_text(client, link["url"]) or ""
+            page = get_text(client, link["url"], headers=headers) or ""
             postings = find_job_postings(page)
             if postings:
                 post = postings[0]
@@ -181,6 +189,8 @@ def fetch_jsonld_board_jobs(boards: list, *, search: dict | None = None, client:
             else:
                 continue
             title = title or post.get("title") or ""
+            if exclude and not link["title"] and exclude.search(title):
+                continue  # "View Details" links: only the page title names the office
             if search and not link["title"] and not should_hydrate_record(title, search, company=board["name"]):
                 continue  # the list only had "Learn more" links, so gate on the page's own title
             location = localize(location, board)

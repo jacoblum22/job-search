@@ -565,6 +565,7 @@ html:
     list_url: "https://jobs.phsa.ca/jobs?search_api_fulltext={query}&page={page}"
     link_pattern: '^/job/([a-z0-9-]+)$'
     max_pages: 4
+    browser_user_agent: true   # CloudFront 403s the default bot User-Agent
   - {name: "Polygon Homes", slug: "polygon-homes", list_url: "https://polyhomes.com/careers/", link_pattern: '/careers/([a-z0-9-]+)/?$', fallback_location: "Vancouver, BC"}
   - {name: "Leith Wheeler", slug: "leith-wheeler", list_url: "https://www.leithwheeler.com/careers", link_pattern: '/career/([^/?#]+)$', fallback_location: "Vancouver, BC", exclude_pattern: 'montr|gestionnaire|administrateur'}
   - {name: "Oppy", slug: "oppy", list_url: "https://oppy.com/careers/", link_pattern: '/position/([a-z0-9-]+)/?$', fallback_location: "Vancouver, BC"}
