@@ -21,6 +21,7 @@ from src.db import connect, upsert_job
 from src.dedup import run_dedup
 from src.enrich import enrich_descriptions
 from src.export_xlsx import generate_xlsx
+from src.retention import is_stale, max_age_days, prune, pruned_keys
 from src.score import rescore_all
 from src.search_match import api_queries, keep_job, should_hydrate_record
 from src.sources.adzuna import fetch_adzuna_jobs
@@ -115,8 +116,16 @@ def run(
     search = cfg.get("search", {})
     enrich_cfg = cfg.get("enrich", {})
 
+    max_days = max_age_days(cfg)
+    pruned = pruned_keys(conn)
+
     def ingest(jobs: list, *, match_keywords: bool) -> None:
         nonlocal new_count, total_fetched
+        # Old or already-deleted postings never come back (and aren't enriched).
+        fresh = [j for j in jobs if (j.source, j.external_id) not in pruned and not is_stale(j.posted_date, max_days)]
+        if len(fresh) != len(jobs):
+            log.info("Skipped %d of %d job(s) older than %d days or deleted before", len(jobs) - len(fresh), len(jobs), max_days)
+        jobs = fresh
         # Before filtering, so a keyword that only appears in the full posting
         # (not the snippet or title) still counts.
         if enrich_cfg.get("enabled", True):
@@ -221,6 +230,9 @@ def run(
             except Exception:
                 log.exception("%s fetch failed — continuing with other sources", fetch_fn.__module__)
 
+    removed = prune(conn, max_days)
+    if removed:
+        log.info("Deleted %d job(s) older than %d days", removed, max_days)
     conn.commit()
     log.info("Fetched %d jobs total (%d new)", total_fetched, new_count)
 

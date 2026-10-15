@@ -35,6 +35,12 @@ turns on whole-market feeds: Job Bank, BC Public Service and Hacker News "Who
 is hiring?". These sources return the full posting, so they skip snippet
 enrichment. `--skip-ats` leaves them all out.
 
+Old postings are aged out: every run skips and deletes jobs posted more than
+30 days ago (or, with no posted date, first seen that long ago), and remembers
+them in a `pruned_jobs` table so they aren't scraped again. Jobs marked
+`applied` are kept. Change the window with `retention: {max_age_days: N}` in
+`settings.yaml`; 0 turns it off.
+
 ```bash
 uv run python scripts/aggregate.py -v
 uv run pytest
