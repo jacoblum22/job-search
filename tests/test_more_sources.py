@@ -419,3 +419,44 @@ def test_html_board_exclude_pattern_checks_page_title():
     ])
     jobs = jsonld_board.fetch_jsonld_board_jobs([board], client=client)
     assert [j.title for j in jobs] == ["Analyst, Mutual Fund Operations"]
+
+
+def test_successfactors_unify_site_lists_via_api_and_joins_description_blocks():
+    # Unify sites (Teck, Deloitte) have no server-rendered search rows.
+    api = {"totalJobs": 2, "jobSearchResult": [
+        {"response": {"id": "54513", "unifiedStandardTitle": "Cyber Risk Analyst Co-op", "urlTitle": "Cyber-Risk-Analyst-Co-op",
+                      "jobLocationShort": ["Vancouver, BC, CAN, V6C 0B3<br/>"]}},
+        {"response": {"id": "54620", "unifiedStandardTitle": "Port Operator V", "urlTitle": "Port-Operator-V",
+                      "jobLocationShort": ["Red Dog, AK, USA, 99752<br/>"]}},
+    ]}
+    body = "Responsibilities and requirements for the role, at reasonable length. " * 5
+    detail = (
+        '<span itemprop="description"><p>Location: Vancouver</p></span>'
+        f'<span itemprop="description"><p>{body}</p></span>'
+        '<span itemprop="description"><p>Location: Vancouver</p></span>'  # Unify repeats blocks
+    )
+    client = FakeClient([
+        ("rss/job", ""),
+        ("/search/", "<html><body>no rows here</body></html>"),
+        ("services/recruiting/v1/jobs", api),
+        ("/job/Cyber-Risk-Analyst-Co-op/54513-en_US/", detail),
+    ])
+    board = {"slug": "teck", "name": "Teck", "host": "jobs.teck.com"}
+    jobs = successfactors.fetch_successfactors_jobs([board], client=client)
+    assert [(j.external_id, j.location) for j in jobs] == [("54513", "Vancouver, BC, CAN, V6C 0B3")]
+    assert jobs[0].description.count("Location: Vancouver") == 1 and "Responsibilities" in jobs[0].description
+    assert not any("Red-Dog" in url or "54620" in url for _, url, _ in client.calls)
+
+
+def test_workday_summary_location_from_bullets_and_hidden_locations():
+    from src.scraper import JobSummary
+    from src.sources.workday import _undetermined
+
+    acc = JobSummary.from_api({"title": "Analyst", "externalPath": "/job/x", "bulletFields": ["R00356461", "Vancouver, 510 W. Georgia, Corp"]})
+    assert (acc.location, acc.job_req_id) == ("Vancouver, 510 W. Georgia, Corp", "R00356461")
+    rj = JobSummary.from_api({"title": "VP", "externalPath": "/job/y", "bulletFields": ["Saint Petersburg, Florida - United States", "R-0012997"]})
+    assert (rj.location, rj.job_req_id) == ("Saint Petersburg, Florida - United States", "R-0012997")
+    ubc = JobSummary.from_api({"title": "Clerk", "externalPath": "/job/z", "locationsText": "Vancouver Campus", "bulletFields": ["JR22878"]})
+    assert (ubc.location, ubc.job_req_id) == ("Vancouver Campus", "JR22878")
+    assert all(_undetermined(x) for x in ("", "3 Locations", "Location Negotiable"))
+    assert not _undetermined("Vancouver, BC")

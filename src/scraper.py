@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -60,6 +61,11 @@ MAX_RETRIES = 3
 RETRY_BACKOFF = 2.0  # seconds, doubles with each retry
 
 
+# A bulletField that is a requisition id ("JR22878", "R00356461", "R-0012997")
+# rather than a place.
+_REQ_ID_RE = re.compile(r"^[A-Z]{0,4}[-_]?\d[\w-]*$")
+
+
 @dataclass
 class JobSummary:
     """A single job from the listings endpoint."""
@@ -78,12 +84,16 @@ class JobSummary:
         if "title" not in data or "externalPath" not in data:
             return None
         bullet = data.get("bulletFields", [])
+        ids = [b for b in bullet if _REQ_ID_RE.match(b or "")]
+        # Some tenants (Accenture, Raymond James) leave locationsText out and
+        # put the place in bulletFields next to the requisition id.
+        places = [b for b in bullet if b and b not in ids]
         return cls(
             title=data["title"],
             external_path=data["externalPath"],
-            location=data.get("locationsText", ""),
+            location=data.get("locationsText") or (places[0] if places else ""),
             posted_on=data.get("postedOn", ""),
-            job_req_id=bullet[0] if bullet else "",
+            job_req_id=(ids or bullet or [""])[0],
             bullet_fields=bullet,
         )
 
@@ -105,6 +115,7 @@ class JobDetail:
     external_path: str
     source: str = ""  # human-readable source name
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
+    additional_locations: list[str] = field(default_factory=list)
 
     @classmethod
     def from_api(cls, data: dict[str, Any], external_path: str) -> JobDetail:
@@ -122,6 +133,7 @@ class JobDetail:
             external_url=info.get("externalUrl", ""),
             external_path=external_path,
             raw=data,
+            additional_locations=[loc for loc in info.get("additionalLocations") or [] if isinstance(loc, str)],
         )
 
 
@@ -249,6 +261,7 @@ class AsyncWorkdayScraper:
         concurrency: int = 5,
         timeout: float = 30.0,
         max_jobs: int = 0,
+        applied_facets: dict[str, list[str]] | None = None,
     ) -> None:
         """Initialise the async Workday scraper.
 
@@ -260,9 +273,13 @@ class AsyncWorkdayScraper:
             concurrency: Maximum number of simultaneous HTTP requests.
             timeout: HTTP request timeout in seconds.
             max_jobs: Stop after this many jobs (0 = unlimited).
+            applied_facets: Server-side filters for the listing, e.g.
+                ``{"locationCountry": ["<facet id>"]}``. Workday stops paging at
+                2,000 results, so big global boards need one to reach Canada.
         """
         _base, self._jobs_url, self._detail_url = _workday_urls(tenant, site, wd)
         self.source_name = source_name or tenant.upper()
+        self.applied_facets = applied_facets or {}
         self.concurrency = concurrency
         self.timeout = timeout
         self.max_jobs = max_jobs
@@ -341,7 +358,7 @@ class AsyncWorkdayScraper:
 
     async def _fetch_jobs_page(self, offset: int) -> dict[str, Any]:
         payload = {
-            "appliedFacets": {},
+            "appliedFacets": self.applied_facets,
             "limit": PAGE_SIZE,
             "offset": offset,
             "searchText": "",

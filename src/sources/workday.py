@@ -10,14 +10,27 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 
 from src.db import Job
 from src.location_filter import is_remote, is_vancouver_area
 from src.parser import html_to_markdown
 from src.scraper import AsyncWorkdayScraper
 from src.search_match import should_hydrate_record
+from src.sources.ats_common import join_locations, localize
 
 logger = logging.getLogger(__name__)
+
+# Listing locations that hide the real place: blank, "3 Locations", or
+# Accenture's "Location Negotiable". These are judged on the detail page's
+# location + additionalLocations instead.
+_UNDETERMINED_RE = re.compile(
+    r"^\s*(\d+\s+locations?|location negotiable|multiple locations)?\s*$", re.IGNORECASE
+)
+
+
+def _undetermined(location: str | None) -> bool:
+    return bool(_UNDETERMINED_RE.match(location or ""))
 
 
 def _location_keywords(source: dict) -> list[str]:
@@ -40,17 +53,22 @@ async def _fetch_source(
         source_name=name,
         concurrency=concurrency,
         max_jobs=max_jobs,
+        applied_facets=source.get("applied_facets"),
     ) as scraper:
         summaries = await scraper.list_all_jobs()
+        for s in summaries:
+            if not _undetermined(s.location):
+                s.location = localize(s.location, source)
+
+        def local(location: str) -> bool:
+            return (
+                any(kw in (location or "").lower() for kw in location_keywords)
+                or is_remote(location)
+                or is_vancouver_area(name)
+            )
 
         if location_keywords:
-            summaries = [
-                s
-                for s in summaries
-                if any(kw in (s.location or "").lower() for kw in location_keywords)
-                or is_remote(s.location)
-                or is_vancouver_area(name)
-            ]
+            summaries = [s for s in summaries if _undetermined(s.location) or local(s.location)]
 
         if search:
             before = len(summaries)
@@ -74,13 +92,19 @@ async def _fetch_source(
             logger.error("Workday %s: failed to fetch %s: %s", name, summary.job_req_id, detail_or_err)
             continue
         detail = detail_or_err
+        location = localize(detail.location, source)
+        if _undetermined(summary.location):
+            # The listing hid the place; judge the posting on all its locations.
+            location = localize(join_locations(detail.location, *detail.additional_locations), source)
+            if location_keywords and not local(location):
+                continue
         jobs.append(
             Job(
                 source=f"workday:{source['tenant']}",
                 external_id=detail.job_req_id or detail.id,
                 title=detail.title,
                 company=name,
-                location=detail.location,
+                location=location,
                 description=html_to_markdown(detail.description_html),
                 url=detail.external_url,
                 posted_date=detail.start_date or detail.posted_on,
