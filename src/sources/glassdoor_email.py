@@ -26,7 +26,11 @@ from bs4 import BeautifulSoup
 from googleapiclient.discovery import Resource
 
 from src.db import Job
-from src.sources.email_common import EmailMessage, collect_alert_messages, fetch_new_messages
+from src.sources.email_common import (
+    EmailMessage,
+    collect_alert_messages,
+    fetch_new_messages,
+)
 
 logger = logging.getLogger(__name__)
 

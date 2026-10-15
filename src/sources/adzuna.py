@@ -130,9 +130,7 @@ def _search(
     jobs: list[Job] = []
     pages = max(1, max_pages)
     for page in range(1, pages + 1):
-        if request_pause and page > 1:
-            time.sleep(request_pause)
-        elif request_pause and page == 1:
+        if request_pause and page > 1 or request_pause and page == 1:
             time.sleep(request_pause)
         url = f"{BASE_URL}/{country}/search/{page}"
         params = {

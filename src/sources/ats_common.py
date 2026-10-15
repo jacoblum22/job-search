@@ -69,6 +69,28 @@ def get_json(client: httpx.Client, url: str, **kwargs: Any) -> Any | None:
         return None
 
 
+def get_text(client: httpx.Client, url: str, **kwargs: Any) -> str | None:
+    """GET an HTML/XML page. Returns None (and logs) on HTTP errors."""
+    resp = request_with_retry(client, "GET", url, **kwargs)
+    if resp.status_code >= 400:
+        logger.warning("HTTP %d from %s", resp.status_code, url)
+        return None
+    return resp.text
+
+
+def post_json(client: httpx.Client, url: str, payload: Any, **kwargs: Any) -> Any | None:
+    """POST a JSON body and decode the JSON reply. None (and logs) on errors."""
+    resp = request_with_retry(client, "POST", url, json=payload, **kwargs)
+    if resp.status_code >= 400:
+        logger.warning("HTTP %d from POST %s", resp.status_code, url)
+        return None
+    try:
+        return resp.json()
+    except ValueError:
+        logger.warning("Non-JSON response from POST %s", url)
+        return None
+
+
 def to_markdown(fragment: str | None, *, escaped: bool = False) -> str:
     """HTML (optionally entity-escaped, as Greenhouse sends it) -> markdown."""
     if not fragment:
@@ -120,6 +142,24 @@ def location_ok(location: str) -> bool:
     loc = location.lower()
     region = re.sub(r"\bremote\b|[-–(),;:/]", " ", loc).strip()
     return not region or any(r in loc for r in _REMOTE_OK_REGIONS)
+
+
+def localize(location: str, board: dict) -> str:
+    """Pin region-wide postings to the employer's area.
+
+    Local employers post some jobs as "Various Locations, BC" or just their
+    own name ("Fraser Health"). A board can list such strings under
+    `vague_locations`; matching postings (or ones with no location) get the
+    board's `fallback_location` appended so the location filter can place them.
+    """
+    fallback = board.get("fallback_location")
+    if not fallback:
+        return location
+    vague = [v.lower() for v in board.get("vague_locations") or []]
+    loc = (location or "").lower()
+    if not loc or any(v in loc for v in vague):
+        return f"{location} ({fallback})" if location else fallback
+    return location
 
 
 def fetch_boards(

@@ -201,5 +201,9 @@ def test_shipped_board_list_names_are_not_vancouver_words():
     data = yaml.safe_load((Path(__file__).parents[1] / "config" / "ats_boards.yaml").read_text(encoding="utf-8"))
     names = [s["name"] for s in data["workday"]]
     assert names and not [n for n in names if is_vancouver_area(n)]
-    for platform in ("greenhouse", "lever", "ashby", "smartrecruiters", "workable"):
+    from src.sources.registry import BOARD_PLATFORMS, FEEDS
+
+    for platform in BOARD_PLATFORMS:
         assert normalize_boards(data[platform]), platform
+    assert set(data) - {"bc_locations", "workday", "feeds"} <= set(BOARD_PLATFORMS)
+    assert set(data["feeds"]) <= set(FEEDS)
