@@ -60,9 +60,40 @@ _NON_CANADA_MARKERS = [
 ]
 
 
+# Metro Vancouver city names that also exist elsewhere ("Richmond, VA",
+# "Vancouver, WA", "Delta, UT"): a location that names a US state or another
+# province is not local, whatever city it starts with. "CA" is left out: some
+# sources use it for Canada ("Vancouver, CA").
+_US_STATES = {
+    "AL", "AK", "AZ", "AR", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL",
+    "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE",
+    "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD",
+    "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+}
+_OTHER_PROVINCES = {"AB", "SK", "MB", "ON", "QC", "NB", "NS", "PE", "NL", "YT", "NT", "NU"}
+_REGION_CODE = re.compile(r",\s*([A-Za-z]{2})\b")
+_OTHER_REGION_NAMES = re.compile(
+    r"\b(united states|usa|u\.s\.a?|washington|virginia|california|oregon|texas|"
+    r"illinois|kentucky|indiana|utah|ohio|alberta|ontario|quebec|québec|manitoba|"
+    r"saskatchewan|nova scotia|new brunswick|newfoundland)\b",
+    re.IGNORECASE,
+)
+
+
+def _names_other_region(location: str) -> bool:
+    if "british columbia" in location.lower() or re.search(r"\bBC\b", location, re.IGNORECASE):
+        return False
+    codes = {c.upper() for c in _REGION_CODE.findall(location)}
+    if codes & (_US_STATES | _OTHER_PROVINCES):
+        return True
+    return bool(_OTHER_REGION_NAMES.search(location))
+
+
 def is_vancouver_area(location: str) -> bool:
     loc = (location or "").lower()
-    return any(kw in loc for kw in VANCOUVER_KEYWORDS)
+    if not any(kw in loc for kw in VANCOUVER_KEYWORDS):
+        return False
+    return not _names_other_region(location or "")
 
 
 def is_remote(location: str) -> bool:
