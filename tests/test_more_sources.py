@@ -375,3 +375,43 @@ def test_jazzhr_and_humi_links_then_jsonld():
     jobs = jsonld_board.fetch_jsonld_board_jobs([humi], search=SEARCH, client=client)
     assert all(j.source == "humi:comm100" for j in jobs)
     assert all("Account Executive" not in j.title for j in jobs)  # title gate skipped sales roles
+
+
+def test_html_board_phsa_search_pages_with_jsonld_details():
+    board = {
+        "slug": "phsa",
+        "name": "PHSA",
+        "kind": "html",
+        "list_url": "https://jobs.phsa.ca/jobs?search_api_fulltext={query}&page={page}",
+        "link_pattern": r"^/job/([a-z0-9-]+)$",
+        "max_pages": 4,
+    }
+    client = FakeClient([("jobs.phsa.ca/job/", text("phsa_job.html")), ("search_api_fulltext=analyst&page=0", text("phsa_search.html"))])
+    jobs = jsonld_board.fetch_jsonld_board_jobs([board], search=SEARCH, client=client)
+    assert jobs and all(j.source == "html:phsa" for j in jobs)
+    assert jobs[0].location == "Burnaby, British Columbia, Canada"
+    assert len(jobs[0].description) > 5000
+    # page 1 of "analyst" 404s, so paging stops there
+    assert any("analyst&page=1" in url for _, url, _ in client.calls)
+    assert not any("analyst&page=2" in url for _, url, _ in client.calls)
+
+
+def test_html_board_without_jsonld_uses_page_text():
+    poly = {"slug": "polygon-homes", "name": "Polygon Homes", "kind": "html", "list_url": "https://polyhomes.com/careers/",
+            "link_pattern": r"/careers/([a-z0-9-]+)/?$", "fallback_location": "Vancouver, BC"}
+    client = FakeClient([("/careers/digital-ai-analyst/", text("polygon_job.html")), ("polyhomes.com/careers/", text("polygon_list.html"))])
+    jobs = jsonld_board.fetch_jsonld_board_jobs([poly], search=SEARCH, client=client)
+    assert [j.title for j in jobs] == ["Digital & AI Analyst (12-Month Contract)"]
+    assert jobs[0].location == "Vancouver, BC"
+    assert "Director of Digital & AI" in jobs[0].description
+    assert "careers@polyhomes.com" in jobs[0].description
+
+
+def test_html_board_title_separator_gives_location():
+    glot = {"slug": "glotman-simpson", "name": "Glotman Simpson", "kind": "html", "list_url": "https://glotmansimpson.com/careers",
+            "link_pattern": r"/career/([a-z0-9-]+)/?$", "title_separator": "•", "fallback_location": "Vancouver, BC"}
+    client = FakeClient([("/career/", text("glotman_job.html")), ("glotmansimpson.com/careers", text("glotman_list.html"))])
+    jobs = jsonld_board.fetch_jsonld_board_jobs([glot], client=client)
+    assert jobs and all(j.location == "Vancouver Office" for j in jobs)
+    assert not any("los-angeles" in j.url or "victoria" in j.url for j in jobs)
+    assert len(jobs[0].description) > 1000

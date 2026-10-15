@@ -15,7 +15,7 @@
 #   taleo (host, dc, org, cws) · adp (cid, ccId) · ukg (host, tenant, guid) ·
 #   dayforce (client, board) · peoplesoft (base_url, site_id) · bamboohr ·
 #   pinpoint (slug or host) · breezy · rippling · teamtailor (slug or host) ·
-#   jobvite (company_id) · jazzhr (slug or host) · humi
+#   jobvite (company_id) · jazzhr (slug or host) · humi · html (custom careers pages, see below)
 # `fallback_location` (+ `vague_locations`) pins region-wide postings such as
 # "Various Locations, BC" to the employer's area so the location filter keeps them.
 
@@ -553,8 +553,26 @@ humi:
   - {name: "Inverite", slug: "inverite"}
 
 # Whole-market feeds (not per company). `queries` defaults to search.keywords.
+
+# Plain custom careers pages (no ATS feed). list_url may use {query} (one run per
+# search keyword) and {page}; link_pattern picks job links. Job pages with JSON-LD
+# use it; otherwise the <h1> is the title and the main text block the description.
+# BC-CfE (bccfe.ca) is left out: its postings apply through Providence Health Care,
+# which the iCIMS section already covers.
+html:
+  - name: "PHSA"
+    slug: "phsa"
+    list_url: "https://jobs.phsa.ca/jobs?search_api_fulltext={query}&page={page}"
+    link_pattern: '^/job/([a-z0-9-]+)$'
+    max_pages: 4
+  - {name: "Polygon Homes", slug: "polygon-homes", list_url: "https://polyhomes.com/careers/", link_pattern: '/careers/([a-z0-9-]+)/?$', fallback_location: "Vancouver, BC"}
+  - {name: "Leith Wheeler", slug: "leith-wheeler", list_url: "https://www.leithwheeler.com/careers", link_pattern: '/career/([^/?#]+)$', fallback_location: "Vancouver, BC", exclude_pattern: 'montr|gestionnaire|administrateur'}
+  - {name: "Oppy", slug: "oppy", list_url: "https://oppy.com/careers/", link_pattern: '/position/([a-z0-9-]+)/?$', fallback_location: "Vancouver, BC"}
+  - {name: "Glotman Simpson", slug: "glotman-simpson", list_url: "https://glotmansimpson.com/careers", link_pattern: '/career/([a-z0-9-]+)/?$', title_separator: "•", fallback_location: "Vancouver, BC"}
+
 feeds:
   jobbank: {enabled: true, max_pages: 2}   # Government of Canada Job Bank, BC postings
   bcps: {enabled: true}                    # BC Public Service (all ministries)
   hn: {enabled: true}                      # latest Hacker News "Who is hiring?" thread
-  jooble: {enabled: true, location: "Vancouver, BC", max_pages: 1}  # needs JOOBLE_API_KEY in .env
+  # Off: Vancouver searches return reposted "Canada" jobs with ~280-char snippets (live test Oct 15 2026).
+  jooble: {enabled: false, location: "Vancouver, BC", max_pages: 1}  # needs JOOBLE_API_KEY in .env

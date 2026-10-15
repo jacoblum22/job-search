@@ -30,8 +30,9 @@ Company boards live in `config/ats_boards.yaml` (Workday tenants there are added
 to `settings.yaml`'s `sources:`): Greenhouse, Lever, Ashby, SmartRecruiters,
 Workable, Oracle HCM, iCIMS/Jibe, SuccessFactors, Taleo, ADP, UKG, Dayforce,
 PeopleSoft, BambooHR, Pinpoint, Breezy, Rippling, Teamtailor, Jobvite, JazzHR
-and Humi. The same file turns on whole-market feeds: Job Bank, BC Public
-Service, Hacker News "Who is hiring?" and Jooble (needs `JOOBLE_API_KEY`).
+and Humi, plus plain custom careers pages (`html:`, e.g. PHSA). The same file
+turns on whole-market feeds: Job Bank, BC Public Service, Hacker News "Who is
+hiring?" and Jooble (off by default; needs `JOOBLE_API_KEY`).
 These sources return the full posting, so they skip snippet enrichment
 (Jooble excepted). `--skip-ats` leaves them all out.
 

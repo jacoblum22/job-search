@@ -61,6 +61,7 @@ BOARD_PLATFORMS: dict[str, BoardFetcher] = {
     "jobvite": lambda b, s: fetch_jobvite_jobs(b),
     "jazzhr": lambda b, s: fetch_jsonld_board_jobs([{**x, "kind": "jazzhr"} for x in b], search=s),
     "humi": lambda b, s: fetch_jsonld_board_jobs([{**x, "kind": "humi"} for x in b], search=s),
+    "html": lambda b, s: fetch_jsonld_board_jobs([{**x, "kind": "html"} for x in b], search=s),
 }
 
 FEEDS: dict[str, FeedFetcher] = {
