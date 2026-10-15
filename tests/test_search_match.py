@@ -195,3 +195,18 @@ def test_graduate_program_titles_are_worth_a_fetch():
 
     assert should_hydrate_record("2K Games – Engineering Graduate Program – Vancouver", {"keywords": ["data analyst"]})
     assert should_hydrate_record("Indigenous – New & Recent Graduates", {"keywords": ["data analyst"]})
+
+
+def test_broad_fetch_title_terms_respect_exclusions():
+    from src.search_match import should_hydrate_record
+
+    search = {
+        "keywords": ["data scientist"],
+        "exclude_title_terms": ["senior", "manager"],
+        "fetch_title_terms": ["data", "research"],
+    }
+    assert should_hydrate_record("Data Operations Specialist", search)
+    assert should_hydrate_record("Research Associate", search)
+    assert not should_hydrate_record("Senior Data Operations Specialist", search)
+    assert not should_hydrate_record("HR Business Partner", search)
+    assert not should_hydrate_record("Database of Nothing Manager", search)

@@ -120,6 +120,49 @@ search:
     - "trainer"     # AI-trainer / annotation gigs
     - "annotator"
     - "tutor"
+  # Deliberately broad: a snippet-only listing (Adzuna, CareerJet, alert
+  # emails) whose title has any of these words gets its full posting fetched,
+  # and the full text then goes through the normal keyword filter. A title
+  # with none of them (and no early-career word) isn't stored at all. The
+  # exclude_title_terms above still apply.
+  fetch_title_terms:
+    - "data"
+    - "database"
+    - "analytics"
+    - "analyst"
+    - "analysis"
+    - "insights"
+    - "reporting"
+    - "business intelligence"
+    - "bi"
+    - "machine learning"
+    - "ml"
+    - "ai"
+    - "artificial intelligence"
+    - "deep learning"
+    - "nlp"
+    - "computer vision"
+    - "statistics"
+    - "statistical"
+    - "statistician"
+    - "quantitative"
+    - "research"
+    - "scientist"
+    - "science"
+    - "modeling"
+    - "modelling"
+    - "forecasting"
+    - "software"
+    - "developer"
+    - "programmer"
+    - "engineer"
+    - "python"
+    - "sql"
+    - "automation"
+    - "informatics"
+    - "computational"
+    - "technology"
+    - "technical"
   # Stored up to 5 years; 3-5 is a score penalty, not a drop (see score: below).
   max_years_experience: 5
 
