@@ -4,7 +4,7 @@ API: POST https://jooble.org/api/{JOOBLE_API_KEY} with JSON
 `{"keywords": ..., "location": ..., "page": N}`; returns
 `{"totalCount": N, "jobs": [{id, title, location, snippet, link, company, updated, ...}]}`.
 Results carry a snippet only; src/enrich.py fills in the full posting where it can.
-Needs a free Canada key from https://ca.jooble.org/api/about in .env as
+Needs a free Canada key from https://jooble.org/api/about in .env as
 JOOBLE_API_KEY; without one the source is skipped.
 """
 
