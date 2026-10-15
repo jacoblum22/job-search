@@ -63,6 +63,10 @@ def test_careerjet_paginates(monkeypatch):
         request_pause=0,
     )
     assert status == 200
+    assert pages_seen == [1, 2]
+    assert len(jobs) == 2
+
+
 def test_careerjet_circuit_stops_after_three_403s(monkeypatch):
     monkeypatch.setattr("src.sources.careerjet._public_ip", lambda _c: "1.1.1.1")
     monkeypatch.setattr("src.http_retry.time.sleep", lambda _s: None)
