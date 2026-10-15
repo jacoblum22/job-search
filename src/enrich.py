@@ -11,8 +11,9 @@ CloudFront; only the tracked redirect_url (with its utm params) is served.
 
 Rate-limited per host, retried on transient errors, and every failure is
 logged and skipped — enrichment never aborts a scrape. Attempts are recorded
-in `enrich_attempts` so the 10-minute scheduled runs don't refetch the same
-dead link over and over.
+in `enrich_attempts` so scheduled runs don't refetch the same dead link (or a
+posting the filters dropped anyway) and the per-run cap works through the
+backlog instead.
 """
 
 from __future__ import annotations
@@ -97,7 +98,8 @@ def enrich_descriptions(
 
     `should_fetch` narrows which listings are worth a request (e.g. title
     relevance). With `conn`, listings already stored with a full description
-    reuse it, and recent failed attempts are not retried.
+    reuse it, and listings attempted recently (failed, or fetched but then
+    filtered out) are not refetched.
     Returns counts: enriched / failed / reused / skipped_recent / capped.
     """
     stats: Counter = Counter()
@@ -127,7 +129,7 @@ def enrich_descriptions(
                     _apply(job, stored)
                     stats["reused"] += 1
                     continue
-                if _recently_failed(conn, job):
+                if _recently_attempted(conn, job):
                     stats["skipped_recent"] += 1
                     continue
             if fetches >= max_fetches:
@@ -149,7 +151,7 @@ def enrich_descriptions(
             client.close()
     if stats:
         logger.info(
-            "Description enrichment: %d enriched, %d failed, %d reused, %d skipped (recent failure), %d over cap",
+            "Description enrichment: %d enriched, %d failed, %d reused, %d skipped (recently attempted), %d over cap",
             stats["enriched"],
             stats["failed"],
             stats["reused"],
@@ -262,12 +264,16 @@ def _stored_description(conn: sqlite3.Connection, job: Job) -> str:
     return (row[0] or "") if row else ""
 
 
-def _recently_failed(conn: sqlite3.Connection, job: Job) -> bool:
+def _recently_attempted(conn: sqlite3.Connection, job: Job) -> bool:
+    """True for a recent dead link, or a recent success that wasn't stored
+    because the full text still failed the filters. Either way a refetch would
+    burn the per-run cap that the backlog behind it needs.
+    """
     row = conn.execute(
-        "SELECT attempted_at, ok FROM enrich_attempts WHERE source = ? AND external_id = ?",
+        "SELECT attempted_at FROM enrich_attempts WHERE source = ? AND external_id = ?",
         (job.source, job.external_id),
     ).fetchone()
-    if not row or row[1]:
+    if not row:
         return False
     attempted = datetime.fromisoformat(row[0])
     return datetime.now(timezone.utc) - attempted < RETRY_FAILED_AFTER

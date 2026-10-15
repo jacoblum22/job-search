@@ -133,7 +133,6 @@ def run(
                         results_per_page=results_per_page,
                         max_pages=max_pages,
                         remote_sweep_location=remote_sweep,
-                        search=search,
                     ),
                     match_keywords=True,
                 )

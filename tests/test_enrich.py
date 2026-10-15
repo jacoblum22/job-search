@@ -117,3 +117,26 @@ def test_db_reuses_stored_and_skips_recent_failures(tmp_path):
     stats = enrich_descriptions([_job("dead", url="https://example.com/dead")], conn=conn, client=client, host_pause=0)
     assert stats["skipped_recent"] == 1
     assert len(calls) == 1
+
+
+def test_db_does_not_refetch_enriched_but_unstored(tmp_path):
+    # Enriched, then dropped by the filters (never upserted): the next run
+    # must move on to other listings rather than refetch it.
+    conn = connect(tmp_path / "jobs.db")
+    calls = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        return httpx.Response(200, text=_page(FULL))
+
+    client = _client(handler)
+    enrich_descriptions([_job("a", url="https://example.com/a")], conn=conn, client=client, host_pause=0)
+    stats = enrich_descriptions(
+        [_job("a", url="https://example.com/a"), _job("b", url="https://example.com/b")],
+        conn=conn,
+        client=client,
+        host_pause=0,
+        max_fetches=1,
+    )
+    assert calls == ["https://example.com/a", "https://example.com/b"]
+    assert stats["skipped_recent"] == 1 and stats["enriched"] == 1
