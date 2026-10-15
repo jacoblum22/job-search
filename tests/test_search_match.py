@@ -194,3 +194,4 @@ def test_graduate_program_titles_are_worth_a_fetch():
     from src.search_match import should_hydrate_record
 
     assert should_hydrate_record("2K Games – Engineering Graduate Program – Vancouver", {"keywords": ["data analyst"]})
+    assert should_hydrate_record("Indigenous – New & Recent Graduates", {"keywords": ["data analyst"]})

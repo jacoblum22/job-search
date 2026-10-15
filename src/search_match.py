@@ -304,7 +304,7 @@ INTERNSHIP_TITLE_RE = re.compile(
 )
 
 _EARLY_CAREER_TITLE_RE = re.compile(
-    r"\b(junior|new[\s-]?grad|graduate|analyst|coordinator|assistant|recruiter|hr)\b",
+    r"\b(junior|new[\s-]?grad|graduates?|analyst|coordinator|assistant|recruiter|hr)\b",
     re.IGNORECASE,
 )
 
