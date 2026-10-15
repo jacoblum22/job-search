@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from email.utils import parsedate_to_datetime
 from datetime import UTC, date, datetime, timedelta
 
 DEFAULT_MAX_AGE_DAYS = 30
@@ -30,7 +31,7 @@ _DAYS_AGO = re.compile(r"(\d+)\+?\s+days?\s+ago", re.IGNORECASE)
 def parse_posted(value: object, today: date | None = None) -> date | None:
     """Best-effort posted date from the many formats sources use.
 
-    Handles ISO dates/timestamps, M/D/YYYY, epoch milliseconds, and Workday's
+    Handles ISO dates/timestamps, RFC 822 dates, M/D/YYYY, epoch milliseconds, and Workday's
     "Posted Today" / "Posted Yesterday" / "Posted 30+ Days Ago". None when unknown.
     """
     if value is None or value == "":
@@ -46,6 +47,10 @@ def parse_posted(value: object, today: date | None = None) -> date | None:
         return date(int(m[3]), int(m[1]), int(m[2]))
     if text.isdigit():
         return parse_posted(int(text), today)
+    try:  # RFC 822, e.g. "Wed, 30 Sep 2026 07:17:19 GMT" (Adzuna, RSS feeds)
+        return parsedate_to_datetime(text).date()
+    except (TypeError, ValueError, IndexError):
+        pass
     lower = text.lower()
     if "today" in lower or "just posted" in lower:
         return today

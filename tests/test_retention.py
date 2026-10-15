@@ -9,6 +9,7 @@ TODAY = date(2026, 10, 15)
 def test_parse_posted_formats():
     assert parse_posted("2026-09-21T00:00:00-0700", TODAY) == date(2026, 9, 21)
     assert parse_posted("10/06/2026", TODAY) == date(2026, 10, 6)
+    assert parse_posted("Wed, 30 Sep 2026 07:17:19 GMT", TODAY) == date(2026, 9, 30)
     assert parse_posted(1760486400000, TODAY) == date(2025, 10, 15)
     assert parse_posted("Posted Yesterday", TODAY) == date(2026, 10, 14)
     assert parse_posted("Posted 30+ Days Ago", TODAY) == date(2026, 9, 15)

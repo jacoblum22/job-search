@@ -155,3 +155,31 @@ def test_backfill_updates_stored_snippets(tmp_path):
     rows = dict(conn.execute("SELECT external_id, description FROM jobs").fetchall())
     assert rows["x"].startswith("Requires 2 years")
     assert rows["y"] == "Short snippet…"
+
+
+def test_worth_keeping_drops_irrelevant_snippets_only():
+    from src.enrich import worth_keeping
+
+    def wanted(j):
+        return "Data" in j.title
+
+    assert worth_keeping(_job("a"), wanted)  # relevant snippet: kept, to be filled
+    assert not worth_keeping(_job("b", title="HVAC Technician"), wanted)  # irrelevant snippet: dropped
+    assert worth_keeping(_job("c", title="HVAC Technician", desc=FULL), wanted)  # full posting: kept
+
+
+def test_backfill_records_attempts_and_skips_recent_failures(tmp_path):
+    from src.enrich import backfill_stored
+
+    conn = connect(tmp_path / "jobs.db")
+    upsert_job(conn, _job("x", url="https://example.com/x"))
+    calls = []
+
+    def handler(r):
+        calls.append(str(r.url))
+        return httpx.Response(404)
+
+    backfill_stored(conn, client=_client(handler), host_pause=0)
+    stats = backfill_stored(conn, client=_client(handler), host_pause=0)
+    assert len(calls) == 1
+    assert stats["skipped_recent"] == 1

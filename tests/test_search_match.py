@@ -188,3 +188,25 @@ def test_should_hydrate_skips_hvac_and_keeps_intern():
     assert not should_hydrate_record("Facilities HVAC Technician", s, company="City of Vancouver")
     assert should_hydrate_record("Recruiter", s)
     assert should_hydrate_record("Co-op Student, Information Systems", s)
+
+
+def test_graduate_program_titles_are_worth_a_fetch():
+    from src.search_match import should_hydrate_record
+
+    assert should_hydrate_record("2K Games – Engineering Graduate Program – Vancouver", {"keywords": ["data analyst"]})
+    assert should_hydrate_record("Indigenous – New & Recent Graduates", {"keywords": ["data analyst"]})
+
+
+def test_broad_fetch_title_terms_respect_exclusions():
+    from src.search_match import should_hydrate_record
+
+    search = {
+        "keywords": ["data scientist"],
+        "exclude_title_terms": ["senior", "manager"],
+        "fetch_title_terms": ["data", "research"],
+    }
+    assert should_hydrate_record("Data Operations Specialist", search)
+    assert should_hydrate_record("Research Associate", search)
+    assert not should_hydrate_record("Senior Data Operations Specialist", search)
+    assert not should_hydrate_record("HR Business Partner", search)
+    assert not should_hydrate_record("Database of Nothing Manager", search)

@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from src.dashboard import generate_dashboard
 from src.db import connect, upsert_job
 from src.dedup import run_dedup
-from src.enrich import enrich_descriptions
+from src.enrich import backfill_stored, enrich_descriptions, worth_keeping
 from src.export_xlsx import generate_xlsx
 from src.retention import is_stale, max_age_days, prune, pruned_keys
 from src.score import rescore_all
@@ -119,6 +119,9 @@ def run(
     max_days = max_age_days(cfg)
     pruned = pruned_keys(conn)
 
+    def wanted(j) -> bool:
+        return should_hydrate_record(j.title, search, company=j.company, location=j.location)
+
     def ingest(jobs: list, *, match_keywords: bool) -> None:
         nonlocal new_count, total_fetched
         # Old or already-deleted postings never come back (and aren't enriched).
@@ -133,14 +136,17 @@ def run(
                 enrich_descriptions(
                     jobs,
                     conn=conn,
-                    should_fetch=lambda j: should_hydrate_record(
-                        j.title, search, company=j.company, location=j.location
-                    ),
+                    should_fetch=wanted,
                     host_pause=enrich_cfg.get("host_pause_seconds", 1.0),
                     max_fetches=enrich_cfg.get("max_fetches_per_source", 150),
                 )
             except Exception:
                 log.exception("Description enrichment failed — keeping snippets")
+        # Don't store listings we wouldn't even fetch the full posting for.
+        before = len(jobs)
+        jobs = [j for j in jobs if worth_keeping(j, wanted)]
+        if len(jobs) != before:
+            log.info("Dropped %d of %d snippet-only listing(s) with irrelevant titles", before - len(jobs), before)
         kept = [j for j in jobs if keep_job(j, search, match_keywords=match_keywords)]
         if len(kept) != len(jobs):
             log.info("Filtered out %d of %d job(s) (keywords/location/level)", len(jobs) - len(kept), len(jobs))
@@ -235,6 +241,20 @@ def run(
         log.info("Deleted %d job(s) older than %d days", removed, max_days)
     conn.commit()
     log.info("Fetched %d jobs total (%d new)", total_fetched, new_count)
+
+    # Work through stored listings still holding a snippet (over last run's
+    # cap, or saved before enrichment existed). Login-walled links are left
+    # to the Claude in Chrome task (scripts/browser_queue.py).
+    if enrich_cfg.get("enabled", True):
+        try:
+            backfill_stored(
+                conn,
+                should_fetch=wanted,
+                host_pause=enrich_cfg.get("host_pause_seconds", 1.0),
+                max_fetches=enrich_cfg.get("backlog_fetches_per_run", 150),
+            )
+        except Exception:
+            log.exception("Description backlog catch-up failed — continuing")
 
     merged = run_dedup(conn)
     log.info("Dedup merged %d job(s)", merged)

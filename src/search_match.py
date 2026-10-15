@@ -304,7 +304,7 @@ INTERNSHIP_TITLE_RE = re.compile(
 )
 
 _EARLY_CAREER_TITLE_RE = re.compile(
-    r"\b(junior|new[\s-]?grad|analyst|coordinator|assistant|recruiter|hr)\b",
+    r"\b(junior|new[\s-]?grad|graduates?|entry[\s-]level|analyst|coordinator|assistant)\b",
     re.IGNORECASE,
 )
 
@@ -312,9 +312,11 @@ _EARLY_CAREER_TITLE_RE = re.compile(
 def should_hydrate_record(title: str, search: dict[str, Any], *, company: str = "", location: str = "") -> bool:
     """True if we should spend a details/HTML fetch on this listing.
 
-    Title already matching the phrase table is enough. Early-career titles
-    (intern/co-op/analyst/…) get a body fetch in case the keyword is only in
-    the description. HVAC / mortgage / VP listings do not.
+    Title already matching the phrase table is enough. So is any word from
+    the deliberately broad `fetch_title_terms` (data, analytics, software, …)
+    in a title without an excluded term, and any early-career title
+    (intern/co-op/junior/graduate/…), in case the keyword is only in the
+    description. HVAC / mortgage / VP listings do not.
     """
     from types import SimpleNamespace
 
@@ -332,6 +334,14 @@ def should_hydrate_record(title: str, search: dict[str, Any], *, company: str = 
         match_keywords=True,
         include_description=False,
         require_relevant_location=False,
+    ):
+        return True
+    lowered = title.lower()
+    excluded = any(
+        re.search(rf"\b{re.escape(t.lower())}\b", lowered) for t in search.get("exclude_title_terms") or []
+    )
+    if not excluded and any(
+        re.search(rf"\b{re.escape(t.lower())}\b", lowered) for t in search.get("fetch_title_terms") or []
     ):
         return True
     return bool(INTERNSHIP_TITLE_RE.search(title) or _EARLY_CAREER_TITLE_RE.search(title))

@@ -78,6 +78,15 @@ CREATE TABLE IF NOT EXISTS enrich_attempts (
 """
 
 
+def worth_keeping(job: Job, wanted: Callable[[Job], bool]) -> bool:
+    """Every stored listing should have its full posting or be on its way to
+    one. A listing still holding only a snippet (or nothing) is kept only if
+    it's one we'd spend a fetch on (`wanted`, normally title relevance);
+    anything less relevant isn't worth storing at all.
+    """
+    return len(job.description or "") >= SNIPPET_MAX_CHARS or wanted(job)
+
+
 def needs_enrichment(job: Job) -> bool:
     if len(job.description or "") >= SNIPPET_MAX_CHARS or not job.url:
         return False
@@ -301,7 +310,9 @@ def backfill_stored(
     """Enrich jobs already in the DB that still hold only a snippet.
 
     The scrape-time step only sees listings the APIs return that run; this
-    catches up rows stored before enrichment existed. Newest first.
+    catches up rows stored before enrichment existed, and listings the
+    per-run cap pushed back. Newest first. Attempts are recorded, so a dead
+    link is retried only after RETRY_FAILED_AFTER.
     """
     rows = conn.execute(
         """
@@ -315,8 +326,7 @@ def backfill_stored(
     jobs = [j for j in jobs if needs_enrichment(j)]
     if limit is not None:
         jobs = jobs[:limit]
-    # conn=None: we want the fetch even though these rows exist in the DB.
-    stats = enrich_descriptions(jobs, should_fetch=should_fetch, **kwargs)
+    stats = enrich_descriptions(jobs, conn=conn, should_fetch=should_fetch, **kwargs)
     for job in jobs:
         if len(job.description) >= SNIPPET_MAX_CHARS:
             conn.execute(
