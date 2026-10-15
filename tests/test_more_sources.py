@@ -21,7 +21,6 @@ from src.sources import (
     jibe,
     jobbank,
     jobvite,
-    jooble,
     jsonld_board,
     oracle_hcm,
     peoplesoft,
@@ -299,23 +298,6 @@ def test_dayforce_next_data_detail():
     # The search POST carries the CSRF token fetched first; without it Dayforce answers 403.
     _method, _url, kwargs = next(c for c in client.calls if c[0] == "POST")
     assert kwargs["headers"] == {"X-CSRF-TOKEN": "tok123"}
-
-
-def test_jooble_skips_without_key(monkeypatch):
-    monkeypatch.delenv("JOOBLE_API_KEY", raising=False)
-    assert jooble.fetch_jooble_jobs(queries=["data analyst"], location="Vancouver, BC") == []
-
-
-def test_jooble_posts_and_filters():
-    client = FakeClient(
-        [("jooble.org/api/", {"totalCount": 2, "jobs": [
-            {"id": 1, "title": "Data Analyst", "location": "Vancouver, BC", "snippet": "<b>SQL</b>", "link": "https://x/1"},
-            {"id": 2, "title": "Data Analyst", "location": "Toronto, ON", "snippet": "", "link": "https://x/2"},
-        ]})]
-    )
-    jobs = jooble.fetch_jooble_jobs(queries=["data analyst"], location="Vancouver, BC", api_key="k", max_pages=1, client=client)
-    assert [j.external_id for j in jobs] == ["1"]
-    assert client.calls[0][0] == "POST"
 
 
 # --- smaller ATS platforms -------------------------------------------------
