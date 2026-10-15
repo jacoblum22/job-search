@@ -50,7 +50,9 @@ def _now() -> datetime:
 
 
 def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
-    """Newest-first listings still holding a snippet that a browser could fill.
+    """Listings still holding a snippet that a browser could fill, newest
+    first, at most `limit` per source so one busy site can't crowd out the
+    others.
 
     Email-alert sources always qualify; Adzuna only once HTTP enrichment has
     tried and failed. Anything attempted in the last RETRY_AFTER is skipped.
@@ -60,19 +62,22 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
     marks = ",".join("?" * len(BROWSER_SOURCES))
     rows = conn.execute(
         f"""
-        SELECT j.id, j.source, j.title, j.company, j.location, j.url,
-               length(j.description) AS chars, j.first_seen
-        FROM jobs j
-        LEFT JOIN enrich_attempts e
-          ON e.source = j.source AND e.external_id = j.external_id
-        WHERE length(j.description) < ? AND j.url != '' AND j.first_seen >= ?
-          AND j.status NOT IN ('expired', 'dismissed')
-          AND (
-                (j.source IN ({marks}) AND (e.attempted_at IS NULL OR e.attempted_at < ?))
-             OR (j.source = 'adzuna' AND e.ok = 0 AND e.attempted_at < ?)
-          )
-        ORDER BY j.first_seen DESC
-        LIMIT ?
+        SELECT id, source, title, company, location, url, chars, first_seen FROM (
+            SELECT j.id, j.source, j.title, j.company, j.location, j.url,
+                   length(j.description) AS chars, j.first_seen,
+                   ROW_NUMBER() OVER (PARTITION BY j.source ORDER BY j.first_seen DESC) AS rank
+            FROM jobs j
+            LEFT JOIN enrich_attempts e
+              ON e.source = j.source AND e.external_id = j.external_id
+            WHERE length(j.description) < ? AND j.url != '' AND j.first_seen >= ?
+              AND j.status NOT IN ('expired', 'dismissed')
+              AND (
+                    (j.source IN ({marks}) AND (e.attempted_at IS NULL OR e.attempted_at < ?))
+                 OR (j.source = 'adzuna' AND e.ok = 0 AND e.attempted_at < ?)
+              )
+        )
+        WHERE rank <= ?
+        ORDER BY source, first_seen DESC
         """,
         (SNIPPET_MAX_CHARS, since, *BROWSER_SOURCES, retry_cutoff, retry_cutoff, limit),
     ).fetchall()
@@ -121,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     p_list = sub.add_parser("list", help="print pending listings as JSON")
     p_list.add_argument("--days", type=int, default=14, help="only listings first seen this recently")
-    p_list.add_argument("--limit", type=int, default=15)
+    p_list.add_argument("--limit", type=int, default=15, help="max listings per source")
     p_save = sub.add_parser("save", help="store a description read from the page")
     p_save.add_argument("id", type=int)
     p_save.add_argument("file", help="text/markdown file with the description, or - for stdin")

@@ -15,7 +15,7 @@ In my job-search folder (C:\Users\jacob\job-search), fill in job descriptions
 that the scraper couldn't get.
 
 1. Run `python3 scripts/browser_queue.py list` (on Windows: `python`). It
-   prints up to 15 listings as JSON. If it prints `[]`, stop and reply
+   prints up to 15 listings per site (LinkedIn, Indeed, Glassdoor, Adzuna) as JSON. If it prints `[]`, stop and reply
    "Nothing to fill in today."
 2. For each listing, open its `url` in a new Chrome tab. Expand the
    description if it's collapsed ("See more" / "Show more") and read the full
