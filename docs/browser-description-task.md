@@ -2,9 +2,10 @@
 
 LinkedIn (and Indeed/Glassdoor) alert emails give a title and a link but no
 description, and the scrape can't fetch those pages over plain HTTP. This task
-reads them in Jake's own signed-in Chrome. Adzuna is filled automatically on
-every scrape (src/enrich.py); Adzuna links that failed there also show up here.
-CareerJet links can't be fetched over plain HTTP but open in Chrome.
+reads them in Jake's own signed-in Chrome. CareerJet links can't be fetched
+over plain HTTP either but open in Chrome. Every other snippet source (Adzuna,
+BC Public Service, Job Bank, ...) is filled automatically on every scrape
+(src/enrich.py); any page that fetch fails on shows up here as well.
 
 Run it as a scheduled task in the Claude desktop app (it needs Claude in
 Chrome and this folder), daily at 6:45 PM. Prompt:
@@ -15,7 +16,7 @@ In my job-search folder (C:\Users\jacob\job-search), fill in job descriptions
 that the scraper couldn't get.
 
 1. Run `python3 scripts/browser_queue.py list` (on Windows: `python`). It
-   prints up to 15 listings per site (LinkedIn, Indeed, Glassdoor, CareerJet, Adzuna) as JSON. If it prints `[]`, stop and reply
+   prints up to 15 listings per site (LinkedIn, Indeed, Glassdoor, CareerJet, plus any other site whose page the scraper couldn't load) as JSON. If it prints `[]`, stop and reply
    "Nothing to fill in today."
 2. For each listing, open its `url` in a new Chrome tab. Expand the
    description if it's collapsed ("See more" / "Show more") and read the full

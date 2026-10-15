@@ -1,8 +1,9 @@
 """Queue of listings whose description has to be read in a real browser.
 
 The scrape-time enrichment (src/enrich.py) fills snippets over plain HTTP, but
-it can't open LinkedIn/Indeed/Glassdoor alert links (login-walled) and gives
-up on dead Adzuna links. This script is the hand-off for a browser session
+it can't open LinkedIn/Indeed/Glassdoor alert links (login-walled) or
+CareerJet links, and from any other source it queues pages the plain fetch
+failed on (Adzuna, BC Public Service, Job Bank, ...). This script is the hand-off for a browser session
 (e.g. a scheduled Claude in Chrome task) that reads those postings in Jake's
 own signed-in Chrome:
 
@@ -35,6 +36,9 @@ SNIPPET_MAX_CHARS = 1000  # same threshold as src/enrich.py
 MIN_FULL_CHARS = 300
 BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet")
 RETRY_AFTER = timedelta(days=3)
+# enrich_attempts.ok: 1 = filled, 0 = plain HTTP fetch failed, -1 = the
+# browser couldn't read it either (retried after RETRY_AFTER).
+BROWSER_FAILED = -1
 
 ATTEMPTS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS enrich_attempts (
@@ -56,8 +60,9 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
     first, at most `limit` per source so one busy site can't crowd out the
     others.
 
-    Email-alert sources always qualify; Adzuna only once HTTP enrichment has
-    tried and failed. Anything attempted in the last RETRY_AFTER is skipped.
+    BROWSER_SOURCES always qualify. Any other source qualifies as soon as the
+    plain HTTP fetch (src/enrich.py) has failed on it. A listing the browser
+    already failed on waits RETRY_AFTER.
     """
     since = (_now() - timedelta(days=days)).isoformat(timespec="seconds")
     retry_cutoff = (_now() - RETRY_AFTER).isoformat(timespec="seconds")
@@ -75,19 +80,25 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
               AND j.status NOT IN ('expired', 'dismissed')
               AND (
                     (j.source IN ({marks}) AND (e.attempted_at IS NULL OR e.attempted_at < ?))
-                 OR (j.source = 'adzuna' AND e.ok = 0 AND e.attempted_at < ?)
+                 OR (j.source NOT IN ({marks})
+                     AND (e.ok = 0 OR (e.ok = ? AND e.attempted_at < ?)))
               )
         )
         WHERE rank <= ?
         ORDER BY source, first_seen DESC
         """,
-        (SNIPPET_MAX_CHARS, since, *BROWSER_SOURCES, retry_cutoff, retry_cutoff, limit),
+        (
+            SNIPPET_MAX_CHARS, since,
+            *BROWSER_SOURCES, retry_cutoff,
+            *BROWSER_SOURCES, BROWSER_FAILED, retry_cutoff,
+            limit,
+        ),
     ).fetchall()
     cols = ("id", "source", "title", "company", "location", "url", "chars", "first_seen")
     return [dict(zip(cols, r)) for r in rows]
 
 
-def _record(conn: sqlite3.Connection, job_id: int, ok: bool) -> tuple[str, str]:
+def _record(conn: sqlite3.Connection, job_id: int, ok: int) -> tuple[str, str]:
     row = conn.execute("SELECT source, external_id FROM jobs WHERE id = ?", (job_id,)).fetchone()
     if not row:
         raise SystemExit(f"No job with id {job_id}")
@@ -98,7 +109,7 @@ def _record(conn: sqlite3.Connection, job_id: int, ok: bool) -> tuple[str, str]:
         ON CONFLICT(source, external_id) DO UPDATE SET
             attempted_at = excluded.attempted_at, ok = excluded.ok
         """,
-        (row[0], row[1], _now().isoformat(timespec="seconds"), int(ok)),
+        (row[0], row[1], _now().isoformat(timespec="seconds"), ok),
     )
     return row
 
@@ -108,7 +119,7 @@ def save(conn: sqlite3.Connection, job_id: int, text: str) -> bool:
     text = text.strip()
     if len(text) < MIN_FULL_CHARS:
         raise SystemExit(f"Description for {job_id} is only {len(text)} chars; use `fail` instead")
-    _record(conn, job_id, True)
+    _record(conn, job_id, 1)
     cur = conn.execute(
         "UPDATE jobs SET description = ? WHERE id = ? AND length(description) < ?",
         (text, job_id, len(text)),
@@ -118,7 +129,7 @@ def save(conn: sqlite3.Connection, job_id: int, text: str) -> bool:
 
 
 def fail(conn: sqlite3.Connection, job_id: int) -> None:
-    _record(conn, job_id, False)
+    _record(conn, job_id, BROWSER_FAILED)
     conn.commit()
 
 
