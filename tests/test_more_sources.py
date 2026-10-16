@@ -204,6 +204,8 @@ def test_jobbank_list_and_detail():
     # (Delta) doesn't pass the title gate, "database analyst" (Maple Ridge) does.
     assert {j.location for j in jobs} == {"Maple Ridge, BC"}
     assert all(j.source == "jobbank" for j in jobs)
+    # Job Bank 500s on the shared client's JSON Accept header.
+    assert all(kw["headers"]["Accept"].startswith("text/html") for _m, _u, kw in client.calls)
 
 
 def test_bcps_table_and_detail():
