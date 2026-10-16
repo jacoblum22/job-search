@@ -80,4 +80,5 @@ def fetch_jobvite_jobs(boards: list, *, client: httpx.Client | None = None, paus
         seen += 1
         return _fetch_one(client, board)
 
-    return fetch_boards("Jobvite", boards, fetch_one, client=client)
+    # One at a time: the pause between boards is what keeps Jobvite from 429ing.
+    return fetch_boards("Jobvite", boards, fetch_one, client=client, workers=1)

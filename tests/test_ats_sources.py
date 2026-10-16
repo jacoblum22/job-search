@@ -214,7 +214,7 @@ def test_dashboard_refreshes_after_each_source(tmp_path, monkeypatch):
 
     module = _aggregate_module()
     dashboard = tmp_path / "dashboard.html"
-    seen_on_disk = []
+    jobs_per_redraw = []
 
     def job(ext):
         return Job(source="t", external_id=ext, title=f"Data Analyst {ext}", company="C", location="Vancouver, BC",
@@ -224,13 +224,20 @@ def test_dashboard_refreshes_after_each_source(tmp_path, monkeypatch):
         return [job("first")]
 
     def second(boards, search):
-        seen_on_disk.append(dashboard.read_text(encoding="utf-8") if dashboard.exists() else "")
         return [job("second")]
 
+    real_generate = module.generate_dashboard
+
+    def recording_generate(conn, path):
+        jobs_per_redraw.append(conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0])
+        return real_generate(conn, path)
+
+    monkeypatch.setattr(module, "generate_dashboard", recording_generate)
     monkeypatch.setattr(module, "BOARD_PLATFORMS", {"a": first, "b": second})
     cfg = {"search": {"keywords": ["data analyst"]}, "enrich": {"enabled": False},
            "ats_boards": {"a": ["x"], "b": ["y"]}}
     module.run(cfg, db_path=tmp_path / "jobs.db", dashboard_path=dashboard, xlsx_path=tmp_path / "x.xlsx",
                skip_workday=True, skip_apis=True, skip_email=True, workday_limit=0)
-    assert "Data Analyst first" in seen_on_disk[0]
+    # Drawn once after each source is saved (1 job, then 2), then once at the end.
+    assert jobs_per_redraw == [1, 2, 2]
     assert "Data Analyst second" in dashboard.read_text(encoding="utf-8")

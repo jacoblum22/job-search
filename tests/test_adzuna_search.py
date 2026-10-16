@@ -78,7 +78,6 @@ def test_adzuna_paginates_until_short_page(monkeypatch):
 
 def test_adzuna_503_keeps_prior_pages(monkeypatch):
     monkeypatch.setattr("src.http_retry.time.sleep", lambda _s: None)
-    monkeypatch.setattr("src.sources.adzuna.time.sleep", lambda _s: None)
 
     class Client:
         def request(self, method, url, **kwargs):

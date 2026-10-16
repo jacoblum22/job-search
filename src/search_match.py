@@ -243,7 +243,9 @@ def api_queries(search: dict[str, Any]) -> list[str]:
     seen: set[str] = set()
 
     def add(q: str) -> None:
-        k = _norm_key(q)
+        # The APIs match every word anywhere, so word order doesn't make a new
+        # search: "junior data analyst" is the same call as "Data Analyst junior".
+        k = " ".join(sorted(_norm_key(q).split()))
         if not k or k in seen:
             return
         seen.add(k)
