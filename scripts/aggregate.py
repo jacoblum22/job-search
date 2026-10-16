@@ -234,7 +234,12 @@ def run(
     if not skip_workday:
         downloads.append((
             "Workday",
-            lambda: fetch_workday_jobs(cfg.get("sources", []), max_jobs=workday_limit, search=search),
+            lambda: fetch_workday_jobs(
+                cfg.get("sources", []),
+                max_jobs=workday_limit,
+                search=search,
+                tenant_workers=par.get("workday_tenant_workers", 8),
+            ),
         ))
 
     if not skip_ats:

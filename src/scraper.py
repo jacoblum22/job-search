@@ -363,37 +363,48 @@ class AsyncWorkdayScraper:
             "offset": offset,
             "searchText": "",
         }
-        resp = await self.client.post(self._jobs_url, json=payload)
-        resp.raise_for_status()
+        async with self._semaphore:
+            resp = await self._request("POST", self._jobs_url, json=payload)
         return resp.json()
 
     async def _get_with_retry(
         self, external_path: str, retries: int = MAX_RETRIES
     ) -> JobDetail:
-        url = f"{self._detail_url}{external_path}"
-        for attempt in range(retries):
-            resp = await self.client.get(url)
-
-            if resp.status_code in (429, 503):
-                wait = RETRY_BACKOFF * (2**attempt)
-                logger.warning(
-                    "Rate limited (429) on %s — retrying in %.1fs (attempt %d/%d)",
-                    external_path,
-                    wait,
-                    attempt + 1,
-                    retries,
-                )
-                await asyncio.sleep(wait)
-                continue
-
-            resp.raise_for_status()
-            detail = JobDetail.from_api(resp.json(), external_path)
-            detail.source = self.source_name
-            return detail
-
-        # Final attempt — let it raise
-        resp = await self.client.get(url)
-        resp.raise_for_status()
+        resp = await self._request("GET", f"{self._detail_url}{external_path}", retries=retries)
         detail = JobDetail.from_api(resp.json(), external_path)
         detail.source = self.source_name
         return detail
+
+    async def _request(
+        self, method: str, url: str, *, retries: int = MAX_RETRIES, **kwargs: Any
+    ) -> httpx.Response:
+        """Send a request, retrying rate limits, 5xx and dropped connections.
+
+        Workday sometimes closes a connection without answering ("Server
+        disconnected"); before this, one of those sank a whole company board.
+        """
+        for attempt in range(retries + 1):
+            last = attempt == retries
+            try:
+                resp = await self.client.request(method, url, **kwargs)
+            except httpx.TransportError as exc:
+                if last:
+                    raise
+                reason = type(exc).__name__
+            else:
+                if resp.status_code not in (429, 500, 502, 503, 504) or last:
+                    resp.raise_for_status()
+                    return resp
+                reason = f"HTTP {resp.status_code}"
+            wait = RETRY_BACKOFF * (2**attempt)
+            logger.warning(
+                "%s: %s on %s, retrying in %.1fs (attempt %d/%d)",
+                self.source_name,
+                reason,
+                url.rsplit("/", 1)[-1],
+                wait,
+                attempt + 1,
+                retries,
+            )
+            await asyncio.sleep(wait)
+        raise AssertionError("unreachable")
