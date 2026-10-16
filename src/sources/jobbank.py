@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 
 BASE = "https://www.jobbank.gc.ca"
 _PROV_RE = re.compile(r"\s*\((\w{2})\)\s*$")
+# The shared client asks for JSON; Job Bank's search page answers that with
+# HTTP 500 (every request in the Oct 16 2026 run), while a browser-style
+# request for HTML loads normally.
+HTML_HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-CA,en;q=0.9",
+}
 
 
 def clean_location(text: str) -> str:
@@ -115,6 +122,7 @@ def fetch_jobbank_jobs(
                         client,
                         f"{BASE}/jobsearch/jobsearch",
                         params={"searchstring": query, "fprov": province, "sort": "D", "page": page},
+                        headers=HTML_HEADERS,
                     )
                 )
                 for row in rows:
@@ -124,7 +132,7 @@ def fetch_jobbank_jobs(
                         row["title"], search, company=row["company"], location=row["location"]
                     ):
                         continue
-                    detail = parse_detail(get_text(client, f"{BASE}/jobsearch/jobposting/{row['id']}"))
+                    detail = parse_detail(get_text(client, f"{BASE}/jobsearch/jobposting/{row['id']}", headers=HTML_HEADERS))
                     jobs[row["id"]] = to_job(row, detail)
                 if len(rows) < 25:
                     break
