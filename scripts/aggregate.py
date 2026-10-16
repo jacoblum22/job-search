@@ -198,15 +198,20 @@ def run(
 
         adzuna_cfg = api_cfg.get("adzuna", {})
         if adzuna_cfg.get("enabled", True):
+            # Adzuna's free key allows 25 calls/minute and 2,500/month
+            # (developer.adzuna.com/docs/terms_of_service), so it skips the
+            # keyword x level searches and paces itself under the minute limit.
+            adzuna_queries = api_queries(search, level_variants=adzuna_cfg.get("level_variants", False))
             downloads.append((
                 "Adzuna",
                 lambda: fetch_adzuna_jobs(
-                    keywords=queries,
+                    keywords=adzuna_queries,
                     location=location,
                     country=adzuna_cfg.get("country", "ca"),
                     results_per_page=results_per_page,
                     max_pages=max_pages,
                     remote_sweep_location=remote_sweep,
+                    request_pause=adzuna_cfg.get("request_pause_seconds", 2.5),
                     workers=par.get("adzuna_workers", 3),
                 ),
             ))

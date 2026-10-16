@@ -220,3 +220,9 @@ def test_assistant_and_coordinator_titles_are_not_fetched_on_their_own():
     assert not should_hydrate_record("Events Coordinator", search)
     assert should_hydrate_record("Junior Accountant", search)
     assert should_hydrate_record("Entry Level Marketing", search)
+
+
+def test_api_queries_word_order_dedupe_and_no_level_variants():
+    s = {"keywords": ["Data Analyst"], "level_terms": ["junior"], "extra_api_queries": ["junior data analyst", "SQL analyst"]}
+    assert api_queries(s) == ["Data Analyst", "Data Analyst junior", "SQL analyst"]
+    assert api_queries(s, level_variants=False) == ["Data Analyst", "junior data analyst", "SQL analyst"]

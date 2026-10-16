@@ -232,13 +232,16 @@ PRIORITY_API_QUERIES = (
 )
 
 
-def api_queries(search: dict[str, Any]) -> list[str]:
+def api_queries(search: dict[str, Any], *, level_variants: bool = True) -> list[str]:
     """Canonical keyword × every level_term, plus a short list of alias queries.
+
+    `level_variants=False` drops the keyword × level_term searches (the
+    extras keep their own "junior ..." phrasings).
 
     Expanding every alias × every level is hundreds of Adzuna calls (rate limits).
     Workday/email still use the full alias table in `keep_job()`.
     """
-    levels = [str(lv) for lv in (search.get("level_terms") or [""])]
+    levels = [str(lv) for lv in (search.get("level_terms") or [""])] if level_variants else []
     queries: list[str] = []
     seen: set[str] = set()
 
