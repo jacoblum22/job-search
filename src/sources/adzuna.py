@@ -39,6 +39,7 @@ def fetch_adzuna_jobs(
     remote_sweep_location: str | None = "Canada",
     request_pause: float = 0.35,
     workers: int = 3,
+    max_days_old: int | None = None,
     app_id: str | None = None,
     app_key: str | None = None,
     client: httpx.Client | None = None,
@@ -71,7 +72,7 @@ def fetch_adzuna_jobs(
         keyword, where, remote_only = task
         try:
             found = _search(
-                client, keyword, where, country, results_per_page, max_pages, app_id, app_key, limiter
+                client, keyword, where, country, results_per_page, max_pages, app_id, app_key, limiter, max_days_old
             )
         except Exception:
             label = "remote-sweep query" if remote_only else "query"
@@ -82,7 +83,9 @@ def fetch_adzuna_jobs(
     by_id: dict[str, Job] = {}
     try:
         # Merged in task order, so the result doesn't depend on which query finished first.
-        for found in parallel_map(run, tasks, workers):
+        for (keyword, where, _), found in zip(tasks, parallel_map(run, tasks, workers), strict=True):
+            added = sum(job.external_id not in by_id for job in found)
+            logger.info("Adzuna: %r in %r added %d new of %d", keyword, where, added, len(found))
             for job in found:
                 by_id[job.external_id] = job
         jobs = list(by_id.values())
@@ -104,6 +107,7 @@ def _search(
     app_id: str,
     app_key: str,
     limiter: RateLimiter | None = None,
+    max_days_old: int | None = None,
 ) -> list[Job]:
     jobs: list[Job] = []
     pages = max(1, max_pages)
@@ -119,6 +123,10 @@ def _search(
             "results_per_page": results_per_page,
             "content-type": "application/json",
         }
+        if max_days_old:
+            # Postings older than retention.max_age_days are dropped anyway, so
+            # don't spend pages on them; the newer ones then fit in fewer pages.
+            params["max_days_old"] = max_days_old
         logger.info("Adzuna: searching %r in %r (page %d)", keyword, where, page)
         resp = request_with_retry(client, "GET", url, params=params)
         if resp.status_code in (429, 502, 503, 504):

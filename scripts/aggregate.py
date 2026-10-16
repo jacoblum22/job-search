@@ -212,6 +212,7 @@ def run(
                     max_pages=max_pages,
                     remote_sweep_location=remote_sweep,
                     request_pause=adzuna_cfg.get("request_pause_seconds", 2.5),
+                    max_days_old=max_days,
                     workers=par.get("adzuna_workers", 3),
                 ),
             ))
