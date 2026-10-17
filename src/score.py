@@ -4,9 +4,10 @@ A points system, tuned by the `score:` section of config/settings.yaml:
 
   + title matches a target role family (best match only)
   + title / description say the job is entry-level
-  + description mentions skills Jake has evidence for (capped)
+  + description mentions skills Jake has evidence for (capped), more when
+    it asks for a key combo (Python + SQL) or names nothing he lacks
   - description leans on tools Jake hasn't used (capped)
-  - title says senior / level II-III, or the posting asks for 3-5 years
+  - title says senior / level II-III or intern, or the posting asks for 3-5 years
 
 Some things are hard skips rather than penalties (more than 5 years
 required, wrong-field title, US residence required). A skipped job gets
@@ -27,6 +28,9 @@ from functools import lru_cache
 from typing import Any
 
 from src.tier import parse_min_years_experience
+
+_YEARS_IN_TITLE_RE = re.compile(r"\d+\s*(?:[-–]\s*\d+\s*)?\+?\s*(?:years?|yrs?)\b", re.IGNORECASE)
+
 
 @dataclass
 class ScoreResult:
@@ -57,6 +61,11 @@ def _first_match(text: str, phrases: list[str]) -> str | None:
     return None
 
 
+def _any_match(text: str, key: str) -> bool:
+    """A skills key can list synonyms ("statistics|statistical") that count once."""
+    return any(_phrase_re(alt.strip()).search(text) for alt in key.split("|"))
+
+
 def score_job(
     *,
     title: str,
@@ -77,10 +86,22 @@ def score_job(
     hit = _first_match(title, cfg.get("skip_title_terms") or [])
     if hit:
         return ScoreResult(None, "skip", [f"title: {hit}"])
+    hit = _first_match(title, cfg.get("field_skip_terms") or [])
+    if hit and not any(
+        fam.get("overrides_field_skip") and _first_match(title, fam.get("keywords") or [])
+        for fam in cfg.get("title_families") or []
+    ):
+        return ScoreResult(None, "skip", [f"title: {hit}"])
+    # Student-only roles are out, unless the title also opens them to new
+    # grads ("Student / New Grad Positions").
+    hit = _first_match(title, cfg.get("student_title_terms") or [])
+    if hit and not _first_match(title, cfg.get("new_grad_title_terms") or []):
+        return ScoreResult(None, "skip", [f"title: {hit}"])
 
     for pattern in cfg.get("skip_description_patterns") or []:
-        if re.search(pattern, description, re.IGNORECASE):
-            return ScoreResult(None, "skip", ["requires living in the US"])
+        m = re.search(pattern, description, re.IGNORECASE)
+        if m:
+            return ScoreResult(None, "skip", [f"description: \"{m.group(0)}\""])
 
     if location_category == "other" and cfg.get("skip_other_locations", True):
         return ScoreResult(None, "skip", ["location outside Vancouver / remote"])
@@ -88,8 +109,17 @@ def score_job(
     # ── Points ────────────────────────────────────────────────────────
     score = 0
 
+    skills = cfg.get("skills", {})
+    text = f"{title}\n{description}"
+    have_hits = [kw for kw in (skills.get("have") or {}) if _any_match(text, kw)]
+    gap_hits = [kw for kw in (skills.get("gaps") or {}) if _any_match(text, kw)]
+
     best_family: tuple[int, str, str] | None = None
     for fam in cfg.get("title_families") or []:
+        # A broad family ("engineer", "developer") only counts when the
+        # posting backs it up with skills Jake has.
+        if len(have_hits) < fam.get("min_skill_hits", 0):
+            continue
         hit = _first_match(title, fam.get("keywords") or [])
         if hit and (best_family is None or fam["points"] > best_family[0]):
             best_family = (fam["points"], fam["name"], hit)
@@ -109,12 +139,24 @@ def score_job(
             reasons.append(f"+{entry.get('description_points', 0)} entry-level wording ({hit})")
 
     seniority = cfg.get("seniority", {})
-    for rule in seniority.get("title_penalties") or []:
-        hit = _first_match(title, rule.get("keywords") or [])
+    # "2-3 Years Experience" in a title isn't a level 3. And a posting that
+    # asks for 2 years or less means it, whatever the title's level says.
+    level_title = _YEARS_IN_TITLE_RE.sub(" ", title)
+    title_rules = seniority.get("title_penalties") or []
+    if years_experience is not None and years_experience <= 2:
+        title_rules = []
+    for rule in title_rules:
+        hit = _first_match(level_title, rule.get("keywords") or [])
         if hit:
             score += rule["points"]
             reasons.append(f"{rule['points']} title level ({hit})")
             break
+
+    intern = cfg.get("internship_penalty") or {}
+    hit = _first_match(title, intern.get("keywords") or [])
+    if hit:
+        score += intern["points"]
+        reasons.append(f"{intern['points']} internship ({hit})")
 
     if years_experience is not None:
         for rule in seniority.get("years_penalties") or []:
@@ -124,29 +166,30 @@ def score_job(
                 reasons.append(f"{sign}{rule['points']} asks for {years_experience} years")
                 break
 
-    skills = cfg.get("skills", {})
-    text = f"{title}\n{description}"
-    have_pts = 0
-    have_hits: list[str] = []
-    for kw, pts in (skills.get("have") or {}).items():
-        if _phrase_re(kw).search(text):
-            have_pts += pts
-            have_hits.append(kw)
-    have_pts = min(have_pts, skills.get("have_cap", 40))
+    have_pts = min(sum(skills["have"][kw] for kw in have_hits), skills.get("have_cap", 40))
     if have_pts:
         score += have_pts
         reasons.append(f"+{have_pts} skills ({', '.join(have_hits)})")
 
-    gap_pts = 0
-    gap_hits: list[str] = []
-    for kw, pts in (skills.get("gaps") or {}).items():
-        if _phrase_re(kw).search(text):
-            gap_pts += pts
-            gap_hits.append(kw)
-    gap_pts = max(gap_pts, -abs(skills.get("gap_cap", 15)))
+    gap_pts = max(sum(skills["gaps"][kw] for kw in gap_hits), -abs(skills.get("gap_cap", 15)))
     if gap_pts:
         score += gap_pts
         reasons.append(f"{gap_pts} gaps ({', '.join(gap_hits)})")
+
+    for combo in skills.get("combos") or []:
+        if all(kw in have_hits for kw in combo["skills"]):
+            score += combo["points"]
+            reasons.append(f"+{combo['points']} asks for {' + '.join(combo['skills'])}")
+
+    no_gaps = skills.get("no_gaps_bonus") or {}
+    if (
+        no_gaps
+        and not gap_hits
+        and len(have_hits) >= no_gaps.get("min_have_hits", 3)
+        and len(description) >= cfg.get("short_description_chars", 300)
+    ):
+        score += no_gaps["points"]
+        reasons.append(f"+{no_gaps['points']} no skill gaps")
 
     loc_pts = (cfg.get("location_points") or {}).get(location_category or "", 0)
     if loc_pts:
@@ -162,6 +205,11 @@ def score_job(
         if score >= band["min"]:
             tier = band["tier"]
             break
+    # Some asks put a job out of reach however well the rest fits.
+    d_years = cfg.get("tier_d_years")
+    if d_years is not None and years_experience is not None and years_experience >= d_years:
+        tier = "D"
+        reasons.append(f"tier D: asks for {years_experience} years")
     return ScoreResult(score, tier, reasons)
 
 

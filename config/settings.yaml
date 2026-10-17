@@ -105,6 +105,10 @@ search:
   exclude_companies:
     - "AlgaeCal"
   exclude_title_terms:
+    # Co-ops need current enrollment; Jake graduated May 2026. Internships
+    # are kept (score penalty only).
+    - "co-op"
+    - "coop"
     - "senior"
     - "sr"
     - "director"
@@ -167,6 +171,32 @@ search:
     - "computational"
     - "technology"
     - "technical"
+  # A job whose full posting we have (ATS boards, Workday, fetched listings)
+  # is kept if its title has any fetch_title_terms word, or its description
+  # names at least core_skills_min of these, instead of needing a target
+  # title phrase. Hard drops (exclude_title_terms, years, location,
+  # companies) still apply; the score decides how good it is.
+  full_description_chars: 1000
+  core_skills_min: 2
+  core_skills:
+    - "python"
+    - "sql"
+    - "pandas"
+    - "numpy"
+    - "scikit-learn"
+    - "pytorch"
+    - "tensorflow"
+    - "machine learning"
+    - "bigquery"
+    - "snowflake"
+    - "dbt"
+    - "tableau"
+    - "power bi"
+    - "looker"
+    - "git"
+    - "docker"
+    - "javascript"
+    - "typescript"
   # Stored up to 5 years; 3-5 is a score penalty, not a drop (see score: below).
   max_years_experience: 5
 
@@ -339,15 +369,6 @@ score:
     - "head of"
     - "vice president"
     - "architect"
-    - "business development"
-    - "talent acquisition"
-    - "recruiter"
-    - "recruitment"
-    - "human resources"
-    - "hr"
-    - "people & culture"
-    - "customer service"
-    - "sales"
     - "account executive"
     - "administrative assistant"
     - "event coordinator"
@@ -358,42 +379,76 @@ score:
     - "trainer"
     - "annotator"
     - "tutor"
-    # Jake graduated May 2026, so student-only roles are out
-    - "intern"
-    - "internship"
+  # Wrong-field words: skip, unless the title is also a core data role
+  # (a family with overrides_field_skip), e.g. "Data Scientist, Sales"
+  field_skip_terms:
+    - "business development"
+    - "talent acquisition"
+    - "recruiter"
+    - "recruitment"
+    - "human resources"
+    - "hr"
+    - "people & culture"
+    - "customer service"
+    - "sales"
+  # Jake graduated May 2026, so student-only roles are out, unless the
+  # title also says new grad ("Student / New Grad Positions"). Internships
+  # aren't skipped, just penalized (internship_penalty below).
+  student_title_terms:
     - "co-op"
     - "coop"
     - "student"
     - "undergraduate"
     - "practicum"
     - "work term"
-  # Regexes over the description; any hit = skip (remote US that needs US residence)
+  new_grad_title_terms: ["new grad", "new graduate", "recent graduate"]
+  internship_penalty: {points: -15, keywords: ["intern", "internship"]}
+  # Regexes over the description; any hit = skip (remote US that needs US
+  # residence, or a required PhD)
   skip_description_patterns:
     - "must (?:reside|live|be located|be based) (?:in|within) the (?:U\\.?S\\.?A?\\.?|United States)"
     - "(?:U\\.?S\\.?|United States)[- ]based (?:candidates|applicants) only"
     - "only (?:considering|accepting) (?:candidates|applicants) (?:located|residing|based) in the (?:U\\.?S\\.?|United States)"
     - "(?:reside|located|live) in (?:one of )?the following (?:U\\.?S\\.? )?states"
+    # PhD required (not "Master's or PhD", "PhD preferred", "pursuing a PhD")
+    - "(?:must|required to) (?:hold|have|possess) (?:an? )?(?:MD and/or )?Ph\\.?\\s?D"
+    - "Ph\\.?\\s?D\\.?(?: degree)? (?:is )?required"
 
   # Title family: only the best-matching family counts
   title_families:
     - name: "data science"
-      points: 35
+      overrides_field_skip: true
+      points: 22
       keywords: ["data scientist", "data science", "decision scientist", "applied scientist", "machine learning scientist"]
     - name: "data analyst"
-      points: 32
+      overrides_field_skip: true
+      points: 22
       keywords: ["data analyst", "data analytics", "analytics analyst", "bi analyst", "business intelligence", "reporting analyst", "insights analyst", "product analyst", "analytics engineer", "sql analyst", "marketing analyst", "growth analyst", "customer analytics", "quantitative analyst", "data specialist", "business analytics", "analytics specialist", "analytics developer"]
     - name: "ML / AI"
-      points: 30
+      overrides_field_skip: true
+      points: 20
       keywords: ["machine learning", "ml engineer", "ai engineer", "ai developer", "mlops", "nlp", "llm", "computer vision", "applied ai"]
     - name: "data engineering"
-      points: 22
+      overrides_field_skip: true
+      points: 15
       keywords: ["data engineer", "etl developer", "bi developer", "bi engineer", "business intel engineer"]
     - name: "software"
-      points: 20
-      keywords: ["software engineer", "software developer", "software development engineer", "python developer", "backend developer", "back-end developer", "full stack", "full-stack", "programmer analyst", "web developer"]
-    - name: "general analyst"
       points: 12
+      keywords: ["software engineer", "software engineering", "software developer", "software development engineer", "python developer", "backend developer", "back-end developer", "full stack", "full-stack", "programmer analyst", "web developer"]
+    # Bare "analytics" in a title that no family above names
+    # ("Coordinator, Quality Improvement & Analytics", "Product Analytics Consultant")
+    - name: "analytics"
+      points: 18
+      keywords: ["analytics"]
+    - name: "general analyst"
+      points: 10
       keywords: ["business analyst", "research analyst", "analyst"]
+    # Any other technical title (Integration Engineer, Quantitative Developer),
+    # only when the posting names at least 2 skills Jake has
+    - name: "technical"
+      points: 10
+      min_skill_hits: 2
+      keywords: ["engineer", "developer", "programmer", "quantitative", "integration", "technical"]
 
   entry_level:
     title_points: 15
@@ -409,74 +464,80 @@ score:
         points: -10
     years_penalties:          # by minimum years the posting asks for
       - {min: 0, max: 2, points: 5}
-      - {min: 3, max: 3, points: -10}
-      - {min: 4, max: 4, points: -15}
-      - {min: 5, max: 5, points: -25}
+      - {min: 3, max: 3, points: -8}
+      - {min: 4, max: 4, points: -25}
+      - {min: 5, max: 5, points: -40}
+  # Asking for this many years puts a job in tier D whatever its score
+  tier_d_years: 5
 
   # Skills in title + description, weighted by how strong Jake's evidence is
   # (experience-vault/skills-map.md). Sum is capped.
   skills:
-    have_cap: 40
+    have_cap: 60
+    # "a|b" = synonyms, counted once
+    # Extra points when a posting asks for all of these (his strongest pair)
+    combos:
+      - {skills: ["python", "sql"], points: 10}
+    # Full posting names 3+ skills he has and none he lacks
+    no_gaps_bonus: {points: 5, min_have_hits: 3}
     have:
-      "sql": 8
-      "bigquery": 8
-      "python": 6
-      "looker": 6
-      "dashboard": 4
-      "pandas": 4
-      "scikit-learn": 4
-      "sklearn": 4
+      "sql": 15
+      "bigquery": 10
+      "python": 12
+      "looker": 8
+      "dashboard": 8
+      "pandas": 6
+      "scikit-learn|sklearn": 6
       "xgboost": 3
-      "statistics": 3
-      "statistical": 3
-      "machine learning": 3
-      "data modeling": 3
-      "data modelling": 3
+      "statistics|statistical": 5
+      "machine learning": 5
+      "data modeling|data modelling": 5
       "star schema": 3
-      "data warehouse": 3
-      "etl": 3
-      "data quality": 3
+      "data warehouse": 4
+      "etl": 4
+      "data quality": 4
       "churn": 3
       "survival analysis": 3
-      "a/b test": 2
-      "a/b testing": 2
-      "google sheets": 2
+      "a/b test|a/b testing": 2
+      "google sheets": 4
       "apps script": 3
       "pytorch": 3
       "deep learning": 2
-      "llm": 3
-      "large language model": 3
+      "llm|large language model": 3
       "nlp": 2
       "fastapi": 3
       "docker": 2
       "git": 2
       "jupyter": 2
       "numpy": 2
-      "e-commerce": 3
-      "ecommerce": 3
+      "e-commerce|ecommerce": 3
       "shopify": 3
       "stakeholders": 2
+      "data reporting": 4
+      "kpi": 3
+      "data visualization": 3
+      "excel": 3
       "typescript": 2
       "react": 2
-    gap_cap: 15
+    gap_cap: 25
+    # Another main language means a different stack (heavier). Data tools
+    # are learnable on the job and often nice-to-haves (light).
     gaps:
-      "spark": -3
-      "pyspark": -3
-      "scala": -4
-      "hadoop": -3
+      "c++": -6
+      "java": -5
+      "c#": -5
+      ".net": -5
+      "golang": -5
+      "scala": -5
       "kubernetes": -3
+      "spark|pyspark": -2
+      "hadoop": -2
       "airflow": -2
       "databricks": -2
       "snowflake": -2
       "dbt": -2
-      "c++": -3
-      "java": -2
-      ".net": -3
-      "c#": -3
-      "golang": -3
       "kafka": -2
-      "phd": -6
-      "master's degree required": -4
+      "master's degree required": -6
 
   location_points:
     vancouver: 5

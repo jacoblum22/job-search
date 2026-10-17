@@ -195,6 +195,23 @@ def text_matches_canonical(canonical: str, title: str, body: str, search: dict[s
     return any(_phrase_in(body, p) for p in _body_phrases(canonical, search))
 
 
+def _word_in(text: str, phrase: str) -> bool:
+    return bool(re.search(rf"(?<!\w){re.escape(phrase.lower())}(?!\w)", text.lower()))
+
+
+def broad_tech_match(title: str, description: str, search: dict[str, Any]) -> bool:
+    """Looser test for a job whose full posting we have: the title has any
+    broad tech word (`fetch_title_terms`), or the description names at least
+    `core_skills_min` of `core_skills`. "Integration Engineer" asking for
+    Python and SQL is a fit even though no target title phrase matches; the
+    score then ranks it."""
+    if any(_word_in(title, t) for t in search.get("fetch_title_terms") or []):
+        return True
+    skills = search.get("core_skills") or []
+    hits = sum(1 for s in skills if _word_in(description, s))
+    return bool(skills) and hits >= int(search.get("core_skills_min", 2))
+
+
 def job_matches_keywords(job: Any, search: dict[str, Any], *, include_description: bool) -> bool:
     keywords = list(search.get("keywords") or [])
     if not keywords:
@@ -203,6 +220,12 @@ def job_matches_keywords(job: Any, search: dict[str, Any], *, include_descriptio
     body = ""
     if include_description:
         body = job.description or ""
+        # With the full posting in hand, judge on its content rather than the
+        # title's wording. Snippets still need the phrase table.
+        if len(body) >= int(search.get("full_description_chars", 1000)) and broad_tech_match(
+            title, body, search
+        ):
+            return True
         raw = getattr(job, "raw", None) or {}
         if isinstance(raw, dict):
             body = f"{body} {raw.get('subject') or ''}"
@@ -359,8 +382,8 @@ def should_hydrate_record(title: str, search: dict[str, Any], *, company: str = 
     excluded = any(
         re.search(rf"\b{re.escape(t.lower())}\b", lowered) for t in search.get("exclude_title_terms") or []
     )
-    if not excluded and any(
-        re.search(rf"\b{re.escape(t.lower())}\b", lowered) for t in search.get("fetch_title_terms") or []
-    ):
+    if excluded:
+        return False
+    if any(re.search(rf"\b{re.escape(t.lower())}\b", lowered) for t in search.get("fetch_title_terms") or []):
         return True
     return bool(INTERNSHIP_TITLE_RE.search(title) or _EARLY_CAREER_TITLE_RE.search(title))
