@@ -277,3 +277,19 @@ def test_snippet_still_needs_a_target_title_phrase():
 def test_broad_match_still_drops_senior_titles():
     job = _job(title="Senior Integration Engineer", description="Python and SQL. " * 20)
     assert not keep_job(job, _broad_search(), match_keywords=True)
+
+
+def test_co_op_titles_are_never_stored_or_fetched_with_live_config():
+    import yaml
+    from pathlib import Path
+
+    from src.search_match import should_hydrate_record
+
+    live = yaml.safe_load(
+        (Path(__file__).resolve().parent.parent / "config" / "settings.yaml").read_text(encoding="utf-8")
+    )["search"]
+    coop = _job(title="Data Scientist Co-op", description="Python and SQL. " * 100)
+    assert not keep_job(coop, live, match_keywords=True)
+    assert not should_hydrate_record("Software Developer Co-op", live)
+    intern = _job(title="Data Science Intern", description="Python and SQL. " * 100)
+    assert keep_job(intern, live, match_keywords=True)

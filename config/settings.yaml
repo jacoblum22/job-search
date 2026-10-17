@@ -105,6 +105,10 @@ search:
   exclude_companies:
     - "AlgaeCal"
   exclude_title_terms:
+    # Co-ops need current enrollment; Jake graduated May 2026. Internships
+    # are kept (score penalty only).
+    - "co-op"
+    - "coop"
     - "senior"
     - "sr"
     - "director"
@@ -388,10 +392,9 @@ score:
     - "customer service"
     - "sales"
   # Jake graduated May 2026, so student-only roles are out, unless the
-  # title also says new grad ("Student / New Grad Positions")
+  # title also says new grad ("Student / New Grad Positions"). Internships
+  # aren't skipped, just penalized (internship_penalty below).
   student_title_terms:
-    - "intern"
-    - "internship"
     - "co-op"
     - "coop"
     - "student"
@@ -399,6 +402,7 @@ score:
     - "practicum"
     - "work term"
   new_grad_title_terms: ["new grad", "new graduate", "recent graduate"]
+  internship_penalty: {points: -15, keywords: ["intern", "internship"]}
   # Regexes over the description; any hit = skip (remote US that needs US residence)
   skip_description_patterns:
     - "must (?:reside|live|be located|be based) (?:in|within) the (?:U\\.?S\\.?A?\\.?|United States)"
@@ -426,7 +430,7 @@ score:
       keywords: ["data engineer", "etl developer", "bi developer", "bi engineer", "business intel engineer"]
     - name: "software"
       points: 20
-      keywords: ["software engineer", "software developer", "software development engineer", "python developer", "backend developer", "back-end developer", "full stack", "full-stack", "programmer analyst", "web developer"]
+      keywords: ["software engineer", "software engineering", "software developer", "software development engineer", "python developer", "backend developer", "back-end developer", "full stack", "full-stack", "programmer analyst", "web developer"]
     # Bare "analytics" in a title that no family above names
     # ("Coordinator, Quality Improvement & Analytics", "Product Analytics Consultant")
     - name: "analytics"

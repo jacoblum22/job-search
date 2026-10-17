@@ -7,7 +7,7 @@ A points system, tuned by the `score:` section of config/settings.yaml:
   + description mentions skills Jake has evidence for (capped), more when
     it asks for a key combo (Python + SQL) or names nothing he lacks
   - description leans on tools Jake hasn't used (capped)
-  - title says senior / level II-III, or the posting asks for 3-5 years
+  - title says senior / level II-III or intern, or the posting asks for 3-5 years
 
 Some things are hard skips rather than penalties (more than 5 years
 required, wrong-field title, US residence required). A skipped job gets
@@ -145,6 +145,12 @@ def score_job(
             score += rule["points"]
             reasons.append(f"{rule['points']} title level ({hit})")
             break
+
+    intern = cfg.get("internship_penalty") or {}
+    hit = _first_match(title, intern.get("keywords") or [])
+    if hit:
+        score += intern["points"]
+        reasons.append(f"{intern['points']} internship ({hit})")
 
     if years_experience is not None:
         for rule in seniority.get("years_penalties") or []:

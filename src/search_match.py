@@ -382,8 +382,8 @@ def should_hydrate_record(title: str, search: dict[str, Any], *, company: str = 
     excluded = any(
         re.search(rf"\b{re.escape(t.lower())}\b", lowered) for t in search.get("exclude_title_terms") or []
     )
-    if not excluded and any(
-        re.search(rf"\b{re.escape(t.lower())}\b", lowered) for t in search.get("fetch_title_terms") or []
-    ):
+    if excluded:
+        return False
+    if any(re.search(rf"\b{re.escape(t.lower())}\b", lowered) for t in search.get("fetch_title_terms") or []):
         return True
     return bool(INTERNSHIP_TITLE_RE.search(title) or _EARLY_CAREER_TITLE_RE.search(title))

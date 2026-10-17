@@ -129,3 +129,14 @@ def test_wrong_field_word_does_not_skip_a_data_title():
 def test_bare_analytics_title_gets_family_points():
     r = _score("Coordinator, Quality Improvement & Analytics", "sql dashboards " * 50)
     assert any("analytics title" in x for x in r.reasons)
+
+
+def test_internship_is_a_penalty_not_a_skip():
+    intern = _score("Data Science Intern", "python sql pandas " * 30)
+    full = _score("Data Scientist", "python sql pandas " * 30)
+    assert intern.tier != "skip"
+    assert intern.score == full.score - 15
+
+
+def test_co_op_is_still_skipped():
+    assert _score("Data Scientist Co-op").tier == "skip"
