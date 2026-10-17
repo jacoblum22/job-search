@@ -365,15 +365,6 @@ score:
     - "head of"
     - "vice president"
     - "architect"
-    - "business development"
-    - "talent acquisition"
-    - "recruiter"
-    - "recruitment"
-    - "human resources"
-    - "hr"
-    - "people & culture"
-    - "customer service"
-    - "sales"
     - "account executive"
     - "administrative assistant"
     - "event coordinator"
@@ -384,6 +375,18 @@ score:
     - "trainer"
     - "annotator"
     - "tutor"
+  # Wrong-field words: skip, unless the title is also a core data role
+  # (a family with overrides_field_skip), e.g. "Data Scientist, Sales"
+  field_skip_terms:
+    - "business development"
+    - "talent acquisition"
+    - "recruiter"
+    - "recruitment"
+    - "human resources"
+    - "hr"
+    - "people & culture"
+    - "customer service"
+    - "sales"
   # Jake graduated May 2026, so student-only roles are out, unless the
   # title also says new grad ("Student / New Grad Positions")
   student_title_terms:
@@ -406,20 +409,29 @@ score:
   # Title family: only the best-matching family counts
   title_families:
     - name: "data science"
+      overrides_field_skip: true
       points: 35
       keywords: ["data scientist", "data science", "decision scientist", "applied scientist", "machine learning scientist"]
     - name: "data analyst"
+      overrides_field_skip: true
       points: 32
       keywords: ["data analyst", "data analytics", "analytics analyst", "bi analyst", "business intelligence", "reporting analyst", "insights analyst", "product analyst", "analytics engineer", "sql analyst", "marketing analyst", "growth analyst", "customer analytics", "quantitative analyst", "data specialist", "business analytics", "analytics specialist", "analytics developer"]
     - name: "ML / AI"
+      overrides_field_skip: true
       points: 30
       keywords: ["machine learning", "ml engineer", "ai engineer", "ai developer", "mlops", "nlp", "llm", "computer vision", "applied ai"]
     - name: "data engineering"
+      overrides_field_skip: true
       points: 22
       keywords: ["data engineer", "etl developer", "bi developer", "bi engineer", "business intel engineer"]
     - name: "software"
       points: 20
       keywords: ["software engineer", "software developer", "software development engineer", "python developer", "backend developer", "back-end developer", "full stack", "full-stack", "programmer analyst", "web developer"]
+    # Bare "analytics" in a title that no family above names
+    # ("Coordinator, Quality Improvement & Analytics", "Product Analytics Consultant")
+    - name: "analytics"
+      points: 25
+      keywords: ["analytics"]
     - name: "general analyst"
       points: 12
       keywords: ["business analyst", "research analyst", "analyst"]

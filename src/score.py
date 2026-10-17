@@ -29,6 +29,9 @@ from typing import Any
 
 from src.tier import parse_min_years_experience
 
+_YEARS_IN_TITLE_RE = re.compile(r"\d+\s*(?:[-–]\s*\d+\s*)?\+?\s*(?:years?|yrs?)\b", re.IGNORECASE)
+
+
 @dataclass
 class ScoreResult:
     score: int | None  # None when skipped
@@ -78,6 +81,12 @@ def score_job(
     hit = _first_match(title, cfg.get("skip_title_terms") or [])
     if hit:
         return ScoreResult(None, "skip", [f"title: {hit}"])
+    hit = _first_match(title, cfg.get("field_skip_terms") or [])
+    if hit and not any(
+        fam.get("overrides_field_skip") and _first_match(title, fam.get("keywords") or [])
+        for fam in cfg.get("title_families") or []
+    ):
+        return ScoreResult(None, "skip", [f"title: {hit}"])
     # Student-only roles are out, unless the title also opens them to new
     # grads ("Student / New Grad Positions").
     hit = _first_match(title, cfg.get("student_title_terms") or [])
@@ -124,8 +133,14 @@ def score_job(
             reasons.append(f"+{entry.get('description_points', 0)} entry-level wording ({hit})")
 
     seniority = cfg.get("seniority", {})
-    for rule in seniority.get("title_penalties") or []:
-        hit = _first_match(title, rule.get("keywords") or [])
+    # "2-3 Years Experience" in a title isn't a level 3. And a posting that
+    # asks for 2 years or less means it, whatever the title's level says.
+    level_title = _YEARS_IN_TITLE_RE.sub(" ", title)
+    title_rules = seniority.get("title_penalties") or []
+    if years_experience is not None and years_experience <= 2:
+        title_rules = []
+    for rule in title_rules:
+        hit = _first_match(level_title, rule.get("keywords") or [])
         if hit:
             score += rule["points"]
             reasons.append(f"{rule['points']} title level ({hit})")

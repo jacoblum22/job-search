@@ -108,3 +108,24 @@ def test_student_title_skipped_unless_it_says_new_grad():
     assert _score("Data Analyst Co-op Student").tier == "skip"
     r = _score("Student / New Grad Positions - Technology and Analytics")
     assert r.tier != "skip"
+
+
+def test_years_range_in_title_is_not_a_level():
+    r = _score("Software Engineer - Master's New Grad / Bachelor's 2-3 Years Experience", "python " * 50)
+    assert not any("title level" in x for x in r.reasons)
+    assert any("entry-level title" in x for x in r.reasons)
+
+
+def test_title_level_ignored_when_posting_asks_two_years_or_less():
+    r = _score("Intermediate Software Engineer", "python sql " * 50, years=2)
+    assert not any("title level" in x for x in r.reasons)
+
+
+def test_wrong_field_word_does_not_skip_a_data_title():
+    assert _score("Data Scientist, Sales", "python sql " * 50).tier != "skip"
+    assert _score("Sales Associate").tier == "skip"
+
+
+def test_bare_analytics_title_gets_family_points():
+    r = _score("Coordinator, Quality Improvement & Analytics", "sql dashboards " * 50)
+    assert any("analytics title" in x for x in r.reasons)
