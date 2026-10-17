@@ -167,6 +167,32 @@ search:
     - "computational"
     - "technology"
     - "technical"
+  # A job whose full posting we have (ATS boards, Workday, fetched listings)
+  # is kept if its title has any fetch_title_terms word, or its description
+  # names at least core_skills_min of these, instead of needing a target
+  # title phrase. Hard drops (exclude_title_terms, years, location,
+  # companies) still apply; the score decides how good it is.
+  full_description_chars: 1000
+  core_skills_min: 2
+  core_skills:
+    - "python"
+    - "sql"
+    - "pandas"
+    - "numpy"
+    - "scikit-learn"
+    - "pytorch"
+    - "tensorflow"
+    - "machine learning"
+    - "bigquery"
+    - "snowflake"
+    - "dbt"
+    - "tableau"
+    - "power bi"
+    - "looker"
+    - "git"
+    - "docker"
+    - "javascript"
+    - "typescript"
   # Stored up to 5 years; 3-5 is a score penalty, not a drop (see score: below).
   max_years_experience: 5
 
@@ -358,7 +384,9 @@ score:
     - "trainer"
     - "annotator"
     - "tutor"
-    # Jake graduated May 2026, so student-only roles are out
+  # Jake graduated May 2026, so student-only roles are out, unless the
+  # title also says new grad ("Student / New Grad Positions")
+  student_title_terms:
     - "intern"
     - "internship"
     - "co-op"
@@ -367,6 +395,7 @@ score:
     - "undergraduate"
     - "practicum"
     - "work term"
+  new_grad_title_terms: ["new grad", "new graduate", "recent graduate"]
   # Regexes over the description; any hit = skip (remote US that needs US residence)
   skip_description_patterns:
     - "must (?:reside|live|be located|be based) (?:in|within) the (?:U\\.?S\\.?A?\\.?|United States)"
@@ -394,6 +423,12 @@ score:
     - name: "general analyst"
       points: 12
       keywords: ["business analyst", "research analyst", "analyst"]
+    # Any other technical title (Integration Engineer, Quantitative Developer),
+    # only when the posting names at least 2 skills Jake has
+    - name: "technical"
+      points: 15
+      min_skill_hits: 2
+      keywords: ["engineer", "developer", "programmer", "quantitative", "integration", "technical"]
 
   entry_level:
     title_points: 15
@@ -417,6 +452,11 @@ score:
   # (experience-vault/skills-map.md). Sum is capped.
   skills:
     have_cap: 40
+    # Extra points when a posting asks for all of these (his strongest pair)
+    combos:
+      - {skills: ["python", "sql"], points: 10}
+    # Full posting names 3+ skills he has and none he lacks
+    no_gaps_bonus: {points: 5, min_have_hits: 3}
     have:
       "sql": 8
       "bigquery": 8

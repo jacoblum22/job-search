@@ -241,3 +241,39 @@ def test_excluded_company_is_never_kept_or_fetched():
     assert not keep_job(job, search, match_keywords=False)
     assert not should_hydrate_record("Associate Data Scientist", search, company="AlgaeCal")
     assert should_hydrate_record("Associate Data Scientist", search, company="Algae Corp")
+
+
+def _broad_search() -> dict:
+    s = _search()
+    s.update(
+        fetch_title_terms=["engineer", "developer", "data"],
+        core_skills=["python", "sql", "pandas", "git"],
+        core_skills_min=2,
+        full_description_chars=200,
+    )
+    return s
+
+
+def test_full_posting_with_broad_tech_title_is_kept():
+    job = _job(title="Integration Engineer", description="Build integrations for customers. " * 10)
+    assert keep_job(job, _broad_search(), match_keywords=True)
+
+
+def test_full_posting_with_core_skills_is_kept_whatever_the_title():
+    job = _job(title="Solutions Specialist", description="Daily Python and SQL work. " * 10)
+    assert keep_job(job, _broad_search(), match_keywords=True)
+
+
+def test_one_core_skill_and_unrelated_title_is_not_enough():
+    job = _job(title="Solutions Specialist", description="Some Python scripting. " * 10)
+    assert not keep_job(job, _broad_search(), match_keywords=True)
+
+
+def test_snippet_still_needs_a_target_title_phrase():
+    job = _job(title="Integration Engineer", description="Python and SQL.")
+    assert not keep_job(job, _broad_search(), match_keywords=True)
+
+
+def test_broad_match_still_drops_senior_titles():
+    job = _job(title="Senior Integration Engineer", description="Python and SQL. " * 20)
+    assert not keep_job(job, _broad_search(), match_keywords=True)

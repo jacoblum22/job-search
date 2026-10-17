@@ -82,3 +82,29 @@ def test_rescore_all_writes_columns(tmp_path):
     rows = {r["external_id"]: r for r in conn.execute("SELECT * FROM jobs")}
     assert rows["1"]["score"] > 0 and rows["1"]["score_reasons"]
     assert rows["2"]["tier"] == "skip" and rows["2"]["score"] is None
+
+
+INTEGRATION_ENGINEER = (
+    "Configure integrations for enterprise customers and troubleshoot tickets. "
+    "1+ years of experience with Python. 1+ years of experience with SQL. "
+    "Familiar with Git & Docker. Bachelor's degree in Computer Science. "
+) * 3
+
+
+def test_technical_title_backed_by_skills_ranks_a():
+    r = _score("Integration Engineer", INTEGRATION_ENGINEER, years=1)
+    assert r.tier == "A"
+    assert any("technical title" in x for x in r.reasons)
+    assert any("python + sql" in x for x in r.reasons)
+    assert any("no skill gaps" in x for x in r.reasons)
+
+
+def test_technical_title_without_skills_gets_no_title_points():
+    r = _score("Mechanical Engineer", "Design HVAC systems in AutoCAD. " * 20)
+    assert not any("technical title" in x for x in r.reasons)
+
+
+def test_student_title_skipped_unless_it_says_new_grad():
+    assert _score("Data Analyst Co-op Student").tier == "skip"
+    r = _score("Student / New Grad Positions - Technology and Analytics")
+    assert r.tier != "skip"
