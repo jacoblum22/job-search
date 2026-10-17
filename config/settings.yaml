@@ -414,35 +414,35 @@ score:
   title_families:
     - name: "data science"
       overrides_field_skip: true
-      points: 35
+      points: 22
       keywords: ["data scientist", "data science", "decision scientist", "applied scientist", "machine learning scientist"]
     - name: "data analyst"
       overrides_field_skip: true
-      points: 32
+      points: 22
       keywords: ["data analyst", "data analytics", "analytics analyst", "bi analyst", "business intelligence", "reporting analyst", "insights analyst", "product analyst", "analytics engineer", "sql analyst", "marketing analyst", "growth analyst", "customer analytics", "quantitative analyst", "data specialist", "business analytics", "analytics specialist", "analytics developer"]
     - name: "ML / AI"
       overrides_field_skip: true
-      points: 30
+      points: 20
       keywords: ["machine learning", "ml engineer", "ai engineer", "ai developer", "mlops", "nlp", "llm", "computer vision", "applied ai"]
     - name: "data engineering"
       overrides_field_skip: true
-      points: 22
+      points: 15
       keywords: ["data engineer", "etl developer", "bi developer", "bi engineer", "business intel engineer"]
     - name: "software"
-      points: 20
+      points: 12
       keywords: ["software engineer", "software engineering", "software developer", "software development engineer", "python developer", "backend developer", "back-end developer", "full stack", "full-stack", "programmer analyst", "web developer"]
     # Bare "analytics" in a title that no family above names
     # ("Coordinator, Quality Improvement & Analytics", "Product Analytics Consultant")
     - name: "analytics"
-      points: 25
+      points: 18
       keywords: ["analytics"]
     - name: "general analyst"
-      points: 12
+      points: 10
       keywords: ["business analyst", "research analyst", "analyst"]
     # Any other technical title (Integration Engineer, Quantitative Developer),
     # only when the posting names at least 2 skills Jake has
     - name: "technical"
-      points: 15
+      points: 10
       min_skill_hits: 2
       keywords: ["engineer", "developer", "programmer", "quantitative", "integration", "technical"]
 
@@ -467,36 +467,36 @@ score:
   # Skills in title + description, weighted by how strong Jake's evidence is
   # (experience-vault/skills-map.md). Sum is capped.
   skills:
-    have_cap: 40
+    have_cap: 60
     # Extra points when a posting asks for all of these (his strongest pair)
     combos:
       - {skills: ["python", "sql"], points: 10}
     # Full posting names 3+ skills he has and none he lacks
     no_gaps_bonus: {points: 5, min_have_hits: 3}
     have:
-      "sql": 8
-      "bigquery": 8
-      "python": 6
-      "looker": 6
-      "dashboard": 4
-      "pandas": 4
-      "scikit-learn": 4
-      "sklearn": 4
+      "sql": 15
+      "bigquery": 10
+      "python": 12
+      "looker": 8
+      "dashboard": 8
+      "pandas": 6
+      "scikit-learn": 6
+      "sklearn": 6
       "xgboost": 3
-      "statistics": 3
-      "statistical": 3
-      "machine learning": 3
-      "data modeling": 3
-      "data modelling": 3
+      "statistics": 5
+      "statistical": 5
+      "machine learning": 5
+      "data modeling": 5
+      "data modelling": 5
       "star schema": 3
-      "data warehouse": 3
-      "etl": 3
-      "data quality": 3
+      "data warehouse": 4
+      "etl": 4
+      "data quality": 4
       "churn": 3
       "survival analysis": 3
       "a/b test": 2
       "a/b testing": 2
-      "google sheets": 2
+      "google sheets": 4
       "apps script": 3
       "pytorch": 3
       "deep learning": 2
@@ -512,6 +512,10 @@ score:
       "ecommerce": 3
       "shopify": 3
       "stakeholders": 2
+      "data reporting": 4
+      "kpi": 3
+      "data visualization": 3
+      "excel": 3
       "typescript": 2
       "react": 2
     gap_cap: 15
