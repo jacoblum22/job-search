@@ -220,3 +220,18 @@ def test_assistant_and_coordinator_titles_are_not_fetched_on_their_own():
     assert not should_hydrate_record("Events Coordinator", search)
     assert should_hydrate_record("Junior Accountant", search)
     assert should_hydrate_record("Entry Level Marketing", search)
+
+
+def test_excluded_company_is_never_kept_or_fetched():
+    from types import SimpleNamespace
+
+    from src.search_match import keep_job, should_hydrate_record
+
+    search = {"exclude_companies": ["AlgaeCal"], "keywords": ["data scientist"], "require_relevant_location": False}
+    job = SimpleNamespace(
+        title="Associate Data Scientist", company="AlgaeCal Inc.", location="Vancouver, BC",
+        description="data scientist", years_experience=None, raw=None,
+    )
+    assert not keep_job(job, search, match_keywords=False)
+    assert not should_hydrate_record("Associate Data Scientist", search, company="AlgaeCal")
+    assert should_hydrate_record("Associate Data Scientist", search, company="Algae Corp")
