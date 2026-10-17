@@ -156,6 +156,9 @@ def run(
                 )
             except Exception:
                 log.exception("Description enrichment failed — keeping snippets")
+            # Postings that turned out expired (404/410) were tombstoned; skip them
+            # if a later source or query returns them again this run.
+            pruned.update(pruned_keys(conn))
         # Don't store listings we wouldn't even fetch the full posting for.
         before = len(jobs)
         jobs = [j for j in jobs if worth_keeping(j, wanted)]

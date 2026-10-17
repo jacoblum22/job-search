@@ -69,7 +69,7 @@ def test_enrich_failures_are_skipped_not_raised(monkeypatch):
             raise httpx.ConnectError("boom")
         if "/3" in request.url.path:
             return httpx.Response(200, text="<html>Job no longer available</html>")
-        return httpx.Response(404)
+        return httpx.Response(500)
 
     jobs = [_job(str(i), url=f"https://example.com/{i}") for i in (1, 2, 3)]
     stats = enrich_descriptions(jobs, client=_client(handler), host_pause=0)
@@ -104,7 +104,7 @@ def test_db_reuses_stored_and_skips_recent_failures(tmp_path):
 
     def handler(request):
         calls.append(str(request.url))
-        return httpx.Response(404)
+        return httpx.Response(403)
 
     client = _client(handler)
     stored, dead = _job("stored"), _job("dead", url="https://example.com/dead")
@@ -177,9 +177,44 @@ def test_backfill_records_attempts_and_skips_recent_failures(tmp_path):
 
     def handler(r):
         calls.append(str(r.url))
-        return httpx.Response(404)
+        return httpx.Response(403)
 
     backfill_stored(conn, client=_client(handler), host_pause=0)
     stats = backfill_stored(conn, client=_client(handler), host_pause=0)
     assert len(calls) == 1
     assert stats["skipped_recent"] == 1
+
+
+def test_expired_listing_dropped_and_tombstoned_at_scrape_time(tmp_path):
+    from src.retention import pruned_keys
+
+    conn = connect(tmp_path / "jobs.db")
+    live, gone = _job("live", url="https://example.com/live"), _job("gone", url="https://example.com/gone")
+
+    def handler(r):
+        return httpx.Response(410) if r.url.path == "/gone" else httpx.Response(200, text=_page(FULL))
+
+    jobs = [live, gone]
+    stats = enrich_descriptions(jobs, conn=conn, client=_client(handler), host_pause=0)
+    assert stats["expired"] == 1 and stats["enriched"] == 1
+    assert jobs == [live]  # the caller won't store it
+    assert ("adzuna", "gone") in pruned_keys(conn)  # and no later scrape brings it back
+
+
+def test_backfill_deletes_expired_but_keeps_applied(tmp_path):
+    from src.enrich import backfill_stored
+    from src.retention import pruned_keys
+
+    conn = connect(tmp_path / "jobs.db")
+    for ext_id in ("gone", "applied", "blocked"):
+        upsert_job(conn, _job(ext_id, url=f"https://example.com/{ext_id}"))
+    conn.execute("UPDATE jobs SET status = 'applied' WHERE external_id = 'applied'")
+
+    def handler(r):
+        return httpx.Response(403) if r.url.path == "/blocked" else httpx.Response(404)
+
+    stats = backfill_stored(conn, client=_client(handler), host_pause=0)
+    assert stats["expired"] == 2 and stats["failed"] == 1
+    remaining = {r[0] for r in conn.execute("SELECT external_id FROM jobs")}
+    assert remaining == {"applied", "blocked"}  # 403 is a failed fetch, not proof it's gone
+    assert pruned_keys(conn) == {("adzuna", "gone")}

@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 COMPANY_THRESHOLD = 85
 LOCATION_THRESHOLD = 80
 TITLE_THRESHOLD = 85
+DESCRIPTION_THRESHOLD = 95
+# Short descriptions (email-alert snippets) are too generic to prove two
+# postings are the same job.
+MIN_DESCRIPTION_CHARS = 300
 
 
 def _is_match(a: sqlite3.Row, b: sqlite3.Row) -> bool:
@@ -37,12 +41,26 @@ def _is_match(a: sqlite3.Row, b: sqlite3.Row) -> bool:
     # granularity across sources ("Vancouver, BC" vs "Greater Vancouver,
     # British Columbia" for the same posting) — plain ratio penalizes the
     # length difference too harshly and misses real matches.
-    location_score = fuzz.token_set_ratio(normalize(a["location"]), normalize(b["location"]))
-    if location_score < LOCATION_THRESHOLD:
+    title_score = fuzz.token_sort_ratio(normalize(a["title"]), normalize(b["title"]))
+    if title_score < TITLE_THRESHOLD:
         return False
 
-    title_score = fuzz.token_sort_ratio(normalize(a["title"]), normalize(b["title"]))
-    return title_score >= TITLE_THRESHOLD
+    location_score = fuzz.token_set_ratio(normalize(a["location"]), normalize(b["location"]))
+    if location_score >= LOCATION_THRESHOLD:
+        return True
+
+    # One opening is often posted once per city (AlgaeCal's Associate Data
+    # Scientist came through Adzuna as Richmond, Burnaby, North Vancouver,
+    # Surrey and Greater Vancouver). Same company, title and description
+    # means the same job even when the locations differ.
+    return _same_description(a["description"], b["description"])
+
+
+def _same_description(a: str | None, b: str | None) -> bool:
+    a, b = normalize(a or ""), normalize(b or "")
+    if len(a) < MIN_DESCRIPTION_CHARS or len(b) < MIN_DESCRIPTION_CHARS:
+        return False
+    return fuzz.ratio(a[:3000], b[:3000]) >= DESCRIPTION_THRESHOLD
 
 
 def run_dedup(conn: sqlite3.Connection, since_days: int = 45) -> int:

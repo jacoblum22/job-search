@@ -279,6 +279,8 @@ def keep_job(
     phrase table, so we re-check instead of trusting the search hit.
     """
     title = job.title or ""
+    if company_excluded(getattr(job, "company", "") or "", search):
+        return False
     if match_keywords and not job_matches_keywords(
         job, search, include_description=include_description
     ):
@@ -300,6 +302,14 @@ def keep_job(
         if classify_location(location, company) == "other":
             return False
     return True
+
+
+def company_excluded(company: str, search: dict[str, Any]) -> bool:
+    """True if `company` matches an `exclude_companies` entry (e.g. a past employer)."""
+    lowered = company.lower()
+    return any(
+        re.search(rf"\b{re.escape(c.lower())}\b", lowered) for c in search.get("exclude_companies") or []
+    )
 
 
 INTERNSHIP_TITLE_RE = re.compile(
@@ -327,6 +337,8 @@ def should_hydrate_record(title: str, search: dict[str, Any], *, company: str = 
     """
     from types import SimpleNamespace
 
+    if company_excluded(company, search):
+        return False
     probe = SimpleNamespace(
         title=title,
         company=company,

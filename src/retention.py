@@ -2,7 +2,8 @@
 remember what was deleted so the next scrape doesn't bring it back.
 
 A job's age is its posted date when the source gives one, otherwise how long
-ago we first saw it. Jobs marked `applied` are never deleted. Configure with
+ago we first saw it. Postings whose link answers 404/410 are deleted the same
+way as soon as src/enrich.py sees it. Jobs marked `applied` are never deleted. Configure with
 `retention: {max_age_days: N}` in settings.yaml (0 turns it off).
 """
 
@@ -106,3 +107,30 @@ def prune(conn: sqlite3.Connection, max_days: int, today: date | None = None) ->
     )
     conn.executemany("DELETE FROM jobs WHERE id = ?", [(r["id"],) for r in stale])
     return len(stale)
+
+
+def delete_expired(conn: sqlite3.Connection, keys: set[tuple[str, str]]) -> int:
+    """Delete jobs whose posting is confirmed gone (404/410) and tombstone them
+    so no later scrape brings them back. Applied jobs are kept (and not
+    tombstoned). Keys not in jobs.db yet are still tombstoned. Returns how
+    many rows were deleted."""
+    if not keys:
+        return 0
+    ensure_schema(conn)
+    placeholders = ",".join("?" for _ in KEEP_STATUSES)
+    keep = {
+        (r[0], r[1])
+        for r in conn.execute(f"SELECT source, external_id FROM jobs WHERE status IN ({placeholders})", KEEP_STATUSES)
+    }
+    gone = [k for k in keys if k not in keep]
+    now = datetime.now(UTC).isoformat(timespec="seconds")
+    conn.executemany(
+        "INSERT OR IGNORE INTO pruned_jobs (source, external_id, pruned_at) VALUES (?, ?, ?)",
+        [(s, e, now) for s, e in gone],
+    )
+    deleted = 0
+    for source, external_id in gone:
+        deleted += conn.execute(
+            "DELETE FROM jobs WHERE source = ? AND external_id = ?", (source, external_id)
+        ).rowcount
+    return deleted

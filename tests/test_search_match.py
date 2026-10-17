@@ -226,3 +226,18 @@ def test_api_queries_word_order_dedupe_and_no_level_variants():
     s = {"keywords": ["Data Analyst"], "level_terms": ["junior"], "extra_api_queries": ["junior data analyst", "SQL analyst"]}
     assert api_queries(s) == ["Data Analyst", "Data Analyst junior", "SQL analyst"]
     assert api_queries(s, level_variants=False) == ["Data Analyst", "junior data analyst", "SQL analyst"]
+
+
+def test_excluded_company_is_never_kept_or_fetched():
+    from types import SimpleNamespace
+
+    from src.search_match import keep_job, should_hydrate_record
+
+    search = {"exclude_companies": ["AlgaeCal"], "keywords": ["data scientist"], "require_relevant_location": False}
+    job = SimpleNamespace(
+        title="Associate Data Scientist", company="AlgaeCal Inc.", location="Vancouver, BC",
+        description="data scientist", years_experience=None, raw=None,
+    )
+    assert not keep_job(job, search, match_keywords=False)
+    assert not should_hydrate_record("Associate Data Scientist", search, company="AlgaeCal")
+    assert should_hydrate_record("Associate Data Scientist", search, company="Algae Corp")
