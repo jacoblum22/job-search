@@ -10,7 +10,9 @@ Note: Adzuna's bare `/details/{id}` and `/land/ad/{id}` paths return 403 from
 CloudFront; only the tracked redirect_url (with its utm params) is served.
 
 Rate-limited per host, retried on transient errors, and every failure is
-logged and skipped — enrichment never aborts a scrape. Attempts are recorded
+logged and skipped — enrichment never aborts a scrape. A link that answers
+404/410 means the posting is gone: the job is deleted from jobs.db (unless
+applied to) and tombstoned so it's never re-scraped. Attempts are recorded
 in `enrich_attempts` so scheduled runs don't refetch the same dead link (or a
 posting the filters dropped anyway) and the per-run cap works through the
 backlog instead.
@@ -35,6 +37,7 @@ from bs4 import BeautifulSoup
 from src.db import Job
 from src.http_retry import request_with_retry
 from src.parser import html_to_markdown
+from src.retention import delete_expired
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,8 @@ MIN_FULL_CHARS = 600
 DEFAULT_HOST_PAUSE = 1.0
 DEFAULT_MAX_FETCHES = 150
 RETRY_FAILED_AFTER = timedelta(days=3)
+# Responses that mean the posting itself is gone, not that the fetch failed.
+EXPIRED_STATUSES = frozenset({404, 410})
 
 # Pages where a plain fetch never yields the posting: login-walled boards, and
 # CareerJet, whose jobviewtrack links mostly 404 and otherwise land on a
@@ -105,11 +110,14 @@ def enrich_descriptions(
 ) -> Counter:
     """Replace snippet descriptions in-place with the full posting text.
 
+    Listings whose link answers 404/410 are removed from `jobs` (so the caller
+    doesn't store them) and, with `conn`, deleted and tombstoned in jobs.db.
+
     `should_fetch` narrows which listings are worth a request (e.g. title
     relevance). With `conn`, listings already stored with a full description
     reuse it, and listings attempted recently (failed, or fetched but then
     filtered out) are not refetched.
-    Returns counts: enriched / failed / reused / skipped_recent / capped.
+    Returns counts: enriched / failed / expired / reused / skipped_recent / capped.
     """
     stats: Counter = Counter()
     if conn is not None:
@@ -126,6 +134,7 @@ def enrich_descriptions(
     )
     last_hit: dict[str, float] = {}
     fetches = 0
+    expired: list[Job] = []
     try:
         for job in jobs:
             if not needs_enrichment(job):
@@ -146,7 +155,10 @@ def enrich_descriptions(
                 continue
             fetches += 1
             _throttle(job.url, last_hit, host_pause)
-            full = _fetch_description(client, job)
+            full, gone = _fetch_description(client, job)
+            if gone:
+                expired.append(job)
+                continue
             ok = bool(full) and len(full) > len(job.description or "")
             if ok:
                 _apply(job, full)
@@ -158,11 +170,19 @@ def enrich_descriptions(
     finally:
         if owns_client:
             client.close()
+    if expired:
+        stats["expired"] = len(expired)
+        gone_keys = {(j.source, j.external_id) for j in expired}
+        jobs[:] = [j for j in jobs if (j.source, j.external_id) not in gone_keys]
+        if conn is not None:
+            deleted = delete_expired(conn, gone_keys)
+            logger.info("Deleted %d expired posting(s) from jobs.db (404/410)", deleted)
     if stats:
         logger.info(
-            "Description enrichment: %d enriched, %d failed, %d reused, %d skipped (recently attempted), %d over cap",
+            "Description enrichment: %d enriched, %d failed, %d expired, %d reused, %d skipped (recently attempted), %d over cap",
             stats["enriched"],
             stats["failed"],
+            stats["expired"],
             stats["reused"],
             stats["skipped_recent"],
             stats["capped"],
@@ -185,12 +205,23 @@ def _throttle(url: str, last_hit: dict[str, float], pause: float) -> None:
     last_hit[host] = time.monotonic()
 
 
-def _fetch_description(client: httpx.Client, job: Job) -> str:
+def _fetch_description(client: httpx.Client, job: Job) -> tuple[str, bool]:
+    """Return (description, expired). Description is "" when the fetch failed;
+    expired is True only when the link answered 404/410."""
     try:
         resp = request_with_retry(client, "GET", job.url, retries=3, backoff=2.0)
     except httpx.HTTPError as exc:
         logger.warning("Enrich %s %s: network error %s", job.source, job.external_id, type(exc).__name__)
-        return ""
+        return "", False
+    if resp.status_code in EXPIRED_STATUSES:
+        logger.info(
+            "Enrich %s %s: posting expired (HTTP %s from %s)",
+            job.source,
+            job.external_id,
+            resp.status_code,
+            urlparse(str(resp.url)).netloc,
+        )
+        return "", True
     if resp.status_code != 200:
         logger.warning(
             "Enrich %s %s: HTTP %s from %s",
@@ -199,12 +230,12 @@ def _fetch_description(client: httpx.Client, job: Job) -> str:
             resp.status_code,
             urlparse(str(resp.url)).netloc,
         )
-        return ""
+        return "", False
     try:
         text = description_from_html(resp.text)
     except Exception:
         logger.exception("Enrich %s %s: failed to parse page", job.source, job.external_id)
-        return ""
+        return "", False
     if len(text) < MIN_FULL_CHARS:
         logger.warning(
             "Enrich %s %s: no full description on %s",
@@ -212,8 +243,8 @@ def _fetch_description(client: httpx.Client, job: Job) -> str:
             job.external_id,
             urlparse(str(resp.url)).netloc,
         )
-        return ""
-    return text
+        return "", False
+    return text, False
 
 
 def description_from_html(html: str) -> str:
