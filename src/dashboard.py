@@ -66,6 +66,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--text); background: var(--panel); border-color: var(--border); font-weight: 600; margin-bottom: -1px; }
   .tab .n { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  td.notice { text-align: center; color: var(--muted); padding: 48px 12px; font-size: 14px; }
+  td.notice button { margin-left: 8px; background: var(--panel); border: 1px solid var(--border); color: var(--accent); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  td.notice.error { color: #e57373; }
 </style>
 </head>
 <body>
@@ -75,8 +78,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <div class="meta">Generated __GENERATED_AT__ &middot; __TOTAL__ postings across __SOURCES__ sources</div>
 </header>
 <div class="tabs" role="tablist">
-  <button class="tab" role="tab" data-tab="internship" id="tab-internship">Co-op / Internships<span class="n"></span></button>
   <button class="tab" role="tab" data-tab="fulltime" id="tab-fulltime">Full-time<span class="n"></span></button>
+  <button class="tab" role="tab" data-tab="internship" id="tab-internship">Internships<span class="n"></span></button>
 </div>
 <div class="controls">
   <input type="text" id="search" placeholder="Search title / company / location...">
@@ -122,11 +125,18 @@ _TEMPLATE = r"""<!DOCTYPE html>
       <th data-key="first_seen">First Seen</th>
     </tr>
   </thead>
-  <tbody id="jobsBody"></tbody>
+  <tbody id="jobsBody"><tr><td class="notice" colspan="10">Loading jobs&hellip;</td></tr></tbody>
 </table>
 </div>
 <script id="jobs-data" type="application/json">__JOBS_JSON__</script>
 <script>
+// If anything below throws, say so instead of leaving the "Loading" row up forever.
+window.addEventListener('error', e => {
+  document.getElementById('jobsBody').innerHTML =
+    '<tr><td class="notice error" colspan="10"></td></tr>';
+  document.querySelector('#jobsBody td').textContent =
+    'The dashboard hit an error and could not show jobs: ' + e.message;
+});
 const rawJobs = JSON.parse(document.getElementById('jobs-data').textContent);
 const jobs = rawJobs.map(j => ({...j, sourcesStr: j.sources.join(', ')}));
 
@@ -140,7 +150,7 @@ for (const s of allSources) {
 
 let sortKey = 'score_sort', sortDir = -1;
 // The page auto-reloads, so keep the chosen tab in the URL hash.
-let activeTab = location.hash === '#fulltime' ? 'fulltime' : 'internship';
+let activeTab = location.hash === '#internships' ? 'internship' : 'fulltime';
 
 function updateTabs() {
   for (const t of ['internship', 'fulltime']) {
@@ -153,7 +163,7 @@ function updateTabs() {
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {
     activeTab = btn.dataset.tab;
-    location.hash = activeTab === 'fulltime' ? '#fulltime' : '';
+    location.hash = activeTab === 'internship' ? '#internships' : '';
     render();
   });
 });
@@ -194,10 +204,27 @@ function render() {
     return 0;
   });
 
-  const tabTotal = jobs.filter(j => j.job_type === activeTab).length;
-  document.getElementById('count').textContent = `${filtered.length} of ${tabTotal} shown`;
+  const tabJobs = jobs.filter(j => j.job_type === activeTab);
+  const skippedHidden = hideSkipped && tier !== 'skip'
+    ? tabJobs.filter(j => j.tier === 'skip').length : 0;
+  document.getElementById('count').textContent = `${filtered.length} of ${tabJobs.length} shown`
+    + (skippedHidden ? ` \u00b7 ${skippedHidden} skipped hidden` : '');
 
   const body = document.getElementById('jobsBody');
+  if (!filtered.length) {
+    let msg, action = '';
+    if (!tabJobs.length) {
+      msg = 'No jobs in this tab yet.';
+    } else if (skippedHidden === tabJobs.length) {
+      msg = `All ${tabJobs.length} jobs in this tab are scored as skip, so "Hide skipped" hides them.`;
+      action = '<button data-act="showSkipped">Show skipped</button>';
+    } else {
+      msg = 'No jobs match the current search and filters.';
+      action = '<button data-act="clear">Clear filters</button>';
+    }
+    body.innerHTML = `<tr><td class="notice" colspan="10">${escapeHtml(msg)}${action}</td></tr>`;
+    return;
+  }
   body.innerHTML = filtered.map(j => {
     const link = j.urls.length ? j.urls[0][1] : '';
     const safeLink = /^https?:\/\//i.test(link) ? link : '';
@@ -235,6 +262,20 @@ document.getElementById('locationFilter').addEventListener('change', render);
 document.getElementById('tierFilter').addEventListener('change', render);
 document.getElementById('hideSkipped').addEventListener('change', render);
 sourceFilterEl.addEventListener('change', render);
+document.getElementById('jobsBody').addEventListener('click', e => {
+  const act = e.target.dataset && e.target.dataset.act;
+  if (act === 'showSkipped') {
+    document.getElementById('hideSkipped').checked = false;
+  } else if (act === 'clear') {
+    document.getElementById('search').value = '';
+    for (const id of ['statusFilter', 'sourceFilter', 'tierFilter', 'locationFilter']) {
+      document.getElementById(id).value = '';
+    }
+  } else {
+    return;
+  }
+  render();
+});
 
 render();
 </script>
