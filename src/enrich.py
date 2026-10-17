@@ -25,7 +25,6 @@ import json
 import logging
 import re
 import sqlite3
-import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
@@ -34,6 +33,7 @@ from urllib.parse import urlparse
 import httpx
 from bs4 import BeautifulSoup
 
+from src.concurrency import RateLimiter, host_of, parallel_map
 from src.db import Job
 from src.http_retry import request_with_retry
 from src.parser import html_to_markdown
@@ -48,6 +48,9 @@ SNIPPET_MAX_CHARS = 1000
 MIN_FULL_CHARS = 600
 DEFAULT_HOST_PAUSE = 1.0
 DEFAULT_MAX_FETCHES = 150
+# Pages fetched at once. Each host is still rate-limited to one new request per
+# host_pause, so this mostly overlaps slow responses and different sites.
+DEFAULT_WORKERS = 6
 RETRY_FAILED_AFTER = timedelta(days=3)
 # Responses that mean the posting itself is gone, not that the fetch failed.
 EXPIRED_STATUSES = frozenset({404, 410})
@@ -107,6 +110,7 @@ def enrich_descriptions(
     client: httpx.Client | None = None,
     host_pause: float = DEFAULT_HOST_PAUSE,
     max_fetches: int = DEFAULT_MAX_FETCHES,
+    workers: int = DEFAULT_WORKERS,
 ) -> Counter:
     """Replace snippet descriptions in-place with the full posting text.
 
@@ -132,10 +136,10 @@ def enrich_descriptions(
             "Accept-Language": "en-CA,en;q=0.9",
         },
     )
-    last_hit: dict[str, float] = {}
-    fetches = 0
+    to_fetch: list[Job] = []
     expired: list[Job] = []
     try:
+        # Decide what to fetch first (this reads jobs.db, so it stays on this thread)...
         for job in jobs:
             if not needs_enrichment(job):
                 continue
@@ -150,12 +154,28 @@ def enrich_descriptions(
                 if _recently_attempted(conn, job):
                     stats["skipped_recent"] += 1
                     continue
-            if fetches >= max_fetches:
+            if len(to_fetch) >= max_fetches:
                 stats["capped"] += 1
                 continue
-            fetches += 1
-            _throttle(job.url, last_hit, host_pause)
-            full, gone = _fetch_description(client, job)
+            to_fetch.append(job)
+
+        # ...then fetch several pages at once, each site still getting at most
+        # one new request per `host_pause` seconds...
+        limiter = RateLimiter(host_pause)
+        to_fetch = _interleave_hosts(to_fetch)
+
+        def fetch(job: Job) -> tuple[str, bool]:
+            limiter.wait(host_of(job.url))
+            try:
+                return _fetch_description(client, job)
+            except Exception:
+                logger.exception("Enrich %s %s: fetch failed", job.source, job.external_id)
+                return "", False
+
+        pages = parallel_map(fetch, to_fetch, workers)
+
+        # ...and write the results back here.
+        for job, (full, gone) in zip(to_fetch, pages, strict=True):
             if gone:
                 expired.append(job)
                 continue
@@ -195,14 +215,17 @@ def _apply(job: Job, description: str) -> None:
     job.__post_init__()  # recompute years_experience from the full text
 
 
-def _throttle(url: str, last_hit: dict[str, float], pause: float) -> None:
-    host = urlparse(url).netloc.lower()
-    prev = last_hit.get(host)
-    if prev is not None and pause > 0:
-        wait = pause - (time.monotonic() - prev)
-        if wait > 0:
-            time.sleep(wait)
-    last_hit[host] = time.monotonic()
+def _interleave_hosts(jobs: list[Job]) -> list[Job]:
+    """Round-robin by host, so a long run of one site's links doesn't tie up
+    every worker waiting on that site's rate limit while other sites sit idle."""
+    by_host: dict[str, list[Job]] = {}
+    for job in jobs:
+        by_host.setdefault(host_of(job.url), []).append(job)
+    queues = list(by_host.values())
+    out: list[Job] = []
+    for i in range(max((len(q) for q in queues), default=0)):
+        out.extend(q[i] for q in queues if i < len(q))
+    return out
 
 
 def _fetch_description(client: httpx.Client, job: Job) -> tuple[str, bool]:

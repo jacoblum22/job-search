@@ -10,6 +10,9 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from pathlib import Path
 
 import click
@@ -19,11 +22,13 @@ from dotenv import load_dotenv
 from src.dashboard import generate_dashboard
 from src.db import connect, upsert_job
 from src.dedup import run_dedup
+from src.enrich import DEFAULT_WORKERS as DEFAULT_ENRICH_WORKERS
 from src.enrich import backfill_stored, enrich_descriptions, worth_keeping
 from src.export_xlsx import generate_xlsx
 from src.retention import is_stale, max_age_days, prune, pruned_keys
 from src.score import rescore_all
 from src.search_match import api_queries, keep_job, should_hydrate_record
+from src.sources import ats_common
 from src.sources.adzuna import fetch_adzuna_jobs
 from src.sources.careerjet import fetch_careerjet_jobs
 from src.sources.glassdoor_email import fetch_glassdoor_jobs
@@ -115,6 +120,9 @@ def run(
     total_fetched = 0
     search = cfg.get("search", {})
     enrich_cfg = cfg.get("enrich", {})
+    par = cfg.get("concurrency") or {}
+    ats_common.BOARD_WORKERS = par.get("board_workers", ats_common.BOARD_WORKERS)
+    enrich_workers = par.get("enrich_workers", DEFAULT_ENRICH_WORKERS)
 
     max_days = max_age_days(cfg)
     pruned = pruned_keys(conn)
@@ -144,6 +152,7 @@ def run(
                     should_fetch=wanted,
                     host_pause=enrich_cfg.get("host_pause_seconds", 1.0),
                     max_fetches=enrich_cfg.get("max_fetches_per_source", 150),
+                    workers=enrich_workers,
                 )
             except Exception:
                 log.exception("Description enrichment failed — keeping snippets")
@@ -176,6 +185,12 @@ def run(
         except Exception:
             log.exception("Dashboard refresh failed — continuing")
 
+    # Every source except the email ones only talks to the web, so they all
+    # download side by side on worker threads. Each finished download is then
+    # enriched, filtered, saved and drawn into the dashboard here on the main
+    # thread, one at a time, since jobs.db belongs to this thread.
+    downloads: list[tuple[str, Callable[[], list]]] = []
+
     if not skip_apis:
         api_cfg = cfg.get("api_sources", {})
         queries = api_queries(search)
@@ -184,78 +199,98 @@ def run(
         results_per_page = api_cfg.get("results_per_page", 20)
         max_pages = api_cfg.get("max_pages", 3)
 
-        if api_cfg.get("adzuna", {}).get("enabled", True):
-            try:
-                ingest(
-                    fetch_adzuna_jobs(
-                        keywords=queries,
-                        location=location,
-                        country=api_cfg.get("adzuna", {}).get("country", "ca"),
-                        results_per_page=results_per_page,
-                        max_pages=max_pages,
-                        remote_sweep_location=remote_sweep,
-                    ),
-                    match_keywords=True,
-                )
-            except Exception:
-                log.exception("Adzuna fetch failed — continuing with other sources")
+        adzuna_cfg = api_cfg.get("adzuna", {})
+        if adzuna_cfg.get("enabled", True):
+            # Adzuna's free key allows 25 calls/minute and 2,500/month
+            # (developer.adzuna.com/docs/terms_of_service), so it skips the
+            # keyword x level searches and paces itself under the minute limit.
+            adzuna_queries = api_queries(search, level_variants=adzuna_cfg.get("level_variants", False))
+            downloads.append((
+                "Adzuna",
+                lambda: fetch_adzuna_jobs(
+                    keywords=adzuna_queries,
+                    location=location,
+                    country=adzuna_cfg.get("country", "ca"),
+                    results_per_page=results_per_page,
+                    max_pages=max_pages,
+                    remote_sweep_location=remote_sweep,
+                    request_pause=adzuna_cfg.get("request_pause_seconds", 2.5),
+                    max_days_old=max_days,
+                    workers=par.get("adzuna_workers", 3),
+                ),
+            ))
 
         cj_cfg = api_cfg.get("careerjet", {})
         if cj_cfg.get("enabled", True):
-            try:
-                ingest(
-                    fetch_careerjet_jobs(
-                        keywords=queries,
-                        location=location,
-                        referer=cj_cfg.get("referer", ""),
-                        locale_code=cj_cfg.get("locale_code", "en_CA"),
-                        remote_sweep_location=remote_sweep,
-                        max_pages=max_pages,
-                    ),
-                    match_keywords=True,
-                )
-            except Exception:
-                log.exception("CareerJet fetch failed — continuing with other sources")
+            downloads.append((
+                "CareerJet",
+                lambda: fetch_careerjet_jobs(
+                    keywords=queries,
+                    location=location,
+                    referer=cj_cfg.get("referer", ""),
+                    locale_code=cj_cfg.get("locale_code", "en_CA"),
+                    remote_sweep_location=remote_sweep,
+                    max_pages=max_pages,
+                ),
+            ))
 
     if not skip_workday:
-        try:
-            ingest(
-                fetch_workday_jobs(cfg.get("sources", []), max_jobs=workday_limit, search=search),
-                match_keywords=True,
-            )
-        except Exception:
-            log.exception("Workday fetch failed — continuing")
+        downloads.append((
+            "Workday",
+            lambda: fetch_workday_jobs(
+                cfg.get("sources", []),
+                max_jobs=workday_limit,
+                search=search,
+                tenant_workers=par.get("workday_tenant_workers", 8),
+            ),
+        ))
 
     if not skip_ats:
         ats = cfg.get("ats_boards", {})
         for platform, fetch in BOARD_PLATFORMS.items():
-            if not ats.get(platform):
-                continue
-            try:
-                ingest(fetch(ats[platform], search), match_keywords=True)
-            except Exception:
-                log.exception("%s fetch failed — continuing with other sources", platform)
+            if ats.get(platform):
+                downloads.append((platform, partial(fetch, ats[platform], search)))
 
         for name, options in (ats.get("feeds") or {}).items():
             options = options or {}
             if name not in FEEDS or options.get("enabled", True) is False:
                 continue
-            try:
-                ingest(FEEDS[name](options, search, list(search.get("keywords") or [])), match_keywords=True)
-            except Exception:
-                log.exception("%s feed failed — continuing with other sources", name)
+            downloads.append((name, partial(FEEDS[name], options, search, list(search.get("keywords") or []))))
 
         unknown = set(ats) - set(BOARD_PLATFORMS) - {"feeds"}
         if unknown:
             log.warning("Unknown sections in the board list (ignored): %s", ", ".join(sorted(unknown)))
 
-    if not skip_email:
-        forward_from = cfg.get("email_sources", {}).get("forward_from") or None
-        for fetch_fn in (fetch_linkedin_jobs, fetch_indeed_jobs, fetch_glassdoor_jobs):
+    def safe_ingest(label: str, jobs: list) -> None:
+        try:
+            ingest(jobs, match_keywords=True)
+        except Exception:
+            log.exception("Saving %s jobs failed — continuing with other sources", label)
+
+    with ThreadPoolExecutor(max_workers=max(1, par.get("source_workers", 4))) as pool:
+        pending = {pool.submit(fetch): label for label, fetch in downloads}
+
+        # Email alerts read and update their cursors in jobs.db, so they run
+        # here while the downloads above get going.
+        if not skip_email:
+            forward_from = cfg.get("email_sources", {}).get("forward_from") or None
+            for fetch_fn in (fetch_linkedin_jobs, fetch_indeed_jobs, fetch_glassdoor_jobs):
+                try:
+                    jobs = fetch_fn(conn, forward_from=forward_from)
+                except Exception:
+                    log.exception("%s fetch failed — continuing with other sources", fetch_fn.__module__)
+                    continue
+                safe_ingest(fetch_fn.__module__, jobs)
+
+        for future in as_completed(pending):
+            label = pending[future]
             try:
-                ingest(fetch_fn(conn, forward_from=forward_from), match_keywords=True)
+                jobs = future.result()
             except Exception:
-                log.exception("%s fetch failed — continuing with other sources", fetch_fn.__module__)
+                log.exception("%s fetch failed — continuing with other sources", label)
+                continue
+            log.info("%s: downloaded %d listing(s)", label, len(jobs))
+            safe_ingest(label, jobs)
 
     conn.commit()
     log.info("Fetched %d jobs total (%d new)", total_fetched, new_count)
@@ -270,6 +305,7 @@ def run(
                 should_fetch=wanted,
                 host_pause=enrich_cfg.get("host_pause_seconds", 1.0),
                 max_fetches=enrich_cfg.get("backlog_fetches_per_run", 150),
+                workers=enrich_workers,
             )
         except Exception:
             log.exception("Description backlog catch-up failed — continuing")

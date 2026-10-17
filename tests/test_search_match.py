@@ -222,6 +222,12 @@ def test_assistant_and_coordinator_titles_are_not_fetched_on_their_own():
     assert should_hydrate_record("Entry Level Marketing", search)
 
 
+def test_api_queries_word_order_dedupe_and_no_level_variants():
+    s = {"keywords": ["Data Analyst"], "level_terms": ["junior"], "extra_api_queries": ["junior data analyst", "SQL analyst"]}
+    assert api_queries(s) == ["Data Analyst", "Data Analyst junior", "SQL analyst"]
+    assert api_queries(s, level_variants=False) == ["Data Analyst", "junior data analyst", "SQL analyst"]
+
+
 def test_excluded_company_is_never_kept_or_fetched():
     from types import SimpleNamespace
 

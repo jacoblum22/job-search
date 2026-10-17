@@ -115,13 +115,18 @@ async def _fetch_source(
 
 
 async def _fetch_all(
-    sources: list[dict], *, max_jobs: int, concurrency: int, search: dict | None
+    sources: list[dict], *, max_jobs: int, concurrency: int, search: dict | None, tenant_workers: int
 ) -> list[Job]:
     active = [s for s in sources if s.get("enabled", True)]
-    results = await asyncio.gather(
-        *[_fetch_source(s, max_jobs=max_jobs, concurrency=concurrency, search=search) for s in active],
-        return_exceptions=True,
-    )
+    # Every tenant is served by Workday's own servers, so cap how many boards
+    # are scraped at once (each with up to `concurrency` requests in flight).
+    gate = asyncio.Semaphore(max(1, tenant_workers))
+
+    async def one(source: dict) -> list[Job]:
+        async with gate:
+            return await _fetch_source(source, max_jobs=max_jobs, concurrency=concurrency, search=search)
+
+    results = await asyncio.gather(*[one(s) for s in active], return_exceptions=True)
     jobs: list[Job] = []
     for source, result in zip(active, results, strict=True):
         if isinstance(result, Exception):
@@ -136,8 +141,11 @@ def fetch_workday_jobs(
     sources: list[dict],
     *,
     max_jobs: int = 0,
-    concurrency: int = 10,
+    concurrency: int = 5,
     search: dict | None = None,
+    tenant_workers: int = 8,
 ) -> list[Job]:
     """Fetch jobs from every enabled Workday source in settings.yaml. Sync wrapper."""
-    return asyncio.run(_fetch_all(sources, max_jobs=max_jobs, concurrency=concurrency, search=search))
+    return asyncio.run(
+        _fetch_all(sources, max_jobs=max_jobs, concurrency=concurrency, search=search, tenant_workers=tenant_workers)
+    )

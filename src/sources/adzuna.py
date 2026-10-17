@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 from typing import Any
 
 import httpx
 
+from src.concurrency import RateLimiter, parallel_map
 from src.db import Job
 from src.http_retry import request_with_retry
 from src.location_filter import is_remote
@@ -38,12 +38,16 @@ def fetch_adzuna_jobs(
     max_pages: int = 3,
     remote_sweep_location: str | None = "Canada",
     request_pause: float = 0.35,
+    workers: int = 3,
+    max_days_old: int | None = None,
     app_id: str | None = None,
     app_key: str | None = None,
     client: httpx.Client | None = None,
 ) -> list[Job]:
     """Fetch jobs from Adzuna for each keyword. Returns normalized Job records.
 
+    Queries run `workers` at a time, but request starts are still spaced
+    `request_pause` apart across all of them, so Adzuna never sees a burst.
     One failed query never aborts the rest. Transient 429/503 are retried;
     a persistent 503 stops *that query's* remaining pages only.
     """
@@ -54,59 +58,36 @@ def fetch_adzuna_jobs(
 
     owns_client = client is None
     client = client or httpx.Client(timeout=httpx.Timeout(45.0, connect=15.0))
-    by_id: dict[str, Job] = {}
+    limiter = RateLimiter(request_pause)
     sweep = remote_sweep_location
     if sweep and sweep.strip().lower() == (location or "").strip().lower():
         sweep = None
 
-    def _absorb(jobs: list[Job], *, remote_only: bool) -> None:
-        for job in jobs:
-            if remote_only and not is_remote(job.location):
-                continue
-            by_id[job.external_id] = job
+    # (keyword, where, remote_only): the local pass, then the remote sweep.
+    tasks = [(kw, location, False) for kw in keywords]
+    if sweep:
+        tasks += [(kw, sweep, True) for kw in keywords]
 
+    def run(task: tuple[str, str, bool]) -> list[Job]:
+        keyword, where, remote_only = task
+        try:
+            found = _search(
+                client, keyword, where, country, results_per_page, max_pages, app_id, app_key, limiter, max_days_old
+            )
+        except Exception:
+            label = "remote-sweep query" if remote_only else "query"
+            logger.exception("Adzuna %s %r in %r failed — continuing", label, keyword, where)
+            return []
+        return [j for j in found if not remote_only or is_remote(j.location)]
+
+    by_id: dict[str, Job] = {}
     try:
-        for keyword in keywords:
-            try:
-                _absorb(
-                    _search(
-                        client,
-                        keyword,
-                        location,
-                        country,
-                        results_per_page,
-                        max_pages,
-                        app_id,
-                        app_key,
-                        request_pause,
-                    ),
-                    remote_only=False,
-                )
-            except Exception:
-                logger.exception("Adzuna query %r in %r failed — continuing", keyword, location)
-
-        if sweep:
-            for keyword in keywords:
-                try:
-                    _absorb(
-                        _search(
-                            client,
-                            keyword,
-                            sweep,
-                            country,
-                            results_per_page,
-                            max_pages,
-                            app_id,
-                            app_key,
-                            request_pause,
-                        ),
-                        remote_only=True,
-                    )
-                except Exception:
-                    logger.exception(
-                        "Adzuna remote-sweep query %r in %r failed — continuing", keyword, sweep
-                    )
-
+        # Merged in task order, so the result doesn't depend on which query finished first.
+        for (keyword, where, _), found in zip(tasks, parallel_map(run, tasks, workers), strict=True):
+            added = sum(job.external_id not in by_id for job in found)
+            logger.info("Adzuna: %r in %r added %d new of %d", keyword, where, added, len(found))
+            for job in found:
+                by_id[job.external_id] = job
         jobs = list(by_id.values())
     finally:
         if owns_client:
@@ -125,13 +106,14 @@ def _search(
     max_pages: int,
     app_id: str,
     app_key: str,
-    request_pause: float = 0.0,
+    limiter: RateLimiter | None = None,
+    max_days_old: int | None = None,
 ) -> list[Job]:
     jobs: list[Job] = []
     pages = max(1, max_pages)
     for page in range(1, pages + 1):
-        if request_pause and page > 1 or request_pause and page == 1:
-            time.sleep(request_pause)
+        if limiter:
+            limiter.wait()
         url = f"{BASE_URL}/{country}/search/{page}"
         params = {
             "app_id": app_id,
@@ -141,6 +123,10 @@ def _search(
             "results_per_page": results_per_page,
             "content-type": "application/json",
         }
+        if max_days_old:
+            # Postings older than retention.max_age_days are dropped anyway, so
+            # don't spend pages on them; the newer ones then fit in fewer pages.
+            params["max_days_old"] = max_days_old
         logger.info("Adzuna: searching %r in %r (page %d)", keyword, where, page)
         resp = request_with_retry(client, "GET", url, params=params)
         if resp.status_code in (429, 502, 503, 504):

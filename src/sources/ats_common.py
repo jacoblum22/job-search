@@ -19,6 +19,7 @@ from typing import Any
 
 import httpx
 
+from src.concurrency import parallel_map
 from src.db import Job
 from src.http_retry import request_with_retry
 from src.location_filter import is_remote, is_vancouver_area
@@ -28,6 +29,10 @@ logger = logging.getLogger(__name__)
 
 USER_AGENT = "job-search-aggregator/1.0 (+https://jacoblum.com)"
 DEFAULT_TIMEOUT = 30.0
+# Boards of one platform fetched at once. Most platforms serve every company
+# from one API host, so this is also the most requests that host sees at a time.
+# scripts/aggregate.py overrides it from settings.yaml `concurrency.board_workers`.
+BOARD_WORKERS = 6
 
 
 def make_client() -> httpx.Client:
@@ -168,21 +173,25 @@ def fetch_boards(
     fetch_one: Callable[[httpx.Client, dict], list[Job]],
     *,
     client: httpx.Client | None = None,
+    workers: int | None = None,
 ) -> list[Job]:
-    """Run `fetch_one` for each board; one bad board never sinks the rest."""
+    """Run `fetch_one` for each board, several at a time; one bad board never
+    sinks the rest. Results keep the board-list order."""
     own_client = client is None
     client = client or make_client()
-    jobs: list[Job] = []
+
+    def one(board: dict) -> list[Job]:
+        try:
+            found = fetch_one(client, board)
+        except Exception:
+            logger.exception("%s board %s failed — continuing", platform, board["slug"])
+            return []
+        logger.info("%s %s: %d relevant job(s)", platform, board["name"], len(found))
+        return found
+
     try:
-        for board in normalize_boards(boards):
-            try:
-                found = fetch_one(client, board)
-            except Exception:
-                logger.exception("%s board %s failed — continuing", platform, board["slug"])
-                continue
-            logger.info("%s %s: %d relevant job(s)", platform, board["name"], len(found))
-            jobs.extend(found)
+        per_board = parallel_map(one, normalize_boards(boards), BOARD_WORKERS if workers is None else workers)
     finally:
         if own_client:
             client.close()
-    return jobs
+    return [job for found in per_board for job in found]
