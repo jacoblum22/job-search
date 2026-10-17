@@ -403,12 +403,16 @@ score:
     - "work term"
   new_grad_title_terms: ["new grad", "new graduate", "recent graduate"]
   internship_penalty: {points: -15, keywords: ["intern", "internship"]}
-  # Regexes over the description; any hit = skip (remote US that needs US residence)
+  # Regexes over the description; any hit = skip (remote US that needs US
+  # residence, or a required PhD)
   skip_description_patterns:
     - "must (?:reside|live|be located|be based) (?:in|within) the (?:U\\.?S\\.?A?\\.?|United States)"
     - "(?:U\\.?S\\.?|United States)[- ]based (?:candidates|applicants) only"
     - "only (?:considering|accepting) (?:candidates|applicants) (?:located|residing|based) in the (?:U\\.?S\\.?|United States)"
     - "(?:reside|located|live) in (?:one of )?the following (?:U\\.?S\\.? )?states"
+    # PhD required (not "Master's or PhD", "PhD preferred", "pursuing a PhD")
+    - "(?:must|required to) (?:hold|have|possess) (?:an? )?(?:MD and/or )?Ph\\.?\\s?D"
+    - "Ph\\.?\\s?D\\.?(?: degree)? (?:is )?required"
 
   # Title family: only the best-matching family counts
   title_families:
@@ -460,9 +464,11 @@ score:
         points: -10
     years_penalties:          # by minimum years the posting asks for
       - {min: 0, max: 2, points: 5}
-      - {min: 3, max: 3, points: -15}
+      - {min: 3, max: 3, points: -8}
       - {min: 4, max: 4, points: -25}
       - {min: 5, max: 5, points: -40}
+  # Asking for this many years puts a job in tier D whatever its score
+  tier_d_years: 5
 
   # Skills in title + description, weighted by how strong Jake's evidence is
   # (experience-vault/skills-map.md). Sum is capped.
@@ -514,23 +520,23 @@ score:
       "typescript": 2
       "react": 2
     gap_cap: 25
+    # Another main language means a different stack (heavier). Data tools
+    # are learnable on the job and often nice-to-haves (light).
     gaps:
-      "spark": -4
-      "pyspark": -4
-      "scala": -6
-      "hadoop": -4
-      "kubernetes": -4
-      "airflow": -3
-      "databricks": -3
-      "snowflake": -3
-      "dbt": -3
-      "c++": -4
-      "java": -3
-      ".net": -4
-      "c#": -4
-      "golang": -4
-      "kafka": -3
-      "phd": -9
+      "c++": -6
+      "java": -5
+      "c#": -5
+      ".net": -5
+      "golang": -5
+      "scala": -5
+      "kubernetes": -3
+      "spark|pyspark": -2
+      "hadoop": -2
+      "airflow": -2
+      "databricks": -2
+      "snowflake": -2
+      "dbt": -2
+      "kafka": -2
       "master's degree required": -6
 
   location_points:

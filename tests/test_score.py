@@ -140,3 +140,17 @@ def test_internship_is_a_penalty_not_a_skip():
 
 def test_co_op_is_still_skipped():
     assert _score("Data Scientist Co-op").tier == "skip"
+
+
+def test_five_years_caps_tier_at_d():
+    r = _score("Data Analyst", "SQL BigQuery Looker dashboards python pandas " * 20, years=5)
+    assert r.tier == "D"
+    assert r.score is not None
+
+
+def test_phd_required_skips_but_phd_or_masters_does_not():
+    assert _score("Data Scientist", "A PhD is required. python " * 30).tier == "skip"
+    assert _score("Data Scientist", "Candidates must hold a PhD in statistics. " * 10).tier == "skip"
+    r = _score("Data Scientist", "Master's or PhD in a quantitative field. python sql " * 20)
+    assert r.tier != "skip"
+    assert not any("phd" in x.lower() for x in r.reasons)

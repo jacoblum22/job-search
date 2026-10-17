@@ -99,8 +99,9 @@ def score_job(
         return ScoreResult(None, "skip", [f"title: {hit}"])
 
     for pattern in cfg.get("skip_description_patterns") or []:
-        if re.search(pattern, description, re.IGNORECASE):
-            return ScoreResult(None, "skip", ["requires living in the US"])
+        m = re.search(pattern, description, re.IGNORECASE)
+        if m:
+            return ScoreResult(None, "skip", [f"description: \"{m.group(0)}\""])
 
     if location_category == "other" and cfg.get("skip_other_locations", True):
         return ScoreResult(None, "skip", ["location outside Vancouver / remote"])
@@ -204,6 +205,11 @@ def score_job(
         if score >= band["min"]:
             tier = band["tier"]
             break
+    # Some asks put a job out of reach however well the rest fits.
+    d_years = cfg.get("tier_d_years")
+    if d_years is not None and years_experience is not None and years_experience >= d_years:
+        tier = "D"
+        reasons.append(f"tier D: asks for {years_experience} years")
     return ScoreResult(score, tier, reasons)
 
 
