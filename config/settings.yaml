@@ -460,14 +460,15 @@ score:
         points: -10
     years_penalties:          # by minimum years the posting asks for
       - {min: 0, max: 2, points: 5}
-      - {min: 3, max: 3, points: -10}
-      - {min: 4, max: 4, points: -15}
-      - {min: 5, max: 5, points: -25}
+      - {min: 3, max: 3, points: -15}
+      - {min: 4, max: 4, points: -25}
+      - {min: 5, max: 5, points: -40}
 
   # Skills in title + description, weighted by how strong Jake's evidence is
   # (experience-vault/skills-map.md). Sum is capped.
   skills:
     have_cap: 60
+    # "a|b" = synonyms, counted once
     # Extra points when a posting asks for all of these (his strongest pair)
     combos:
       - {skills: ["python", "sql"], points: 10}
@@ -480,36 +481,30 @@ score:
       "looker": 8
       "dashboard": 8
       "pandas": 6
-      "scikit-learn": 6
-      "sklearn": 6
+      "scikit-learn|sklearn": 6
       "xgboost": 3
-      "statistics": 5
-      "statistical": 5
+      "statistics|statistical": 5
       "machine learning": 5
-      "data modeling": 5
-      "data modelling": 5
+      "data modeling|data modelling": 5
       "star schema": 3
       "data warehouse": 4
       "etl": 4
       "data quality": 4
       "churn": 3
       "survival analysis": 3
-      "a/b test": 2
-      "a/b testing": 2
+      "a/b test|a/b testing": 2
       "google sheets": 4
       "apps script": 3
       "pytorch": 3
       "deep learning": 2
-      "llm": 3
-      "large language model": 3
+      "llm|large language model": 3
       "nlp": 2
       "fastapi": 3
       "docker": 2
       "git": 2
       "jupyter": 2
       "numpy": 2
-      "e-commerce": 3
-      "ecommerce": 3
+      "e-commerce|ecommerce": 3
       "shopify": 3
       "stakeholders": 2
       "data reporting": 4
@@ -518,25 +513,25 @@ score:
       "excel": 3
       "typescript": 2
       "react": 2
-    gap_cap: 15
+    gap_cap: 25
     gaps:
-      "spark": -3
-      "pyspark": -3
-      "scala": -4
-      "hadoop": -3
-      "kubernetes": -3
-      "airflow": -2
-      "databricks": -2
-      "snowflake": -2
-      "dbt": -2
-      "c++": -3
-      "java": -2
-      ".net": -3
-      "c#": -3
-      "golang": -3
-      "kafka": -2
-      "phd": -6
-      "master's degree required": -4
+      "spark": -4
+      "pyspark": -4
+      "scala": -6
+      "hadoop": -4
+      "kubernetes": -4
+      "airflow": -3
+      "databricks": -3
+      "snowflake": -3
+      "dbt": -3
+      "c++": -4
+      "java": -3
+      ".net": -4
+      "c#": -4
+      "golang": -4
+      "kafka": -3
+      "phd": -9
+      "master's degree required": -6
 
   location_points:
     vancouver: 5

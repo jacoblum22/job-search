@@ -61,6 +61,11 @@ def _first_match(text: str, phrases: list[str]) -> str | None:
     return None
 
 
+def _any_match(text: str, key: str) -> bool:
+    """A skills key can list synonyms ("statistics|statistical") that count once."""
+    return any(_phrase_re(alt.strip()).search(text) for alt in key.split("|"))
+
+
 def score_job(
     *,
     title: str,
@@ -105,8 +110,8 @@ def score_job(
 
     skills = cfg.get("skills", {})
     text = f"{title}\n{description}"
-    have_hits = [kw for kw in (skills.get("have") or {}) if _phrase_re(kw).search(text)]
-    gap_hits = [kw for kw in (skills.get("gaps") or {}) if _phrase_re(kw).search(text)]
+    have_hits = [kw for kw in (skills.get("have") or {}) if _any_match(text, kw)]
+    gap_hits = [kw for kw in (skills.get("gaps") or {}) if _any_match(text, kw)]
 
     best_family: tuple[int, str, str] | None = None
     for fam in cfg.get("title_families") or []:
