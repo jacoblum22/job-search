@@ -139,4 +139,6 @@ def fetch_dayforce_jobs(boards: list, *, search: dict | None = None, client: htt
                 jobs.append(job)
         return jobs
 
-    return fetch_boards("Dayforce", boards, fetch_one, client=client)
+    # One board at a time: jobs.dayforcehcm.com answered 403 to 5 of 18 boards
+    # when they were fetched in parallel (Oct 17 2026 test run).
+    return fetch_boards("Dayforce", boards, fetch_one, client=client, workers=1)
