@@ -17,7 +17,7 @@ _BUSINESS_SYSTEMS = r"\b(?:sap|erp|workday|primavera|peoplesoft|netsuite|jd edwa
 
 T = [
 # Languages
-("Languages","SQL",r"\bsql\b|t-sql|pl/sql|\bmysql\b|postgres|sql server"
+("Languages","SQL",r"\bsql\b|t-sql|pl/sql|\bmysql\b|postgres|sql server|\bsqlite\b"
  # Bare "Oracle" is the database; Oracle's ERP products go to the ERP entry below.
  r"|\boracle\b(?! ?(?:erp|fusion|e-?business|netsuite|cloud erp|cloud applications|financials|hcm))"
  # ...unless it sits in a list of business systems ("Primavera P6, Oracle, SAP"): then it's ERP.
@@ -117,7 +117,14 @@ T = [
 ("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"
  r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b"),
 ("Data platforms","data governance",r"data governance|data stewardship|metadata"),
-("Data platforms","NoSQL (MongoDB etc.)",r"nosql|mongodb|dynamodb|cassandra|cosmos ?db"),
+# Relational databases (PostgreSQL, MySQL, SQL Server, SQLite) stay under SQL: SQL skill carries
+# over between them. NoSQL databases each work differently, so each is its own skill (Jake, Oct 18 2026).
+("Data platforms","NoSQL",r"\bnosql\b"),
+("Data platforms","MongoDB",r"mongodb|\bmongo\b"),
+("Data platforms","DynamoDB",r"dynamodb"),
+("Data platforms","Cassandra",r"cassandra"),
+("Data platforms","Cosmos DB",r"cosmos ?db"),
+("Data platforms","Redis",r"\bredis\b"),
 ("Data platforms","APIs / REST",r"\bapis?\b|\brest(ful)?\b"),
 ("Data platforms","Microsoft Fabric / Azure Synapse / ADF",r"microsoft fabric|\bfabric\b(?= data| lakehouse)|synapse|data factory"),
 ("Data platforms","SSIS/SSRS",r"\bssis\b|\bssrs\b|\bssas\b"),
@@ -252,7 +259,8 @@ T = [
 # same skill (Looker Studio experience doesn't show Looker).
 RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Amazon Bedrock": "AWS",
            "Amazon Kinesis": "AWS", "AWS Glue": "AWS", "Amazon Athena": "AWS",
-           "Amazon EMR": "AWS", "Amazon EC2": "AWS", "AWS CloudFormation": "AWS", "Google Cloud Composer": "GCP", "Confluent": "Kafka",
+           "Amazon EMR": "AWS", "Amazon EC2": "AWS", "AWS CloudFormation": "AWS", "Google Cloud Composer": "GCP", "MongoDB": "NoSQL", "DynamoDB": "NoSQL",
+           "Cassandra": "NoSQL", "Cosmos DB": "NoSQL", "Redis": "NoSQL", "Confluent": "Kafka",
            "Claude / Claude Code": "LLMs / generative AI", "OpenAI API": "LLMs / generative AI", "Azure Machine Learning": "Azure", "Vertex AI": "GCP", "MLflow": "MLOps",
            "Power Query": "Microsoft Power Platform", "Power Automate": "Microsoft Power Platform",
            "Power Apps": "Microsoft Power Platform", "Dataverse": "Microsoft Power Platform",
@@ -276,7 +284,8 @@ _TYPES = {
                                 "Sigma", "MicroStrategy", "Cognos", "Amazon QuickSight", "SSIS/SSRS"],
     "product analytics": ["Google Analytics", "Amplitude / Mixpanel"],
     "data warehouse": ["Snowflake", "Databricks", "BigQuery", "Redshift", "Microsoft Fabric / Azure Synapse / ADF"],
-    "database": ["SQL", "NoSQL (MongoDB etc.)", "Elasticsearch", "vector databases"],
+    "database": ["SQL", "NoSQL", "MongoDB", "DynamoDB", "Cassandra", "Cosmos DB", "Redis", "Elasticsearch",
+                 "vector databases"],
     "big data / streaming": ["Spark/PySpark", "Kafka", "Flink", "Hadoop/Hive", "Amazon Kinesis", "Databricks",
                              "Amazon EMR", "Confluent"],
     "data warehouse / query engine": ["Amazon Athena"],

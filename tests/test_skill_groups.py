@@ -111,3 +111,9 @@ def test_office_apps_and_ai_tools():
     assert taxonomy.find("a word of advice; the outlook is good") == set()
     assert taxonomy.find("GitHub Copilot, Cursor, or Claude Code") == {"GitHub Copilot", "Cursor", "Claude / Claude Code"}
     assert taxonomy.find("Spring 2026 term") == set()
+
+
+def test_databases():
+    assert taxonomy.find("PostgreSQL, MySQL or SQLite") == {"SQL"}  # SQL carries over
+    assert taxonomy.find("MongoDB or DynamoDB") == {"MongoDB", "DynamoDB"}  # each NoSQL store is its own
+    assert taxonomy.RELATED["Redis"] == "NoSQL"
