@@ -42,6 +42,7 @@ def test_choices_are_found(text, want):
     "Strong software development experience using C/C++ and Python",
     "Use SQL daily. Python or R is a plus",  # no list crosses a sentence
     "Dashboards in Tableau, Power BI, and Looker, or other tools",  # "and" closes the list first
+    "Exposure to LLM APIs or AI development",  # "LLM APIs" is one option, and AI is too broad to count
 ])
 def test_separate_asks_are_left_alone(text):
     assert not [g for g in groups(text) if {"Python", "SQL"} <= g[0] or {"AWS", "Redshift"} <= g[0]
@@ -51,3 +52,10 @@ def test_separate_asks_are_left_alone(text):
 def test_flattened_bullets_are_split():
     text = "Basic Qualifications - Experience with Python - Experience with Tableau or Power BI"
     assert groups(text) == [({"Tableau", "Power BI"}, "or")]
+
+
+def test_space_or_slash_joins_one_option():
+    (g,) = alternative_groups("Experience with React, TypeScript/JavaScript, or comparable frontend technologies")
+    assert g.options == (("React",), ("TypeScript", "JavaScript"))
+    (g,) = alternative_groups("Familiarity with MLflow, Azure Machine Learning, or comparable tools")
+    assert g.options == (("MLOps",), ("Azure", "machine learning"))

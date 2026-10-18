@@ -12,11 +12,16 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
+# Business systems that, listed next to a bare "Oracle", mean Oracle's ERP or project software.
+_BUSINESS_SYSTEMS = r"\b(?:sap|erp|workday|primavera|peoplesoft|netsuite|jd edwards|ecosys)\b"
+
 T = [
 # Languages
 ("Languages","SQL",r"\bsql\b|t-sql|pl/sql|\bmysql\b|postgres|sql server"
  # Bare "Oracle" is the database; Oracle's ERP products go to the ERP entry below.
- r"|\boracle\b(?! ?(?:erp|fusion|e-?business|netsuite|cloud erp|cloud applications|financials|hcm))"),
+ r"|\boracle\b(?! ?(?:erp|fusion|e-?business|netsuite|cloud erp|cloud applications|financials|hcm))"
+ # ...unless it sits in a list of business systems ("Primavera P6, Oracle, SAP"): then it's ERP.
+ r"(?![^.;\n]{0,80}" + _BUSINESS_SYSTEMS + r")(?<!sap, oracle)(?<!sap or oracle)(?<!sap/oracle)"),
 ("Languages","Python",r"\bpython\b"),
 ("Languages","R",r"(?-i)\bR\b(?![&-])(?!\s?&)|\bRStudio\b|\btidyverse\b"),
 ("Languages","Java",r"\bjava\b(?!script)"),
@@ -122,6 +127,7 @@ T = [
 # site is not ERP experience.
 ("Business tools","ERP (SAP/Oracle/Workday)",r"\berp\b|\bsap\b(?! ?(?:datathon|hackathon|challenge))|s/4 ?hana"
  r"|oracle ?(?:erp|fusion|e-?business|netsuite|cloud erp|financials|hcm)|netsuite"
+ r"|\boracle\b(?=[^.;\n]{0,80}" + _BUSINESS_SYSTEMS + r")|(?<=sap, )oracle|(?<=sap or )oracle|(?<=sap/)oracle"
  r"|workday (?:hcm|financials|adaptive|prism)"),
 ("Business tools","Jira/Confluence",r"\bjira\b|confluence"),
 # A bare "Access" or "Word" only counts as the Microsoft tool when it is the whole term

@@ -5,8 +5,9 @@ candidate has none of them. This module finds runs of taxonomy skills in one
 clause (a sentence or bullet) joined only by separators, and keeps the runs that
 read as a choice: an "or" between them ("Python, R, or Java"), or an examples cue
 before them with an open end ("such as TensorFlow, PyTorch, etc"). Runs ending in
-"and" are separate asks, and a slash is ignored because it usually joins one
-compound skill ("AI/ML", "React/TypeScript").
+"and" are separate asks. Skills joined by only a space or a slash are one option,
+not two: "LLM APIs" or "Azure Machine Learning" is a single thing to have, and
+"TypeScript/JavaScript" is one choice in "TypeScript/JavaScript, Java, or Go".
 """
 
 from __future__ import annotations
@@ -44,11 +45,19 @@ _CUE = re.compile(r"\b(?:such as|e\.g\.?|eg\.|like|including|one of|any of|at le
                   r"one or more of|similar to|for example|for instance)\s*[,(]?\s*$", re.IGNORECASE)
 
 
+# Skills with only this between them are one option ("LLM APIs", "Docker/Kubernetes").
+_JOINED = re.compile(r"^\s*/?\s*$")
+
+
 @dataclass(frozen=True)
 class Group:
-    skills: tuple[str, ...]
-    reason: str  # "or" (an or/slash joins them) or "cue" (a "such as"-style lead-in)
+    options: tuple[tuple[str, ...], ...]  # each option is one skill, or a few named together
+    reason: str  # "or" (an "or" joins them) or "cue" (a "such as"-style lead-in)
     text: str  # the clause, for review
+
+    @property
+    def skills(self) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(n for o in self.options for n in o))
 
 
 def _mentions(clause: str) -> list[tuple[int, int, str]]:
@@ -92,14 +101,22 @@ def alternative_groups(text: str) -> list[Group]:
     for cm in _CLAUSE.finditer(masked):
         clause = text[cm.start():cm.end()]
         for run in _runs(clause, _mentions(clause)):
-            names = tuple(dict.fromkeys(h[2] for h in run))
-            if len(names) >= 2:
-                gaps = [clause[a[1]:b[0]] for a, b in pairwise(run)]
-                last = gaps[-1]
-                tail_or = _TAIL_OR.match(clause[run[-1][1]:]) and not _AND.search(last)
-                if _OR.search(last) or tail_or or (any(_OR.search(g) for g in gaps) and not _AND.search(last)):
-                    groups.append(Group(names, "or", " ".join(clause.split())))
-                elif _CUE.search(clause[:run[0][0]]) and not _AND.search(last) and \
-                        _OPEN_END.match(clause[run[-1][1]:]):
-                    groups.append(Group(names, "cue", " ".join(clause.split())))
+            # Split the run into options: a space or slash keeps skills in the same option.
+            opts: list[list[tuple[int, int, str]]] = [[run[0]]]
+            for a, b in pairwise(run):
+                if _JOINED.match(clause[a[1]:b[0]]):
+                    opts[-1].append(b)
+                else:
+                    opts.append([b])
+            options = tuple(dict.fromkeys(tuple(dict.fromkeys(h[2] for h in o)) for o in opts))
+            if len(options) < 2:
+                continue
+            gaps = [clause[a[-1][1]:b[0][0]] for a, b in pairwise(opts)]
+            last = gaps[-1]
+            end = opts[-1][-1][1]
+            tail_or = _TAIL_OR.match(clause[end:]) and not _AND.search(last)
+            if _OR.search(last) or tail_or or (any(_OR.search(g) for g in gaps) and not _AND.search(last)):
+                groups.append(Group(options, "or", " ".join(clause.split())))
+            elif _CUE.search(clause[:run[0][0]]) and not _AND.search(last) and _OPEN_END.match(clause[end:]):
+                groups.append(Group(options, "cue", " ".join(clause.split())))
     return groups
