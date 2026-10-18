@@ -19,8 +19,8 @@ already passed.
 
 ## Hard rules
 
-1. **Edit only inside `feedback.json.sections`.** Copy every other edit through unchanged. Do not
-   improve other lines, even ones you dislike.
+1. **Edit only inside `feedback.json.sections`.** Lines you don't edit carry over from the previous
+   draft as they are. Do not improve other lines, even ones you dislike.
 2. **Fix only the listed items.** Each failed item and critical should be answered by a specific
    change; do not add other changes.
 3. **An unsourced number is removed, or replaced with a number the cited passage actually states.**
@@ -45,7 +45,9 @@ already passed.
 ## Output
 
 Write `drafts/r<N>/edits.json` and `drafts/r<N>/cover-letter.json` in the same shapes as steps 4 and
-4b. `edits.json` is always the **complete** edit list against the base (not a delta); `cover-letter.json`
+4b. `edits.json` lists only this round's changes, made **against the previous draft**
+(`drafts/r<N-1>/resume.yaml`): each `original` is copied from that file, since `apply-edits` starts
+from it, not from the base. `cover-letter.json`
 is always complete. If the letter is not in `sections`, copy it unchanged.
 
 ## Worked example (invented)
@@ -55,9 +57,9 @@ time by 40%"; no 40% in the cited passage); failed item "Must-have dbt isn't sho
 `northwind.pipeline` supports it" in `skills/skills.platforms`; `sections`:
 `["experience/northwind/northwind.sql-daily", "skills/skills.platforms"]`.
 
-Repair: in the first edit, change "cut report time by 40%" to "cut report time" if the passage says
+Repair: a `replace` edit whose `original` is that bullet as `drafts/r1/resume.yaml` has it, changing "cut report time by 40%" to "cut report time" if the passage says
 reports got faster without a number (or to the number the passage states); add an `add_skill` edit
-for dbt citing `northwind.pipeline`. Every other edit is copied byte for byte.
+for dbt citing `northwind.pipeline`. Nothing else goes in `edits.json`; the rest of the draft carries over.
 
 ## Self-check before saving
 
@@ -65,4 +67,5 @@ for dbt citing `northwind.pipeline`. Every other edit is copied byte for byte.
 - [ ] Each critical and failed item is addressed, and nothing else was touched.
 - [ ] No number remains that the cited passage does not state; none was reworded around.
 - [ ] No ABSENT term was added; no must-have was claimed without a passage.
-- [ ] `edits.json` and `cover-letter.json` are complete and valid JSON.
+- [ ] Every `original` in `edits.json` is copied from `drafts/r<N-1>/resume.yaml`; `cover-letter.json`
+  is complete; both are valid JSON.
