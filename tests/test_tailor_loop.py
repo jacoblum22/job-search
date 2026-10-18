@@ -134,3 +134,32 @@ def test_nothing_to_repair_stops(tmp_path):
     add_round(app, 1, 70, items=[item("a", True)], ats=70)
     out = next_round(app, CFG)
     assert out["action"] == "stop" and out["next_round"] is None
+
+
+def test_below_ats_floor_keeps_repairing_despite_small_gain(tmp_path):
+    app = new_app(tmp_path)
+    cfg = {**CFG, "ats_floor": 70}
+    add_round(app, 1, 60.0, ats=51, feedback=["Use the posting's own words for: data analysis."])
+    add_round(app, 2, 61.0, ats=55, feedback=["Use the posting's own words for: reports."])
+    out = next_round(app, cfg)
+    assert out["action"] == "repair" and out["next_round"] == 3
+    # at or above the floor the usual small-gain stop applies
+    (tmp_path / "b").mkdir()
+    app2 = new_app(tmp_path / "b")
+    add_round(app2, 1, 60.0, ats=72, feedback=["x"])
+    add_round(app2, 2, 61.0, ats=73, feedback=["x"])
+    assert next_round(app2, cfg)["action"] == "stop"
+
+
+def test_fit_gap_stops_on_small_gain_even_below_floor(tmp_path):
+    # The evidence can't reach 70, so repairing harder would only stuff keywords.
+    app = new_app(tmp_path)
+    cfg = {**CFG, "ats_floor": 70}
+    add_round(app, 1, 60.0, ats=60, feedback=["x"])
+    add_round(app, 2, 61.0, ats=61, feedback=["x"])
+    for n in (1, 2):
+        gp = app / "drafts" / f"r{n}" / "grade.json"
+        g = json.loads(gp.read_text())
+        g.update(needs_ats_repair=False, fit_gap=True)
+        gp.write_text(json.dumps(g))
+    assert next_round(app, cfg)["action"] == "stop"

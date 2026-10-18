@@ -82,6 +82,22 @@ def test_boilerplate_weighs_a_quarter_and_must_one_and_a_half():
     assert out["components"]["keyword"] == pytest.approx(63.6, abs=0.1)
 
 
+def test_soft_skills_weigh_half():
+    r = req(terms=["SQL", "communication"])
+    out = ats_score(base(), r, ev(["SQL"]), CFG)
+    # SQL must 1.5 earned, communication must 1.5 x 0.5 unbacked -> 1.5 / 2.25
+    assert out["components"]["keyword"] == pytest.approx(66.7, abs=0.1)
+    assert ats_score(base(), r, ev(["SQL"]), {**CFG, "ats_soft_weight": 1.0})["components"]["keyword"] == 50.0
+
+
+def test_soft_skills_are_never_pushed_for_points(tmp_path):
+    from src.tailor.grade import ats_gap
+    r = req(terms=["SQL", "communication", "Looker"])
+    out = ats_gap({"summary": {"text": "Analyst."}}, r, ev(["SQL", "communication"]), CFG)
+    assert out["unused"] == ["SQL"] and out["unused_soft"] == ["communication"]
+    assert out["unbacked"] == ["Looker"]
+
+
 def test_unscorable_components_are_none_and_weight_is_redistributed():
     data = base()
     data["experience"][1]["dates"] = "2024"  # one of four dated entries is malformed -> 75
@@ -222,3 +238,16 @@ def test_letter_opener_and_closer_are_separate_questions(tmp_path):
     assert by_id["letter.opener"]["passed"] is True and by_id["letter.closer"]["passed"] is False
     assert any("last sentence" in s for s in out["feedback"])
     assert not any("first sentence" in s for s in out["feedback"])
+
+
+def test_ats_gap_lists_unused_and_unbacked_terms(tmp_path):
+    app = make_app(tmp_path)
+    out = run_grade(app, 1, {**CFG, "ats_floor": 70}, FakeJev({}))
+    assert out["ats_floor"] == 70 and out["below_floor"] == (out["ats"]["total"] < 70)
+    assert out["ats_ceiling"] >= out["ats"]["total"]
+    assert set(out["unused_terms"]).isdisjoint(out["unbacked_terms"])
+    assert out["ats_target"] == min(70, out["ats_ceiling"] - 5)
+    assert out["fit_gap"] == (out["ats_ceiling"] < 70)
+    if out["unused_terms"]:
+        assert any(s.startswith("Use the posting's own words") for s in out["feedback"])
+        assert any(g["id"] == "ats.unused" for g in out["gaps"])

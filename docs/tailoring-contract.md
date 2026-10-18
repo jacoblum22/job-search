@@ -220,8 +220,21 @@ Codes are short snake_case strings; the full list lives in `src/tailor/checks.py
 ```
 
 `score` = 0.6 × ATS total + 0.4 × checklist pass rate × 100 (unchecked items count as passed for the
-score but are listed). `feedback` is built by code from failed items; it never quotes the checklist
+score but are listed). In the keyword and skills components a must-have term weighs 1.5, a
+boilerplate term 0.25 and a soft skill (taxonomy "Soft skills": communication, teamwork...) 0.5
+(`tailor.ats_soft_weight`), since ATS searches and recruiter filters key on hard skills. `feedback` is built by code from failed items; it never quotes the checklist
 question wording.
+
+ATS floor (`tailor.ats_floor`, 70): grade.json also has `ats_floor`, `below_floor`, `ats_ceiling`
+(the score if every vault-backed term were used in the posting's words), `ats_target`
+(the floor, or the ceiling minus `ats_wording_tolerance` (5) when that is lower), `fit_gap` (the
+ceiling is under the floor), `needs_ats_repair` (under the target with backed hard skills unused),
+`unused_terms` (backed hard skills not used word for word), `unused_soft_terms` (listed, never pushed)
+and `unbacked_terms` (the posting asks, the vault can't back). Unused hard skills become an
+`ats.unused` gap and feedback line. While `needs_ats_repair` holds, `next-round` keeps repairing even
+on a small gain (up to the round limit); a fit gap gets no extra rounds, since that would only stuff
+keywords. Under the floor `check.md` opens with a Reviewed line that blocks `approve`: "Weaker fit"
+when the evidence can't reach 70, otherwise "ATS score below 70" (a wording gap).
 
 ### `feedback.json` (input to a repair round)
 

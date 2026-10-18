@@ -31,6 +31,7 @@ SENIORITY_WORDS = {
 MAX_PORTABILITY = 6
 BOILERPLATE_FACTOR = 0.25
 MUST_FACTOR = 1.5
+SOFT_FACTOR = 0.5  # soft skills count half: an ATS search and a recruiter filter on hard skills
 
 _RANGE = re.compile(r"^[A-Z][a-z]{2} \d{4}\s*[–-]\s*(?:[A-Z][a-z]{2} \d{4}|Present)$")
 _SINGLE = re.compile(r"^[A-Z][a-z]{2} \d{4}$")
@@ -102,7 +103,8 @@ def _collect_terms(req: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], set[
         key = term.strip().lower()
         if not key:
             return
-        t = terms.setdefault(key, {"term": term.strip(), "boilerplate": True, "must": False})
+        t = terms.setdefault(key, {"term": term.strip(), "boilerplate": True, "must": False,
+                                   "soft": taxonomy.category(taxonomy.canonical(term) or "") == "Soft skills"})
         t["must"] = t["must"] or must
         t["boilerplate"] = t["boilerplate"] and weight == "boilerplate"
 
@@ -148,24 +150,30 @@ def _count(term: str, text: str) -> int:
     return len(re.findall(rf"(?<![\w+#]){t}(?![\w+#])", text, re.I))
 
 
-def _keyword_score(terms, backed, text, synonym_credit) -> float | None:
+def _term_weight(t: dict[str, Any], soft_factor: float = SOFT_FACTOR) -> float:
+    return ((BOILERPLATE_FACTOR if t["boilerplate"] else 1.0) * (MUST_FACTOR if t["must"] else 1.0)
+            * (soft_factor if t.get("soft") else 1.0))
+
+
+def _keyword_score(terms, backed, text, synonym_credit, soft_factor: float = SOFT_FACTOR) -> float | None:
     if not terms:
         return None
     got = total = 0.0
     for t in terms.values():
-        w = (BOILERPLATE_FACTOR if t["boilerplate"] else 1.0) * (MUST_FACTOR if t["must"] else 1.0)
+        w = _term_weight(t, soft_factor)
         total += w
         if _is_backed(t["term"], backed):
             got += w * _credit(t["term"], text, synonym_credit)
     return 100.0 * got / total
 
 
-def _skills_score(req_terms: set[str], terms, data) -> float | None:
+def _skills_score(req_terms: set[str], terms, data, soft_factor: float = SOFT_FACTOR) -> float | None:
     if not req_terms:
         return None
     hay = _skills_text(data) + "\n" + "\n".join(t for _, t in _bullet_texts(data))
-    found = sum(1 for k in req_terms if _credit(terms[k]["term"], hay, 0.5) > 0)
-    return 100.0 * found / len(req_terms)
+    w = {k: soft_factor if terms[k].get("soft") else 1.0 for k in req_terms}
+    found = sum(w[k] for k in req_terms if _credit(terms[k]["term"], hay, 0.5) > 0)
+    return 100.0 * found / sum(w.values())
 
 
 def _core_title(title: str) -> str:
@@ -211,9 +219,10 @@ def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any
     text = resume_text(data)
     terms, req_terms = _collect_terms(req)
     backed = _backed_set(evidence)
+    soft = cfg.get("ats_soft_weight", SOFT_FACTOR)
     comps: dict[str, float | None] = {
-        "keyword": _keyword_score(terms, backed, text, cfg.get("synonym_credit", 0.5)),
-        "skills": _skills_score(req_terms, terms, data),
+        "keyword": _keyword_score(terms, backed, text, cfg.get("synonym_credit", 0.5), soft),
+        "skills": _skills_score(req_terms, terms, data, soft),
         "title": _title_score(str(req.get("title") or ""), data),
         "sections": _sections_score(data),
         "dates": _dates_score(data),
@@ -225,6 +234,45 @@ def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any
     stuffing = total > cfg.get("stuffing_score", 90) and any(_count(t["term"], text) > 4 for t in terms.values())
     rounded = {k: (round(v, 1) if v is not None else None) for k, v in comps.items()}
     return {"total": round(total, 1), "components": rounded, "stuffing": stuffing, "_repeated": _repeated(terms, text)}
+
+
+def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
+    """Why the ATS score is where it is: backed hard-skill terms the resume doesn't use (soft skills
+    are listed apart and never pushed for points), terms the vault can't back, and the highest score
+    reachable if every backed term were used in the posting's words.
+
+    The ATS target is the floor, or the ceiling minus a small tolerance when the ceiling itself is
+    under the floor. A ceiling under the floor is a fit gap (the evidence isn't there), not a wording gap."""
+    text = resume_text(data)
+    terms, req_terms = _collect_terms(req)
+    backed = _backed_set(evidence)
+    soft = cfg.get("ats_soft_weight", SOFT_FACTOR)
+
+    def weight(t: dict[str, Any]) -> float:
+        return _term_weight(t, soft)
+
+    ranked = sorted(terms.values(), key=lambda t: -weight(t))
+    missing = [t for t in ranked if _is_backed(t["term"], backed) and _credit(t["term"], text, 1.0) < 1.0]
+    unused = [t["term"] for t in missing if not t["soft"]]
+    unused_soft = [t["term"] for t in missing if t["soft"]]
+    unbacked = [t["term"] for t in ranked if not _is_backed(t["term"], backed) and not t["boilerplate"]]
+    score = ats_score(data, req, evidence, cfg)
+    comps = dict(score["components"])
+    total_w = sum(weight(t) for t in terms.values())
+    if total_w:
+        comps["keyword"] = 100.0 * sum(weight(t) for t in terms.values() if _is_backed(t["term"], backed)) / total_w
+    if req_terms:
+        sw = {k: soft if terms[k]["soft"] else 1.0 for k in req_terms}
+        comps["skills"] = 100.0 * sum(sw[k] for k in req_terms if _is_backed(terms[k]["term"], backed)) / sum(sw.values())
+    weights = {**DEFAULT_WEIGHTS, **(cfg.get("ats_weights") or {})}
+    live = {k: v for k, v in comps.items() if v is not None}
+    wsum = sum(weights.get(k, 0) for k in live)
+    ceiling = round(sum(weights.get(k, 0) * v for k, v in live.items()) / wsum if wsum else 0.0, 1)
+    floor = float(cfg.get("ats_floor", 70))
+    target = min(floor, ceiling - float(cfg.get("ats_wording_tolerance", 5)))
+    return {"unused": unused, "unused_soft": unused_soft, "unbacked": unbacked, "ceiling": ceiling,
+            "floor": floor, "target": round(target, 1), "fit_gap": ceiling < floor,
+            "needs_repair": score["total"] < target and bool(unused)}
 
 
 def _repeated(terms, text) -> list[str]:
@@ -390,6 +438,16 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     score = round(0.6 * ats["total"] + 0.4 * rate * 100, 1)
 
     gaps, feedback = _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeated)
+    gap = ats_gap(data, req, evidence, cfg)
+    if gap["unused"]:
+        # Hard skills the vault backs but the resume never says in the posting's words: the main ATS lever.
+        names = {u.lower() for u in gap["unused"]}
+        pids = {p for t in evidence.get("terms") or [] if str(t.get("term", "")).lower() in names
+                for p in t.get("passages") or []}
+        sentence = ("Use the posting's own words for these terms the vault backs (only where a cited passage "
+                    f"supports them): {', '.join(gap['unused'][:12])}.")
+        gaps.append({"id": "ats.unused", "sentence": sentence, "sections": _must_sections(data, pids)})
+        feedback.append(sentence)
     result = {
         "ats": {"total": ats["total"], "components": ats["components"]},
         "checklist": items,
@@ -397,6 +455,15 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         "stuffing": ats["stuffing"],
         "gaps": gaps,
         "feedback": feedback,
+        "ats_floor": gap["floor"],
+        "below_floor": ats["total"] < gap["floor"],
+        "ats_ceiling": gap["ceiling"],
+        "ats_target": gap["target"],
+        "fit_gap": gap["fit_gap"],
+        "needs_ats_repair": gap["needs_repair"],
+        "unused_terms": gap["unused"],
+        "unused_soft_terms": gap["unused_soft"],
+        "unbacked_terms": gap["unbacked"],
     }
     write_json(d / "grade.json", result)
     log(app_dir, "grade", f"round {rnd}: score {score}, ATS {ats['total']}", )
