@@ -93,6 +93,21 @@ _TEMPLATE = r"""<!DOCTYPE html>
   td.notice { text-align: center; color: var(--muted); padding: 48px 12px; font-size: 14px; }
   td.notice button { margin-left: 8px; background: var(--panel); border: 1px solid var(--border); color: var(--accent); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   td.notice.error { color: #e57373; }
+  #statsView { padding: 20px 24px 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
+  #statsView[hidden] { display: none; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 4px; } .card .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .card.wide { grid-column: 1 / -1; }
+  .kpis { display: flex; flex-wrap: wrap; gap: 28px; } .kpi b { display: block; font-size: 26px; } .kpi span { color: var(--muted); font-size: 12px; }
+  .pie { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .legend { font-size: 12px; } .legend div { display: flex; gap: 8px; align-items: center; padding: 2px 0; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; }
+  .legend .n { color: var(--muted); margin-left: auto; padding-left: 12px; }
+  .bars { font-size: 12px; } .bars .r { display: grid; grid-template-columns: 140px 1fr 48px; gap: 8px; align-items: center; padding: 3px 0; }
+  .bars .r > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bars .track { background: var(--bg); border-radius: 3px; height: 12px; } .bars .fill { background: var(--accent); height: 12px; border-radius: 3px; }
+  .bars .n { text-align: right; color: var(--muted); }
+  table.mini { font-size: 12px; } table.mini th { position: static; cursor: default; }
 </style>
 </head>
 <body>
@@ -104,7 +119,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <div class="tabs" role="tablist">
   <button class="tab" role="tab" data-tab="fulltime" id="tab-fulltime">Full-time<span class="n"></span></button>
   <button class="tab" role="tab" data-tab="internship" id="tab-internship">Internships<span class="n"></span></button>
+  <button class="tab" role="tab" data-tab="stats" id="tab-stats">Stats</button>
 </div>
+<div id="statsView" hidden></div>
+<div id="jobsView">
 <div class="controls">
   <input type="text" id="search" placeholder="Search title / company / location...">
   <select id="statusFilter">
@@ -162,6 +180,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <tbody id="jobsBody"><tr><td class="notice" colspan="11">Loading jobs&hellip;</td></tr></tbody>
 </table>
 </div>
+</div>
 <script id="jobs-data" type="application/json">__JOBS_JSON__</script>
 <script>
 // If anything below throws, say so instead of leaving the "Loading" row up forever.
@@ -185,9 +204,12 @@ for (const s of allSources) {
 
 let sortKey = 'score_sort', sortDir = -1;
 // The page auto-reloads, so keep the chosen tab in the URL hash.
-let activeTab = location.hash === '#internships' ? 'internship' : 'fulltime';
+let activeTab = {'#internships': 'internship', '#stats': 'stats'}[location.hash] || 'fulltime';
 
 function updateTabs() {
+  document.getElementById('tab-stats').classList.toggle('active', activeTab === 'stats');
+  document.getElementById('statsView').hidden = activeTab !== 'stats';
+  document.getElementById('jobsView').hidden = activeTab === 'stats';
   for (const t of ['internship', 'fulltime']) {
     const el = document.getElementById('tab-' + t);
     el.classList.toggle('active', t === activeTab);
@@ -198,7 +220,7 @@ function updateTabs() {
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {
     activeTab = btn.dataset.tab;
-    location.hash = activeTab === 'internship' ? '#internships' : '';
+    location.hash = {internship: '#internships', stats: '#stats'}[activeTab] || '';
     render();
   });
 });
@@ -222,6 +244,95 @@ function appCell(app) {
     + (links ? `<div class="applinks">${links}</div>` : '');
 }
 
+// --- Stats tab (plain SVG and divs, so the page still works offline) -------------
+const COLORS = ['#5b8cff', '#3a7d44', '#c9a227', '#b85cd6', '#e57373', '#4fb3bf', '#e08a3c', '#8a94a6', '#7fbf5a', '#d6669e'];
+const family = s => s.split(':')[0];
+const pct = (n, d) => d ? Math.round(100 * n / d) : 0;
+
+function countBy(items, key) {
+  const m = new Map();
+  for (const it of items) { const k = key(it); m.set(k, (m.get(k) || 0) + 1); }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function pieSvg(entries) {
+  const total = entries.reduce((a, [, n]) => a + n, 0);
+  if (!total) return '';
+  if (entries.length === 1) return `<svg width="180" height="180" viewBox="-1 -1 2 2"><circle r="1" fill="${COLORS[0]}"/></svg>`;
+  let a0 = -Math.PI / 2, h = '';
+  entries.forEach(([, n], i) => {
+    const a1 = a0 + 2 * Math.PI * n / total;
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    h += `<path d="M0 0 L${Math.cos(a0)} ${Math.sin(a0)} A1 1 0 ${large} 1 ${Math.cos(a1)} ${Math.sin(a1)} Z" fill="${COLORS[i % COLORS.length]}" stroke="#171a21" stroke-width="0.01"/>`;
+    a0 = a1;
+  });
+  return `<svg width="180" height="180" viewBox="-1.02 -1.02 2.04 2.04">${h}</svg>`;
+}
+
+function pieCard(title, sub, entries, top = 9) {
+  const shown = entries.slice(0, top);
+  const rest = entries.slice(top).reduce((a, [, n]) => a + n, 0);
+  if (rest) shown.push(['Other', rest]);
+  const total = shown.reduce((a, [, n]) => a + n, 0);
+  const legend = shown.map(([k, n], i) => `<div><i style="background:${COLORS[i % COLORS.length]}"></i>${escapeHtml(k)}<span class="n">${n} · ${pct(n, total)}%</span></div>`).join('');
+  return `<div class="card"><h2>${title}</h2><div class="sub">${sub}</div><div class="pie">${pieSvg(shown)}<div class="legend">${legend}</div></div></div>`;
+}
+
+function barsCard(title, sub, entries, wide) {
+  const max = Math.max(1, ...entries.map(([, n]) => n));
+  const rows = entries.map(([k, n]) => `<div class="r"><span title="${escapeHtml(k)}">${escapeHtml(k)}</span><div class="track"><div class="fill" style="width:${100 * n / max}%"></div></div><span class="n">${n}</span></div>`).join('');
+  return `<div class="card${wide ? ' wide' : ''}"><h2>${title}</h2><div class="sub">${sub}</div><div class="bars">${rows || '<span class="n">Nothing yet.</span>'}</div></div>`;
+}
+
+function renderStats() {
+  const live = jobs.filter(j => j.tier !== 'skip');
+  const apps = jobs.filter(j => j.app);
+  const kpi = (n, label) => `<div class="kpi"><b>${n}</b><span>${label}</span></div>`;
+  const week = new Date(Date.now() - 7 * 864e5).toISOString();
+  let h = `<div class="card wide"><div class="kpis">
+    ${kpi(jobs.length, 'jobs stored')}${kpi(live.length, 'not skipped')}
+    ${kpi(jobs.filter(j => j.tier === 'A').length, 'tier A')}${kpi(jobs.filter(j => j.tier === 'B').length, 'tier B')}
+    ${kpi(jobs.filter(j => (j.first_seen || '') >= week).length, 'new in the last 7 days')}
+    ${kpi(apps.length, 'tailored applications')}${kpi(jobs.filter(j => j.status === 'applied').length, 'applied')}
+  </div></div>`;
+
+  // Each job counted once: under its only source, or "Several sources" when more than one board listed it.
+  const bySource = countBy(jobs, j => {
+    const fams = [...new Set(j.sources.map(family))];
+    return fams.length === 1 ? fams[0] : 'Several sources';
+  });
+  h += pieCard('Where your jobs come from', 'Each job once; jobs listed by more than one source are grouped', bySource);
+  h += pieCard('Where your A and B jobs come from', 'Same, for tier A and B only',
+               countBy(jobs.filter(j => j.tier === 'A' || j.tier === 'B'), j => {
+                 const fams = [...new Set(j.sources.map(family))];
+                 return fams.length === 1 ? fams[0] : 'Several sources';
+               }));
+  const tierOrder = ['A', 'B', 'C', 'D', 'skip'];
+  h += barsCard('Jobs by tier', 'From the score', tierOrder.map(t => [t === 'skip' ? 'Skipped' : 'Tier ' + t, jobs.filter(j => j.tier === t).length]));
+  h += barsCard('Jobs by location', 'Vancouver-area, remote, or elsewhere', countBy(jobs, j => j.location_category || 'unknown'));
+
+  // Which source families find good jobs: share of each family's jobs that are tier A or B.
+  const fams = countBy(jobs.flatMap(j => [...new Set(j.sources.map(family))].map(f => ({f, j}))), x => x.f);
+  const quality = fams.map(([f, n]) => {
+    const good = jobs.filter(j => j.sources.some(s => family(s) === f) && (j.tier === 'A' || j.tier === 'B')).length;
+    return `<tr><td>${escapeHtml(f)}</td><td>${n}</td><td>${good}</td><td>${pct(good, n)}%</td></tr>`;
+  }).join('');
+  h += `<div class="card"><h2>Which sources find good jobs</h2><div class="sub">Jobs each source listed, and how many are tier A or B</div>
+    <table class="mini"><thead><tr><th>Source</th><th>Jobs</th><th>A or B</th><th>Share</th></tr></thead><tbody>${quality}</tbody></table></div>`;
+
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10);
+    days.push([d.slice(5), jobs.filter(j => (j.first_seen || '').slice(0, 10) === d).length]);
+  }
+  h += barsCard('New jobs per day', 'First seen, last 14 days (still stored)', days);
+  h += barsCard('Companies with the most jobs', 'Top 12, skipped jobs left out', countBy(live, j => j.company || 'Unknown').slice(0, 12));
+  const appOrder = ['needs_fixes', 'ready_for_review', 'approved', 'shortlisted', 'applied'];
+  const appLabel = {needs_fixes: 'Needs fixes', ready_for_review: 'Ready for review', approved: 'Approved, not applied', shortlisted: 'Drafting', applied: 'Applied'};
+  h += barsCard('Applications', 'Tailored resumes and cover letters by status', appOrder.map(s => [appLabel[s], apps.filter(j => j.app.status === s).length]));
+  document.getElementById('statsView').innerHTML = h;
+}
+
 function render() {
   const q = document.getElementById('search').value.toLowerCase();
   const status = document.getElementById('statusFilter').value;
@@ -232,6 +343,7 @@ function render() {
   const appStatus = document.getElementById('appFilter').value;
 
   updateTabs();
+  if (activeTab === 'stats') { renderStats(); return; }
   let filtered = jobs.filter(j => {
     if (j.job_type !== activeTab) return false;
     if (status && j.status !== status) return false;
