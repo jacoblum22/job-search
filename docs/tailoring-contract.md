@@ -149,6 +149,10 @@ Pairs in the shared reject list are never matched: a rejected `(term, passage)` 
 count as having the term. Jev's answers to the unknown-term question are cached in `jev-cache.json`
 by question and text, so a repeated question is answered from the cache (also when Jev is
 unreachable).
+`jev_said_no` lists every unknown-term match Jev answered no to (`{"term", "passage", "text"}`,
+passage `base:<id>` for a base line); `check.md` shows them, with the failed Jev checklist items,
+under "Jev said no: check for false rejections". The letter's opening and closing sentences are
+checked by two separate Jev questions (`letter.opener`, `letter.closer`), each quoting its sentence.
 
 ### `plan.json`
 
