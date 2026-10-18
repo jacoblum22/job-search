@@ -395,28 +395,41 @@ _SOFFICE_WINDOWS = (
 )
 
 
-def _word_to_pdf(docx_path: Path, pdf_path: Path) -> bool:
-    """Convert with Word through COM; False when pywin32 or Word itself isn't available."""
+def _word_to_pdf(docx_path: Path, pdf_path: Path) -> str | None:
+    """Convert with Word through COM. Returns None on success, else why Word couldn't be used."""
     try:
         import pythoncom
         import win32com.client
     except ImportError:
-        return False
+        return "pywin32 isn't installed (run `uv sync`)"
     pythoncom.CoInitialize()
     try:
         try:
-            word = win32com.client.Dispatch("Word.Application")
-        except Exception:  # noqa: BLE001 - pywin32 is installed but Word isn't
-            return False
-        word.Visible = False
-        word.DisplayAlerts = False
+            word = win32com.client.DispatchEx("Word.Application")
+        except Exception as e:  # noqa: BLE001 - pywin32 is installed but Word isn't
+            return f"Word isn't available ({e})"
         try:
-            doc = word.Documents.Open(str(docx_path))
-            doc.SaveAs(str(pdf_path), FileFormat=17)  # 17 = wdFormatPDF
-            doc.Close(0)
+            word.Visible = False
+            word.DisplayAlerts = 0
+            doc = word.Documents.Open(str(docx_path), False, True, False)  # ConfirmConversions, ReadOnly, AddToRecentFiles
+            try:
+                # ExportAsFixedFormat is Word's PDF export; late-bound SaveAs isn't exposed by every
+                # Word build ("AttributeError: Open.SaveAs"), so try the export calls in order.
+                for call in (lambda: doc.ExportAsFixedFormat(str(pdf_path), 17),  # 17 = wdExportFormatPDF
+                             lambda: doc.SaveAs2(str(pdf_path), FileFormat=17),
+                             lambda: doc.SaveAs(str(pdf_path), FileFormat=17)):
+                    try:
+                        call()
+                        return None
+                    except Exception as e:  # noqa: BLE001 - try the next export call
+                        err = e
+                return f"Word couldn't export the PDF ({err})"
+            finally:
+                doc.Close(0)
+        except Exception as e:  # noqa: BLE001 - any COM failure falls back to LibreOffice
+            return f"Word failed ({e})"
         finally:
             word.Quit()
-        return True
     finally:
         pythoncom.CoUninitialize()
 
@@ -432,13 +445,16 @@ def _find_soffice() -> str | None:
 def docx_to_pdf(docx_path: Path, pdf_path: Path) -> Path:
     """Convert with Word (Windows) when it is installed, else LibreOffice."""
     docx_path, pdf_path = Path(docx_path).resolve(), Path(pdf_path).resolve()
-    if sys.platform == "win32" and _word_to_pdf(docx_path, pdf_path):
-        return pdf_path
+    word_error = None
+    if sys.platform == "win32":
+        word_error = _word_to_pdf(docx_path, pdf_path)
+        if word_error is None:
+            return pdf_path
     soffice = _find_soffice()
     if not soffice:
         raise RuntimeError(
-            "No PDF converter found: needs Microsoft Word (with `uv sync` run so pywin32 is installed) "
-            "or LibreOffice (Windows: `winget install TheDocumentFoundation.LibreOffice`)"
+            "No PDF converter: " + (f"{word_error}, and " if word_error else "")
+            + "LibreOffice isn't installed (Windows: `winget install TheDocumentFoundation.LibreOffice`)"
         )
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(
