@@ -101,6 +101,7 @@ def test_dashboard_shows_application_status_and_flags(env):
     assert app["label"] == "Ready for review" and app["flags"] == ["Weaker fit"]
     assert app["final_href"].startswith("file:") and app["check_href"].endswith("check.md")
     assert by_title["Data Analyst"]["app"] is None
+    assert by_title["Junior Analyst"]["pin"] == 1 and by_title["Data Analyst"]["pin"] == 99
     assert "const SERVER = false;" in html and "description" not in rows[0]
 
 

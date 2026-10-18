@@ -29,6 +29,8 @@ _APP_LABELS = {
 }
 # Sorts applications by how much they need you: fixes first, applied last.
 _APP_ORDER = ["needs_fixes", "ready_for_review", "approved", "shortlisted", "applied"]
+# Applications waiting on you; they stay at the top of the table whatever it is sorted by.
+_NEEDS_YOU = _APP_ORDER[:3]
 _FLAG_LABELS = {"weaker_fit": "Weaker fit", "ats_below_floor": "ATS below 70"}
 
 _TEMPLATE = r"""<!DOCTYPE html>
@@ -56,6 +58,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   th { cursor: pointer; user-select: none; color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--bg); white-space: nowrap; }
   th:hover { color: var(--text); }
   tr:hover td { background: var(--panel); }
+  tr.pinned td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin: 1px 2px 1px 0; }
@@ -245,6 +248,7 @@ function render() {
   });
 
   filtered.sort((a, b) => {
+    if (a.pin !== b.pin) return a.pin - b.pin;  // applications waiting on you come first
     const av = a[sortKey] ?? '', bv = b[sortKey] ?? '';
     if (av < bv) return -1 * sortDir;
     if (av > bv) return 1 * sortDir;
@@ -285,7 +289,7 @@ function render() {
       : (postingLink || escapeHtml(j.title));
     const srcBadges = j.sources.map(s => `<span class="badge src">${escapeHtml(s)}</span>`).join('');
     const scoreText = j.tier === 'skip' ? 'skip' : (j.score ?? '');
-    return `<tr>
+    return `<tr${j.pin < 99 ? ' class="pinned"' : ''}>
       <td class="score" title="${escapeHtml(j.score_reasons)}"><span class="badge tier-${escapeHtml(j.tier)}">${escapeHtml(j.tier)}</span> ${escapeHtml(String(scoreText))}</td>
       <td>${titleCell}</td>
       <td>${escapeHtml(j.company)}</td>
@@ -400,7 +404,9 @@ def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
         r["app"] = app_summary(apps[app_id]) if app_id is not None else None
         if app_id is not None:
             r["id"] = app_id  # the details page looks the application up by its job id
-        r["app_sort"] = _APP_ORDER.index(r["app"]["status"]) if r["app"] and r["app"]["status"] in _APP_ORDER else 99
+        status = r["app"]["status"] if r["app"] else None
+        r["app_sort"] = _APP_ORDER.index(status) if status in _APP_ORDER else 99
+        r["pin"] = _NEEDS_YOU.index(status) if status in _NEEDS_YOU else 99
         r["posted_sort"] = _sort_date(r.get("posted_date"), r.get("first_seen"))
         r["job_type"] = "internship" if _INTERNSHIP_RE.search(r["title"]) else "fulltime"
         # Skipped / never-scored rows sort below every real score.
