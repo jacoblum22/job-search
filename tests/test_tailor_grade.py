@@ -222,3 +222,14 @@ def test_letter_opener_and_closer_are_separate_questions(tmp_path):
     assert by_id["letter.opener"]["passed"] is True and by_id["letter.closer"]["passed"] is False
     assert any("last sentence" in s for s in out["feedback"])
     assert not any("first sentence" in s for s in out["feedback"])
+
+
+def test_ats_gap_lists_unused_and_unbacked_terms(tmp_path):
+    app = make_app(tmp_path)
+    out = run_grade(app, 1, {**CFG, "ats_floor": 70}, FakeJev({}))
+    assert out["ats_floor"] == 70 and out["below_floor"] == (out["ats"]["total"] < 70)
+    assert out["ats_ceiling"] >= out["ats"]["total"]
+    assert set(out["unused_terms"]).isdisjoint(out["unbacked_terms"])
+    if out["unused_terms"]:
+        assert any(s.startswith("Use the posting's own words") for s in out["feedback"])
+        assert any(g["id"] == "ats.unused" for g in out["gaps"])

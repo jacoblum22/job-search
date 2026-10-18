@@ -210,3 +210,22 @@ def test_packet_lists_jev_no_answers(cfg):
     assert "- Failed: Could this closing sentence end any letter? (confidence 0.53)" in check
     assert "Top third?" not in check
     assert '- Not counted as evidence: Microsoft Access in firmament.oauth: "OAuth access tokens"' in check
+
+
+def test_packet_flags_ats_below_floor(cfg):
+    _, d = _packet_app(cfg)
+    g = d / "drafts" / "r1" / "grade.json"
+    data = json.loads(g.read_text())
+    data.update(ats={"total": 51.3, "components": {}}, ats_ceiling=70.7,
+                unused_terms=["data analysis", "presentations"], unbacked_terms=["SPSS"])
+    g.write_text(json.dumps(data))
+    res = run_packet(d, cfg)
+    assert res["below_ats_floor"] is True
+    check = (d / "check.md").read_text()
+    assert "## ATS score below 70: review before applying" in check
+    assert "- [ ] Reviewed  ATS 51.3 is below the 70 minimum; the highest reachable with your evidence is about 70.7" in check
+    assert "doesn't use the posting's words: data analysis, presentations" in check
+    assert "your vault doesn't show them: SPSS" in check
+    assert "ATS score below" not in check.split("## Grade")[1]  # flag sits above the grade
+    with pytest.raises(TailorError):
+        approve(d, cfg)  # the Reviewed line must be ticked first

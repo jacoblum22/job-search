@@ -227,6 +227,32 @@ def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any
     return {"total": round(total, 1), "components": rounded, "stuffing": stuffing, "_repeated": _repeated(terms, text)}
 
 
+def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
+    """Why the ATS score is where it is: backed terms the resume doesn't use, terms the vault
+    can't back, and the highest score reachable if every backed term were used in the posting's words."""
+    text = resume_text(data)
+    terms, req_terms = _collect_terms(req)
+    backed = _backed_set(evidence)
+
+    def weight(t: dict[str, Any]) -> float:
+        return (BOILERPLATE_FACTOR if t["boilerplate"] else 1.0) * (MUST_FACTOR if t["must"] else 1.0)
+
+    ranked = sorted(terms.values(), key=lambda t: -weight(t))
+    unused = [t["term"] for t in ranked if _is_backed(t["term"], backed) and _credit(t["term"], text, 1.0) < 1.0]
+    unbacked = [t["term"] for t in ranked if not _is_backed(t["term"], backed) and not t["boilerplate"]]
+    comps = dict(ats_score(data, req, evidence, cfg)["components"])
+    total_w = sum(weight(t) for t in terms.values())
+    if total_w:
+        comps["keyword"] = 100.0 * sum(weight(t) for t in terms.values() if _is_backed(t["term"], backed)) / total_w
+    if req_terms:
+        comps["skills"] = 100.0 * sum(1 for k in req_terms if _is_backed(terms[k]["term"], backed)) / len(req_terms)
+    weights = {**DEFAULT_WEIGHTS, **(cfg.get("ats_weights") or {})}
+    live = {k: v for k, v in comps.items() if v is not None}
+    wsum = sum(weights.get(k, 0) for k in live)
+    ceiling = sum(weights.get(k, 0) * v for k, v in live.items()) / wsum if wsum else 0.0
+    return {"unused": unused, "unbacked": unbacked, "ceiling": round(ceiling, 1)}
+
+
 def _repeated(terms, text) -> list[str]:
     return [t["term"] for t in terms.values() if _count(t["term"], text) > 4]
 
@@ -390,6 +416,17 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     score = round(0.6 * ats["total"] + 0.4 * rate * 100, 1)
 
     gaps, feedback = _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeated)
+    gap = ats_gap(data, req, evidence, cfg)
+    floor = float(cfg.get("ats_floor", 70))
+    if gap["unused"]:
+        # Terms the vault backs but the resume never says in the posting's words: the main ATS lever.
+        names = {u.lower() for u in gap["unused"]}
+        pids = {p for t in evidence.get("terms") or [] if str(t.get("term", "")).lower() in names
+                for p in t.get("passages") or []}
+        sentence = ("Use the posting's own words for these terms the vault backs (only where a cited passage "
+                    f"supports them): {', '.join(gap['unused'][:12])}.")
+        gaps.append({"id": "ats.unused", "sentence": sentence, "sections": _must_sections(data, pids)})
+        feedback.append(sentence)
     result = {
         "ats": {"total": ats["total"], "components": ats["components"]},
         "checklist": items,
@@ -397,6 +434,11 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         "stuffing": ats["stuffing"],
         "gaps": gaps,
         "feedback": feedback,
+        "ats_floor": floor,
+        "below_floor": ats["total"] < floor,
+        "ats_ceiling": gap["ceiling"],
+        "unused_terms": gap["unused"],
+        "unbacked_terms": gap["unbacked"],
     }
     write_json(d / "grade.json", result)
     log(app_dir, "grade", f"round {rnd}: score {score}, ATS {ats['total']}", )

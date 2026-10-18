@@ -111,6 +111,21 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             lines.append(f"- [ ] Reviewed  {f.get('question', '?')}: {f.get('reason', '')}")
         lines.append("")
     grade = _opt_json(rd / "grade.json") if rd else None
+    floor = float(cfg.get("ats_floor", 70))
+    ats_total = ((grade or {}).get("ats") or {}).get("total")
+    if isinstance(ats_total, (int, float)) and ats_total < floor:
+        # Never send below the floor without a look: say whether the gap is wording or missing skills.
+        unused = grade.get("unused_terms") or []
+        unbacked = grade.get("unbacked_terms") or []
+        ceiling = grade.get("ats_ceiling")
+        lines += [f"## ATS score below {floor:g}: review before applying", ""]
+        lines.append(f"- [ ] Reviewed  ATS {ats_total} is below the {floor:g} minimum"
+                     + (f"; the highest reachable with your evidence is about {ceiling}" if ceiling is not None else ""))
+        if unused:
+            lines.append(f"  - You have these but the resume doesn't use the posting's words: {', '.join(unused)}")
+        if unbacked:
+            lines.append(f"  - The posting asks for these and your vault doesn't show them: {', '.join(unbacked)}")
+        lines.append("")
     lines += ["## Grade", ""]
     if grade:
         ats = grade.get("ats") or {}
@@ -167,9 +182,12 @@ def run_packet(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     (app_dir / "check.md").write_text(_check_md(app, rd, app_dir, check, cfg), encoding="utf-8")
     criticals = len((check or {}).get("criticals") or [])
     status = "needs_fixes" if criticals else "ready_for_review"
+    grade = _opt_json(rd / "grade.json") if rd else None
+    ats_total = ((grade or {}).get("ats") or {}).get("total")
+    below_floor = isinstance(ats_total, (int, float)) and ats_total < float(cfg.get("ats_floor", 70))
     app = appdir.log(app_dir, "packet", f"{status}, {criticals} critical(s)", status=status)
     _sync(app_dir, cfg, app, status)
-    return {"status": status, "criticals": criticals, "round": rnd,
+    return {"status": status, "criticals": criticals, "round": rnd, "below_ats_floor": below_floor,
             "files": ["fit-notes.md", "check.md"]}
 
 

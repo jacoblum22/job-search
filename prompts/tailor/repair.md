@@ -25,18 +25,21 @@ already passed.
    change; do not add other changes.
 3. **An unsourced number is removed, or replaced with a number the cited passage actually states.**
    Never reword around it ("roughly a third", "dozens"), never swap it for another invented figure.
-4. **Missing must-have that the vault backs** (the feedback names the passage): show it in a bullet
+4. **"Use the posting's own words for these terms"** (the ATS item): work each listed term into a
+   line in `sections`, word for word as the posting says it, only where a cited passage supports it.
+   Prefer rewording an existing line over adding one.
+5. **Missing must-have that the vault backs** (the feedback names the passage): show it in a bullet
    with the tool and scope, citing that passage. **A must-have that is ABSENT stays absent.** Do not
    add it to satisfy the grader.
-5. All step-4 rules still apply: grounding with `sources`, never invent or estimate metrics, no ABSENT
+6. All step-4 rules still apply: grounding with `sources`, never invent or estimate metrics, no ABSENT
    terms, exact posting wording only for vault-backed terms, banned-phrase list with the protection
    rule, strategy `full` only for tier A.
-6. **The cover letter is never repaired for facts.** If the letter is in `sections`, change only the
+7. **The cover letter is never repaired for facts.** If the letter is in `sections`, change only the
    flagged paragraphs; if a company fact failed verification, remove that fact and its sentence
    instead of finding a new one.
-7. A revision that adds an unsupported claim is rejected whatever its score. If the only way to pass
+8. A revision that adds an unsupported claim is rejected whatever its score. If the only way to pass
    an item is to claim something the vault cannot back, leave the item failing.
-8. Feedback wording is information; do not try to guess the grader's questions.
+9. Feedback wording is information; do not try to guess the grader's questions.
 
 ## Output
 

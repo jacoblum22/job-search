@@ -134,3 +134,18 @@ def test_nothing_to_repair_stops(tmp_path):
     add_round(app, 1, 70, items=[item("a", True)], ats=70)
     out = next_round(app, CFG)
     assert out["action"] == "stop" and out["next_round"] is None
+
+
+def test_below_ats_floor_keeps_repairing_despite_small_gain(tmp_path):
+    app = new_app(tmp_path)
+    cfg = {**CFG, "ats_floor": 70}
+    add_round(app, 1, 60.0, ats=51, feedback=["Use the posting's own words for: data analysis."])
+    add_round(app, 2, 61.0, ats=55, feedback=["Use the posting's own words for: reports."])
+    out = next_round(app, cfg)
+    assert out["action"] == "repair" and out["next_round"] == 3
+    # at or above the floor the usual small-gain stop applies
+    (tmp_path / "b").mkdir()
+    app2 = new_app(tmp_path / "b")
+    add_round(app2, 1, 60.0, ats=72, feedback=["x"])
+    add_round(app2, 2, 61.0, ats=73, feedback=["x"])
+    assert next_round(app2, cfg)["action"] == "stop"

@@ -223,6 +223,13 @@ Codes are short snake_case strings; the full list lives in `src/tailor/checks.py
 score but are listed). `feedback` is built by code from failed items; it never quotes the checklist
 question wording.
 
+ATS floor (`tailor.ats_floor`, 70): grade.json also has `ats_floor`, `below_floor`, `ats_ceiling`
+(the score if every vault-backed term were used in the posting's words), `unused_terms` (backed but
+not used word for word) and `unbacked_terms` (the posting asks, the vault can't back). Unused terms
+become an `ats.unused` gap and feedback line. Below the floor, `next-round` keeps repairing even on a
+small gain (up to the round limit), and `check.md` opens with an "ATS score below 70" Reviewed line
+that blocks `approve` until it is ticked.
+
 ### `feedback.json` (input to a repair round)
 
 `{"round": 2, "criticals": [...from check], "failed_items": [...from grade feedback], "sections":

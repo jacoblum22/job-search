@@ -859,6 +859,7 @@ tailor:
   ats_weights: {keyword: 40, skills: 20, title: 15, sections: 15, dates: 10}
   synonym_credit: 0.5
   target_score: 80
+  ats_floor: 70          # Jake's minimum: below it the loop keeps repairing and check.md flags it for review
   stuffing_score: 90
   loop:
     max_rounds: 3        # drafts in total, so at most 2 repair rounds

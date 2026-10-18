@@ -124,8 +124,14 @@ def scrub_evidence(evidence: dict[str, Any], req: dict[str, Any], active: set[tu
         e["passages"] = [p for p in e.get("passages") or [] if not rejected(names, p, active)]
     for t in ev.get("terms") or []:
         names = [t.get("term", ""), t.get("canonical") or ""]
+        before = bool(t.get("passages") or t.get("related"))
         for k in ("passages", "related"):
             t[k] = [p for p in t.get(k) or [] if not rejected(names, p, active)]
+        # A term backed only by rejected passages (and not in a base) is no longer present.
+        if before and not (t["passages"] or t["related"] or any((t.get("in_base") or {}).values())):
+            ev["present"] = [x for x in ev.get("present") or [] if x != t.get("term")]
+            if t.get("term") not in (ev.get("absent") or []):
+                ev.setdefault("absent", []).append(t.get("term"))
     return ev
 
 
