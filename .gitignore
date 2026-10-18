@@ -58,3 +58,7 @@ materials/
 
 # Personal contact details for cover letter headers — never commit
 config/contact.yaml
+
+# Claude Code: personal permission approvals; Chrome task scratch files
+.claude/settings.local.json
+.browser-queue/
