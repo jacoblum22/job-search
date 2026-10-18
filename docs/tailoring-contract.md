@@ -61,8 +61,9 @@ max 120 chars). Contents, in the order steps create them:
 | `fit-notes.md`, `check.md` | code | 10 |
 
 Company research lives outside the application folder, shared by every job at that company:
-`materials/companies/<company-slug>/` with `facts.json`, `notes.md`, and `pages/<n>.txt` (saved page
-text the facts quote from).
+`materials/companies/<company-slug>/` with `facts.json`, `notes.md` (the research step's notes),
+`verified.md` (written by `company-verify`), and `pages/<n>.txt` (page text saved by `company-fetch`,
+which the facts quote from).
 
 ### `app.json`
 
@@ -134,13 +135,22 @@ in the passage's own wording. `present` = matched + injectable; `absent` = every
 boilerplate terms (perks, EEO text), which never reach `absent`, `non_injectable` or the
 unknown-terms log.
 
+A term the taxonomy doesn't know (`canonical: null`) is matched by its plain words, so each such
+passage or base line counts only after Jev answers yes to "does this text show the candidate has
+<term>?"; with no Jev it counts as absent. A requirement backed only by `related` passages is
+`partial` with `method: "related"`. A degree requirement (Bachelor's, Master's, PhD) is decided
+against the vault's degree passages with `method: "degree"`: covered when the candidate holds that
+level or higher, else missing, and Jev's second look skips it.
+
 ### `plan.json`
 
 Code part (`run_base`): `{"base_id", "base_scores": {base: potential_pct}, "jev_pick": base|null,
 "bullet_relevance": {"experience/algaecal/algaecal.sql-daily": 3}, "candidate_passages": [ids],
 "protected_paths": [paths that are the only cover for a matched must-have]}`.
 Claude adds: `{"headline": "...|null", "summary_angle": "...", "swap_in": [passage ids],
-"swap_out": [paths], "skills_order": [group ids]}`.
+"swap_out": [paths], "skills_order": [group ids], "evidence_drops": [{"term", "passage", "reason"}]}`.
+`evidence_drops` lists matches Claude read and rejected (passage `"base"` for an accidental match
+in the base resume); `check.md` shows them.
 
 ### `edits.json` (Claude writes)
 

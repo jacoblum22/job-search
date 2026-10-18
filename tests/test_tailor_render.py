@@ -41,6 +41,7 @@ def test_slug_and_dir():
 def test_verify_company(tmp_path):
     d = tmp_path / "co"
     shutil.copytree(FIX / "render", d)
+    (d / "notes.md").write_text("research notes", encoding="utf-8")
     out = verify_company(d)
     by_id = {f["id"]: f for f in out["facts"]}
     assert by_id["f1"]["verified"] and by_id["f2"]["verified"]  # hyphenation, curly quotes
@@ -49,7 +50,8 @@ def test_verify_company(tmp_path):
     assert (out["verified"], out["unverified"]) == (2, 2)
     saved = json.loads((d / "facts.json").read_text(encoding="utf-8"))
     assert len(saved) == 4 and saved[2]["verified"] is False
-    notes = (d / "notes.md").read_text(encoding="utf-8")
+    assert (d / "notes.md").read_text(encoding="utf-8") == "research notes"  # research notes kept
+    notes = (d / "verified.md").read_text(encoding="utf-8")
     assert "Founded 2015" in notes and "https://example.com/about" in notes
     assert notes.index("Unverified") < notes.index("Has 400 staff")
 
@@ -166,3 +168,42 @@ def test_run_render_end_to_end(tmp_path):
         assert (final / name).exists(), name
     app_json = json.loads((app / "app.json").read_text(encoding="utf-8"))
     assert app_json["status"] == "drafted" and app_json["history"][-1]["step"] == "render"
+
+
+def test_page_text_drops_chrome():
+    from src.tailor.company import page_text
+
+    html = ("<html><body><nav>Menu Careers</nav><main><h1>About</h1><p>We deliver   care to "
+            "1.25 million people.</p><script>var x=1;</script></main><footer>Copyright</footer></body></html>")
+    assert page_text(html) == "About\nWe deliver care to 1.25 million people."
+
+
+def test_fetch_page_saves_next_page(tmp_path, monkeypatch):
+    import httpx
+
+    from src.tailor.company import fetch_page
+
+    def fake_get(url, **kw):
+        return httpx.Response(200, headers={"content-type": "text/html"},
+                              text="<main><p>Healthy lives in healthy communities.</p></main>",
+                              request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    (tmp_path / "pages").mkdir()
+    (tmp_path / "pages" / "1.txt").write_text("URL: x", encoding="utf-8")
+    out = fetch_page(tmp_path, "https://example.com/about")
+    assert out["page"] == 2
+    saved = (tmp_path / "pages" / "2.txt").read_text(encoding="utf-8")
+    assert saved.startswith("URL: https://example.com/about\n") and "Healthy lives in healthy communities." in saved
+
+
+def test_fetch_page_rejects_pdf(tmp_path, monkeypatch):
+    import httpx
+
+    from src.tailor import TailorError
+    from src.tailor.company import fetch_page
+
+    monkeypatch.setattr(httpx, "get", lambda url, **kw: httpx.Response(
+        200, headers={"content-type": "application/pdf"}, content=b"%PDF", request=httpx.Request("GET", url)))
+    with pytest.raises(TailorError, match="not a web page"):
+        fetch_page(tmp_path, "https://example.com/a.pdf")

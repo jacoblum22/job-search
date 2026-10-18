@@ -121,6 +121,11 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             lines.append("- Keyword stuffing suspected")
     else:
         lines.append("- No grade available")
+    drops = (_opt_json(app_dir / "plan.json") or {}).get("evidence_drops") or []
+    if drops:
+        lines += ["", "## Evidence matches the plan rejected", ""]
+        for d in drops:
+            lines.append(f"- {d.get('term', '?')} ({d.get('passage', '?')}): {d.get('reason', '')}")
     lines += ["", "## Changes from the base", ""]
     lines += _changes(rd, app_dir, cfg) or ["- No changes"]
     lines += ["", "## Remaining issues", ""]

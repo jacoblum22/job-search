@@ -180,3 +180,14 @@ def test_gate_skipped_without_jev_key(cfg):
     out = run_queue(cfg, jev=NoKey())
     gate = appdir.load_app(out[0])["gate"]
     assert gate["flags"] == [] and gate["checked"] is False
+
+
+def test_packet_lists_evidence_drops(cfg):
+    _, d = _packet_app(cfg)
+    appdir.write_json(d / "plan.json", {"base_id": "data-analyst", "evidence_drops": [
+        {"term": "Microsoft Access", "passage": "firmament.oauth-2-0", "reason": "OAuth access tokens"}]})
+    run_packet(d, cfg)
+    check = (d / "check.md").read_text()
+    assert "## Evidence matches the plan rejected" in check
+    assert "- Microsoft Access (firmament.oauth-2-0): OAuth access tokens" in check
+    assert check.index("rejected") < check.index("Changes from the base")
