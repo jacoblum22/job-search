@@ -46,7 +46,7 @@ T = [
 ("Cloud & DevOps","Linux/Unix",r"\blinux\b|\bunix\b"),
 ("Languages","Kotlin/Swift",r"\bkotlin\b|\bswift\b"),
 ("Languages","Rust",r"\brust\b"),
-("Languages","HTML/CSS",r"\bhtml\b|\bcss\b"),
+("Languages","HTML/CSS",r"(?<![./-])\bhtml\b|(?<![./-])\bcss\b"),  # not a file name ("about-cibc.html")
 # Python/data libs
 ("Libraries","pandas",r"\bpandas\b"),
 ("Libraries","NumPy",r"\bnumpy\b"),
@@ -67,7 +67,9 @@ T = [
 ("Libraries","Spring",r"(?-i)\bSpring(?: Boot)?\b(?! (?:term|semester|break|20\d\d))"),
 ("Libraries","FastAPI/Flask/Django",r"fastapi|\bflask\b|django"),
 # BI / analytics
-("BI & analytics","Excel",r"\bexcel\b|spreadsheets?|pivot tables?|vlookup|xlookup"),
+# Capitalised "Excel" is the tool; lowercase "excel" is usually the verb ("our people can excel").
+("BI & analytics","Excel",r"(?-i)\bExcel\b|\bEXCEL\b|(?i:\b(?:ms|microsoft|advanced|intermediate) excel\b|\bexcel (?:skills|spreadsheets?|formulas?|macros|vba|models?)\b"
+ r"|spreadsheets?|pivot tables?|vlookup|xlookup)"),
 ("BI & analytics","Power BI",r"power ?bi|\bdax\b"),
 ("BI & analytics","Tableau",r"tableau"),
 # Looker (the enterprise BI platform, LookML) and Looker Studio (formerly Data Studio) are
