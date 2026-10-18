@@ -4,6 +4,7 @@ Usage:
   .venv\\Scripts\\python scripts/render_resume.py materials/resumes/bases/data-scientist.yaml
   .venv\\Scripts\\python scripts/render_resume.py materials/resumes/bases/   # every *.yaml
   .venv\\Scripts\\python scripts/render_resume.py base.yaml -o out/ --no-pdf
+  .venv\\Scripts\\python scripts/render_resume.py bases/ --strict --index materials/profile/experience-vault/vault-index.json
 
 Contact details come from config/contact.yaml. Exits non-zero when a base
 fails validation or its PDF runs past one page.
@@ -20,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.resume import iter_bullets, load_resume, render, validate  # noqa: E402
+from src.resume import check_sources, iter_bullets, load_resume, render, validate  # noqa: E402
 
 
 def _pdf_text_problems(pdf_path: Path, base_path: Path) -> list[str]:
@@ -47,6 +48,7 @@ def main() -> int:
     ap.add_argument("-o", "--out", type=Path, default=None, help="output folder (default: next to the base)")
     ap.add_argument("--no-pdf", action="store_true")
     ap.add_argument("--strict", action="store_true", help="every bullet must cite source passage ids")
+    ap.add_argument("--index", type=Path, default=None, help="vault-index.json: check cited passage ids exist")
     args = ap.parse_args()
 
     bases: list[Path] = []
@@ -55,7 +57,10 @@ def main() -> int:
 
     failed = False
     for base in bases:
-        problems = validate(load_resume(base), require_sources=args.strict)
+        data = load_resume(base)
+        problems = validate(data, require_sources=args.strict)
+        if args.index:
+            problems += check_sources(data, args.index)
         if problems:
             failed = True
             print(f"{base.name}: INVALID")

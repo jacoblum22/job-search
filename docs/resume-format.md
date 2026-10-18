@@ -14,7 +14,8 @@ Render them with:
 This writes a `.docx` and `.pdf` next to each base (or into `-o <folder>`). It fails when a base
 is malformed, runs past one page, or a bullet does not come back whole from the PDF's text
 (checked with `pdftotext` when it is installed). `--strict` also fails any bullet with no
-`sources`. Contact details come from `config/contact.yaml`; add `location: "Vancouver, BC"` there.
+`sources`, and `--index <vault-index.json>` fails any cited passage id that is missing from the
+vault index or marked interview-only or guidance. Contact details come from `config/contact.yaml`; add `location: "Vancouver, BC"` there.
 
 ## Schema
 

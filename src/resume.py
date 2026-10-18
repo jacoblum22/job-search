@@ -151,6 +151,23 @@ def validate(data: dict[str, Any], *, require_sources: bool = False) -> list[str
     return problems
 
 
+def check_sources(data: dict[str, Any], index_path: Path) -> list[str]:
+    """Check every cited passage id exists in the vault index and may back a resume claim."""
+    import json
+
+    passages = json.loads(Path(index_path).read_text(encoding="utf-8"))["passages"]
+    use = {p["id"]: p.get("use", "claim") for p in passages}
+    cited = [("summary", data.get("summary") or {})] + list(iter_bullets(data))
+    problems = []
+    for path, item in cited:
+        for pid in item.get("sources") or []:
+            if pid not in use:
+                problems.append(f"{path}: unknown passage id {pid!r}")
+            elif use[pid] != "claim":
+                problems.append(f"{path}: passage {pid!r} is {use[pid]}, not a resume claim")
+    return problems
+
+
 # ---------------------------------------------------------------------------
 # Low-level docx helpers
 # ---------------------------------------------------------------------------

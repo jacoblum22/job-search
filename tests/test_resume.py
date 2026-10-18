@@ -116,3 +116,22 @@ def test_order_picks_and_orders_sections():
     texts = _texts(build_document(base, CONTACT))
     assert texts.index("EDUCATION") < texts.index("EXPERIENCE")
     assert "SKILLS" not in texts
+
+
+def test_check_sources_flags_unknown_and_non_claim_ids(tmp_path):
+    import json
+
+    from src.resume import check_sources
+
+    index = tmp_path / "vault-index.json"
+    index.write_text(json.dumps({"passages": [
+        {"id": "acme.sql-daily", "use": "claim"},
+        {"id": "acme.departure", "use": "interview-only"},
+    ]}))
+    base = copy.deepcopy(BASE)
+    assert check_sources(base, index) == []
+    base["projects"][0]["bullets"][0]["sources"] = ["acme.departure", "nope"]
+    assert check_sources(base, index) == [
+        "projects/proj/proj.one: passage 'acme.departure' is interview-only, not a resume claim",
+        "projects/proj/proj.one: unknown passage id 'nope'",
+    ]
