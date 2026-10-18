@@ -157,6 +157,25 @@ def packet(app_dir):
     _out(run_packet(app_dir, load_config()))
 
 
+@main.command()
+@APP
+def approve(app_dir):
+    """Approve after every line of check.md is ticked."""
+    from src.tailor.packet import approve as do_approve
+
+    _out(do_approve(app_dir, load_config()))
+
+
+@main.command()
+@APP
+@click.argument("status", type=click.Choice(["applied", "callback", "interview", "offer", "rejected", "no_reply"]))
+def outcome(app_dir, status):
+    """Record what happened to an application."""
+    from src.tailor.packet import record_outcome
+
+    _out(record_outcome(app_dir, load_config(), status))
+
+
 def run() -> None:
     try:
         main(standalone_mode=True)
