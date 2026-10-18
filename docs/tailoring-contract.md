@@ -208,7 +208,8 @@ reverted if the warning count goes up.
 | `store.py`, `queue.py` | step 0 | `ensure_table(conn)`, `upsert_app(conn, app)`, `run_queue(cfg, limit, jev) -> list[Path]` |
 | `jev.py` | Jev client | `JevClient.from_env()`, `client.ask(state, questions) -> list[Answer]`, `FakeJev`, `strip_identity(text, contact)` |
 | `taxonomy.py`, `requirements.py`, `evidence.py`, `base.py` | steps 1-3 (code) | `normalize(app_dir, cfg)`, `run_evidence(app_dir, cfg, jev)`, `run_base(app_dir, cfg, jev)` |
-| `edits.py`, `checks.py`, `metrics.py`, `phrases.py`, `letter.py` | steps 4-5 | `apply_edits(app_dir, round, cfg)`, `run_check(app_dir, round, cfg, jev)` |
+| `phrases.py` | shared (done) | `scan(text, posting, own_texts, letter=False) -> list[Hit]`, `is_protected(phrase, posting, own_texts)` |
+| `edits.py`, `checks.py`, `metrics.py`, `letter.py` | steps 4-5 | `apply_edits(app_dir, round, cfg)`, `run_check(app_dir, round, cfg, jev)` |
 | `grade.py`, `loop.py`, `humanize.py` | steps 6-8 | `run_grade(app_dir, round, cfg, jev)`, `next_round(app_dir, cfg) -> dict`, `humanize_flags(app_dir, cfg)`, `humanize_apply(app_dir, cfg)` |
 | `render.py`, `parsecheck.py`, `company.py`, `packet.py` | steps 1b (verify), 9, 10 | `verify_company(company_dir)`, `run_render(app_dir, cfg)`, `parse_check(pdf, source)`, `run_packet(app_dir, cfg)` |
 | `prompts/tailor/*.md`, `docs/tailoring-runbook.md`, `scripts/skills_crosscheck.py` | Claude steps + skills growth | |
