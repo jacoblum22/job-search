@@ -542,6 +542,34 @@ score:
       "kafka": -2
       "master's degree required": -6
 
+  # Gaps read from the experience vault (src/vault_gaps.py). When the vault index
+  # exists, this replaces skills.gaps above (kept as the fallback for a fresh clone).
+  # A tool the posting asks for that no vault claim names costs `points`; a list
+  # where one option is enough ("Tableau, Looker, or Power BI") counts once and any
+  # tool in it covers it; text about the employer doesn't count; a tool asked for
+  # only as a nice-to-have costs preferred_factor as much. Another main language
+  # means a different stack, so it costs more (Jake's rule, PR #12).
+  vault_gaps:
+    index: materials/profile/vault-index.json
+    points: -2
+    preferred_factor: 0.5
+    cap: 25
+    heavier:
+      "C/C++": -6
+      "Java": -5
+      "C#/.NET": -5
+      "Go": -5
+      "Scala": -5
+      "Rust": -5
+      "Kotlin/Swift": -5
+      "Ruby": -5
+      "Kubernetes": -3
+    # Tools the vault shows only lightly: they halve a gap instead of closing it.
+    # C/C++ (one systems course), Java (one course plus a small project), PowerShell
+    # (0.9% of one repo), Salesforce (Trailhead badges).
+    light: ["C/C++", "Java", "PowerShell", "Salesforce/CRM"]
+    light_factor: 0.5
+
   location_points:
     vancouver: 5
     remote: 0
