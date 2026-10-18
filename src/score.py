@@ -6,7 +6,10 @@ A points system, tuned by the `score:` section of config/settings.yaml:
   + title / description say the job is entry-level
   + description mentions skills Jake has evidence for (capped), more when
     it asks for a key combo (Python + SQL) or names nothing he lacks
-  - description leans on tools Jake hasn't used (capped)
+  - description asks for tools Jake's experience vault doesn't show (capped;
+    src/vault_gaps.py: "or" lists count once, nice-to-haves count less, text
+    about the employer doesn't count). Without the vault index (a fresh clone)
+    this falls back to the hand-kept gap list in settings.yaml.
   - title says senior / level II-III or intern, or the posting asks for 3-5 years
 
 Some things are hard skips rather than penalties (more than 5 years
@@ -29,6 +32,7 @@ from functools import lru_cache
 from typing import Any
 
 from src.experience import parse_min_years_experience
+from src.vault_gaps import Vault, find_gaps, load_vault
 
 _YEARS_IN_TITLE_RE = re.compile(r"\d+\s*(?:[-–]\s*\d+\s*)?\+?\s*(?:years?|yrs?)\b", re.IGNORECASE)
 
@@ -122,6 +126,7 @@ def score_job(
     location_category: str | None,
     years_experience: int | None,
     cfg: dict[str, Any],
+    vault: Vault | None = None,
 ) -> ScoreResult:
     title = title or ""
     description = description or ""
@@ -230,10 +235,22 @@ def score_job(
         score += have_pts
         reasons.append(f"+{have_pts} skills ({', '.join(have_hits)})")
 
-    gap_pts = max(sum(skills["gaps"][kw] for kw in gap_hits), -abs(skills.get("gap_cap", 15)))
-    if gap_pts:
-        score += gap_pts
-        reasons.append(f"{gap_pts} gaps ({', '.join(gap_hits)})")
+    vault_cfg = cfg.get("vault_gaps") or {}
+    if vault is not None and vault_cfg:
+        # Gaps come from the experience vault: any tool the posting asks for that no vault
+        # passage shows, with "or" lists counted once (src/vault_gaps.py).
+        gaps = find_gaps(f"{title}\n{description}", vault, vault_cfg)
+        gap_hits = [g.label for g in gaps if not g.preferred]  # a missing nice-to-have keeps the no-gaps bonus
+        gap_pts = round(max(sum(g.points for g in gaps), -abs(vault_cfg.get("cap", 25))))
+        if gap_pts:
+            score += gap_pts
+            named = ", ".join(f"{g.label} (preferred)" if g.preferred else g.label for g in gaps)
+            reasons.append(f"{gap_pts} gaps not in your vault ({named})")
+    else:
+        gap_pts = max(sum(skills["gaps"][kw] for kw in gap_hits), -abs(skills.get("gap_cap", 15)))
+        if gap_pts:
+            score += gap_pts
+            reasons.append(f"{gap_pts} gaps ({', '.join(gap_hits)})")
 
     for combo in skills.get("combos") or []:
         if all(kw in have_hits for kw in combo["skills"]):
@@ -279,6 +296,8 @@ def rescore_all(conn: sqlite3.Connection, cfg: dict[str, Any]) -> dict[str, int]
         "SELECT id, title, description, location_category, years_experience FROM jobs"
     ).fetchall()
     updates = []
+    vault_cfg = cfg.get("vault_gaps") or {}
+    vault = load_vault(vault_cfg.get("index", "materials/profile/vault-index.json")) if vault_cfg else None
     for row in rows:
         desc = row[2] or ""
         # Re-parse: years_experience is stored from the description at insert
@@ -290,6 +309,7 @@ def rescore_all(conn: sqlite3.Connection, cfg: dict[str, Any]) -> dict[str, int]
             location_category=row[3],
             years_experience=years,
             cfg=cfg,
+            vault=vault,
         )
         counts[result.tier] = counts.get(result.tier, 0) + 1
         updates.append((result.score, result.tier, result.reasons_text, row[0]))

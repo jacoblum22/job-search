@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import pairwise
 
 from src.tailor import taxonomy
@@ -103,6 +103,7 @@ class Group:
     text: str  # the clause, for review
     category: str | None = None  # what the list is a list of, when the posting says ("visualization tools")
     category_skills: tuple[str, ...] = ()  # taxonomy skills that wording names ("data visualization")
+    span: tuple[int, int] = (0, 0)  # where the clause sits in the (HTML-unescaped) text
 
     @property
     def options(self) -> tuple[str, ...]:
@@ -309,6 +310,6 @@ def alternative_groups(text: str) -> list[Group]:
                   + _bracket_lists(clause, hits)):
             # A list read twice ("such as X, Y etc" is a cue list and an etc list) counts once.
             if not any(set(g.options) <= set(f.options) for f in found):
-                found.append(g)
+                found.append(replace(g, span=(cm.start(), cm.end())))
         groups += found
     return groups
