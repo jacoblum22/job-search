@@ -448,7 +448,7 @@ def test_scrub_evidence_for_repair_notes():
     ev = {"requirements": [{"id": "r2", "passages": ["resess.six-skills", "course.x"]}],
           "terms": [{"term": "problem solving", "canonical": "problem solving",
                      "passages": ["resess.six-skills"], "related": []}]}
-    req = {"requirements": [{"id": "r2", "text": "Problem-solving", "terms": ["problem solving"]}]}
+    req = {"requirements": [{"id": "r2", "text": "Analytical skills", "terms": ["problem-solving"]}]}
     out = rejects.scrub_evidence(ev, req, {("problem solving", "resess.six-skills")})
     assert out["requirements"][0]["passages"] == ["course.x"]
     assert out["terms"][0]["passages"] == []

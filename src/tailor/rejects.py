@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from src.tailor import appdir
+from src.tailor import appdir, taxonomy
 from src.tailor.paths import DEFAULT_PATHS, resolve
 
 BASE = "base"  # passage value for a match in the base resume itself
@@ -32,7 +32,9 @@ def _path(cfg: dict[str, Any], name: str) -> Path:
 
 
 def _key(term: str) -> str:
-    return " ".join(str(term).lower().split())
+    """One key per skill: "Problem-solving" and "problem solving" both map to the taxonomy name."""
+    term = str(term)
+    return " ".join((taxonomy.canonical(term) or term).lower().split())
 
 
 def _load(path: Path) -> dict[str, Any]:
