@@ -7,7 +7,7 @@
   "terms": [
     {"term": "SQL", "canonical": "SQL", "kind": "must", "weight": "role", "passages": ["northwind.sql-daily"], "in_base": {"data-analyst": true}},
     {"term": "dbt", "canonical": "dbt", "kind": "must", "weight": "role", "passages": ["northwind.dbt"], "in_base": {"data-analyst": false}},
-    {"term": "Looker", "canonical": "Looker / Looker Studio", "kind": "keyword", "weight": "role", "passages": [], "in_base": {"data-analyst": false}}
+    {"term": "Looker", "canonical": "Looker", "kind": "keyword", "weight": "role", "passages": [], "in_base": {"data-analyst": false}}
   ],
   "buckets": {},
   "present": ["SQL", "dbt"],

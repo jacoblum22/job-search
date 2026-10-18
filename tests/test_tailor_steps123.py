@@ -85,7 +85,7 @@ def test_normalize(env):
     assert out["requirements"][2]["canonical"] == ["Power BI", "Tableau"]
     assert out["requirements"][4]["canonical"] == [None]
     kw = {k["term"]: k for k in out["keywords"]}
-    assert "Kubernetes" not in kw and kw["Looker"]["canonical"] == "Looker / Looker Studio"
+    assert "Kubernetes" not in kw and kw["Looker"]["canonical"] == "Looker"
     assert [f["fact"] for f in out["company_facts"]] == ["Vancouver-based online retailer"]
     assert out["hiring_contact"]["name"] == "Priya Shah"
     dropped = out["_normalized"]["dropped"]
@@ -157,7 +157,7 @@ def test_evidence_without_jev(env):
     assert reqs["r5"]["status"] == "missing" and reqs["r5"]["method"] == "none"
     terms = {t["term"]: t for t in ev["terms"]}
     assert terms["SQL"]["kind"] == "must" and terms["dbt"]["kind"] == "nice"
-    assert terms["Looker / Looker Studio"]["kind"] == "keyword"
+    assert terms["Looker"]["kind"] == "keyword"
     assert terms["AI (any mention)"]["weight"] == "boilerplate"
     assert terms["SQL"]["in_base"] == {"data-analyst": True, "researcher": False}
     # dbt appears in the nice requirement and as a keyword: one term, nice wins.
