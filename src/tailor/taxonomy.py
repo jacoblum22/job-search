@@ -27,7 +27,7 @@ T = [
 ("Languages","Java",r"\bjava\b(?!script)"),
 ("Languages","JavaScript",r"javascript|\bnode\.?js\b"),
 ("Languages","TypeScript",r"typescript"),
-("Languages","C#/.NET",r"c#|\.net\b"),
+("Languages","C#/.NET",r"c#|(?<!\w)\.net\b|\b(?:asp|vb)\.net\b"),
 ("Languages","C/C++",r"(?-i)[Cc]\+\+|\bC\b(?!#|\+)(?=[,/ ]+(?:C\+\+|and|or|Java|Python))"),
 ("Languages","Go",r"(?-i)\b(Golang|Go)\b(?=[,/) ]+(?:and|or|Java|Python|Rust|Kotlin|C\+\+|Scala))|\b[Gg]olang\b"
  r"|(?<=, )Go\b|(?<=or )Go\b|(?<=and )Go\b"),

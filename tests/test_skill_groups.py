@@ -56,6 +56,10 @@ def test_choices_are_found(text, want):
     ("3+ years of analyzing and interpreting data with Redshift, Oracle, NoSQL etc. experience",
      ("Redshift", "Oracle", "NoSQL"), True),
     ("Cloud platforms (AWS, Azure, GCP and so on)", ("AWS", "Azure", "GCP"), True),
+    # A bracketed list after the kind of thing it names gives examples of it.
+    ("Experience with cloud services (AWS, Google Cloud, Azure) related to machine learning",
+     ("AWS", "Google Cloud", "Azure"), True),
+    ("Familiar with BI tools (Tableau, Power BI and Looker)", ("Tableau", "Power BI", "Looker"), True),
 ])
 def test_example_lists_are_choices(text, want, open_end):
     (g,) = alternative_groups(text)
@@ -71,6 +75,8 @@ def test_open_end_is_recorded_not_an_option():
     "Experience with AWS services including S3, Redshift, and EC2",  # "including ... and" lists parts, all wanted
     "Build and deploy APIs using a modern engineering stack, including Docker and Kubernetes",
     "Build AI/ML models with React/TypeScript and Go",
+    "Proficiency in Python (pandas, NumPy)",  # a bracket after a tool names its parts
+    "Troubleshoot reliability across multiple cloud providers (AWS, Azure, GCP)",
     "Strong software development experience using C/C++ and Python",
     "Dashboards in Tableau, Power BI, and Looker, or other tools",  # "and" closes the list first
     "Exposure to LLM APIs or AI development",  # one tool option only

@@ -8,7 +8,8 @@ in the taxonomy. A list counts as a choice when its last item follows an "or"
 ("Python, R, or Java"), when it follows an examples cue ("such as TensorFlow, PyTorch,
 etc", "(e.g. AWS, GCP)", "such as R, SAS and Matlab"; "including X and Y" lists
 parts that are all wanted unless it ends openly), or when it ends in "etc"
-("Redshift, Oracle, NoSQL etc."): examples stand for a kind of tool, so one is
+("Redshift, Oracle, NoSQL etc."), or when it is bracketed after the kind of thing it
+names ("cloud services (AWS, Google Cloud, Azure)"): examples stand for a kind of tool, so one is
 enough. Any other list closed by a plain "and" is separate asks. An item that only gestures at more ("or similar tools") marks the
 list as open-ended instead of being an option.
 """
@@ -36,7 +37,7 @@ _LEAD = re.compile(r"(?:\b(?:such as|like|including|includes|eg|for example|for 
                    r"[\s,]*", re.IGNORECASE)
 # Starts of an examples list: "such as", "(e.g.,", "including".
 _CUE_START = re.compile(r"(?:\b(?:such as|eg|like|including|one of|any of|at least one of|one or more of|"
-                        r"for example|for instance)\b|\be\.g\.)[\s,]*", re.IGNORECASE)
+                        r"for example|for instance)\b|\be\.g\b\.?)[\s,]*", re.IGNORECASE)
 # Subjects of study: lists of these after a degree word are about degrees, not tools.
 _DEGREE = re.compile(r"\b(?:degree|bachelor|master|phd|ph\.d|diploma|major|studies|background in|enrolled)", re.IGNORECASE)
 _FIELD = re.compile(r"^(?:computer science|(?:\w+ )?engineering|mathematics|math|statistics|physics|economics|finance|"
@@ -63,6 +64,9 @@ _NOT_CATEGORY = {"in", "of", "with", "using", "use", "more", "the", "any", "all"
 # An item that stands for "anything like the others" rather than a named option.
 _OPEN_ITEM = re.compile(r"^(?:other|another|any|similar|equivalent|comparable|related|a similar|a comparable|"
                         r"an equivalent|the like|etc|others)\b", re.IGNORECASE)
+# The kind of thing a bracketed list gives examples of: "cloud platforms (AWS, GCP)", "a cloud data warehouse (...)".
+_KIND_NOUN = re.compile(r"\b(?:tools|platforms|services|libraries|frameworks|languages|technologies|toolkits|packages|"
+                        r"warehouses?|clouds?|databases|stores|assistants|engines|providers|solutions)\s*$", re.IGNORECASE)
 # Where an examples list after a cue stops: a bracket, "etc", or the conjunction before its last item.
 _CUE_END = re.compile(r"\)|\betc\b|\band so on\b|\band/or\b|\bor\b|\s(?:and|&)\s(?!so on\b)|\(", re.IGNORECASE)
 # "Including" names the parts of something; with a closing "and" those parts are all wanted.
@@ -93,7 +97,7 @@ class Item:
 @dataclass(frozen=True)
 class Group:
     items: tuple[Item, ...]
-    reason: str  # "or" (an "or" before the last item), "cue" (a "such as"-style lead-in) or "etc"
+    reason: str  # "or" (an "or" before the last item), "cue" (a "such as"-style lead-in), "etc", or "bracket"
     open_end: bool  # the list ends with "or similar", "etc" or the like
     text: str  # the clause, for review
     category: str | None = None  # what the list is a list of, when the posting says ("visualization tools")
@@ -270,6 +274,27 @@ def _etc_lists(clause: str, hits: list[tuple[int, int, str]]) -> list[Group]:
     return out
 
 
+def _bracket_lists(clause: str, hits: list[tuple[int, int, str]]) -> list[Group]:
+    """A bracketed list right after the kind of thing it names: "cloud services (AWS, Google Cloud,
+    Azure)" gives examples of cloud services, like "(e.g. ...)" without the "e.g."."""
+    out = []
+    for m in re.finditer(r"(?<=[A-Za-z]) ?\(([^()]*,[^()]*)\)", clause):
+        body = m.group(1)
+        # Only a kind of tool has examples: "Python (pandas, NumPy)", "Microsoft Office (Word, Excel)" or
+        # "multiple cloud providers (AWS, Azure, GCP)" name parts or a set, all wanted.
+        if not _KIND_NOUN.search(clause[:m.start()]) or re.search(r"\b(?:multiple|across|all|both)\b[\w\s/-]*$", clause[:m.start()], re.I):
+            continue
+        if _CUE_START.match(body) or re.search(r"\b(?:or|etc|and so on)\b", body, re.IGNORECASE):
+            continue  # cue, "or" and "etc" lists are read by the other readers
+        a = m.start(1)
+        seps = [(a + j.start(), a + j.end()) for j in re.finditer(r",\s*(?:and\s+)?|\s+(?:and|&)\s+", body)]
+        bounds = [a] + [x for sep in seps for x in sep] + [m.end(1)]
+        items = [i for i in (_item(clause, x, y, hits) for x, y in zip(bounds[::2], bounds[1::2])) if i]
+        if len(items) >= 2 and sum(any(map(_is_tool, i.skills)) for i in items) >= 2 and not _is_fields_of_study(items, clause):
+            out.append(Group(tuple(items), "bracket", True, " ".join(clause.split()), *_category(clause, m.start(1))))
+    return out
+
+
 def alternative_groups(text: str) -> list[Group]:
     groups: list[Group] = []
     text = html.unescape(text or "")  # "Bachelor&#39;s" would split a clause at its ";"
@@ -278,7 +303,8 @@ def alternative_groups(text: str) -> list[Group]:
         clause = text[cm.start():cm.end()]
         hits = _hits(clause)
         found: list[Group] = []
-        for g in _or_lists(clause, hits) + _cue_lists(clause, hits) + _etc_lists(clause, hits):
+        for g in (_or_lists(clause, hits) + _cue_lists(clause, hits) + _etc_lists(clause, hits)
+                  + _bracket_lists(clause, hits)):
             # A list read twice ("such as X, Y etc" is a cue list and an etc list) counts once.
             if not any(set(g.options) <= set(f.options) for f in found):
                 found.append(g)
