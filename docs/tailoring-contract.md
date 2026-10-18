@@ -212,7 +212,7 @@ Codes are short snake_case strings; the full list lives in `src/tailor/checks.py
 When Jev says a changed line isn't supported by its cited passages, the check asks again with the
 related passages the line doesn't cite (same vault entries, the passages sharing each clause's rarest
 words). A "yes" then is `jev_citation_gap`: the line's wording was fine, its citations missed the
-evidence, and those passages are added to its `sources` in `resume.yaml`. A second "no" stays
+evidence, and those passages are added to its `sources` in `resume.yaml`, trimmed to the ones Jev needs. A second "no" stays
 `jev_unsupported` and names the passages it also saw. The low-similarity revert does the same: a
 bullet whose related passages close the gap gets those citations instead of being reverted.
 
