@@ -1,0 +1,63 @@
+# Synthetic base resume for tests (invented person and companies).
+id: data-analyst
+label: Data Analyst
+file_stem: Alex Rivera Resume - Data Analyst
+contact: {name: Alex Rivera}
+order: [summary, skills, experience, projects, education]
+summary:
+  id: summary
+  text: >-
+    Data analyst with industry experience writing SQL daily and maintaining dashboards at a Vancouver
+    logistics software company. BSc in Statistics, 2026.
+  sources: [northwind.sql-daily, northwind.dashboards, course.degree]
+skills:
+  - id: skills.languages
+    label: Languages
+    items: [SQL (PostgreSQL), Python (pandas, scikit-learn), R]
+  - id: skills.tools
+    label: Tools
+    items: [Tableau, Excel, Git]
+experience:
+  - id: northwind
+    title: Data Analyst
+    company: Northwind Analytics
+    location: Vancouver, BC
+    dates: Jan 2026 – Sep 2026
+    bullets:
+      - id: northwind.sql-daily
+        text: >-
+          Wrote SQL daily in PostgreSQL (CTEs, window functions) to answer data requests from the
+          Operations and Sales teams.
+        sources: [northwind.sql-daily]
+      - id: northwind.dashboards
+        text: Maintained Tableau dashboards for the operations team and traced each metric to its source tables.
+        sources: [northwind.dashboards]
+      - id: northwind.forecast
+        text: Built a demand forecasting model in Python (pandas, scikit-learn) on 250k shipment records.
+        sources: [northwind.forecast]
+  - id: lab
+    title: Research Assistant
+    company: Example University Survey Lab
+    location: Vancouver, BC
+    dates: Sep 2024 – Dec 2025
+    bullets:
+      - id: lab.stats
+        text: Ran regression and hypothesis tests in R for a published study.
+        sources: [lab.stats]
+projects:
+  - id: spam
+    name: Spam Classifier
+    context: Course project
+    dates: Mar 2025
+    bullets:
+      - id: proj.spam.model
+        text: Fine-tuned a transformer spam classifier in PyTorch, reaching 0.94 F1 on a held-out set.
+        sources: [proj.spam.model]
+education:
+  - id: exu
+    school: Example University
+    location: Vancouver, BC
+    dates: Sep 2022 – May 2026
+    degree: BSc, Statistics
+    lines:
+      - {id: exu.coursework, label: Coursework, text: "Regression, Databases, Machine Learning"}

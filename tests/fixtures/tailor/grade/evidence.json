@@ -1,0 +1,15 @@
+{
+  "requirements": [
+    {"id": "r1", "status": "covered", "strength": 3, "passages": ["northwind.sql-daily"], "method": "taxonomy"},
+    {"id": "r2", "status": "partial", "strength": 0, "passages": ["northwind.dbt"], "method": "taxonomy"},
+    {"id": "r3", "status": "missing", "strength": 0, "passages": [], "method": "none"}
+  ],
+  "terms": [
+    {"term": "SQL", "canonical": "SQL", "kind": "must", "weight": "role", "passages": ["northwind.sql-daily"], "in_base": {"data-analyst": true}},
+    {"term": "dbt", "canonical": "dbt", "kind": "must", "weight": "role", "passages": ["northwind.dbt"], "in_base": {"data-analyst": false}},
+    {"term": "Looker", "canonical": "Looker / Looker Studio", "kind": "keyword", "weight": "role", "passages": [], "in_base": {"data-analyst": false}}
+  ],
+  "buckets": {},
+  "present": ["SQL", "dbt"],
+  "absent": ["Looker"]
+}

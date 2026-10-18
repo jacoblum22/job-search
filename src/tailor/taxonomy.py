@@ -1,0 +1,221 @@
+"""Skills taxonomy: ~130 skills, each with synonyms and false-match guards.
+
+Ported from the project's skills analysis (skills/taxonomy.py, Oct 17 2026).
+Each entry is (category, display name, regex); regexes are case-insensitive
+unless they start with ``(?-i)``. This list is the matcher for the tailoring
+pipeline; it grows from the monthly public-list cross-check
+(scripts/skills_crosscheck.py) and the unknown-terms log.
+"""
+
+from __future__ import annotations
+
+import re
+from functools import lru_cache
+
+T = [
+# Languages
+("Languages","SQL",r"\bsql\b|t-sql|pl/sql|\bmysql\b|postgres|sql server"),
+("Languages","Python",r"\bpython\b"),
+("Languages","R",r"(?-i)\bR\b(?![&-])(?!\s?&)|\bRStudio\b|\btidyverse\b"),
+("Languages","Java",r"\bjava\b(?!script)"),
+("Languages","JavaScript",r"javascript|\bnode\.?js\b"),
+("Languages","TypeScript",r"typescript"),
+("Languages","C#/.NET",r"c#|\.net\b"),
+("Languages","C/C++",r"(?-i)[Cc]\+\+|\bC\b(?!#|\+)(?=[,/ ]+(?:C\+\+|and|or|Java|Python))"),
+("Languages","Go",r"(?-i)\b(Golang|Go)\b(?=[,/) ]+(?:and|or|Java|Python|Rust|Kotlin|C\+\+|Scala))|\b[Gg]olang\b"),
+("Languages","Scala",r"\bscala\b"),
+("Languages","SAS",r"(?-i)\bSAS\b"),
+("Languages","VBA",r"\bvba\b|\bmacros?\b"),
+("Languages","Bash/Shell",r"\bbash\b|shell script|\blinux\b|\bunix\b"),
+("Languages","Kotlin/Swift",r"\bkotlin\b|\bswift\b"),
+("Languages","Rust",r"\brust\b"),
+("Languages","HTML/CSS",r"\bhtml\b|\bcss\b"),
+# Python/data libs
+("Libraries","pandas",r"\bpandas\b"),
+("Libraries","NumPy",r"\bnumpy\b"),
+("Libraries","scikit-learn",r"scikit|sklearn"),
+("Libraries","PyTorch",r"pytorch|\btorch\b"),
+("Libraries","TensorFlow/Keras",r"tensorflow|\bkeras\b"),
+("Libraries","XGBoost/LightGBM",r"xgboost|lightgbm|catboost|gradient boost"),
+("Libraries","Hugging Face",r"hugging ?face|transformers library"),
+("Libraries","LangChain/LlamaIndex",r"langchain|llamaindex|langgraph"),
+("Libraries","Jupyter",r"jupyter|notebooks?\b"),
+("Libraries","matplotlib/seaborn/plotly",r"matplotlib|seaborn|plotly|ggplot"),
+("Libraries","React",r"\breact\b"),
+("Libraries","FastAPI/Flask/Django",r"fastapi|\bflask\b|django"),
+# BI / analytics
+("BI & analytics","Excel",r"\bexcel\b|spreadsheets?|pivot tables?|vlookup|xlookup"),
+("BI & analytics","Power BI",r"power ?bi|\bdax\b"),
+("BI & analytics","Tableau",r"tableau"),
+("BI & analytics","Looker / Looker Studio",r"\blooker\b|data studio"),
+("BI & analytics","Qlik",r"\bqlik"),
+("BI & analytics","Google Analytics",r"google analytics|\bga4\b"),
+("BI & analytics","dashboards",r"dashboard"),
+("BI & analytics","data visualization",r"visuali[sz]"),
+("BI & analytics","reporting",r"\breporting\b|\breports\b|\bbuild(?:ing)? reports?"),
+("BI & analytics","KPIs/metrics",r"\bkpis?\b|key performance|metrics"),
+("BI & analytics","A/B testing / experimentation",r"a/b test|experiment(?:ation|al design| design)|\bab test"),
+("BI & analytics","Power Query/Power Platform",r"power query|power automate|power apps|power platform"),
+# Data engineering / warehouse
+("Data platforms","Snowflake",r"snowflake"),
+("Data platforms","Databricks",r"databricks"),
+("Data platforms","BigQuery",r"bigquery|big query"),
+("Data platforms","Redshift",r"redshift"),
+("Data platforms","Spark/PySpark",r"\bspark\b|pyspark"),
+("Data platforms","dbt",r"\bdbt\b"),
+("Data platforms","Airflow",r"airflow"),
+("Data platforms","Kafka",r"\bkafka\b"),
+("Data platforms","Hadoop/Hive",r"hadoop|\bhive\b"),
+("Data platforms","ETL/ELT",r"\betl\b|\belt\b|extract, transform"),
+("Data platforms","data pipelines",r"data pipelines?|etl pipelines?|ml pipelines?|pipelines? (?:for|that) data"),
+("Data platforms","data warehouse",r"data warehous|warehouse|data lake|lakehouse"),
+("Data platforms","data modeling",r"data model|dimensional model|star schema"),
+("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"),
+("Data platforms","data governance",r"data governance|data stewardship|metadata"),
+("Data platforms","NoSQL (MongoDB etc.)",r"nosql|mongodb|dynamodb|cassandra|cosmos ?db"),
+("Data platforms","APIs / REST",r"\bapis?\b|\brest(ful)?\b"),
+("Data platforms","Microsoft Fabric / Azure Synapse / ADF",r"microsoft fabric|\bfabric\b(?= data| lakehouse)|synapse|data factory"),
+("Data platforms","SSIS/SSRS",r"\bssis\b|\bssrs\b|\bssas\b"),
+# Cloud & devops
+("Cloud & DevOps","AWS",r"\baws\b|amazon web services|sagemaker|\bs3\b|lambda"),
+("Cloud & DevOps","Azure",r"\bazure\b"),
+("Cloud & DevOps","GCP",r"\bgcp\b|google cloud|vertex ai"),
+("Cloud & DevOps","Docker",r"docker|containeri[sz]"),
+("Cloud & DevOps","Kubernetes",r"kubernetes|\bk8s\b"),
+("Cloud & DevOps","CI/CD",r"ci/cd|continuous integration|continuous deliver|github actions|jenkins"),
+("Cloud & DevOps","Git",r"\bgit\b|github|gitlab|bitbucket|version control"),
+("Cloud & DevOps","Terraform/IaC",r"terraform|infrastructure as code"),
+("Cloud & DevOps","MLOps",r"mlops|model deployment|deploy(?:ing)? models|mlflow|model monitoring"),
+("Cloud & DevOps","testing (unit/automated)",r"unit test|automated test|test automation|pytest|\btdd\b"),
+("Cloud & DevOps","microservices",r"microservice"),
+("Cloud & DevOps","distributed systems",r"distributed system"),
+# ML / stats methods
+("ML & statistics","machine learning",r"machine learning|\bml\b"),
+("ML & statistics","AI (any mention)",r"\bai\b|artificial intelligence"),
+("ML & statistics","statistics",r"statistic"),
+("ML & statistics","predictive modeling",r"predictive|forecast"),
+("ML & statistics","regression",r"regression"),
+("ML & statistics","classification",r"classification|classifier"),
+("ML & statistics","clustering/segmentation",r"cluster|segmentation"),
+("ML & statistics","deep learning / neural nets",r"deep learning|neural net"),
+("ML & statistics","NLP",r"\bnlp\b|natural language"),
+("ML & statistics","LLMs / generative AI",r"\bllms?\b|large language|generative ai|\bgenai\b|\bgpt\b|prompt engineering|\brag\b|retrieval.augmented"),
+("ML & statistics","computer vision",r"computer vision|image processing"),
+("ML & statistics","time series",r"time.series"),
+("ML & statistics","hypothesis testing / inference",r"hypothesis|statistical inference|significance test|causal"),
+("ML & statistics","feature engineering",r"feature engineering"),
+("ML & statistics","model evaluation/validation",r"model (?:evaluation|validation|performance)|cross.validation"),
+("ML & statistics","optimization / OR",r"optimi[sz]ation|operations research|linear programming"),
+("ML & statistics","recommendation systems",r"recommend(?:er|ation) (?:system|engine)"),
+("ML & statistics","survival analysis",r"survival analysis|churn"),
+("ML & statistics","Bayesian methods",r"bayesian"),
+("ML & statistics","mathematics (linear algebra, calculus)",r"linear algebra|calculus|mathematic"),
+("ML & statistics","data mining",r"data mining"),
+("ML & statistics","quantitative analysis",r"quantitative"),
+# Business tools
+("Business tools","Salesforce/CRM",r"salesforce|\bcrm\b|hubspot|dynamics 365"),
+("Business tools","ERP (SAP/Oracle/Workday)",r"\berp\b|\bsap\b|oracle|netsuite"),
+("Business tools","Jira/Confluence",r"\bjira\b|confluence"),
+("Business tools","Microsoft Office",r"microsoft office|ms office|office 365|microsoft 365|word, excel|powerpoint"),
+("Business tools","Agile/Scrum",r"\bagile\b|scrum|kanban|sprint"),
+("Business tools","project management",r"project management|project manager|pmp"),
+("Business tools","GIS",r"\bgis\b|arcgis|geospatial"),
+("BI & analytics","Amazon QuickSight",r"quicksight"),
+("Business tools","SharePoint",r"sharepoint"),
+("Data platforms","GraphQL",r"graphql"),
+("Data platforms","JSON",r"\bjson\b"),
+("ML & statistics","AI agents / agentic AI / MCP",r"agentic|ai agents?|\bmcp\b|model context protocol|langgraph"),
+("Cloud & DevOps","SDLC",r"\bsdlc\b|software development life ?cycle"),
+("Cloud & DevOps","networking (TCP/IP)",r"tcp/ip|\btcp\b|\budp\b|networking protocols"),
+("Cloud & DevOps","QA / UAT",r"\buat\b|user acceptance|quality assurance"),
+# soft skills
+("Soft skills","communication",r"communicat"),
+("Soft skills","collaboration/teamwork",r"collaborat|team ?work|cross.functional"),
+("Soft skills","problem solving",r"problem.solv"),
+("Soft skills","stakeholder management",r"stakeholder"),
+("Soft skills","attention to detail",r"attention to detail|detail.oriented|meticulous"),
+("Soft skills","analytical thinking",r"analytical"),
+("Soft skills","critical thinking",r"critical thinking"),
+("Soft skills","presentation / storytelling",r"present(?:ation|ing) (?:skills|findings|results|insights|to)|storytelling|presentations"),
+("Soft skills","time management / prioritization",r"time management|prioriti[sz]|multi.?task|deadlines"),
+("Soft skills","independent / self-starter",r"independently|self.starter|self.motivated|autonomous|initiative"),
+("Soft skills","leadership / mentoring",r"leadership|mentor"),
+("Soft skills","curiosity / learning",r"curious|curiosity|eager to learn|continuous learning|growth mindset"),
+("Soft skills","business acumen",r"business acumen|business needs|business problems|business requirements"),
+("Soft skills","documentation",r"document(?:ation|ing)"),
+("Soft skills","adaptability",r"adaptab|fast.paced|ambiguity"),
+# Credentials
+("Credentials","Bachelor's degree",r"bachelor|undergraduate degree|b\.?sc|\bbs\b|\bba\b"),
+("Credentials","Master's degree",r"master'?s|\bm\.?sc\b|\bms\b|graduate degree"),
+("Credentials","PhD",r"\bph\.?d"),
+("Credentials","degree in CS",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)[^.;]{0,80}computer science|computer science[^.;]{0,30}degree"),
+("Credentials","degree in statistics/math",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)[^.;]{0,80}(?:statistics|mathematics|math)\b"),
+("Credentials","degree in engineering",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)[^.;]{0,80}engineering"),
+("Credentials","degree in economics/business",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)[^.;]{0,80}(?:economics|business|commerce|finance)"),
+]
+
+HARD_CATEGORIES = {c for c, _, _ in T} - {"Soft skills", "Credentials"}
+
+
+def _compile(p: str) -> re.Pattern[str]:
+    if p.startswith("(?-i)"):
+        return re.compile(p[5:].replace("(?-i)", ""))
+    return re.compile(p, re.I)
+
+
+@lru_cache(maxsize=1)
+def compiled() -> list[tuple[str, str, re.Pattern[str]]]:
+    return [(cat, name, _compile(p)) for cat, name, p in T]
+
+
+def category(name: str) -> str | None:
+    for cat, n, _ in T:
+        if n == name:
+            return cat
+    return None
+
+
+def is_hard(name: str) -> bool:
+    return category(name) in HARD_CATEGORIES
+
+
+def find(text: str) -> set[str]:
+    """Display names of every taxonomy skill mentioned in `text`."""
+    return {name for _, name, rx in compiled() if rx.search(text)}
+
+
+def find_wordings(text: str) -> dict[str, set[str]]:
+    """Each taxonomy skill mentioned in `text`, with the exact words that matched it."""
+    out: dict[str, set[str]] = {}
+    for _, name, rx in compiled():
+        for m in rx.finditer(text):
+            out.setdefault(name, set()).add(m.group(0))
+    return out
+
+
+def canonical(term: str) -> str | None:
+    """The taxonomy skill a posting term refers to ("Postgres" -> "SQL"), or None."""
+    t = term.strip()
+    for _, name, rx in compiled():
+        if name.lower() == t.lower():
+            return name
+    hits = [name for _, name, rx in compiled() if rx.search(t)]
+    return hits[0] if hits else None
+
+
+def mentions(name: str, text: str) -> bool:
+    """True when `text` mentions skill `name` by any of its synonyms."""
+    for _, n, rx in compiled():
+        if n == name:
+            return bool(rx.search(text))
+    return False
+
+
+def exact(term: str, text: str) -> bool:
+    """True when `text` contains `term` itself as a whole phrase (case-insensitive).
+
+    ATSs like Taleo and Lever search exact wording, so exact matches get full
+    credit and taxonomy synonyms only partial credit.
+    """
+    t = re.escape(term.strip())
+    return bool(re.search(rf"(?<![\w+#]){t}(?![\w+#])", text, re.I))

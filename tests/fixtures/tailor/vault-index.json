@@ -1,0 +1,248 @@
+{
+ "built": "2026-10-18T00:00:00Z",
+ "vault": "fixture",
+ "passages": [
+  {
+   "id": "northwind.org",
+   "file": "work/northwind.md",
+   "line": 1,
+   "kind": "field",
+   "section": [
+    "Northwind Analytics"
+   ],
+   "text": "Organization: Northwind Analytics, Vancouver, BC (logistics software).",
+   "markdown": "Organization: Northwind Analytics, Vancouver, BC (logistics software).",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "northwind.sql-daily",
+   "file": "work/northwind.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "What I Did"
+   ],
+   "text": "Wrote SQL daily in PostgreSQL (CTEs, window functions) to answer data requests from the Operations and Sales teams.",
+   "markdown": "Wrote SQL daily in PostgreSQL (CTEs, window functions) to answer data requests from the Operations and Sales teams.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "northwind.dashboards",
+   "file": "work/northwind.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "What I Did"
+   ],
+   "text": "Maintained Tableau dashboards used by the operations team and traced each metric back to its source tables.",
+   "markdown": "Maintained Tableau dashboards used by the operations team and traced each metric back to its source tables.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "northwind.forecast",
+   "file": "work/northwind.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "What I Did"
+   ],
+   "text": "Built a demand forecasting model in Python (pandas, scikit-learn) on 250k shipment records.",
+   "markdown": "Built a demand forecasting model in Python (pandas, scikit-learn) on 250k shipment records.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [
+    "250k"
+   ],
+   "links": []
+  },
+  {
+   "id": "northwind.dbt",
+   "file": "work/northwind.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "What I Did"
+   ],
+   "text": "Created dbt models for the staging layer of the warehouse.",
+   "markdown": "Created dbt models for the staging layer of the warehouse.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "northwind.stakeholders",
+   "file": "work/northwind.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "What I Did"
+   ],
+   "text": "Explained results to non-technical stakeholders in weekly reviews.",
+   "markdown": "Explained results to non-technical stakeholders in weekly reviews.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "northwind.departure",
+   "file": "work/northwind.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "Departure"
+   ],
+   "text": "Contract ended; manager feedback was positive.",
+   "markdown": "Contract ended; manager feedback was positive.",
+   "use": "interview-only",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "lab.pipeline",
+   "file": "work/lab.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "What I Did"
+   ],
+   "text": "Built an ETL pipeline in Python and Airflow that loaded survey data into BigQuery.",
+   "markdown": "Built an ETL pipeline in Python and Airflow that loaded survey data into BigQuery.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "lab.stats",
+   "file": "work/lab.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "What I Did"
+   ],
+   "text": "Ran regression and hypothesis tests in R for a published study.",
+   "markdown": "Ran regression and hypothesis tests in R for a published study.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "proj.spam.model",
+   "file": "projects/spam.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "What I Did"
+   ],
+   "text": "Fine-tuned a transformer spam classifier in PyTorch reaching 0.94 F1 on a held-out set.",
+   "markdown": "Fine-tuned a transformer spam classifier in PyTorch reaching 0.94 F1 on a held-out set.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [
+    "0.94"
+   ],
+   "links": []
+  },
+  {
+   "id": "proj.spam.api",
+   "file": "projects/spam.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "What I Did"
+   ],
+   "text": "Served the classifier through a FastAPI endpoint with Docker.",
+   "markdown": "Served the classifier through a FastAPI endpoint with Docker.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "course.degree",
+   "file": "coursework.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "Degree"
+   ],
+   "text": "BSc in Statistics, Example University, 2026.",
+   "markdown": "BSc in Statistics, Example University, 2026.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "skill.excel",
+   "file": "skills-map.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "Skills"
+   ],
+   "text": "Excel: pivot tables and lookups for ad-hoc analysis.",
+   "markdown": "Excel: pivot tables and lookups for ad-hoc analysis.",
+   "use": "claim",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  },
+  {
+   "id": "guide.no-metrics",
+   "file": "work/northwind.md",
+   "line": 1,
+   "kind": "bullet",
+   "section": [
+    "Resume framing"
+   ],
+   "text": "Do not claim revenue impact; no metrics available.",
+   "markdown": "Do not claim revenue impact; no metrics available.",
+   "use": "guidance",
+   "source": "primary",
+   "ai_assisted": false,
+   "parent": null,
+   "numbers": [],
+   "links": []
+  }
+ ]
+}

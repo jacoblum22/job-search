@@ -1,0 +1,169 @@
+"""Cover-letter checks, called from checks.run_check (doc "letter")."""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+from src.tailor import phrases, taxonomy
+from src.tailor.appdir import read_json, write_json
+from src.tailor.paths import resolve
+
+DEFAULT_GREETING = "Dear Hiring Manager,"
+_GREETING = re.compile(r"^\s*(?:dear|hello|hi|to)\s+(.+?)\s*[,:]?\s*$", re.I)
+_GENERIC = re.compile(
+    r"hiring|recruit|team|committee|manager|madam|whom|department|talent|people|staff|"
+    r"\bsir\b|\bcrew\b|\bpanel\b",
+    re.I,
+)
+_HONORIFIC = re.compile(r"\b(?:mr|mrs|ms|miss|mx|dr|prof)\b\.?", re.I)
+_FAMILIAR = re.compile(r"\bfamiliar(?:ity)? with\s+([^.;:\n]{1,80})", re.I)
+_KEEN = re.compile(
+    r"\b(?:keen|eager|excited|looking|hoping|hope|want|wanting|ready)\s+to\s+(?:grow|learn|develop|build)\b"
+    r"|\bgrow(?:ing)?\s+(?:my|as)\b",
+    re.I,
+)
+
+
+def company_slug(company: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
+
+
+def load_company_facts(cfg: dict[str, Any], company: str) -> dict[str, dict[str, Any]]:
+    """Verified facts by id from materials/companies/<slug>/facts.json (empty when absent)."""
+    p = resolve(cfg, "companies") / company_slug(company) / "facts.json"
+    if not company or not p.exists():
+        return {}
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if isinstance(raw, dict) and isinstance(raw.get("facts"), list):
+        raw = raw["facts"]
+    if isinstance(raw, dict):
+        raw = [{"id": k, **v} for k, v in raw.items() if isinstance(v, dict)]
+    out: dict[str, dict[str, Any]] = {}
+    for f in raw if isinstance(raw, list) else []:
+        if isinstance(f, dict) and f.get("id") and f.get("verified") is True:
+            out[str(f["id"])] = f
+    return out
+
+
+def _fact_text(f: dict[str, Any]) -> str:
+    return " ".join(str(v) for v in f.values() if isinstance(v, (str, int, float)))
+
+
+def _contact_ok(greeting_name: str, contact_name: str | None) -> bool:
+    if not contact_name:
+        return False
+    toks = {t for t in re.findall(r"[a-z]+", _HONORIFIC.sub(" ", greeting_name.lower()))}
+    allowed = set(re.findall(r"[a-z]+", contact_name.lower()))
+    return bool(toks) and toks <= allowed
+
+
+def check_greeting(letter: dict[str, Any], contact: dict[str, Any] | None) -> tuple[bool, str]:
+    """(ok, person_named). Generic greetings are fine; a named person must be the verified contact."""
+    m = _GREETING.match(letter.get("greeting") or "")
+    if not m:
+        return True, ""
+    name = m.group(1).strip()
+    if _GENERIC.search(name):
+        return True, ""
+    contact_name = (contact or {}).get("name") if isinstance(contact, dict) else None
+    return _contact_ok(name, contact_name), name
+
+
+def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
+    """Return {"criticals", "warnings", "greeting_reset"}; resets an unverified greeting in the file.
+
+    `ctx` (built by checks.run_check): index, req, posting, base_text, claim_texts, own_texts.
+    """
+    from src.tailor.checks import extract_numbers, number_keys  # lazy: checks imports this module
+
+    path = app_dir / "drafts" / f"r{rnd}" / "cover-letter.json"
+    out: dict[str, Any] = {"criticals": [], "warnings": [], "greeting_reset": False}
+    if not path.exists():
+        return out
+    letter = read_json(path)
+    if not isinstance(letter, dict) or not isinstance(letter.get("paragraphs"), list):
+        return out
+
+    def crit(code: str, msg: str, where: str = "letter") -> None:
+        out["criticals"].append({"code": code, "message": msg, "path": where, "doc": "letter"})
+
+    def warn(code: str, msg: str, where: str = "letter") -> None:
+        out["warnings"].append({"code": code, "message": msg, "path": where, "doc": "letter"})
+
+    req = ctx["req"]
+    contact = req.get("hiring_contact")
+    ok, named = check_greeting(letter, contact)
+    if not ok:
+        crit(
+            "greeting_unverified",
+            f"greeting names {named!r}, who is not the verified hiring contact; reset to {DEFAULT_GREETING!r}",
+            "greeting",
+        )
+        letter["greeting"] = DEFAULT_GREETING
+        write_json(path, letter)
+        out["greeting_reset"] = True
+
+    paras = [p for p in letter["paragraphs"] if isinstance(p, dict)]
+    facts = load_company_facts(cfg, req.get("company") or ctx.get("company", ""))
+    posting_facts = req.get("company_facts") or []
+    allowed_text = [ctx["base_text"], *ctx["claim_texts"]]
+    allowed_text += [f"{f.get('fact', '')} {f.get('quote', '')}" for f in posting_facts if isinstance(f, dict)]
+    allowed_text += [_fact_text(f) for f in facts.values()]
+    allowed_nums = set().union(*(number_keys(t) for t in allowed_text)) if allowed_text else set()
+    vault_skills = taxonomy.find(ctx["base_text"] + "\n" + "\n".join(ctx["claim_texts"]))
+
+    cited_fact = False
+    for i, p in enumerate(paras):
+        where = f"paragraphs[{i}]"
+        text = str(p.get("text", ""))
+        for sid in p.get("sources") or []:
+            if sid not in ctx["index"]:
+                crit("unknown_source", f"{where} cites {sid!r}, which is not in the vault index", where)
+            elif ctx["index"][sid].get("use", "claim") != "claim":
+                crit("non_claim_source", f"{where} cites {sid!r}, which is not a claim passage", where)
+        para_fact_text: list[str] = []
+        for fid in p.get("company_facts") or []:
+            ftext = None
+            if fid.startswith("posting:"):
+                try:
+                    n = int(fid.split(":", 1)[1])  # 1-based, matching prompts/tailor/requirements.md
+                    if n < 1:
+                        raise IndexError(n)
+                    f = posting_facts[n - 1]
+                    ftext = f"{f.get('fact', '')} {f.get('quote', '')}"
+                except (ValueError, IndexError, TypeError, AttributeError):
+                    ftext = None
+            elif fid in facts:
+                ftext = _fact_text(facts[fid])
+            if ftext is None:
+                crit("unverified_company_fact", f"{where} cites company fact {fid!r}, which is not verified", where)
+            else:
+                cited_fact = True
+                para_fact_text.append(ftext)
+        for raw in extract_numbers(text, allowed_nums):
+            crit("invented_number", f"{where}: {raw!r} appears in no vault passage or company fact", where)
+        fact_skills = taxonomy.find("\n".join(para_fact_text))
+        for skill in sorted(taxonomy.find(text) - vault_skills - fact_skills):
+            if taxonomy.is_hard(skill):
+                crit("invented_skill", f"{where}: mentions {skill}, which is not in the vault or base", where)
+        for m in _FAMILIAR.finditer(text):
+            for skill in sorted(taxonomy.find(m.group(1)) - vault_skills):
+                warn("familiar_absent_term", f"{where}: 'familiar with' {skill}, which the vault does not show", where)
+
+    if paras and not cited_fact:
+        warn("no_company_fact", "no paragraph cites a verified company-specific fact")
+    if not 3 <= len(paras) <= 5:
+        warn("paragraph_count", f"{len(paras)} paragraphs; aim for 3-5")
+    full = "\n".join(str(p.get("text", "")) for p in paras)
+    if len(_KEEN.findall(full)) > 1:
+        warn("keen_to_grow", "more than one 'keen to grow' style phrase")
+    for i, p in enumerate(paras):
+        for h in phrases.scan(str(p.get("text", "")), ctx["posting"], ctx["own_texts"], letter=True):
+            warn("ai_phrase", f"paragraphs[{i}]: {h.code} {h.phrase!r}", f"paragraphs[{i}]")
+    return out

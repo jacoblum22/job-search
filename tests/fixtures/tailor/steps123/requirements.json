@@ -1,0 +1,33 @@
+{
+  "title": "Junior Data Analyst", "company": "Contoso Retail", "seniority": "junior",
+  "years_required": 1, "education": null,
+  "requirements": [
+    {"id": "r1", "text": "1-2 years of experience with SQL", "kind": "must", "tier": 1, "terms": ["SQL"],
+     "weight": "role", "quote": "1-2 years of experience with SQL (required)"},
+    {"id": "r2", "text": "Experience with dbt", "kind": "nice", "tier": 2, "terms": ["dbt"],
+     "weight": "role", "quote": "Experience with dbt is a strong asset"},
+    {"id": "r3", "text": "Build dashboards in Power BI or Tableau", "kind": "must", "tier": 1,
+     "terms": ["Power BI", "Tableau"], "weight": "role",
+     "quote": "Build and maintain dashboards in Power BI or Tableau"},
+    {"id": "r4", "text": "Experience with A/B testing", "kind": "nice", "tier": 3, "terms": ["A/B testing"],
+     "weight": "role", "quote": "Nice to have: experience with A/B testing"},
+    {"id": "r5", "text": "Explain results to non-technical audiences", "kind": "must", "tier": 2,
+     "terms": ["translating insights"], "weight": "role",
+     "quote": "Partner with stakeholders to define KPIs"},
+    {"id": "r6", "text": "5 years of Rust", "kind": "must", "tier": 1, "terms": ["Rust"],
+     "weight": "role", "quote": "Five years of professional Rust"}
+  ],
+  "keywords": [
+    {"term": "Looker", "weight": "role", "quote": "Our stack: Snowflake, dbt, Looker"},
+    {"term": "Snowflake", "weight": "role", "quote": "Snowflake, dbt"},
+    {"term": "AI-first", "weight": "boilerplate", "quote": "We're an AI-first company"},
+    {"term": "remote Fridays", "weight": "boilerplate", "quote": "remote Fridays"},
+    {"term": "Kubernetes", "weight": "role", "quote": "deploy on Kubernetes"}
+  ],
+  "responsibilities": ["Write SQL for the marketing team"],
+  "company_facts": [
+    {"fact": "Vancouver-based online retailer", "quote": "Vancouver-based online retailer"},
+    {"fact": "Carbon neutral", "quote": "carbon neutral since 2020"}
+  ],
+  "hiring_contact": {"name": "Priya Shah", "role": "hiring_manager", "quote": "report to Priya Shah"}
+}
