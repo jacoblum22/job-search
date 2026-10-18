@@ -93,21 +93,49 @@ _TEMPLATE = r"""<!DOCTYPE html>
   td.notice { text-align: center; color: var(--muted); padding: 48px 12px; font-size: 14px; }
   td.notice button { margin-left: 8px; background: var(--panel); border: 1px solid var(--border); color: var(--accent); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   td.notice.error { color: #e57373; }
-  #statsView { padding: 20px 24px 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
+  #statsView { padding: 24px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; }
   #statsView[hidden] { display: none; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-  .card h2 { font-size: 14px; margin: 0 0 4px; } .card .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
-  .card.wide { grid-column: 1 / -1; }
-  .kpis { display: flex; flex-wrap: wrap; gap: 28px; } .kpi b { display: block; font-size: 26px; } .kpi span { color: var(--muted); font-size: 12px; }
-  .pie { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-  .legend { font-size: 12px; } .legend div { display: flex; gap: 8px; align-items: center; padding: 2px 0; }
-  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; }
-  .legend .n { color: var(--muted); margin-left: auto; padding-left: 12px; }
-  .bars { font-size: 12px; } .bars .r { display: grid; grid-template-columns: 140px 1fr 48px; gap: 8px; align-items: center; padding: 3px 0; }
-  .bars .r > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bars .track { background: var(--bg); border-radius: 3px; height: 12px; } .bars .fill { background: var(--accent); height: 12px; border-radius: 3px; }
-  .bars .n { text-align: right; color: var(--muted); }
-  table.mini { font-size: 12px; } table.mini th { position: static; cursor: default; }
+  .card { grid-column: span 6; background: linear-gradient(180deg, #1a1e27 0%, #161920 100%); border: 1px solid #262b36;
+          border-radius: 14px; padding: 20px 22px; box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.25); }
+  .card.third { grid-column: span 4; } .card.wide { grid-column: 1 / -1; }
+  @media (max-width: 1100px) { .card, .card.third { grid-column: 1 / -1; } }
+  .card h2 { font-size: 15px; margin: 0 0 2px; font-weight: 600; letter-spacing: .1px; }
+  .card .sub { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
+  .kpis { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  .kpi { background: linear-gradient(180deg, #1a1e27 0%, #161920 100%); border: 1px solid #262b36; border-radius: 14px;
+         padding: 16px 18px; position: relative; overflow: hidden; }
+  .kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c, var(--accent)); }
+  .kpi b { display: block; font-size: 30px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+  .kpi span { color: var(--muted); font-size: 12px; }
+  .donut { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
+  .donut svg path { transition: opacity .15s, transform .15s; transform-origin: center; cursor: default; }
+  .donut svg:hover path { opacity: .45; } .donut svg path:hover { opacity: 1; transform: scale(1.04); }
+  .donut .total { font-size: 26px; font-weight: 700; fill: var(--text); } .donut .total-l { font-size: 11px; fill: var(--muted); }
+  .legend { font-size: 13px; flex: 1; min-width: 200px; }
+  .legend div { display: flex; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid #222631; }
+  .legend div:last-child { border-bottom: none; }
+  .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .legend .n { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .legend .p { color: var(--text); width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+  .hbars { font-size: 13px; }
+  .hbars .r { display: grid; grid-template-columns: minmax(90px, 160px) 1fr 44px; gap: 12px; align-items: center; padding: 6px 0; }
+  .hbars .r > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c9ced8; }
+  .hbars .track { background: #10131a; border-radius: 999px; height: 10px; overflow: hidden; }
+  .hbars .fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c, #5b8cff), var(--c2, #8fb0ff)); }
+  .hbars .n { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cols { display: flex; align-items: stretch; gap: 10px; height: 200px; border-bottom: 1px solid #2a2e38; padding-top: 8px; }
+  .cols .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; }
+  .cols .bar { width: 64%; max-width: 44px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, #86a6ff, #4a6fe0); transition: filter .15s; }
+  .cols .col:hover .bar { filter: brightness(1.25); }
+  .cols .v { font-size: 11px; color: var(--text); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+  .cols .k { position: absolute; bottom: -20px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .card.wide:has(.cols) { padding-bottom: 34px; }
+  table.mini { font-size: 13px; width: 100%; } table.mini th { position: static; cursor: default; background: none; font-size: 12px; }
+  table.mini td, table.mini th { border-bottom: 1px solid #222631; padding: 7px 8px; }
+  table.mini tr:hover td { background: none; } table.mini td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .share { display: flex; align-items: center; gap: 8px; } .share .track { flex: 1; background: #10131a; border-radius: 999px; height: 6px; overflow: hidden; }
+  .share .fill { height: 100%; background: linear-gradient(90deg, #3a7d44, #6fcf7f); border-radius: 999px; }
+  .share span { width: 36px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
 </style>
 </head>
 <body>
@@ -245,9 +273,12 @@ function appCell(app) {
 }
 
 // --- Stats tab (plain SVG and divs, so the page still works offline) -------------
-const COLORS = ['#5b8cff', '#3a7d44', '#c9a227', '#b85cd6', '#e57373', '#4fb3bf', '#e08a3c', '#8a94a6', '#7fbf5a', '#d6669e'];
+const COLORS = ['#6c8cff', '#4cc38a', '#f2b84b', '#b07cf0', '#f07178', '#45c4d9', '#f0915a', '#8fa0b8', '#9ad46b', '#e57fb4'];
+const TIER_COLORS = {A: ['#2f9e5b', '#5fd38b'], B: ['#4a6fe0', '#86a6ff'], C: ['#8a7a3a', '#e0c060'],
+                     D: ['#5a5f70', '#8a90a3'], skip: ['#3d404c', '#5f6372']};
 const family = s => s.split(':')[0];
 const pct = (n, d) => d ? Math.round(100 * n / d) : 0;
+const fmt = n => n.toLocaleString();
 
 function countBy(items, key) {
   const m = new Map();
@@ -255,81 +286,115 @@ function countBy(items, key) {
   return [...m.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-function pieSvg(entries) {
+function donutSvg(entries, label) {
   const total = entries.reduce((a, [, n]) => a + n, 0);
-  if (!total) return '';
-  if (entries.length === 1) return `<svg width="180" height="180" viewBox="-1 -1 2 2"><circle r="1" fill="${COLORS[0]}"/></svg>`;
+  const R = 90, r = 58, gap = entries.length > 1 ? 0.012 : 0;
   let a0 = -Math.PI / 2, h = '';
-  entries.forEach(([, n], i) => {
-    const a1 = a0 + 2 * Math.PI * n / total;
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    h += `<path d="M0 0 L${Math.cos(a0)} ${Math.sin(a0)} A1 1 0 ${large} 1 ${Math.cos(a1)} ${Math.sin(a1)} Z" fill="${COLORS[i % COLORS.length]}" stroke="#171a21" stroke-width="0.01"/>`;
+  const pt = (rad, a) => `${(rad * Math.cos(a)).toFixed(2)} ${(rad * Math.sin(a)).toFixed(2)}`;
+  entries.forEach(([k, n], i) => {
+    let a1 = a0 + 2 * Math.PI * n / total;
+    if (a1 - a0 >= 2 * Math.PI - 1e-6) a1 = a0 + 2 * Math.PI - 1e-4;  // a full ring
+    const s = a0 + gap, e = Math.max(s, a1 - gap), large = e - s > Math.PI ? 1 : 0;
+    h += `<path d="M${pt(R, s)} A${R} ${R} 0 ${large} 1 ${pt(R, e)} L${pt(r, e)} A${r} ${r} 0 ${large} 0 ${pt(r, s)} Z"
+      fill="${COLORS[i % COLORS.length]}"><title>${escapeHtml(k)}: ${fmt(n)} (${pct(n, total)}%)</title></path>`;
     a0 = a1;
   });
-  return `<svg width="180" height="180" viewBox="-1.02 -1.02 2.04 2.04">${h}</svg>`;
+  return `<svg width="200" height="200" viewBox="-100 -100 200 200">${h}
+    <text class="total" text-anchor="middle" y="6">${fmt(total)}</text>
+    <text class="total-l" text-anchor="middle" y="24">${escapeHtml(label)}</text></svg>`;
 }
 
-function pieCard(title, sub, entries, top = 9) {
+function donutCard(title, sub, entries, label, cls = '', top = 8) {
   const shown = entries.slice(0, top);
   const rest = entries.slice(top).reduce((a, [, n]) => a + n, 0);
   if (rest) shown.push(['Other', rest]);
   const total = shown.reduce((a, [, n]) => a + n, 0);
-  const legend = shown.map(([k, n], i) => `<div><i style="background:${COLORS[i % COLORS.length]}"></i>${escapeHtml(k)}<span class="n">${n} · ${pct(n, total)}%</span></div>`).join('');
-  return `<div class="card"><h2>${title}</h2><div class="sub">${sub}</div><div class="pie">${pieSvg(shown)}<div class="legend">${legend}</div></div></div>`;
+  if (!total) return `<div class="card ${cls}"><h2>${title}</h2><div class="sub">${sub}</div><div class="sub">Nothing yet.</div></div>`;
+  const legend = shown.map(([k, n], i) => `<div><i style="background:${COLORS[i % COLORS.length]}"></i>${escapeHtml(k)}
+    <span class="n">${fmt(n)}</span><span class="p">${pct(n, total)}%</span></div>`).join('');
+  return `<div class="card ${cls}"><h2>${title}</h2><div class="sub">${sub}</div>
+    <div class="donut">${donutSvg(shown, label)}<div class="legend">${legend}</div></div></div>`;
 }
 
-function barsCard(title, sub, entries, wide) {
+function barsCard(title, sub, entries, cls = '', colorOf = null) {
   const max = Math.max(1, ...entries.map(([, n]) => n));
-  const rows = entries.map(([k, n]) => `<div class="r"><span title="${escapeHtml(k)}">${escapeHtml(k)}</span><div class="track"><div class="fill" style="width:${100 * n / max}%"></div></div><span class="n">${n}</span></div>`).join('');
-  return `<div class="card${wide ? ' wide' : ''}"><h2>${title}</h2><div class="sub">${sub}</div><div class="bars">${rows || '<span class="n">Nothing yet.</span>'}</div></div>`;
+  const rows = entries.map(([k, n, key]) => {
+    const [c, c2] = colorOf ? colorOf(key ?? k) : ['#4a6fe0', '#86a6ff'];
+    return `<div class="r"><span title="${escapeHtml(k)}">${escapeHtml(k)}</span>
+      <div class="track"><div class="fill" style="width:${Math.max(n ? 2 : 0, 100 * n / max)}%;--c:${c};--c2:${c2}"></div></div>
+      <span class="n">${fmt(n)}</span></div>`;
+  }).join('');
+  return `<div class="card ${cls}"><h2>${title}</h2><div class="sub">${sub}</div>
+    <div class="hbars">${rows || '<span class="sub">Nothing yet.</span>'}</div></div>`;
+}
+
+function columnsCard(title, sub, entries, cls = '') {
+  const max = Math.max(1, ...entries.map(([, n]) => n));
+  const cols = entries.map(([k, n]) => `<div class="col" title="${escapeHtml(k)}: ${n}">
+    <span class="v">${n || ''}</span><div class="bar" style="height:${n ? Math.max(3, 100 * n / max) : 0}%"></div>
+    <span class="k">${escapeHtml(k)}</span></div>`).join('');
+  return `<div class="card ${cls}"><h2>${title}</h2><div class="sub">${sub}</div><div class="cols">${cols}</div></div>`;
+}
+
+function sourceOf(j) {
+  const fams = [...new Set(j.sources.map(family))];
+  return fams.length === 1 ? fams[0] : 'Several sources';
 }
 
 function renderStats() {
   const live = jobs.filter(j => j.tier !== 'skip');
   const apps = jobs.filter(j => j.app);
-  const kpi = (n, label) => `<div class="kpi"><b>${n}</b><span>${label}</span></div>`;
+  const good = jobs.filter(j => j.tier === 'A' || j.tier === 'B');
   const week = new Date(Date.now() - 7 * 864e5).toISOString();
-  let h = `<div class="card wide"><div class="kpis">
-    ${kpi(jobs.length, 'jobs stored')}${kpi(live.length, 'not skipped')}
-    ${kpi(jobs.filter(j => j.tier === 'A').length, 'tier A')}${kpi(jobs.filter(j => j.tier === 'B').length, 'tier B')}
-    ${kpi(jobs.filter(j => (j.first_seen || '') >= week).length, 'new in the last 7 days')}
-    ${kpi(apps.length, 'tailored applications')}${kpi(jobs.filter(j => j.status === 'applied').length, 'applied')}
-  </div></div>`;
+  const kpi = (n, label, c) => `<div class="kpi" style="--c:${c}"><b>${fmt(n)}</b><span>${label}</span></div>`;
+  let h = `<div class="kpis">
+    ${kpi(jobs.length, 'jobs stored', '#8fa0b8')}
+    ${kpi(jobs.filter(j => j.tier === 'A').length, 'tier A', '#4cc38a')}
+    ${kpi(jobs.filter(j => j.tier === 'B').length, 'tier B', '#6c8cff')}
+    ${kpi(jobs.filter(j => (j.first_seen || '') >= week).length, 'new in the last 7 days', '#45c4d9')}
+    ${kpi(apps.length, 'tailored applications', '#b07cf0')}
+    ${kpi(jobs.filter(j => j.status === 'applied').length, 'applied', '#f2b84b')}
+  </div>`;
 
   // Each job counted once: under its only source, or "Several sources" when more than one board listed it.
-  const bySource = countBy(jobs, j => {
-    const fams = [...new Set(j.sources.map(family))];
-    return fams.length === 1 ? fams[0] : 'Several sources';
-  });
-  h += pieCard('Where your jobs come from', 'Each job once; jobs listed by more than one source are grouped', bySource);
-  h += pieCard('Where your A and B jobs come from', 'Same, for tier A and B only',
-               countBy(jobs.filter(j => j.tier === 'A' || j.tier === 'B'), j => {
-                 const fams = [...new Set(j.sources.map(family))];
-                 return fams.length === 1 ? fams[0] : 'Several sources';
-               }));
-  const tierOrder = ['A', 'B', 'C', 'D', 'skip'];
-  h += barsCard('Jobs by tier', 'From the score', tierOrder.map(t => [t === 'skip' ? 'Skipped' : 'Tier ' + t, jobs.filter(j => j.tier === t).length]));
-  h += barsCard('Jobs by location', 'Vancouver-area, remote, or elsewhere', countBy(jobs, j => j.location_category || 'unknown'));
+  h += donutCard('Where your jobs come from', 'Each job counted once; jobs more than one source listed are grouped',
+                 countBy(jobs, sourceOf), 'jobs');
+  h += donutCard('Where your A and B jobs come from', 'The same, for tier A and B only', countBy(good, sourceOf), 'A + B jobs');
 
-  // Which source families find good jobs: share of each family's jobs that are tier A or B.
-  const fams = countBy(jobs.flatMap(j => [...new Set(j.sources.map(family))].map(f => ({f, j}))), x => x.f);
-  const quality = fams.map(([f, n]) => {
-    const good = jobs.filter(j => j.sources.some(s => family(s) === f) && (j.tier === 'A' || j.tier === 'B')).length;
-    return `<tr><td>${escapeHtml(f)}</td><td>${n}</td><td>${good}</td><td>${pct(good, n)}%</td></tr>`;
-  }).join('');
-  h += `<div class="card"><h2>Which sources find good jobs</h2><div class="sub">Jobs each source listed, and how many are tier A or B</div>
-    <table class="mini"><thead><tr><th>Source</th><th>Jobs</th><th>A or B</th><th>Share</th></tr></thead><tbody>${quality}</tbody></table></div>`;
+  const tiers = ['A', 'B', 'C', 'D', 'skip'];
+  h += barsCard('Jobs by tier', 'From the score', tiers.map(t => [t === 'skip' ? 'Skipped' : 'Tier ' + t,
+                jobs.filter(j => j.tier === t).length, t]), 'third', t => TIER_COLORS[t]);
+  const locNames = {vancouver: 'Vancouver area', remote: 'Remote', other: 'Elsewhere'};
+  const locColors = {vancouver: ['#2f9e5b', '#5fd38b'], remote: ['#4a6fe0', '#86a6ff'], other: ['#5a5f70', '#8a90a3']};
+  h += barsCard('Jobs by location', 'Where the job is based', countBy(jobs, j => j.location_category || 'other')
+                .map(([k, n]) => [locNames[k] || k, n, k]), 'third', k => locColors[k] || locColors.other);
+  const appOrder = ['needs_fixes', 'ready_for_review', 'approved', 'shortlisted', 'applied'];
+  const appLabel = {needs_fixes: 'Needs fixes', ready_for_review: 'Ready for review', approved: 'Approved, not applied',
+                    shortlisted: 'Drafting', applied: 'Applied'};
+  const appColors = {needs_fixes: ['#b23b3b', '#f07178'], ready_for_review: ['#4a6fe0', '#86a6ff'],
+                     approved: ['#2f9e5b', '#5fd38b'], shortlisted: ['#5a5f70', '#8a90a3'], applied: ['#b8860b', '#f2b84b']};
+  h += barsCard('Applications', 'Tailored resumes and cover letters by status',
+                appOrder.map(s => [appLabel[s], apps.filter(j => j.app.status === s).length, s]), 'third', s => appColors[s]);
 
   const days = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10);
-    days.push([d.slice(5), jobs.filter(j => (j.first_seen || '').slice(0, 10) === d).length]);
+    days.push([d.slice(5).replace('-', '/'), jobs.filter(j => (j.first_seen || '').slice(0, 10) === d).length]);
   }
-  h += barsCard('New jobs per day', 'First seen, last 14 days (still stored)', days);
-  h += barsCard('Companies with the most jobs', 'Top 12, skipped jobs left out', countBy(live, j => j.company || 'Unknown').slice(0, 12));
-  const appOrder = ['needs_fixes', 'ready_for_review', 'approved', 'shortlisted', 'applied'];
-  const appLabel = {needs_fixes: 'Needs fixes', ready_for_review: 'Ready for review', approved: 'Approved, not applied', shortlisted: 'Drafting', applied: 'Applied'};
-  h += barsCard('Applications', 'Tailored resumes and cover letters by status', appOrder.map(s => [appLabel[s], apps.filter(j => j.app.status === s).length]));
+  h += columnsCard('New jobs per day', 'First seen, last 14 days (jobs still stored)', days, 'wide');
+
+  // Which source families find good jobs: share of each family's jobs that are tier A or B.
+  const fams = countBy(jobs.flatMap(j => [...new Set(j.sources.map(family))]), f => f);
+  const rows = fams.map(([f, n]) => {
+    const g = good.filter(j => j.sources.some(s => family(s) === f)).length;
+    return `<tr><td>${escapeHtml(f)}</td><td class="num">${fmt(n)}</td><td class="num">${fmt(g)}</td>
+      <td><div class="share"><div class="track"><div class="fill" style="width:${pct(g, n)}%"></div></div><span>${pct(g, n)}%</span></div></td></tr>`;
+  }).join('');
+  h += `<div class="card"><h2>Which sources find good jobs</h2><div class="sub">Jobs each source listed, and the share that are tier A or B</div>
+    <table class="mini"><thead><tr><th>Source</th><th style="text-align:right">Jobs</th><th style="text-align:right">A or B</th><th style="width:40%">Share</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+  h += barsCard('Companies with the most jobs', 'Top 12, skipped jobs left out',
+                countBy(live, j => j.company || 'Unknown').slice(0, 12), '', () => ['#7b5cd6', '#b49af5']);
   document.getElementById('statsView').innerHTML = h;
 }
 
