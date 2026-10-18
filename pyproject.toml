@@ -19,6 +19,9 @@ dependencies = [
     "google-api-python-client>=2.200.0",
     "msal>=1.31",
     "pdfplumber>=0.11.10",
+    # Word COM automation for DOCX→PDF on Windows; a regular dependency so a plain `uv sync`
+    # (which drops optional extras) can't remove it.
+    "pywin32>=306; sys_platform == 'win32'",
 ]
 
 [dependency-groups]
@@ -29,9 +32,6 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-
-[project.optional-dependencies]
-pdf = ["pywin32>=306"]  # Windows-only COM automation for DOCX→PDF
 
 [build-system]
 requires = ["hatchling"]
