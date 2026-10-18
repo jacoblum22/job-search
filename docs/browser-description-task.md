@@ -26,8 +26,8 @@ prompt below uses:
   (not form filling, JavaScript or uploads).
 
 Chrome also asks per site. In the Claude in Chrome extension, allow
-linkedin.com, jobviewtrack.com and careerjet.ca (plus indeed.com and
-glassdoor.ca if those alerts come back) so it doesn't stop there either.
+linkedin.com, ca.indeed.com, glassdoor.ca, jobright.ai, wellfound.com,
+jobviewtrack.com and careerjet.ca so it doesn't stop there either.
 
 There's no dashboard step: the dashboard at http://127.0.0.1:8765
 (`scripts/serve.py`) reads jobs.db on every page load. New descriptions are
@@ -44,8 +44,8 @@ commands and tools below, written exactly as shown.
 1. Run `.venv\Scripts\python.exe scripts\browser_queue.py list` exactly as
    written, from the job-search folder (it's already the working folder; don't
    add `cd`). It prints up to 15 listings per site (LinkedIn, Indeed,
-   Glassdoor, CareerJet, plus any other site whose page the scraper couldn't
-   load) as JSON. If it prints `[]`, stop and reply "Nothing to fill in
+   Glassdoor, Jobright, Wellfound, CareerJet, plus any other site whose page
+   the scraper couldn't load) as JSON. If it prints `[]`, stop and reply "Nothing to fill in
    today."
 2. For each listing, open its `url` in a new Chrome tab. Expand the
    description if it's collapsed ("See more" / "Show more") and read the full

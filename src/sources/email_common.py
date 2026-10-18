@@ -1,5 +1,6 @@
 """Shared Gmail/Outlook search/cursor helpers for email-alert source adapters
-(LinkedIn/Indeed/Glassdoor — see linkedin_email.py, indeed_email.py, glassdoor_email.py).
+(LinkedIn/Indeed/Glassdoor/Jobright/Wellfound — see linkedin_email.py,
+indeed_email.py, glassdoor_email.py, jobright_email.py, wellfound_email.py).
 
 Each adapter searches mail for messages from one sender, decodes the
 message bodies, and hands them back as plain EmailMessage records. Fetching
