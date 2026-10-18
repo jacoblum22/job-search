@@ -1,0 +1,2 @@
+{"base_id": "data-analyst", "base_scores": {"data-analyst": 60.0}, "jev_pick": null,
+ "bullet_relevance": {}, "candidate_passages": ["northwind.dbt"], "protected_paths": ["experience/northwind/northwind.forecast"]}
