@@ -237,8 +237,12 @@ def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any
 
 
 def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-    """Why the ATS score is where it is: backed terms the resume doesn't use, terms the vault
-    can't back, and the highest score reachable if every backed term were used in the posting's words."""
+    """Why the ATS score is where it is: backed hard-skill terms the resume doesn't use (soft skills
+    are listed apart and never pushed for points), terms the vault can't back, and the highest score
+    reachable if every backed term were used in the posting's words.
+
+    The ATS target is the floor, or the ceiling minus a small tolerance when the ceiling itself is
+    under the floor. A ceiling under the floor is a fit gap (the evidence isn't there), not a wording gap."""
     text = resume_text(data)
     terms, req_terms = _collect_terms(req)
     backed = _backed_set(evidence)
@@ -248,9 +252,12 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
         return _term_weight(t, soft)
 
     ranked = sorted(terms.values(), key=lambda t: -weight(t))
-    unused = [t["term"] for t in ranked if _is_backed(t["term"], backed) and _credit(t["term"], text, 1.0) < 1.0]
+    missing = [t for t in ranked if _is_backed(t["term"], backed) and _credit(t["term"], text, 1.0) < 1.0]
+    unused = [t["term"] for t in missing if not t["soft"]]
+    unused_soft = [t["term"] for t in missing if t["soft"]]
     unbacked = [t["term"] for t in ranked if not _is_backed(t["term"], backed) and not t["boilerplate"]]
-    comps = dict(ats_score(data, req, evidence, cfg)["components"])
+    score = ats_score(data, req, evidence, cfg)
+    comps = dict(score["components"])
     total_w = sum(weight(t) for t in terms.values())
     if total_w:
         comps["keyword"] = 100.0 * sum(weight(t) for t in terms.values() if _is_backed(t["term"], backed)) / total_w
@@ -260,8 +267,12 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     weights = {**DEFAULT_WEIGHTS, **(cfg.get("ats_weights") or {})}
     live = {k: v for k, v in comps.items() if v is not None}
     wsum = sum(weights.get(k, 0) for k in live)
-    ceiling = sum(weights.get(k, 0) * v for k, v in live.items()) / wsum if wsum else 0.0
-    return {"unused": unused, "unbacked": unbacked, "ceiling": round(ceiling, 1)}
+    ceiling = round(sum(weights.get(k, 0) * v for k, v in live.items()) / wsum if wsum else 0.0, 1)
+    floor = float(cfg.get("ats_floor", 70))
+    target = min(floor, ceiling - float(cfg.get("ats_wording_tolerance", 5)))
+    return {"unused": unused, "unused_soft": unused_soft, "unbacked": unbacked, "ceiling": ceiling,
+            "floor": floor, "target": round(target, 1), "fit_gap": ceiling < floor,
+            "needs_repair": score["total"] < target and bool(unused)}
 
 
 def _repeated(terms, text) -> list[str]:
@@ -428,9 +439,8 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
 
     gaps, feedback = _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeated)
     gap = ats_gap(data, req, evidence, cfg)
-    floor = float(cfg.get("ats_floor", 70))
     if gap["unused"]:
-        # Terms the vault backs but the resume never says in the posting's words: the main ATS lever.
+        # Hard skills the vault backs but the resume never says in the posting's words: the main ATS lever.
         names = {u.lower() for u in gap["unused"]}
         pids = {p for t in evidence.get("terms") or [] if str(t.get("term", "")).lower() in names
                 for p in t.get("passages") or []}
@@ -445,10 +455,14 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         "stuffing": ats["stuffing"],
         "gaps": gaps,
         "feedback": feedback,
-        "ats_floor": floor,
-        "below_floor": ats["total"] < floor,
+        "ats_floor": gap["floor"],
+        "below_floor": ats["total"] < gap["floor"],
         "ats_ceiling": gap["ceiling"],
+        "ats_target": gap["target"],
+        "fit_gap": gap["fit_gap"],
+        "needs_ats_repair": gap["needs_repair"],
         "unused_terms": gap["unused"],
+        "unused_soft_terms": gap["unused_soft"],
         "unbacked_terms": gap["unbacked"],
     }
     write_json(d / "grade.json", result)

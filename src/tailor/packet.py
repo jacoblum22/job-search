@@ -114,17 +114,23 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     floor = float(cfg.get("ats_floor", 70))
     ats_total = ((grade or {}).get("ats") or {}).get("total")
     if isinstance(ats_total, (int, float)) and ats_total < floor:
-        # Never send below the floor without a look: say whether the gap is wording or missing skills.
+        # Never send below the floor without a look, and say which kind of gap it is.
         unused = grade.get("unused_terms") or []
         unbacked = grade.get("unbacked_terms") or []
         ceiling = grade.get("ats_ceiling")
-        lines += [f"## ATS score below {floor:g}: review before applying", ""]
-        lines.append(f"- [ ] Reviewed  ATS {ats_total} is below the {floor:g} minimum"
-                     + (f"; the highest reachable with your evidence is about {ceiling}" if ceiling is not None else ""))
-        if unused:
-            lines.append(f"  - You have these but the resume doesn't use the posting's words: {', '.join(unused)}")
+        if grade.get("fit_gap"):
+            lines += ["## Weaker fit: review before applying", ""]
+            lines.append(f"- [ ] Reviewed  ATS {ats_total}; the best your evidence can reach is about {ceiling}, "
+                         f"under the {floor:g} minimum, so this is missing skills, not wording")
+        else:
+            lines += [f"## ATS score below {floor:g}: review before applying", ""]
+            lines.append(f"- [ ] Reviewed  ATS {ats_total} is below the {floor:g} minimum"
+                         + (f"; your evidence could reach about {ceiling}, so the gap is wording"
+                            if ceiling is not None else ""))
         if unbacked:
             lines.append(f"  - The posting asks for these and your vault doesn't show them: {', '.join(unbacked)}")
+        if unused:
+            lines.append(f"  - You have these but the resume doesn't use the posting's words: {', '.join(unused)}")
         lines.append("")
     lines += ["## Grade", ""]
     if grade:
@@ -188,6 +194,7 @@ def run_packet(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     app = appdir.log(app_dir, "packet", f"{status}, {criticals} critical(s)", status=status)
     _sync(app_dir, cfg, app, status)
     return {"status": status, "criticals": criticals, "round": rnd, "below_ats_floor": below_floor,
+            "weaker_fit": bool(below_floor and (grade or {}).get("fit_gap")),
             "files": ["fit-notes.md", "check.md"]}
 
 

@@ -90,6 +90,14 @@ def test_soft_skills_weigh_half():
     assert ats_score(base(), r, ev(["SQL"]), {**CFG, "ats_soft_weight": 1.0})["components"]["keyword"] == 50.0
 
 
+def test_soft_skills_are_never_pushed_for_points(tmp_path):
+    from src.tailor.grade import ats_gap
+    r = req(terms=["SQL", "communication", "Looker"])
+    out = ats_gap({"summary": {"text": "Analyst."}}, r, ev(["SQL", "communication"]), CFG)
+    assert out["unused"] == ["SQL"] and out["unused_soft"] == ["communication"]
+    assert out["unbacked"] == ["Looker"]
+
+
 def test_unscorable_components_are_none_and_weight_is_redistributed():
     data = base()
     data["experience"][1]["dates"] = "2024"  # one of four dated entries is malformed -> 75
@@ -238,6 +246,8 @@ def test_ats_gap_lists_unused_and_unbacked_terms(tmp_path):
     assert out["ats_floor"] == 70 and out["below_floor"] == (out["ats"]["total"] < 70)
     assert out["ats_ceiling"] >= out["ats"]["total"]
     assert set(out["unused_terms"]).isdisjoint(out["unbacked_terms"])
+    assert out["ats_target"] == min(70, out["ats_ceiling"] - 5)
+    assert out["fit_gap"] == (out["ats_ceiling"] < 70)
     if out["unused_terms"]:
         assert any(s.startswith("Use the posting's own words") for s in out["feedback"])
         assert any(g["id"] == "ats.unused" for g in out["gaps"])

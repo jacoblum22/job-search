@@ -27,7 +27,8 @@ already passed.
    Never reword around it ("roughly a third", "dozens"), never swap it for another invented figure.
 4. **"Use the posting's own words for these terms"** (the ATS item): work each listed term into a
    line in `sections`, word for word as the posting says it, only where a cited passage supports it.
-   Prefer rewording an existing line over adding one.
+   Prefer rewording an existing line over adding one. The list holds only hard skills; don't add soft
+   skills (communication, collaboration) to chase the score, and each term needs only one mention.
 5. **Missing must-have that the vault backs** (the feedback names the passage): show it in a bullet
    with the tool and scope, citing that passage. **A must-have that is ABSENT stays absent.** Do not
    add it to satisfy the grader.

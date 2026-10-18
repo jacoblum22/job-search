@@ -31,11 +31,15 @@ list is also the before/after diff the candidate reviews.
 3. **Never invent or estimate metrics.** No percentages, counts, team sizes, dollar figures or
    timeframes unless the same number is in the cited passage. If the original has no number, keep the
    bullet qualitative. Do not round, convert or "improve" a number.
-4. **Use the posting's exact words for every vault-backed term, and leave none out.** The ATS score
-   must reach 70 (`ats_floor`), and the biggest lever is PRESENT terms the base never says in the
-   posting's wording ("presentations" where the base says "talk", "data analysis" where it says
-   "EDA"). Before writing, list every PRESENT term the base doesn't already use word for word, and
-   work each one into the summary, a bullet or the skills list where a cited passage supports it.
+4. **Use the posting's exact words for every vault-backed hard skill, and leave none out.** The ATS
+   score aims for 70 (`ats_floor`), and the biggest lever is PRESENT tools and methods the base never
+   says in the posting's wording ("presentations" where the base says "talk", "data analysis" where
+   it says "EDA"). Before writing, list every PRESENT hard-skill term the base doesn't already use
+   word for word, and work each one into the summary, a bullet or the skills list where a cited
+   passage supports it. Soft skills (communication, collaboration, critical thinking) go in only
+   where a bullet already shows them naturally; never add one just for the score. If the posting's
+   main skills aren't in the vault, a lower score is the honest result: it is flagged as a weaker
+   fit for Jake, not something to write around.
    **Mirror the posting's exact wording only for vault-backed terms.** If the posting says
    "Power BI" and the vault backs it, write "Power BI", not "BI tools". If the vault does not back it,
    leave it out, even when it is a must-have.

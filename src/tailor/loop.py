@@ -97,8 +97,11 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     max_rounds = loop_cfg.get("max_rounds", 3)
     min_gain = loop_cfg.get("min_gain", 2.0)
     target = cfg.get("target_score", 80)
-    floor = cfg.get("ats_floor", 70)
-    below_floor = (cur["ats"] or 0) < floor
+    # A wording gap (hard skills the vault backs but the resume doesn't say) earns more rounds;
+    # a fit gap doesn't, since repairing harder would only stuff keywords.
+    needs_ats = cur["grade"].get("needs_ats_repair")
+    if needs_ats is None:
+        needs_ats = (cur["ats"] or 0) < cfg.get("ats_floor", 70)
 
     reason: str | None = None
     feedback = list(cur["grade"].get("feedback") or [])
@@ -111,8 +114,8 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
             reason = f"regression: round {cur['round']} has more criticals than round {ref['round']}"
         elif newly_failed:
             reason = f"regression: an item that passed in round {ref['round']} now fails"
-        # Below the ATS floor a small gain still earns another round, up to the round limit.
-        elif cur["score"] - ref["score"] < min_gain and not below_floor:
+        # With a wording gap left, a small gain still earns another round, up to the round limit.
+        elif cur["score"] - ref["score"] < min_gain and not needs_ats:
             reason = f"score gain under {min_gain} points over round {ref['round']}"
     if reason is None and len(rounds) >= max_rounds:
         reason = f"round limit of {max_rounds} reached"
