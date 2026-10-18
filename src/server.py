@@ -257,8 +257,18 @@ DETAILS_PAGE = r"""<!DOCTYPE html>
   button:disabled { opacity: .5; cursor: default; }
   .item { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
   .item:last-child { border-bottom: none; }
-  .item .boxes { display: flex; gap: 10px; white-space: nowrap; }
-  .item label { cursor: pointer; color: var(--muted); } .item label.on { color: var(--text); }
+  .item .boxes { display: flex; flex-direction: column; gap: 6px; width: 150px; flex: none; padding-top: 2px; }
+  button.pick { margin: 0; width: 100%; font-size: 12px; padding: 5px 8px; border-radius: 6px; background: none;
+                text-align: center; white-space: nowrap; }
+  button.pick.review { border-color: #6b7280; color: #c4cbd8; }
+  button.pick.review.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.pick.good { border-color: #3a7d44; color: #8fd19e; }
+  button.pick.good.on { background: #3a7d44; color: #fff; }
+  button.pick.bad { border-color: #b85454; color: #f2a5a5; }
+  button.pick.bad.on { background: #b85454; color: #fff; }
+  button.pick.warn { border-color: #c9a227; color: #e0c060; }
+  button.pick.warn.on { background: #c9a227; color: #1a1a1a; }
+  button.pick.on { cursor: default; font-weight: 600; } button.pick.review.on { cursor: pointer; }
   .item .details { color: var(--muted); margin-top: 2px; }
   .item.open .text { color: var(--text); font-weight: 600; }
   .line { font-size: 13px; padding: 2px 0; } .line.bullet::before { content: "• "; color: var(--muted); }
@@ -269,6 +279,24 @@ DETAILS_PAGE = r"""<!DOCTYPE html>
   #msg.ok { display: block; background: #1d3a24; color: #8fd19e; }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
   details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .note { background: #1b2233; border-left: 3px solid var(--accent); color: #c4cbd8; font-size: 13px;
+          line-height: 1.5; padding: 8px 12px; border-radius: 4px; margin: 4px 0 10px; }
+  .item .text { line-height: 1.45; }
+  .item .details { line-height: 1.45; margin-top: 4px; }
+  .key { color: var(--text); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
+  .chip { background: var(--border); border-radius: 12px; padding: 2px 10px; font-size: 12px; color: var(--text); }
+  .chip.none { background: none; border: 1px dashed var(--border); color: var(--muted); }
+  .diff { font-size: 13px; line-height: 1.5; margin: 2px 0 10px 18px; color: var(--muted); }
+  .diff > div { padding: 2px 0; }
+  .diff .key { display: inline-block; width: 52px; color: var(--muted); font-weight: 600; }
+  del { background: #4a2326; color: #f2b8b8; text-decoration: line-through; border-radius: 3px; padding: 0 2px; }
+  ins { background: #1f4229; color: #b6e8c0; text-decoration: none; border-radius: 3px; padding: 0 2px; }
+  code { background: var(--border); padding: 0 4px; border-radius: 3px; font-size: 12px; }
+  .posting { font-size: 14px; line-height: 1.55; }
+  .posting h4 { margin: 16px 0 6px; font-size: 14px; } .posting h4:first-child { margin-top: 0; }
+  .posting p { margin: 6px 0; } .posting ul, .posting ol { margin: 6px 0; padding-left: 22px; }
+  .posting li { margin: 2px 0; }
 </style>
 </head>
 <body>
@@ -301,20 +329,134 @@ async function load() {
   render();
 }
 
+// Inline markdown on already-escaped text: **bold**, *italic*, `code`, and http(s) links.
+function inline(s) {
+  return esc(s)
+    .replace(/\\([\\`*_{}\[\]()#+\-.!|])/g, (m, c) => `&#${c.charCodeAt(0)};`)  // \* is a literal *
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?=[^*\w]|$)/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)"]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+
+// Postings arrive as plain text, markdown, or HTML, often with entities like &amp;.
+// HTML is read with DOMParser (an inert document: nothing in it runs) and turned into lines.
+function postingText(raw) {
+  raw = raw || '';
+  const doc = new DOMParser().parseFromString(raw, 'text/html');
+  if (!/<(p|div|br|li|ul|ol|h[1-6]|strong|b)\b/i.test(raw)) return doc.documentElement.textContent;
+  doc.querySelectorAll('li').forEach(li => li.prepend('* '));
+  doc.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => { h.prepend('### '); });
+  doc.querySelectorAll('strong,b').forEach(b => { b.prepend('**'); b.append('**'); });
+  doc.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+  doc.querySelectorAll('p,div,li,ul,ol,h1,h2,h3,h4,h5,h6,tr').forEach(el => el.append('\n'));
+  return doc.body.textContent;
+}
+
+function markdown(raw) {
+  const lines = postingText(raw).replace(/\r/g, '').split('\n');
+  let h = '', list = null, para = [];
+  const flush = () => {
+    if (para.length) { h += `<p>${inline(para.join(' '))}</p>`; para = []; }
+    if (list) { h += `</${list}>`; list = null; }
+  };
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) { flush(); continue; }
+    let m;
+    if ((m = t.match(/^#{1,6}\s+(.*)$/))) { flush(); h += `<h4>${inline(m[1])}</h4>`; continue; }
+    if ((m = t.match(/^\*\*([^*]+)\*\*:?$/))) { flush(); h += `<h4>${inline(m[1])}</h4>`; continue; }
+    const bullet = t.match(/^(?:[*\-•·▪]|\d+[.)])\s+(.*)$/);
+    if (bullet) {
+      if (para.length) { h += `<p>${inline(para.join(' '))}</p>`; para = []; }
+      const kind = /^\d/.test(t) ? 'ol' : 'ul';
+      if (list !== kind) { if (list) h += `</${list}>`; h += `<${kind}>`; list = kind; }
+      h += `<li>${inline(bullet[1])}</li>`;
+      continue;
+    }
+    if (list) { h += `</${list}>`; list = null; }
+    para.push(t);
+  }
+  flush();
+  return h || '<p class="meta">No description stored.</p>';
+}
+
+// Word-level difference between two versions of a resume line.
+function wordDiff(a, b) {
+  const x = a.split(/\s+/), y = b.split(/\s+/);
+  const n = x.length, m = y.length;
+  const L = Array.from({length: n + 1}, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    L[i][j] = x[i] === y[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  // Runs of changed words become one highlight, so a reworded phrase reads as one change.
+  const before = [], after = [];
+  const add = (out, tag, word) => {
+    const last = out[out.length - 1];
+    if (tag && last && last.tag === tag) last.words.push(word); else out.push({tag, words: [word]});
+  };
+  let i = 0, j = 0;
+  while (i < n || j < m) {
+    if (i < n && j < m && x[i] === y[j]) { add(before, '', x[i]); add(after, '', y[j]); i++; j++; }
+    else if (j < m && (i >= n || L[i][j + 1] >= L[i + 1][j])) { add(after, 'ins', y[j]); j++; }
+    else { add(before, 'del', x[i]); i++; }
+  }
+  const html = out => out.map(r => r.tag ? `<${r.tag}>${esc(r.words.join(' '))}</${r.tag}>` : esc(r.words.join(' '))).join(' ');
+  return [html(before), html(after)];
+}
+
+function detailsHtml(details) {
+  let h = '', chips = [];
+  const flush = () => { if (chips.length) { h += `<div class="chips">${chips.join('')}</div>`; chips = []; } };
+  for (const d of details) {
+    const text = typeof d === 'string' ? d : d.text;
+    if (d.level === 2) { chips.push(`<span class="chip${text === 'None' ? ' none' : ''}">${inline(text)}</span>`); continue; }
+    flush();
+    const m = text.match(/^(The (?:passage|line|bullet|summary|sentence|posting says)|Why|Why it matters|Judge|Checker's note|Jev was asked):\s*(.*)$/);
+    h += m ? `<div class="details"><span class="key">${esc(m[1])}:</span> ${inline(m[2])}</div>`
+           : `<div class="details">${inline(text)}</div>`;
+  }
+  flush();
+  return h;
+}
+
+// Button wording per kind of check.md line: [unselected, selected, colour] for each box.
+const BUTTONS = {
+  reviewed: [['In review', 'Reviewed', 'review']],
+  keep_remove: [['Keep', 'Keep', 'good'], ['Remove', 'Remove', 'bad']],
+  drop: [['Correctly set aside', 'Correctly set aside', 'good'], ['Shows the skill', 'Shows the skill', 'warn']],
+  undo: [['Undo', 'Undo', 'warn']],
+};
+const PAIRS = new Set(['keep_remove', 'drop']);
+
 function checkHtml(blocks) {
   let h = '';
-  for (const b of blocks) {
+  for (let k = 0; k < blocks.length; k++) {
+    const b = blocks[k];
     if (b.type === 'heading') {
       if (b.level > 1) h += `<h3>${esc(b.text)}</h3>`;
+    } else if (b.type === 'note') {
+      h += `<div class="note">${inline(b.text)}</div>`;
     } else if (b.type === 'text') {
-      h += `<div class="line${b.bullet ? ' bullet' : ''}${b.indent ? ' sub' : ''}">${esc(b.text)}</div>`;
+      const next = blocks[k + 1];
+      if (b.indent && /^Before: /.test(b.text) && next && next.type === 'text' && /^After: /.test(next.text)) {
+        const [before, after] = wordDiff(b.text.slice(8), next.text.slice(7));
+        h += `<div class="diff"><div><span class="key">Before</span> ${before}</div><div><span class="key">After</span> ${after}</div></div>`;
+        k++;
+      } else if (b.indent && /^(Before|After): /.test(b.text)) {
+        const [key, rest] = [b.text.slice(0, b.text.indexOf(':')), b.text.slice(b.text.indexOf(':') + 2)];
+        h += `<div class="diff"><div><span class="key">${esc(key)}</span> ${inline(rest)}</div></div>`;
+      } else {
+        h += `<div class="line${b.bullet ? ' bullet' : ''}${b.indent ? ' sub' : ''}">${inline(b.text)}</div>`;
+      }
     } else {
       const open = b.kind !== 'undo' && !b.options.some(o => o.checked);
-      const boxes = b.options.map((o, i) => `<label class="${o.checked ? 'on' : ''}"><input type="checkbox"
-        data-line="${b.line}" data-opt="${esc(o.name)}" ${o.checked ? 'checked' : ''}> ${esc(o.name)}</label>`).join('');
-      const details = b.details.map(d => `<div class="details">${esc(d)}</div>`).join('');
+      const boxes = b.options.map((o, i) => {
+        const [off, on, tone] = (BUTTONS[b.kind] || [])[i] || [o.name, o.name, 'neutral'];
+        return `<button class="pick ${tone}${o.checked ? ' on' : ''}" data-line="${b.line}" data-opt="${esc(o.name)}"
+          data-checked="${o.checked}" title="${esc(o.name)}">${o.checked ? '✓ ' : ''}${esc(o.checked ? on : off)}</button>`;
+      }).join('');
       h += `<div class="item${open ? ' open' : ''}"><div class="boxes">${boxes}</div>
-        <div><div class="text">${esc(b.text)}</div>${details}</div></div>`;
+        <div><div class="text">${inline(b.text)}</div>${detailsHtml(b.details)}</div></div>`;
     }
   }
   return h;
@@ -344,7 +486,7 @@ function render() {
     if (app.status === 'ready_for_review') {
       const left = app.open_items || 0;
       h += `<button class="primary" data-act="approve" ${left ? 'disabled' : ''}>Approve</button>
-        <span class="meta">${left ? `${left} box${left === 1 ? '' : 'es'} below still need a decision` : 'Every box is decided.'}</span>`;
+        <span class="meta">${left ? `${left} item${left === 1 ? '' : 's'} below still need${left === 1 ? 's' : ''} a decision` : 'Every item is decided.'}</span>`;
     }
     if (app.status === 'approved') h += `<button class="primary" data-act="outcome" data-val="applied">I applied</button>`;
     if (app.status === 'applied') {
@@ -352,7 +494,7 @@ function render() {
         .map(o => `<button data-act="outcome" data-val="${o}" ${app.outcome === o ? 'disabled' : ''}>${esc(o.replace('_', ' '))}</button>`).join('');
     }
     h += `</div></div>`;
-    if (app.check) h += `<h2>Checklist</h2><div class="meta">Tick Reviewed once you've read a flag. For each remaining issue, Keep means it's fine as it is and Remove means you'll change it before applying. Undo puts a rejected evidence match back.</div><div class="panel" id="check">${checkHtml(app.check)}</div>`;
+    if (app.check) h += `<h2>Checklist</h2><div class="panel" id="check">${checkHtml(app.check)}</div>`;
   } else {
     h += `<h2>Status</h2><div class="panel"><div class="row"><span class="badge">${esc(job.status)}</span>`
       + data.job_statuses.filter(s => s !== job.status && s !== 'expired')
@@ -360,17 +502,20 @@ function render() {
       + `</div><div class="meta" style="margin-top:6px">No tailored resume or cover letter yet.</div></div>`;
   }
   if (job.score_reasons) h += `<details style="margin-top:20px"><summary>Why it scored ${job.score ?? ''}</summary><pre class="meta">${esc(job.score_reasons)}</pre></details>`;
-  h += `<h2>Posting</h2><div class="panel"><pre>${esc(job.description || 'No description stored.')}</pre></div>`;
+  h += `<h2>Posting</h2><div class="panel posting">${markdown(job.description)}</div>`;
   root.innerHTML = h;
 }
 
-root.addEventListener('change', async e => {
-  const box = e.target;
-  if (!box.dataset || box.dataset.line === undefined) return;
-  const line = Number(box.dataset.line);
+// Reviewed toggles; in a pair, the picked button stays picked until the other one is pressed.
+root.addEventListener('click', async e => {
+  const btn = e.target.closest('button.pick');
+  if (!btn) return;
+  const line = Number(btn.dataset.line);
   const block = data.app.check.find(b => b.line === line);
+  const picked = btn.dataset.checked === 'true';
+  if (picked && PAIRS.has(block.kind)) return;
   try {
-    const res = await post('check', {line, raw: block.raw, option: box.dataset.opt, checked: box.checked});
+    await post('check', {line, raw: block.raw, option: btn.dataset.opt, checked: !picked});
     msgEl.className = '';
     await load();
   } catch (err) { say(err.message); await load(); }

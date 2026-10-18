@@ -222,11 +222,12 @@ def check_resume(
     crit: list[dict] = []
     warn: list[dict] = []
 
-    def c(code: str, msg: str, path: str = "") -> None:
-        crit.append({"code": code, "message": msg, "path": path, "doc": "resume"})
+    # `data` carries the fields the review page explains in plain language (explain.py).
+    def c(code: str, msg: str, path: str = "", **data: Any) -> None:
+        crit.append({"code": code, "message": msg, "path": path, "doc": "resume", **({"data": data} if data else {})})
 
-    def w(code: str, msg: str, path: str = "") -> None:
-        warn.append({"code": code, "message": msg, "path": path, "doc": "resume"})
+    def w(code: str, msg: str, path: str = "", **data: Any) -> None:
+        warn.append({"code": code, "message": msg, "path": path, "doc": "resume", **({"data": data} if data else {})})
 
     base_text = ctx["base_text"]
     allowed_text = base_text + "\n" + "\n".join(ctx["claim_texts"])
@@ -289,7 +290,7 @@ def check_resume(
     # Numbers, dates, skills.
     for path, text in d_units:
         for raw in extract_numbers(text, allowed_nums):
-            c("invented_number", f"{raw!r} appears in no vault passage or the base", path)
+            c("invented_number", f"{raw!r} appears in no vault passage or the base", path, term=raw)
         for y in sorted(years_in(text) - allowed_years):
             c("unsupported_date", f"year {y} appears in no vault passage or the base", path)
         # A skill counts as backed only when the draft's own wording for it is in the
@@ -297,7 +298,7 @@ def check_resume(
         for skill, words in sorted(taxonomy.find_wordings(text).items()):
             if taxonomy.is_hard(skill) and (
                     skill not in allowed_skills or not any(_wording_in(w, allowed_text) for w in words)):
-                c("invented_skill", f"{skill} appears in no vault passage or the base", path)
+                c("invented_skill", f"{skill} appears in no vault passage or the base", path, term=skill)
 
     full = "\n".join(t for _, t in d_units)
     req = ctx["req"]
@@ -323,13 +324,13 @@ def check_resume(
         n = _count(t, full)
         pn = _count(t, posting)
         if n and (n / words_n > 0.03 or n > 6):
-            w("term_stuffing", f"'{t}' appears {n} times in {words_n} words (posting: {pn})")
+            w("term_stuffing", f"'{t}' appears {n} times in {words_n} words (posting: {pn})", term=t)
     prose = "\n".join(t for p, t in d_units if not p.startswith("skills/"))
     skills_text = "\n".join(t for p, t in d_units if p.startswith("skills/"))
     for t in terms:
         canon = taxonomy.canonical(t)
         if canon and taxonomy.is_hard(canon) and _covered(t, skills_text) and not _covered(t, prose):
-            w("skill_only_in_list", f"'{t}' appears only in the skills list", "skills")
+            w("skill_only_in_list", f"'{t}' appears only in the skills list", "skills", term=t)
     if posting:
         pw = [x for x in re.findall(r"[a-z0-9']+", norm(posting))]
         post_runs = _runs(pw, 8)
@@ -499,6 +500,7 @@ def _jev_flags(jev: Any, lines: list[tuple[str, str, list[str]]], index: dict[st
                 "message": (f"Jev doubted this line with its cited passages (p={first:.2f}) but agreed once "
                             f"{', '.join(extra)} were cited too (p={second:.2f}); those were added to its sources"),
                 "path": path, "doc": "resume", "source": "jev",
+                "data": {"first": round(first, 2), "second": round(second, 2), "added": extra},
             })
             continue
         doubt = second if second is not None else first
@@ -506,7 +508,7 @@ def _jev_flags(jev: Any, lines: list[tuple[str, str, list[str]]], index: dict[st
         flags.append({
             "code": "jev_unsupported",
             "message": f"Jev doubts this line is supported by its cited passages{also} (p={doubt:.2f})",
-            "path": path, "doc": "resume", "source": "jev",
+            "path": path, "doc": "resume", "source": "jev", "data": {"p": round(doubt, 2), "extra": extra},
         })
     return flags, added
 

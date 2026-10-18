@@ -16,14 +16,17 @@ from src.tailor.paths import load_config
 
 CHECK = """# Check
 
+> Your review list for this application.
+
 ## Weaker fit: review before applying
 
 - [ ] Reviewed  ATS 59.0; the best your evidence can reach is about 68.9
-  - The posting asks for these and your vault doesn't show them: SPSS
+  - The posting asks for these and your vault doesn't show them:
+    - SPSS
 
-## Evidence matches the plan rejected
+## Evidence set aside
 
-- [ ] Undo  Excel (job-search.outputs): an export is not Excel skill (new)
+- [ ] Undo  Excel: not counted from Job Application System. <!-- undo: Excel | job-search.outputs -->
 
 ## Remaining issues
 
@@ -72,9 +75,25 @@ def test_parse_and_open_items():
     blocks = review.parse(CHECK)
     items = [b for b in blocks if b["type"] == "item"]
     assert [b["kind"] for b in items] == ["reviewed", "undo", "keep_remove"]
-    assert items[0]["details"] == ["The posting asks for these and your vault doesn't show them: SPSS"]
+    assert items[0]["details"] == [{"text": "The posting asks for these and your vault doesn't show them:", "level": 1},
+                                   {"text": "SPSS", "level": 2}]
+    assert items[1]["text"] == "Excel: not counted from Job Application System."  # the machine key is hidden
+    assert blocks[1] == {"type": "note", "text": "Your review list for this application."}
     assert [o["name"] for o in items[2]["options"]] == ["Keep", "Remove"]
     assert review.open_items(CHECK) == 2  # Undo is optional
+
+
+def test_set_aside_or_undo_is_required_and_can_only_be_swapped():
+    text = "- [ ] Set aside  - [ ] Undo  Excel: not counted. <!-- undo: Excel | job-search.outputs -->\n"
+    item = review.parse(text)[0]
+    assert item["kind"] == "drop" and item["text"] == "Excel: not counted."
+    assert review.open_items(text) == 1
+    text = review.set_box(text, 0, item["raw"], "Undo", True)
+    assert text.startswith("- [ ] Set aside  - [x] Undo") and review.open_items(text) == 0
+    with pytest.raises(TailorError, match="instead"):
+        review.set_box(text, 0, text.rstrip("\n"), "Undo", False)  # a pick can't be cleared
+    text = review.set_box(text, 0, text.rstrip("\n"), "Set aside", True)
+    assert text.startswith("- [x] Set aside  - [ ] Undo")
 
 
 def test_keep_and_remove_are_exclusive_and_stale_lines_refused():

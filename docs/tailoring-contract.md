@@ -151,7 +151,9 @@ by question and text, so a repeated question is answered from the cache (also wh
 unreachable).
 `jev_said_no` lists every unknown-term match Jev answered no to (`{"term", "passage", "text"}`,
 passage `base:<id>` for a base line); `check.md` shows them, with the failed Jev checklist items,
-under "Jev said no: check for false rejections". The letter's opening and closing sentences are
+under "Jev said no: check for false rejections". Each failed checklist item is a `- [ ] Reviewed` line
+saying what Jev judged (src/tailor/explain.py); checklist items keep `req_id`, `bullet` or `sentence`
+so the page can name the requirement, bullet or sentence a question was about. The letter's opening and closing sentences are
 checked by two separate Jev questions (`letter.opener`, `letter.closer`), each quoting its sentence.
 
 ### `plan.json`
@@ -165,8 +167,11 @@ Claude adds: `{"headline": "...|null", "summary_angle": "...", "swap_in": [passa
 in the base resume); `check.md` shows them. `apply-edits` copies them into the shared reject list
 `evidence-rejects.json` (`{"rejects": [{"term", "passage", "reason", "job_id", "added", "undone"?}]}`),
 so later jobs skip them, and `grade` leaves rejected passages out of its repair notes. In `check.md`
-each drop is a `- [ ] Undo` line, marked `(new)` when this job added it; ticking Undo and running
-`approve` marks that entry `undone`, which stops it applying and keeps it from being re-added.
+each drop is a `- [ ] Set aside  - [ ] Undo` line in plain words (exactly one must be ticked before
+`approve`), ending in `<!-- undo: term | passage -->` (the pair
+`approve` reads), with the passage quoted and "first set aside on this job" when this job added it;
+ticking Undo and running `approve` marks that entry `undone`, which stops it applying and keeps it
+from being re-added.
 
 ### `edits.json` (Claude writes)
 
@@ -207,7 +212,10 @@ exactly the same items, every `sources` id exists in the vault index and is a `c
  "metrics": {"alignment": 0.0, "preservation": 0.0, "baseline": 0.0, "lift": 0.0, "borrowed_rate": 0.0}}
 ```
 
-Codes are short snake_case strings; the full list lives in `src/tailor/checks.py`.
+Codes are short snake_case strings; the full list lives in `src/tailor/checks.py`. An issue may also
+carry `data` (for example `{"term": "R"}`, or `{"first", "second", "added"}` for `jev_citation_gap`),
+which `src/tailor/explain.py` uses to write the plain-language line in `check.md`; a new code needs an
+entry in its `_ISSUES` table, or check.md falls back to the raw message.
 
 When Jev says a changed line isn't supported by its cited passages, the check asks again with the
 related passages the line doesn't cite (same vault entries, the passages sharing each clause's rarest

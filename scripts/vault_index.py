@@ -22,7 +22,7 @@ import click
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.vault import assign_ids, build_index, to_json, vault_files  # noqa: E402
+from src.vault import assign_ids, build_index, file_titles, to_json, vault_files  # noqa: E402
 
 DEFAULT_VAULT = PROJECT_ROOT / "materials" / "profile" / "experience-vault"
 DEFAULT_OUT = PROJECT_ROOT / "materials" / "profile" / "vault-index.json"
@@ -68,6 +68,7 @@ def main(vault: Path, out: Path, assign: bool, check: bool, show_id: str | None)
     payload = {
         "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "vault": str(vault),
+        "titles": file_titles(vault),
         "passages": to_json(passages),
     }
     out.write_text(json.dumps(payload, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")

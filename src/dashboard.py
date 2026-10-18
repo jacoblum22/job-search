@@ -127,6 +127,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .cols .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; }
   .cols .bar { width: 64%; max-width: 44px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, #86a6ff, #4a6fe0); transition: filter .15s; }
   .cols .col:hover .bar { filter: brightness(1.25); }
+  .cols .bar.stack { display: flex; flex-direction: column-reverse; background: none; overflow: hidden; gap: 1px; }
+  .cols .seg { min-height: 2px; }
+  .collegend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted); margin: -8px 0 12px; }
+  .collegend span { display: flex; align-items: center; gap: 6px; }
+  .collegend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
   .cols .v { font-size: 11px; color: var(--text); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
   .cols .k { position: absolute; bottom: -20px; font-size: 11px; color: var(--muted); white-space: nowrap; }
   .card.wide:has(.cols) { padding-bottom: 34px; }
@@ -328,12 +333,22 @@ function barsCard(title, sub, entries, cls = '', colorOf = null) {
     <div class="hbars">${rows || '<span class="sub">Nothing yet.</span>'}</div></div>`;
 }
 
-function columnsCard(title, sub, entries, cls = '') {
-  const max = Math.max(1, ...entries.map(([, n]) => n));
-  const cols = entries.map(([k, n]) => `<div class="col" title="${escapeHtml(k)}: ${n}">
-    <span class="v">${n || ''}</span><div class="bar" style="height:${n ? Math.max(3, 100 * n / max) : 0}%"></div>
-    <span class="k">${escapeHtml(k)}</span></div>`).join('');
-  return `<div class="card ${cls}"><h2>${title}</h2><div class="sub">${sub}</div><div class="cols">${cols}</div></div>`;
+// One column per day, stacked by tier (A at the bottom), with a legend.
+function stackedColumnsCard(title, sub, days, cls = '') {
+  const tiers = ['A', 'B', 'C', 'D', 'skip'];
+  const name = t => t === 'skip' ? 'Skipped' : 'Tier ' + t;
+  const max = Math.max(1, ...days.map(d => d.total));
+  const cols = days.map(d => {
+    const tip = [`${d.label}: ${d.total}`, ...tiers.filter(t => d[t]).map(t => `${name(t)} ${d[t]}`)].join('\n');
+    const segs = tiers.filter(t => d[t]).map(t =>
+      `<div class="seg" style="flex:${d[t]};background:linear-gradient(180deg, ${TIER_COLORS[t][1]}, ${TIER_COLORS[t][0]})"></div>`).join('');
+    return `<div class="col" title="${escapeHtml(tip)}"><span class="v">${d.total || ''}</span>
+      <div class="bar stack" style="height:${d.total ? Math.max(3, 100 * d.total / max) : 0}%">${segs}</div>
+      <span class="k">${escapeHtml(d.label)}</span></div>`;
+  }).join('');
+  const legend = tiers.map(t => `<span><i style="background:${TIER_COLORS[t][1]}"></i>${name(t)}</span>`).join('');
+  return `<div class="card ${cls}"><h2>${title}</h2><div class="sub">${sub}</div>
+    <div class="collegend">${legend}</div><div class="cols">${cols}</div></div>`;
 }
 
 function sourceOf(j) {
@@ -379,9 +394,12 @@ function renderStats() {
   const days = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10);
-    days.push([d.slice(5).replace('-', '/'), jobs.filter(j => (j.first_seen || '').slice(0, 10) === d).length]);
+    const day = jobs.filter(j => (j.first_seen || '').slice(0, 10) === d);
+    const row = {label: d.slice(5).replace('-', '/'), total: day.length};
+    for (const t of ['A', 'B', 'C', 'D', 'skip']) row[t] = day.filter(j => (j.tier || 'skip') === t).length;
+    days.push(row);
   }
-  h += columnsCard('New jobs per day', 'First seen, last 14 days (jobs still stored)', days, 'wide');
+  h += stackedColumnsCard('New jobs per day', 'First seen, last 14 days (jobs still stored), by tier', days, 'wide');
 
   // Which source families find good jobs: share of each family's jobs that are tier A or B.
   const fams = countBy(jobs.flatMap(j => [...new Set(j.sources.map(family))]), f => f);

@@ -90,11 +90,13 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     if not isinstance(letter, dict) or not isinstance(letter.get("paragraphs"), list):
         return out
 
-    def crit(code: str, msg: str, where: str = "letter") -> None:
-        out["criticals"].append({"code": code, "message": msg, "path": where, "doc": "letter"})
+    def crit(code: str, msg: str, where: str = "letter", **data: Any) -> None:
+        out["criticals"].append({"code": code, "message": msg, "path": where, "doc": "letter",
+                                 **({"data": data} if data else {})})
 
-    def warn(code: str, msg: str, where: str = "letter") -> None:
-        out["warnings"].append({"code": code, "message": msg, "path": where, "doc": "letter"})
+    def warn(code: str, msg: str, where: str = "letter", **data: Any) -> None:
+        out["warnings"].append({"code": code, "message": msg, "path": where, "doc": "letter",
+                                **({"data": data} if data else {})})
 
     req = ctx["req"]
     contact = req.get("hiring_contact")
@@ -147,14 +149,14 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
                 cited_fact = True
                 para_fact_text.append(ftext)
         for raw in extract_numbers(text, allowed_nums):
-            crit("invented_number", f"{where}: {raw!r} appears in no vault passage or company fact", where)
+            crit("invented_number", f"{where}: {raw!r} appears in no vault passage or company fact", where, term=raw)
         fact_skills = taxonomy.find("\n".join(para_fact_text))
         for skill in sorted(taxonomy.find(text) - vault_skills - fact_skills):
             if taxonomy.is_hard(skill):
-                crit("invented_skill", f"{where}: mentions {skill}, which is not in the vault or base", where)
+                crit("invented_skill", f"{where}: mentions {skill}, which is not in the vault or base", where, term=skill)
         for m in _FAMILIAR.finditer(text):
             for skill in sorted(taxonomy.find(m.group(1)) - vault_skills):
-                warn("familiar_absent_term", f"{where}: 'familiar with' {skill}, which the vault does not show", where)
+                warn("familiar_absent_term", f"{where}: 'familiar with' {skill}, which the vault does not show", where, term=skill)
 
     if paras and not cited_fact:
         warn("no_company_fact", "no paragraph cites a verified company-specific fact")
