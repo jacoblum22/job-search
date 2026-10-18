@@ -26,8 +26,11 @@ from src.tailor.paths import DEFAULT_PATHS, resolve
 BASE = "base"  # passage value for a match in the base resume itself
 # check.md's Undo lines carry the pair in a trailing comment ("<!-- undo: term | passage -->") so
 # the visible text can be plain language; older check.md files used "Undo  term (passage): reason".
-_UNDO = re.compile(r"^- \[(?P<x>[ xX])\] Undo\s+(?:.*<!-- undo: (?P<term>.+?) \| (?P<passage>[^>]+?) -->"
-                   r"|(?P<old_term>.+?) \((?P<old_passage>[^()]+)\):)")
+# A drop is decided with two exclusive boxes: "Set aside" (the rejection was right) or "Undo".
+_UNDO = re.compile(r"^- \[[ xX]\] Set aside\s+- \[(?P<x>[ xX])\] Undo\s+.*<!-- undo: (?P<term>.+?) \| "
+                   r"(?P<passage>[^>]+?) -->")
+_OLD_UNDO = re.compile(r"^- \[(?P<x>[ xX])\] Undo\s+(?:.*<!-- undo: (?P<term>.+?) \| (?P<passage>[^>]+?) -->"
+                       r"|(?P<old_term>.+?) \((?P<old_passage>[^()]+)\):)")
 
 
 def _path(cfg: dict[str, Any], name: str) -> Path:
@@ -98,8 +101,15 @@ def sync_plan_drops(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
 
 def apply_undos(check_md: str, cfg: dict[str, Any]) -> list[tuple[str, str]]:
     """Mark the rejects ticked "Undo" in check.md as undone; return the pairs changed."""
-    ticked = {(_key(m["term"] or m["old_term"]), (m["passage"] or m["old_passage"]).strip())
-              for line in check_md.splitlines() if (m := _UNDO.match(line)) and m["x"] != " "}
+    ticked = set()
+    for line in check_md.splitlines():
+        m = _UNDO.match(line)
+        if m and m["x"] != " ":
+            ticked.add((_key(m["term"]), m["passage"].strip()))
+            continue
+        m = _OLD_UNDO.match(line)
+        if m and m["x"] != " ":
+            ticked.add((_key(m["term"] or m["old_term"]), (m["passage"] or m["old_passage"]).strip()))
     if not ticked:
         return []
     path = _path(cfg, "evidence_rejects")

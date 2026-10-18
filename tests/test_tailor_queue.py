@@ -192,13 +192,16 @@ def test_packet_lists_evidence_drops(cfg):
     check = (d / "check.md").read_text()
     assert "## Evidence set aside" in check
     line = next(x for x in check.splitlines() if "Undo" in x and x.startswith("- [ ]"))
-    assert line == ("- [ ] Undo  Microsoft Access: not counted from firmament.oauth-2-0. "
+    assert line == ("- [ ] Set aside  - [ ] Undo  Microsoft Access: not counted from firmament.oauth-2-0. "
                     "<!-- undo: Microsoft Access | firmament.oauth-2-0 -->")
     assert "  - Why: OAuth access tokens." in check
     assert check.index("Evidence set aside") < check.index("Changes from the base")
     # The pair in the comment is what approve uses to undo the reject.
     from src.tailor import rejects
-    assert rejects._UNDO.match(line.replace("[ ]", "[x]"))["passage"] == "firmament.oauth-2-0"
+    assert rejects._UNDO.match(line.replace("[ ] Undo", "[x] Undo"))["passage"] == "firmament.oauth-2-0"
+    assert not rejects.apply_undos(line.replace("[ ] Set aside", "[x] Set aside"), cfg)  # set aside = keep it
+    with pytest.raises(TailorError):
+        approve(d, cfg)  # a drop needs a decision too
 
 
 def test_packet_lists_jev_no_answers(cfg):

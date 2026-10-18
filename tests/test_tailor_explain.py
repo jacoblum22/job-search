@@ -70,5 +70,5 @@ def test_drops_show_the_passage_and_old_undo_lines_still_work():
     head, details = explain.drop({"term": "SQL", "passage": "algaecal.sql-daily", "reason": "Not a skill"}, INDEX, True)
     assert head == "SQL: not counted from Associate Data Scientist — AlgaeCal (What I Did)."
     assert details == ['The passage: "Daily SQL."', "Why: Not a skill.", "First set aside on this job; later jobs skip it too."]
-    old = rejects._UNDO.match("- [x] Undo  Excel (job-search.outputs): an export")
+    old = rejects._OLD_UNDO.match("- [x] Undo  Excel (job-search.outputs): an export")
     assert (old["old_term"], old["old_passage"]) == ("Excel", "job-search.outputs")

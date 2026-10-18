@@ -18,11 +18,11 @@ from src.resume import iter_bullets
 # Section blurbs (rendered as "> " notes under each heading)
 # ---------------------------------------------------------------------------
 
-INTRO = ("Your review list for this application. Every box except Undo needs a tick before you can "
-         "approve. Ticking a box only records your decision: nothing here edits the resume or letter.")
+INTRO = ("Your review list for this application. Every item needs a decision before you can approve. "
+         "A decision only records your call: nothing here edits the resume or letter.")
 GATE = ("Before tailoring, Jev (a small AI model the pipeline asks cheap yes/no questions) screened the "
         "posting. These answers came back against this job. They never remove a job; they only move it "
-        "down the list. Tick Reviewed once you've decided the job is still worth applying to.")
+        "down the list. Mark it Reviewed once you've decided the job is still worth applying to.")
 FIT = ("The ATS score estimates how well an applicant tracking system would match your resume to the "
        "posting's keywords, out of 100. Below 70 we stop and ask you to look.")
 FIT_GAP = ("Here the gap is missing experience, not wording: even if the resume used every skill your "
@@ -36,19 +36,20 @@ GRADE = ("The score is 60% the ATS estimate and 40% the share of Jev's checks th
 JEV_NO = ("After writing, Jev checked the resume and letter with yes/no questions. These are the answers "
           "that came back the wrong way. Jev can be wrong, so read the part it's about and decide. "
           "If Jev is right, it's a real gap: be ready to speak to it in an interview, or fix the line. "
-          "If Jev is wrong, there's nothing to do. Tick Reviewed either way.")
+          "If Jev is wrong, there's nothing to do. Mark it Reviewed either way.")
 JEV_NO_EVIDENCE = ("Jev also turned down these plain-word matches when looking for evidence, so the "
-                   "resume doesn't use them. Nothing to tick: if one is wrong, make the vault passage "
+                   "resume doesn't use them. Nothing to decide: if one is wrong, make the vault passage "
                    "say it more clearly and rerun.")
 DROPS = ("Before writing, the pipeline looks for vault passages that prove each skill the posting asks "
-         "for. These passages use the word but don't show you have the skill, so they were set aside "
-         "and the resume doesn't lean on them. Undo is optional: tick it only if a passage really does "
-         "show the skill, and approving will let later applications use it again.")
+         "for. These passages use the word but don't show you have the skill, so they were set aside and the "
+         "resume doesn't lean on them. For each, pick Correctly set aside if that's right, or Shows the skill if "
+         "the passage really does show it (Set aside or Undo in check.md); approving with Shows the skill "
+         "lets later applications use it again.")
 CHANGES = ("Every line this resume says differently from the {base} base resume. Read each one and "
            "make sure you're comfortable defending it in an interview.")
-ISSUES = ("Automatic checks on the final resume and letter. Tick Keep if it's fine as it is, or Remove if "
-          "you'll change it before applying. Remove only records your choice: edit the file yourself, "
-          "then rerun the render and packet steps.")
+ISSUES = ("Automatic checks on the final resume and letter. Pick Keep if it's fine as it is, or Remove if "
+          "you'll change it before applying. Remove only records your choice: edit the file yourself, then "
+          "rerun the render and packet steps.")
 NOTES = "Things the pipeline already handled. Nothing to decide; they're here so you know."
 
 # ---------------------------------------------------------------------------

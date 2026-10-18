@@ -7,19 +7,16 @@ ticks, and `approve` refuses until none is left unticked.
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any
 
 from src.resume import load_resume
-from src.tailor import TailorError, appdir, explain, rejects, store
+from src.tailor import TailorError, appdir, explain, rejects, review, store
 from src.tailor.paths import resolve
 from src.tailor.sources import load_index, load_titles
 
 OUTCOMES = ("applied", "callback", "interview", "offer", "rejected", "no_reply")
 
-_KEEP_REMOVE = re.compile(r"^- \[(?P<keep>[ xX])\] Keep\s+- \[(?P<rm>[ xX])\] Remove\b")
-_REVIEWED = re.compile(r"^- \[(?P<ok>[ xX])\] Reviewed\b")
 
 
 def _opt_json(path: Path) -> Any:
@@ -217,7 +214,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
         for d in drops:
             term, pid = str(d.get("term", "?")), str(d.get("passage", "?"))
             head, details = explain.drop(d, index, (term.lower(), pid) in new)
-            lines.append(f"- [ ] Undo  {head} <!-- undo: {term} | {pid} -->")
+            lines.append(f"- [ ] Set aside  - [ ] Undo  {head} <!-- undo: {term} | {pid} -->")
             lines += [f"  - {x}" for x in details]
     base_id = app.get("base_id") or (_opt_json(app_dir / "plan.json") or {}).get("base_id") or "chosen"
     lines += ["", "## Changes from the base", ""] + _note(explain.CHANGES.format(base=base_id))
@@ -277,17 +274,8 @@ def _sync(app_dir: Path, cfg: dict[str, Any], app: dict[str, Any], status: str, 
 
 
 def unresolved_lines(check_md: str) -> list[str]:
-    """Lines of check.md that still need a decision."""
-    bad = []
-    for line in check_md.splitlines():
-        m = _KEEP_REMOVE.match(line)
-        if m and m["keep"] == " " and m["rm"] == " ":
-            bad.append(line)
-            continue
-        m = _REVIEWED.match(line)
-        if m and m["ok"] == " ":
-            bad.append(line)
-    return bad
+    """Lines of check.md that still need a decision (the same rule the review page uses)."""
+    return review.undecided(check_md)
 
 
 def approve(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:

@@ -257,8 +257,18 @@ DETAILS_PAGE = r"""<!DOCTYPE html>
   button:disabled { opacity: .5; cursor: default; }
   .item { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
   .item:last-child { border-bottom: none; }
-  .item .boxes { display: flex; gap: 10px; white-space: nowrap; }
-  .item label { cursor: pointer; color: var(--muted); } .item label.on { color: var(--text); }
+  .item .boxes { display: flex; flex-direction: column; gap: 6px; width: 150px; flex: none; padding-top: 2px; }
+  button.pick { margin: 0; width: 100%; font-size: 12px; padding: 5px 8px; border-radius: 6px; background: none;
+                text-align: center; white-space: nowrap; }
+  button.pick.review { border-color: #6b7280; color: #c4cbd8; }
+  button.pick.review.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.pick.good { border-color: #3a7d44; color: #8fd19e; }
+  button.pick.good.on { background: #3a7d44; color: #fff; }
+  button.pick.bad { border-color: #b85454; color: #f2a5a5; }
+  button.pick.bad.on { background: #b85454; color: #fff; }
+  button.pick.warn { border-color: #c9a227; color: #e0c060; }
+  button.pick.warn.on { background: #c9a227; color: #1a1a1a; }
+  button.pick.on { cursor: default; font-weight: 600; } button.pick.review.on { cursor: pointer; }
   .item .details { color: var(--muted); margin-top: 2px; }
   .item.open .text { color: var(--text); font-weight: 600; }
   .line { font-size: 13px; padding: 2px 0; } .line.bullet::before { content: "• "; color: var(--muted); }
@@ -409,6 +419,15 @@ function detailsHtml(details) {
   return h;
 }
 
+// Button wording per kind of check.md line: [unselected, selected, colour] for each box.
+const BUTTONS = {
+  reviewed: [['In review', 'Reviewed', 'review']],
+  keep_remove: [['Keep', 'Keep', 'good'], ['Remove', 'Remove', 'bad']],
+  drop: [['Correctly set aside', 'Correctly set aside', 'good'], ['Shows the skill', 'Shows the skill', 'warn']],
+  undo: [['Undo', 'Undo', 'warn']],
+};
+const PAIRS = new Set(['keep_remove', 'drop']);
+
 function checkHtml(blocks) {
   let h = '';
   for (let k = 0; k < blocks.length; k++) {
@@ -431,8 +450,11 @@ function checkHtml(blocks) {
       }
     } else {
       const open = b.kind !== 'undo' && !b.options.some(o => o.checked);
-      const boxes = b.options.map((o, i) => `<label class="${o.checked ? 'on' : ''}"><input type="checkbox"
-        data-line="${b.line}" data-opt="${esc(o.name)}" ${o.checked ? 'checked' : ''}> ${esc(o.name)}</label>`).join('');
+      const boxes = b.options.map((o, i) => {
+        const [off, on, tone] = (BUTTONS[b.kind] || [])[i] || [o.name, o.name, 'neutral'];
+        return `<button class="pick ${tone}${o.checked ? ' on' : ''}" data-line="${b.line}" data-opt="${esc(o.name)}"
+          data-checked="${o.checked}" title="${esc(o.name)}">${o.checked ? '✓ ' : ''}${esc(o.checked ? on : off)}</button>`;
+      }).join('');
       h += `<div class="item${open ? ' open' : ''}"><div class="boxes">${boxes}</div>
         <div><div class="text">${inline(b.text)}</div>${detailsHtml(b.details)}</div></div>`;
     }
@@ -464,7 +486,7 @@ function render() {
     if (app.status === 'ready_for_review') {
       const left = app.open_items || 0;
       h += `<button class="primary" data-act="approve" ${left ? 'disabled' : ''}>Approve</button>
-        <span class="meta">${left ? `${left} box${left === 1 ? '' : 'es'} below still need a decision` : 'Every box is decided.'}</span>`;
+        <span class="meta">${left ? `${left} item${left === 1 ? '' : 's'} below still need${left === 1 ? 's' : ''} a decision` : 'Every item is decided.'}</span>`;
     }
     if (app.status === 'approved') h += `<button class="primary" data-act="outcome" data-val="applied">I applied</button>`;
     if (app.status === 'applied') {
@@ -484,13 +506,16 @@ function render() {
   root.innerHTML = h;
 }
 
-root.addEventListener('change', async e => {
-  const box = e.target;
-  if (!box.dataset || box.dataset.line === undefined) return;
-  const line = Number(box.dataset.line);
+// Reviewed toggles; in a pair, the picked button stays picked until the other one is pressed.
+root.addEventListener('click', async e => {
+  const btn = e.target.closest('button.pick');
+  if (!btn) return;
+  const line = Number(btn.dataset.line);
   const block = data.app.check.find(b => b.line === line);
+  const picked = btn.dataset.checked === 'true';
+  if (picked && PAIRS.has(block.kind)) return;
   try {
-    const res = await post('check', {line, raw: block.raw, option: box.dataset.opt, checked: box.checked});
+    await post('check', {line, raw: block.raw, option: btn.dataset.opt, checked: !picked});
     msgEl.className = '';
     await load();
   } catch (err) { say(err.message); await load(); }

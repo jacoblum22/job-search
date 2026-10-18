@@ -167,7 +167,8 @@ Claude adds: `{"headline": "...|null", "summary_angle": "...", "swap_in": [passa
 in the base resume); `check.md` shows them. `apply-edits` copies them into the shared reject list
 `evidence-rejects.json` (`{"rejects": [{"term", "passage", "reason", "job_id", "added", "undone"?}]}`),
 so later jobs skip them, and `grade` leaves rejected passages out of its repair notes. In `check.md`
-each drop is a `- [ ] Undo` line in plain words, ending in `<!-- undo: term | passage -->` (the pair
+each drop is a `- [ ] Set aside  - [ ] Undo` line in plain words (exactly one must be ticked before
+`approve`), ending in `<!-- undo: term | passage -->` (the pair
 `approve` reads), with the passage quoted and "first set aside on this job" when this job added it;
 ticking Undo and running `approve` marks that entry `undone`, which stops it applying and keeps it
 from being re-added.
