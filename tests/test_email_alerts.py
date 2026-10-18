@@ -239,3 +239,30 @@ def test_wellfound_falls_back_to_hashed_ids():
     jobs = wellfound_email.parse_message(_msg("", WF_HTML))
     assert all(j.external_id.startswith("h-") for j in jobs)
     assert jobs[0].url == "https://links.wellfound.com/s/c/redirect"
+
+
+def _load_script(name: str):
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"{name}_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_browser_snippets_skip_keyword_match():
+    from src.db import Job
+    from src.search_match import keep_job
+
+    aggregate = _load_script("aggregate")
+    assert aggregate.BROWSER_SOURCES == _load_script("browser_queue").BROWSER_SOURCES
+    search = {"keywords": ["data analyst"]}
+    job = Job("glassdoor", "1", "Data & Systems Analyst", "Example School", "West Vancouver", "Salary: $65K")
+    assert aggregate._awaits_browser(job)
+    assert not keep_job(job, search, match_keywords=True)
+    assert keep_job(job, search, match_keywords=not aggregate._awaits_browser(job))
+    full = Job("glassdoor", "2", "Data & Systems Analyst", "Example School", "West Vancouver", "x" * 1200)
+    assert not aggregate._awaits_browser(full)
+    assert not aggregate._awaits_browser(Job("adzuna", "3", "Data & Systems Analyst", "E", "Vancouver", ""))

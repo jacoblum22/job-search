@@ -23,7 +23,12 @@ from src.dashboard import generate_dashboard
 from src.db import connect, upsert_job
 from src.dedup import run_dedup
 from src.enrich import DEFAULT_WORKERS as DEFAULT_ENRICH_WORKERS
-from src.enrich import backfill_stored, enrich_descriptions, worth_keeping
+from src.enrich import (
+    SNIPPET_MAX_CHARS,
+    backfill_stored,
+    enrich_descriptions,
+    worth_keeping,
+)
 from src.export_xlsx import generate_xlsx
 from src.retention import is_stale, max_age_days, prune, pruned_keys
 from src.score import rescore_all
@@ -105,6 +110,16 @@ def _release_lock() -> None:
     LOCK_PATH.unlink(missing_ok=True)
 
 
+# Same list as BROWSER_SOURCES in scripts/browser_queue.py (stdlib-only, so
+# it can't import from here).
+BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet", "jobright", "wellfound")
+
+
+def _awaits_browser(job) -> bool:
+    """A snippet-only listing the scheduled Chrome task will fill in."""
+    return job.source in BROWSER_SOURCES and len(job.description or "") < SNIPPET_MAX_CHARS
+
+
 def run(
     cfg: dict,
     *,
@@ -166,7 +181,16 @@ def run(
         jobs = [j for j in jobs if worth_keeping(j, wanted)]
         if len(jobs) != before:
             log.info("Dropped %d of %d snippet-only listing(s) with irrelevant titles", before - len(jobs), before)
-        kept = [j for j in jobs if keep_job(j, search, match_keywords=match_keywords)]
+        # A snippet from a site only the Chrome task can read (LinkedIn,
+        # Indeed, Glassdoor, ... — see BROWSER_SOURCES in
+        # scripts/browser_queue.py) is stored once its title is worth a fetch
+        # (worth_keeping above), without the keyword match: the snippet is too
+        # short to judge, and the Chrome task fills in the full posting.
+        kept = [
+            j
+            for j in jobs
+            if keep_job(j, search, match_keywords=match_keywords and not _awaits_browser(j))
+        ]
         if len(kept) != len(jobs):
             log.info("Filtered out %d of %d job(s) (keywords/location/level)", len(jobs) - len(kept), len(jobs))
         total_fetched += len(kept)
