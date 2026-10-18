@@ -470,6 +470,18 @@ def _find_soffice() -> str | None:
     return next((str(p) for p in _SOFFICE_WINDOWS if p.exists()), None) if sys.platform == "win32" else None
 
 
+def _save_docx(doc: Any, docx_path: Path) -> None:
+    """Save, turning Windows' bare "Permission denied" into what to do about it."""
+    try:
+        doc.save(str(docx_path))
+    except PermissionError as e:
+        # Word keeps an owner file "~$" + name[2:] next to a document it has open.
+        lock = docx_path.with_name("~$" + docx_path.name[2:])
+        who = ("Word has it open (maybe a hidden Word left by an earlier failed run: end WINWORD.EXE "
+               "in Task Manager if no Word window shows it)") if lock.exists() else "another program has it open"
+        raise RuntimeError(f"Can't overwrite {docx_path.name}: {who}. Close it and run again.") from e
+
+
 def docx_to_pdf(docx_path: Path, pdf_path: Path) -> Path:
     """Convert with Word when it is installed (Windows), else LibreOffice."""
     docx_path, pdf_path = Path(docx_path).resolve(), Path(pdf_path).resolve()
@@ -514,7 +526,7 @@ def render(
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = stem or data.get("file_stem") or Path(base_path).stem
     docx_path = out_dir / f"{stem}.docx"
-    build_document(data, contact).save(str(docx_path))
+    _save_docx(build_document(data, contact), docx_path)
     result: dict[str, Any] = {"docx": docx_path, "problems": problems}
     if pdf:
         pdf_path = docx_to_pdf(docx_path, out_dir / f"{stem}.pdf")
