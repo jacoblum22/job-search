@@ -150,7 +150,10 @@ summary; read it before continuing.
 9. **Humanize:** `... humanize-flags "$APP"`; if there are flags, run `prompts/tailor/humanize.md` to write
    `humanize/patches.json`, then `... humanize-apply "$APP"`.
 10. **Finish:** `... render "$APP"`, then `... packet "$APP"`. Review `APP/check.md` (gate flags first, then
-    the diff and Keep/Remove lines), open `APP/final/`, and approve or skip.
+    the diff and Keep/Remove lines), open `APP/final/`, and approve or skip. The easiest way is the local
+    dashboard (`uv run python scripts/serve.py`): click the job's title to open its details page, which shows
+    the files, lets you tick check.md's boxes, approve, and press "I applied" (or record a later outcome).
+    The CLI equivalents are `... approve "$APP"` and `... outcome "$APP" applied`.
 
 To redo a step, rerun its command; code steps overwrite their own outputs. To redo a Claude step,
 overwrite its JSON file and rerun the command after it. Delete a later round's folder

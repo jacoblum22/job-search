@@ -27,13 +27,17 @@ CREATE TABLE IF NOT EXISTS applications (
     created_at TEXT,
     updated_at TEXT,
     outcome TEXT,
-    outcome_at TEXT
+    outcome_at TEXT,
+    review_flags TEXT
 );
 """
 
+# Columns added after the first release; ensure_table adds them to older databases.
+_ADDED_COLUMNS = {"review_flags": "TEXT"}
+
 _SETTABLE = {
     "folder", "status", "tier", "score", "gate_flags", "flagged", "queue_rank",
-    "base_id", "created_at", "outcome", "outcome_at",
+    "base_id", "created_at", "outcome", "outcome_at", "review_flags",
 }
 
 
@@ -48,7 +52,41 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
 
 def ensure_table(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    have = {r[1] for r in conn.execute("PRAGMA table_info(applications)")}
+    for col, kind in _ADDED_COLUMNS.items():
+        if col not in have:
+            conn.execute(f"ALTER TABLE applications ADD COLUMN {col} {kind}")
     conn.commit()
+
+
+def has_table(conn: sqlite3.Connection) -> bool:
+    """True when jobs.db has an applications table (the dashboard and retention never create it)."""
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'applications'"
+    ).fetchone() is not None
+
+
+def all_apps(conn: sqlite3.Connection) -> dict[int, dict[str, Any]]:
+    """Every application row by job id; empty when the table doesn't exist yet."""
+    if not has_table(conn):
+        return {}
+    cur = conn.execute("SELECT * FROM applications")
+    cols = [d[0] for d in cur.description]
+    out = {}
+    for r in cur.fetchall():
+        row = dict(zip(cols, r, strict=True))
+        row["gate_flags"] = json.loads(row.get("gate_flags") or "[]")
+        row["review_flags"] = json.loads(row.get("review_flags") or "[]")
+        out[row["job_id"]] = row
+    return out
+
+
+def mark_applied(conn: sqlite3.Connection, job_id: int) -> None:
+    """Set jobs.status = 'applied' on the job and its duplicates from other sources,
+    so the dashboard shows it and retention keeps it."""
+    from src.db import set_job_status
+
+    set_job_status(conn, job_id, "applied")
 
 
 def upsert_app(conn: sqlite3.Connection, app: dict[str, Any], folder: Path) -> None:
@@ -85,6 +123,7 @@ def get_app(conn: sqlite3.Connection, job_id: int) -> dict[str, Any] | None:
         return None
     out = dict(r)
     out["gate_flags"] = json.loads(out["gate_flags"] or "[]")
+    out["review_flags"] = json.loads(out.get("review_flags") or "[]")
     return out
 
 

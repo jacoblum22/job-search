@@ -3,7 +3,8 @@ remember what was deleted so the next scrape doesn't bring it back.
 
 A job's age is its posted date when the source gives one, otherwise how long
 ago we first saw it. Postings whose link answers 404/410 are deleted the same
-way as soon as src/enrich.py sees it. Jobs marked `applied` are never deleted. Configure with
+way as soon as src/enrich.py sees it. Jobs marked `applied`, and jobs with a tailoring
+application, are never deleted. Configure with
 `retention: {max_age_days: N}` in settings.yaml (0 turns it off).
 """
 
@@ -16,6 +17,15 @@ from email.utils import parsedate_to_datetime
 
 DEFAULT_MAX_AGE_DAYS = 30
 KEEP_STATUSES = ("applied",)
+
+
+def kept_clause(conn: sqlite3.Connection) -> str:
+    """SQL to add to a `WHERE` on jobs so jobs with a tailoring application
+    (src/tailor/store.py) are never deleted, whatever their status."""
+    has_apps = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'applications'"
+    ).fetchone()
+    return " AND id NOT IN (SELECT job_id FROM applications)" if has_apps else ""
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS pruned_jobs (
@@ -92,7 +102,8 @@ def prune(conn: sqlite3.Connection, max_days: int, today: date | None = None) ->
     today = today or datetime.now().astimezone().date()
     placeholders = ",".join("?" for _ in KEEP_STATUSES)
     rows = conn.execute(
-        f"SELECT id, source, external_id, posted_date, first_seen FROM jobs WHERE status NOT IN ({placeholders})",
+        f"SELECT id, source, external_id, posted_date, first_seen FROM jobs WHERE status NOT IN ({placeholders})"
+        + kept_clause(conn),
         KEEP_STATUSES,
     ).fetchall()
     stale = []
@@ -120,7 +131,10 @@ def delete_expired(conn: sqlite3.Connection, keys: set[tuple[str, str]]) -> int:
     placeholders = ",".join("?" for _ in KEEP_STATUSES)
     keep = {
         (r[0], r[1])
-        for r in conn.execute(f"SELECT source, external_id FROM jobs WHERE status IN ({placeholders})", KEEP_STATUSES)
+        for r in conn.execute(
+            f"SELECT source, external_id FROM jobs WHERE NOT (status NOT IN ({placeholders}){kept_clause(conn)})",
+            KEEP_STATUSES,
+        )
     }
     gone = [k for k in keys if k not in keep]
     now = datetime.now(UTC).isoformat(timespec="seconds")

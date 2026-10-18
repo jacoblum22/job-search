@@ -13,7 +13,7 @@ from pathlib import Path
 import click
 
 from src.tailor import TailorError
-from src.tailor.paths import load_config
+from src.tailor.paths import load_config, resolve
 
 
 def _jev():
@@ -164,7 +164,9 @@ def packet(app_dir):
     """Step 10: fit-notes.md, check.md and the status update."""
     from src.tailor.packet import run_packet
 
-    _out(run_packet(app_dir, load_config()))
+    cfg = load_config()
+    _out(run_packet(app_dir, cfg))
+    _refresh_dashboard(cfg)
 
 
 @main.command()
@@ -173,7 +175,9 @@ def approve(app_dir):
     """Approve after every line of check.md is ticked."""
     from src.tailor.packet import approve as do_approve
 
-    _out(do_approve(app_dir, load_config()))
+    cfg = load_config()
+    _out(do_approve(app_dir, cfg))
+    _refresh_dashboard(cfg)
 
 
 @main.command()
@@ -183,7 +187,24 @@ def outcome(app_dir, status):
     """Record what happened to an application."""
     from src.tailor.packet import record_outcome
 
-    _out(record_outcome(app_dir, load_config(), status))
+    cfg = load_config()
+    _out(record_outcome(app_dir, cfg, status))
+    _refresh_dashboard(cfg)
+
+
+def _refresh_dashboard(cfg) -> None:
+    """Rebuild dashboard.html so a new application status shows without waiting for a scrape."""
+    from src.dashboard import generate_dashboard
+    from src.db import connect
+
+    db = resolve(cfg, "db")
+    if not db.exists():
+        return
+    conn = connect(db)
+    try:
+        generate_dashboard(conn, resolve(cfg, "dashboard"))
+    finally:
+        conn.close()
 
 
 def run() -> None:

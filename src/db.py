@@ -236,6 +236,22 @@ def set_dedup_group(conn: sqlite3.Connection, job_id: int, dedup_group_id: str) 
 _STATUS_RANK = {"new": 0, "expired": 1, "dismissed": 2, "applied": 3}
 
 
+JOB_STATUSES = ("new", "applied", "dismissed", "expired")
+
+
+def set_job_status(conn: sqlite3.Connection, job_id: int, status: str) -> int:
+    """Set the status of a job and its duplicates from other sources; returns rows changed."""
+    if status not in JOB_STATUSES:
+        raise ValueError(f"status must be one of {', '.join(JOB_STATUSES)}")
+    n = conn.execute(
+        "UPDATE jobs SET status = ? WHERE id = ? OR dedup_group_id = "
+        "(SELECT dedup_group_id FROM jobs WHERE id = ?)",
+        (status, job_id, job_id),
+    ).rowcount
+    conn.commit()
+    return n
+
+
 def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Group raw job rows by dedup_group_id for display (dashboard/export).
 
@@ -263,6 +279,8 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         result.append(
             {
                 "dedup_group_id": group_id,
+                "id": primary["id"],
+                "ids": [m["id"] for m in members],
                 "title": primary["title"],
                 "company": primary["company"],
                 "location": primary["location"],

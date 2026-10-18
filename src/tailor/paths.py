@@ -19,6 +19,7 @@ DEFAULT_PATHS = {
     "vault_index": "materials/profile/vault-index.json",
     "rules": "materials/docs/tailoring-rules.md",
     "db": "jobs.db",
+    "dashboard": "dashboard.html",
     "unknown_terms": "materials/tailor/unknown-terms.csv",
     "evidence_rejects": "materials/tailor/evidence-rejects.json",
     "jev_cache": "materials/tailor/jev-cache.json",
