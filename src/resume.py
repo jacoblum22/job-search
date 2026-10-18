@@ -14,6 +14,7 @@ pipes, ALL CAPS section headings, one column, one page.
 
 from __future__ import annotations
 
+import atexit
 import re
 import shutil
 import subprocess
@@ -395,30 +396,70 @@ _SOFFICE_WINDOWS = (
 )
 
 
-def _word_to_pdf(docx_path: Path, pdf_path: Path) -> bool:
-    """Convert with Word through COM; False when pywin32 or Word itself isn't available."""
+class _Word:
+    """One hidden Word instance for the whole process.
+
+    Starting Word and quitting it for every PDF raced: render converts a trial resume (to count pages)
+    and then the final one, and the second Dispatch could attach to the instance that was still
+    shutting down from the first Quit. Its Documents.Open then handed back a broken object, which
+    surfaced as "AttributeError: Open.SaveAs". Keeping one instance (quit at exit) avoids that and
+    is faster."""
+
+    app: Any = None
+
+    @classmethod
+    def get(cls) -> Any:
+        if cls.app is None:
+            import pythoncom
+            import win32com.client
+
+            pythoncom.CoInitialize()
+            cls.app = win32com.client.DispatchEx("Word.Application")  # our own instance, not the user's Word
+            cls.app.Visible = False
+            cls.app.DisplayAlerts = 0  # wdAlertsNone
+            atexit.register(cls.quit)
+        return cls.app
+
+    @classmethod
+    def quit(cls) -> None:
+        if cls.app is not None:
+            try:
+                cls.app.Quit(0)  # wdDoNotSaveChanges
+            except Exception:  # noqa: BLE001, S110 - Word already gone
+                pass
+            cls.app = None
+
+
+def _word_available() -> bool:
+    if sys.platform != "win32":
+        return False
     try:
-        import pythoncom
-        import win32com.client
+        import win32com.client  # noqa: F401
     except ImportError:
         return False
-    pythoncom.CoInitialize()
     try:
+        _Word.get()
+    except Exception:  # noqa: BLE001 - pywin32 is installed but Word isn't
+        return False
+    return True
+
+
+def _word_to_pdf(docx_path: Path, pdf_path: Path) -> None:
+    """Export with Word; retried once on a fresh instance, and Word's own error is raised if it fails."""
+    for attempt in (1, 2):
         try:
-            word = win32com.client.Dispatch("Word.Application")
-        except Exception:  # noqa: BLE001 - pywin32 is installed but Word isn't
-            return False
-        word.Visible = False
-        word.DisplayAlerts = False
-        try:
-            doc = word.Documents.Open(str(docx_path))
-            doc.SaveAs(str(pdf_path), FileFormat=17)  # 17 = wdFormatPDF
-            doc.Close(0)
-        finally:
-            word.Quit()
-        return True
-    finally:
-        pythoncom.CoUninitialize()
+            word = _Word.get()
+            # ConfirmConversions=False, ReadOnly=True, AddToRecentFiles=False
+            doc = word.Documents.Open(str(docx_path), False, True, False)
+            try:
+                doc.ExportAsFixedFormat(str(pdf_path), 17)  # 17 = wdExportFormatPDF
+            finally:
+                doc.Close(0)
+            return
+        except Exception as e:  # retry once on a fresh instance, then report
+            _Word.quit()
+            if attempt == 2:
+                raise RuntimeError(f"Word could not convert {docx_path.name} to PDF: {e}") from e
 
 
 def _find_soffice() -> str | None:
@@ -430,15 +471,15 @@ def _find_soffice() -> str | None:
 
 
 def docx_to_pdf(docx_path: Path, pdf_path: Path) -> Path:
-    """Convert with Word (Windows) when it is installed, else LibreOffice."""
+    """Convert with Word when it is installed (Windows), else LibreOffice."""
     docx_path, pdf_path = Path(docx_path).resolve(), Path(pdf_path).resolve()
-    if sys.platform == "win32" and _word_to_pdf(docx_path, pdf_path):
+    if _word_available():
+        _word_to_pdf(docx_path, pdf_path)
         return pdf_path
     soffice = _find_soffice()
     if not soffice:
         raise RuntimeError(
-            "No PDF converter found: needs Microsoft Word (with `uv sync` run so pywin32 is installed) "
-            "or LibreOffice (Windows: `winget install TheDocumentFoundation.LibreOffice`)"
+            "No PDF converter: needs Microsoft Word (Windows, with pywin32 from `uv sync`) or LibreOffice"
         )
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(
