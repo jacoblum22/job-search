@@ -86,3 +86,12 @@ def test_lead_ins_and_list_kind():
     assert g.options == ("Outlook", "Word", "Excel", "PowerPoint")
     (g,) = alternative_groups("Use one or more industry analytics visualization tools (e.g. Excel, Tableau, QuickSight)")
     assert g.category == "industry analytics visualization tools" and g.category_skills == ("data visualization",)
+
+
+def test_vault_false_matches():
+    assert taxonomy.find("Supervisor: Julia Rubin") == set()
+    assert taxonomy.find("Python, R, or Julia") >= {"Julia"}
+    assert "Looker" not in taxonomy.find("tracing ^skill-looker-studio")
+    assert "ERP (SAP/Oracle/Workday)" not in taxonomy.find("WiDS × SAP Customer Churn Prediction")
+    assert "ERP (SAP/Oracle/Workday)" not in taxonomy.find("predict churn from SAP customer data. The WiDS x SAP competition")
+    assert "ERP (SAP/Oracle/Workday)" in taxonomy.find("Oracle, SAP, or similar systems")

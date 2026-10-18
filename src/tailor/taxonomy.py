@@ -36,7 +36,8 @@ T = [
 ("Languages","SPSS",r"\bspss\b"),
 ("Languages","Stata",r"\bstata\b"),
 ("Languages","MATLAB",r"\bmatlab\b"),
-("Languages","Julia",r"(?-i)\bJulia\b"),
+# A capitalised word after "Julia" is a surname ("Julia Rubin"), not the language.
+("Languages","Julia",r"(?-i)\bJulia\b(?!\s+[A-Z])"),
 ("Languages","Perl",r"\bperl\b"),
 ("Languages","Ruby",r"\bruby\b"),
 ("Languages","PowerShell",r"powershell"),
@@ -65,8 +66,8 @@ T = [
 ("BI & analytics","Tableau",r"tableau"),
 # Looker (the enterprise BI platform, LookML) and Looker Studio (formerly Data Studio) are
 # different products.
-("BI & analytics","Looker",r"\blooker\b(?!\s+studio)|\blookml\b"),
-("BI & analytics","Looker Studio",r"looker\s+studio|data studio"),
+("BI & analytics","Looker",r"\blooker\b(?![\s-]+studio)|\blookml\b"),
+("BI & analytics","Looker Studio",r"looker[\s-]+studio|data studio"),
 ("BI & analytics","Qlik",r"\bqlik"),
 ("BI & analytics","Google Analytics",r"google analytics|\bga4\b"),
 ("BI & analytics","dashboards",r"dashboard"),
@@ -122,7 +123,7 @@ T = [
 ("Cloud & DevOps","Amazon Kinesis",r"kinesis"),
 ("Cloud & DevOps","Azure",r"\bazure\b"),
 ("Cloud & DevOps","Azure Machine Learning",r"azure machine learning|azure ml\b"),
-("Cloud & DevOps","GCP",r"\bgcp\b|google cloud"),
+("Cloud & DevOps","GCP",r"\bgcp\b|google cloud(?! oauth)"),
 ("Cloud & DevOps","Vertex AI",r"vertex ai"),
 ("Cloud & DevOps","Docker",r"docker|containeri[sz]"),
 ("Cloud & DevOps","Kubernetes",r"kubernetes|\bk8s\b"),
@@ -162,7 +163,7 @@ T = [
 ("Business tools","Salesforce/CRM",r"salesforce|\bcrm\b|hubspot|dynamics 365"),
 # ERP only on ERP product wording: a sponsor name ("WiDS × SAP datathon") or a Workday careers
 # site is not ERP experience.
-("Business tools","ERP (SAP/Oracle/Workday)",r"\berp\b|\bsap\b(?! ?(?:datathon|hackathon|challenge))|s/4 ?hana"
+("Business tools","ERP (SAP/Oracle/Workday)",r"\berp\b|(?<!× )(?<!\bx )\bsap\b(?! ?(?:datathon|hackathon|challenge|customer|competition))|s/4 ?hana"
  r"|oracle ?(?:erp|fusion|e-?business|netsuite|cloud erp|financials|hcm)|netsuite"
  r"|\boracle\b(?=[^.;\n]{0,80}" + _BUSINESS_SYSTEMS + r")|(?<=sap, )oracle|(?<=sap or )oracle|(?<=sap/)oracle"
  r"|workday (?:hcm|financials|adaptive|prism)"),
