@@ -14,6 +14,12 @@ How a job moves through it:
    `materials/applications/`. The steps in [docs/tailoring-runbook.md](docs/tailoring-runbook.md)
    then draft, check and render it. The resume and letter you send end up in that folder's `final/`.
 
+To review and track applications in the browser, run `uv run python scripts/serve.py`. It opens the
+dashboard at http://127.0.0.1:8765; click a job's title for its details page. On that page you can
+open the tailored PDFs, tick the review checklist, approve, and mark the job applied or dismissed.
+`dashboard.html` (no server) still works for browsing; its Application column shows where each
+tailored job stands.
+
 ## Setup
 
 - [Python 3.11+](https://www.python.org/downloads/) and [uv](https://docs.astral.sh/uv/)

@@ -4,7 +4,7 @@ title isn't relevant enough to be worth fetching the full posting for.
 New runs of scripts/aggregate.py no longer store these (see
 src.enrich.worth_keeping); this clears the ones saved before that rule.
 Dry run by default; pass --apply to delete. Jobs marked applied are never
-deleted.
+deleted, and neither are jobs with a tailoring application.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import yaml
 
 from src.db import Job, connect
 from src.enrich import worth_keeping
+from src.retention import kept_clause
 from src.search_match import should_hydrate_record
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -25,7 +26,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 def unwanted_rows(conn, search: dict) -> list[tuple]:
     rows = conn.execute(
         "SELECT id, source, external_id, title, company, location, description, url FROM jobs"
-        " WHERE status != 'applied'"
+        " WHERE status != 'applied'" + kept_clause(conn)
     ).fetchall()
 
     def wanted(j: Job) -> bool:

@@ -6,12 +6,13 @@ ticks, and `approve` refuses until none is left unticked.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
 
-from src.tailor import TailorError, appdir, rejects, store
 from src.resume import load_resume
+from src.tailor import TailorError, appdir, rejects, store
 from src.tailor.paths import resolve
 
 OUTCOMES = ("applied", "callback", "interview", "offer", "rejected", "no_reply")
@@ -191,11 +192,14 @@ def run_packet(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     grade = _opt_json(rd / "grade.json") if rd else None
     ats_total = ((grade or {}).get("ats") or {}).get("total")
     below_floor = isinstance(ats_total, (int, float)) and ats_total < float(cfg.get("ats_floor", 70))
+    weaker_fit = bool(below_floor and (grade or {}).get("fit_gap"))
+    # What the dashboard shows next to the status, so a review problem is visible without
+    # opening the folder.
+    flags = ["weaker_fit"] if weaker_fit else ["ats_below_floor"] if below_floor else []
     app = appdir.log(app_dir, "packet", f"{status}, {criticals} critical(s)", status=status)
-    _sync(app_dir, cfg, app, status)
+    _sync(app_dir, cfg, app, status, review_flags=json.dumps(flags))
     return {"status": status, "criticals": criticals, "round": rnd, "below_ats_floor": below_floor,
-            "weaker_fit": bool(below_floor and (grade or {}).get("fit_gap")),
-            "files": ["fit-notes.md", "check.md"]}
+            "weaker_fit": weaker_fit, "files": ["fit-notes.md", "check.md"]}
 
 
 def _sync(app_dir: Path, cfg: dict[str, Any], app: dict[str, Any], status: str, **fields: Any) -> None:
@@ -204,6 +208,8 @@ def _sync(app_dir: Path, cfg: dict[str, Any], app: dict[str, Any], status: str, 
         if store.get_app(conn, app["job_id"]) is None:
             store.upsert_app(conn, app, app_dir)
         store.set_status(conn, app["job_id"], status, **fields)
+        if status == "applied":
+            store.mark_applied(conn, app["job_id"])
     finally:
         conn.close()
 
@@ -226,6 +232,8 @@ def approve(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     path = app_dir / "check.md"
     if not path.exists():
         raise TailorError("check.md is missing: run the packet step first")
+    if appdir.load_app(app_dir).get("status") == "needs_fixes":
+        raise TailorError("the check found critical problems: fix them and rerun packet before approving")
     bad = unresolved_lines(path.read_text(encoding="utf-8"))
     if bad:
         raise TailorError(f"{len(bad)} line(s) in check.md still need a decision:\n" + "\n".join(bad))

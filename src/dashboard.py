@@ -1,6 +1,7 @@
 """Generate the static HTML dashboard from the jobs DB.
 
-Regenerated fresh on every aggregator run. No server required — just open
+Regenerated fresh on every aggregator run, and after the tailoring packet,
+approve and outcome steps so application status stays current. No server required — just open
 the file in a browser. Sorting/filtering happens client-side in vanilla JS
 against an embedded JSON blob, so it works offline.
 """
@@ -16,6 +17,19 @@ from pathlib import Path
 
 from src.db import grouped_jobs
 from src.search_match import INTERNSHIP_TITLE_RE as _INTERNSHIP_RE
+from src.tailor import store
+from src.tailor.paths import ROOT
+
+_APP_LABELS = {
+    "shortlisted": "Drafting",
+    "ready_for_review": "Ready for review",
+    "needs_fixes": "Needs fixes",
+    "approved": "Approved, not applied",
+    "applied": "Applied",
+}
+# Sorts applications by how much they need you: fixes first, applied last.
+_APP_ORDER = ["needs_fixes", "ready_for_review", "approved", "shortlisted", "applied"]
+_FLAG_LABELS = {"weaker_fit": "Weaker fit", "ats_below_floor": "ATS below 70"}
 
 _TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -50,6 +64,13 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .status-applied { background: var(--applied); }
   .status-dismissed { background: var(--dismissed); }
   .status-expired { background: var(--dismissed); }
+  .app-shortlisted, .app-ready_for_review { background: var(--accent); }
+  .app-needs_fixes { background: #b23b3b; }
+  .app-approved { background: var(--new); }
+  .app-applied { background: var(--applied); }
+  .flag { background: none; border: 1px solid #c9a227; color: #e0c060; }
+  .applinks { font-size: 12px; margin-top: 2px; }
+  .applinks a { margin-right: 8px; }
   .cat-vancouver { background: var(--new); }
   .cat-remote { background: var(--accent); }
   .cat-other { background: var(--dismissed); }
@@ -90,6 +111,15 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <option value="dismissed">Dismissed</option>
     <option value="expired">Expired</option>
   </select>
+  <select id="appFilter">
+    <option value="">All jobs</option>
+    <option value="any">Has an application</option>
+    <option value="shortlisted">Drafting</option>
+    <option value="ready_for_review">Ready for review</option>
+    <option value="needs_fixes">Needs fixes</option>
+    <option value="approved">Approved, not applied</option>
+    <option value="applied">Applied</option>
+  </select>
   <select id="sourceFilter">
     <option value="">All sources</option>
   </select>
@@ -119,13 +149,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
       <th data-key="location">Location</th>
       <th data-key="location_category">Category</th>
       <th data-key="status">Status</th>
+      <th data-key="app_sort">Application</th>
       <th data-key="years_experience">Years Exp</th>
       <th data-key="sourcesStr">Sources</th>
       <th data-key="posted_sort">Posted</th>
       <th data-key="first_seen">First Seen</th>
     </tr>
   </thead>
-  <tbody id="jobsBody"><tr><td class="notice" colspan="10">Loading jobs&hellip;</td></tr></tbody>
+  <tbody id="jobsBody"><tr><td class="notice" colspan="11">Loading jobs&hellip;</td></tr></tbody>
 </table>
 </div>
 <script id="jobs-data" type="application/json">__JOBS_JSON__</script>
@@ -133,10 +164,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
 // If anything below throws, say so instead of leaving the "Loading" row up forever.
 window.addEventListener('error', e => {
   document.getElementById('jobsBody').innerHTML =
-    '<tr><td class="notice error" colspan="10"></td></tr>';
+    '<tr><td class="notice error" colspan="11"></td></tr>';
   document.querySelector('#jobsBody td').textContent =
     'The dashboard hit an error and could not show jobs: ' + e.message;
 });
+const SERVER = __SERVER__;
 const rawJobs = JSON.parse(document.getElementById('jobs-data').textContent);
 const jobs = rawJobs.map(j => ({...j, sourcesStr: j.sources.join(', ')}));
 
@@ -174,6 +206,19 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
+function fileLink(href, text) {
+  return /^file:/i.test(href || '') ? `<a href="${escapeHtml(href)}" target="_blank">${text}</a>` : '';
+}
+
+function appCell(app) {
+  if (!app) return '';
+  const flags = app.flags.map(f => `<span class="badge flag">${escapeHtml(f)}</span>`).join('');
+  // file: links don't open from an http page; the served dashboard has the details page instead.
+  const links = SERVER ? '' : fileLink(app.final_href, 'Files') + fileLink(app.check_href, 'Checklist');
+  return `<span class="badge app-${escapeHtml(app.status)}">${escapeHtml(app.label)}</span>${flags}`
+    + (links ? `<div class="applinks">${links}</div>` : '');
+}
+
 function render() {
   const q = document.getElementById('search').value.toLowerCase();
   const status = document.getElementById('statusFilter').value;
@@ -181,11 +226,13 @@ function render() {
   const locationCat = document.getElementById('locationFilter').value;
   const tier = document.getElementById('tierFilter').value;
   const hideSkipped = document.getElementById('hideSkipped').checked;
+  const appStatus = document.getElementById('appFilter').value;
 
   updateTabs();
   let filtered = jobs.filter(j => {
     if (j.job_type !== activeTab) return false;
     if (status && j.status !== status) return false;
+    if (appStatus && !(j.app && (appStatus === 'any' || j.app.status === appStatus))) return false;
     if (source && !j.sources.includes(source)) return false;
     if (locationCat && j.location_category !== locationCat) return false;
     if (tier && j.tier !== tier) return false;
@@ -222,15 +269,20 @@ function render() {
       msg = 'No jobs match the current search and filters.';
       action = '<button data-act="clear">Clear filters</button>';
     }
-    body.innerHTML = `<tr><td class="notice" colspan="10">${escapeHtml(msg)}${action}</td></tr>`;
+    body.innerHTML = `<tr><td class="notice" colspan="11">${escapeHtml(msg)}${action}</td></tr>`;
     return;
   }
   body.innerHTML = filtered.map(j => {
     const link = j.urls.length ? j.urls[0][1] : '';
     const safeLink = /^https?:\/\//i.test(link) ? link : '';
-    const titleCell = safeLink
-      ? `<a href="${escapeHtml(safeLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j.title)}</a>`
-      : escapeHtml(j.title);
+    const postingLink = safeLink
+      ? `<a href="${escapeHtml(safeLink)}" target="_blank" rel="noopener noreferrer">${SERVER ? 'Posting' : escapeHtml(j.title)}</a>`
+      : '';
+    // Served by scripts/serve.py: the title opens the job's details page.
+    const titleCell = SERVER
+      ? `<a href="/job/${encodeURIComponent(j.id)}">${escapeHtml(j.title)}</a>`
+        + (postingLink ? `<div class="applinks">${postingLink}</div>` : '')
+      : (postingLink || escapeHtml(j.title));
     const srcBadges = j.sources.map(s => `<span class="badge src">${escapeHtml(s)}</span>`).join('');
     const scoreText = j.tier === 'skip' ? 'skip' : (j.score ?? '');
     return `<tr>
@@ -240,6 +292,7 @@ function render() {
       <td>${escapeHtml(j.location)}</td>
       <td><span class="badge cat-${escapeHtml(j.location_category)}">${escapeHtml(j.location_category)}</span></td>
       <td><span class="badge status-${escapeHtml(j.status)}">${escapeHtml(j.status)}</span></td>
+      <td>${appCell(j.app)}</td>
       <td>${j.years_experience ?? ''}</td>
       <td>${srcBadges}</td>
       <td>${escapeHtml(j.posted_date)}</td>
@@ -258,6 +311,7 @@ document.querySelectorAll('th[data-key]').forEach(th => {
 
 document.getElementById('search').addEventListener('input', render);
 document.getElementById('statusFilter').addEventListener('change', render);
+document.getElementById('appFilter').addEventListener('change', render);
 document.getElementById('locationFilter').addEventListener('change', render);
 document.getElementById('tierFilter').addEventListener('change', render);
 document.getElementById('hideSkipped').addEventListener('change', render);
@@ -268,7 +322,7 @@ document.getElementById('jobsBody').addEventListener('click', e => {
     document.getElementById('hideSkipped').checked = false;
   } else if (act === 'clear') {
     document.getElementById('search').value = '';
-    for (const id of ['statusFilter', 'sourceFilter', 'tierFilter', 'locationFilter']) {
+    for (const id of ['statusFilter', 'appFilter', 'sourceFilter', 'tierFilter', 'locationFilter']) {
       document.getElementById(id).value = '';
     }
   } else {
@@ -304,30 +358,74 @@ def _sort_date(posted: str | None, first_seen: str | None) -> str:
     return ""
 
 
-def generate_dashboard(conn: sqlite3.Connection, output_path: str | Path) -> Path:
-    """Write the static dashboard HTML file. Returns the path written."""
-    output_path = Path(output_path)
+def _file_uri(path: Path) -> str:
+    try:
+        return path.resolve().as_uri()
+    except ValueError:
+        return ""
+
+
+def app_summary(app: dict) -> dict:
+    """What the dashboard shows for one tailoring application (src/tailor/store.py row)."""
+    status = app.get("status") or "shortlisted"
+    label = _APP_LABELS.get(status, status.replace("_", " ").capitalize())
+    outcome = app.get("outcome")
+    if status == "applied" and outcome and outcome != "applied":
+        label = f"Applied: {outcome.replace('_', ' ')}"
+    flags = [_FLAG_LABELS.get(f, f.replace("_", " ")) for f in app.get("review_flags") or []]
+    if app.get("flagged"):
+        flags.append("Gate flag")
+    folder = Path(app.get("folder") or "")
+    if app.get("folder") and not folder.is_absolute():
+        folder = ROOT / folder
+    final = folder / "final"
+    check = folder / "check.md"
+    return {
+        "status": status,
+        "label": label,
+        "flags": flags,
+        "final_href": _file_uri(final) if app.get("folder") and final.is_dir() else "",
+        "check_href": _file_uri(check) if app.get("folder") and check.is_file() else "",
+    }
+
+
+def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
+    """The dashboard HTML. With `server`, titles open the details page of the local
+    server (scripts/serve.py) instead of only linking to the posting."""
     rows = grouped_jobs(conn)
+    apps = store.all_apps(conn)
     for r in rows:
+        ids = r.pop("ids")
+        app_id = next((i for i in ids if i in apps), None)
+        r["app"] = app_summary(apps[app_id]) if app_id is not None else None
+        if app_id is not None:
+            r["id"] = app_id  # the details page looks the application up by its job id
+        r["app_sort"] = _APP_ORDER.index(r["app"]["status"]) if r["app"] and r["app"]["status"] in _APP_ORDER else 99
         r["posted_sort"] = _sort_date(r.get("posted_date"), r.get("first_seen"))
         r["job_type"] = "internship" if _INTERNSHIP_RE.search(r["title"]) else "fulltime"
         # Skipped / never-scored rows sort below every real score.
         r["score_sort"] = r["score"] if r.get("score") is not None else -9999
+        r.pop("description", None)  # the details page fetches it; keeps the page small
 
     all_sources = sorted({s for r in rows for s in r["sources"]})
     generated_at = escape(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
 
     # Plain token replacement rather than str.format() — the template's own
     # CSS/JS is full of literal `{}` braces that .format() would choke on.
-    html = (
+    return (
         _TEMPLATE.replace("__GENERATED_AT__", generated_at)
         .replace("__TOTAL__", str(len(rows)))
         .replace("__SOURCES__", str(len(all_sources)))
+        .replace("__SERVER__", "true" if server else "false")
         # Job descriptions are untrusted external content — escape "</" so a
         # description containing literal "</script>" can't break out of the tag.
         .replace("__JOBS_JSON__", json.dumps(rows).replace("</", "<\\/"))
     )
 
+
+def generate_dashboard(conn: sqlite3.Connection, output_path: str | Path) -> Path:
+    """Write the static dashboard HTML file. Returns the path written."""
+    output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html, encoding="utf-8")
+    output_path.write_text(render_dashboard(conn), encoding="utf-8")
     return output_path
