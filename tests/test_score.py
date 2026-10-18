@@ -191,3 +191,10 @@ def test_bachelors_or_masters_costs_nothing():
         "Master's salaries range from $56,550 a year.",
     ]:
         assert _score("Data Analyst", f"{line}\n{desc}").score == base, line
+
+
+def test_two_years_is_neutral():
+    desc = "python sql " * 40
+    none = _score("Data Analyst", desc, years=None)
+    assert _score("Data Analyst", desc, years=2).score == none.score
+    assert _score("Data Analyst", desc, years=1).score == none.score + 5
