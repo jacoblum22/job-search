@@ -23,7 +23,11 @@ list is also the before/after diff the candidate reviews.
 
 1. **Grounding.** Every claim about the candidate must be traceable to a vault passage. Each
    `replace` and `append` cites at least one `sources` id that exists in the index and is a `claim`
-   passage. Never claim a skill or experience from the posting alone.
+   passage. Never claim a skill or experience from the posting alone. **Cite a passage for every
+   claim in the line, not just one of them**: a summary or bullet that says "wrote SQL daily, checked
+   third-party data and maintained the dashboards" cites a passage for each of the three. The check
+   judges a line only against its own `sources`, so a missing citation makes a true line look
+   invented.
 2. **PRESENT / ABSENT.** Copy the two lists from `evidence.json` into your working notes first.
    - PRESENT: safe to emphasise and weave in naturally.
    - ABSENT: the vault does NOT show these. NEVER claim, imply, list or bold them as the

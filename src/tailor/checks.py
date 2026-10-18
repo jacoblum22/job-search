@@ -16,12 +16,13 @@ Warning codes:
   skill_only_in_list, verbatim_posting_copy, too_many_skills, bullet_count,
   bullet_long, duplicate_bullets, ai_phrase, resume_invalid, rejected_edit_note,
   no_company_fact, paragraph_count, familiar_absent_term, keen_to_grow (letter)
-Flag codes (source "jev"): jev_unsupported
+Flag codes (source "jev"): jev_unsupported, jev_citation_gap
 """
 
 from __future__ import annotations
 
 import copy
+import math
 import re
 from datetime import date
 from pathlib import Path
@@ -381,8 +382,14 @@ def _revert_low_similarity(
                 old = base_b.get(path)
                 if old is not None and norm(old["text"]) == norm(b["text"]):
                     continue
-                texts = [index[s]["text"] for s in b.get("sources") or [] if s in index]
+                srcs = list(b.get("sources") or [])
+                texts = [index[s]["text"] for s in srcs if s in index]
                 if not texts or _similarity(b["text"], texts) >= threshold:
+                    continue
+                # A missed citation isn't a weak line: if related passages close the gap, cite them.
+                extra = related_passages(b["text"], srcs, index)
+                if extra and _similarity(b["text"], texts + [index[x]["text"] for x in extra]) >= threshold:
+                    b["sources"] = srcs + extra
                     continue
                 if old is not None:
                     b["text"], b["sources"] = old["text"], list(old.get("sources") or [])
@@ -406,30 +413,93 @@ def _changed_lines(draft: dict[str, Any], base: dict[str, Any]) -> list[tuple[st
     return out
 
 
-def _jev_flags(jev: Any, lines: list[tuple[str, str, list[str]]], index: dict[str, Any]) -> list[dict]:
+_STOP = frozenset(["a", "an", "and", "the", "of", "to", "for", "in", "on", "at", "by", "with", "from", "into", "that", "this", "these", "those", "was", "were", "is", "are", "be", "been", "it", "its", "as", "or", "each", "every", "other", "their", "them", "they", "our", "we", "i", "my", "me", "who", "which", "what", "using", "used", "use", "than", "then"])
+
+
+def _content_words(text: str) -> set[str]:
+    words = (w for w in re.findall(r"[a-z0-9+#]+", text.lower()) if len(w) > 2 and w not in _STOP)
+    return {w[:-1] if w.endswith("s") and len(w) > 4 else w for w in words}  # "dashboards" ~ "dashboard"
+
+
+def related_passages(text: str, srcs: list[str], index: dict[str, Any], per_clause: int = 3, limit: int = 12) -> list[str]:
+    """Claim passages the line doesn't cite, from the same vault entries as its cited passages
+    (algaecal.*, soft.*): the evidence a citation may have missed. Each clause of the line gets the
+    passages sharing its rarest words, so every claim in a long summary is covered. "Maintained the
+    dashboards" finds "Fixed dashboard problems" through "dashboard", which few passages use, even
+    though "maintained" and "fixed" share nothing."""
+    prefixes = {s.split(".", 1)[0] for s in srcs}
+    claims = {pid: _content_words(p.get("text", "")) for pid, p in index.items() if p.get("use", "claim") == "claim"}
+    df: dict[str, int] = {}
+    for ws in claims.values():
+        for w in ws:
+            df[w] = df.get(w, 0) + 1
+    n = max(len(claims), 1)
+    idf = {w: math.log(n / c) for w, c in df.items()}
+    pool = {pid: ws for pid, ws in claims.items() if pid not in srcs and pid.split(".", 1)[0] in prefixes}
+    floor = math.log(n / 20) * 1.5  # one rare word, or a few common ones
+    out: list[str] = []
+    for clause in re.split(r"[,;:]| and ", text):
+        words = _content_words(clause)
+        scored = sorted((-sum(idf.get(w, 0.0) for w in words & ws), pid) for pid, ws in pool.items())
+        out += [pid for score, pid in scored[:per_clause] if -score >= floor and pid not in out]
+    return out[:limit]
+
+
+def _ask_supported(jev: Any, path: str, text: str, srcs: list[str], index: dict[str, Any]) -> float | None:
+    passages = [index[s]["text"] for s in srcs if s in index]
+    if not passages:
+        return None
+    state = "Passages:\n" + "\n".join(f"- {p}" for p in passages)
+    q = Question(id=f"supported:{path}", type="yesno",
+                 text=f"Is this sentence supported by these passages? Sentence: {text}")
+    try:
+        ans = jev.ask(state, [q])[0]
+    except Exception:  # noqa: BLE001 - Jev is advice; any failure means unchecked
+        return None
+    return float(ans.value) if ans.ok and isinstance(ans.value, (int, float)) else None
+
+
+def _jev_flags(jev: Any, lines: list[tuple[str, str, list[str]]], index: dict[str, Any]) -> tuple[list[dict], dict[str, list[str]]]:
+    """Ask Jev whether each changed line is supported by its cited passages.
+
+    A "no" can mean the line overclaims, or only that its citations miss the evidence (a summary
+    that cites "every team used the dashboards" but not the passage where Jake fixed them). So a
+    "no" is asked again with the related passages the line doesn't cite: a "yes" then is a citation
+    gap, fixed by adding those passages to the line's sources; a second "no" is a real doubt."""
     flags: list[dict] = []
+    added: dict[str, list[str]] = {}
     if jev is None:
-        return flags
+        return flags, added
     for path, text, srcs in lines:
-        passages = [index[s]["text"] for s in srcs if s in index]
-        if not passages:
+        first = _ask_supported(jev, path, text, srcs, index)
+        if first is None or first >= 0.5:
             continue
-        state = "Passages:\n" + "\n".join(f"- {p}" for p in passages)
-        q = Question(
-            id=f"supported:{path}", type="yesno",
-            text=f"Is this sentence supported by these passages? Sentence: {text}",
-        )
-        try:
-            ans = jev.ask(state, [q])[0]
-        except Exception:  # noqa: BLE001 - Jev is advice; any failure means unchecked
-            continue
-        if ans.ok and isinstance(ans.value, (int, float)) and ans.value < 0.5:
+        extra = related_passages(text, srcs, index)
+        second = _ask_supported(jev, path, text, [*srcs, *extra], index) if extra else None
+        if second is not None and second >= 0.5:
+            added[path] = extra
             flags.append({
-                "code": "jev_unsupported",
-                "message": f"Jev doubts this line is supported by its cited passages (p={ans.value:.2f})",
+                "code": "jev_citation_gap",
+                "message": (f"Jev doubted this line with its cited passages (p={first:.2f}) but agreed once "
+                            f"{', '.join(extra)} were cited too (p={second:.2f}); those were added to its sources"),
                 "path": path, "doc": "resume", "source": "jev",
             })
-    return flags
+            continue
+        doubt = second if second is not None else first
+        also = f", even with {', '.join(extra)}" if extra else ""
+        flags.append({
+            "code": "jev_unsupported",
+            "message": f"Jev doubts this line is supported by its cited passages{also} (p={doubt:.2f})",
+            "path": path, "doc": "resume", "source": "jev",
+        })
+    return flags, added
+
+
+def _add_sources(draft: dict[str, Any], added: dict[str, list[str]]) -> None:
+    for path, extra in added.items():
+        line = draft.get("summary") if path == "summary" else dict(iter_bullets(draft)).get(path)
+        if isinstance(line, dict):
+            line["sources"] = [*(line.get("sources") or []), *[e for e in extra if e not in (line.get("sources") or [])]]
 
 
 def _read_optional(path: Path, default: Any) -> Any:
@@ -453,7 +523,7 @@ def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> 
     pre = copy.deepcopy(draft)
     threshold = float(cfg.get("similarity_revert", DEFAULT_SIMILARITY_REVERT))
     reverted = _revert_low_similarity(draft, base, index, threshold)
-    if reverted:
+    if reverted or draft != pre:  # a revert, or citations added for a missed passage
         draft_path.write_text(
             yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110), encoding="utf-8"
         )
@@ -480,7 +550,12 @@ def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> 
     for err in applied.get("letter_errors") or []:
         criticals.append({"code": "letter_shape", "message": err, "path": "cover-letter.json", "doc": "letter"})
 
-    flags = _jev_flags(jev, _changed_lines(draft, base), index)
+    flags, added = _jev_flags(jev, _changed_lines(draft, base), index)
+    if added:
+        _add_sources(draft, added)
+        draft_path.write_text(
+            yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110), encoding="utf-8"
+        )
     result = {
         "criticals": criticals,
         "warnings": warnings,

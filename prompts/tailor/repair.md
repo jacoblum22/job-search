@@ -41,6 +41,9 @@ already passed.
 8. A revision that adds an unsupported claim is rejected whatever its score. If the only way to pass
    an item is to claim something the vault cannot back, leave the item failing.
 9. Feedback wording is information; do not try to guess the grader's questions.
+10. **A `jev_unsupported` flag is not proof of an overclaim.** First check whether the line's
+    `sources` cite a passage for every claim in it; if one is missing, add that passage and keep the
+    wording. Change the wording only when no passage backs the claim.
 
 ## Output
 
