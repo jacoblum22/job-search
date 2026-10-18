@@ -103,3 +103,11 @@ def test_list_type_comes_from_its_tools():
     (g,) = alternative_groups("Experience with Pandas, PySpark, or AWS")  # mixed: no single type
     assert g.tool_type is None
     assert "BI / visualization tool" not in taxonomy.TOOL_TYPES["Excel"]  # Jake's call
+
+
+def test_office_apps_and_ai_tools():
+    assert taxonomy.find("Microsoft Office (Outlook, Word, Excel, PowerPoint)") >= {
+        "Microsoft Outlook", "Microsoft Word", "Excel", "Microsoft PowerPoint"}
+    assert taxonomy.find("a word of advice; the outlook is good") == set()
+    assert taxonomy.find("GitHub Copilot, Cursor, or Claude Code") == {"GitHub Copilot", "Cursor", "Claude / Claude Code"}
+    assert taxonomy.find("Spring 2026 term") == set()
