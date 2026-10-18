@@ -2,7 +2,10 @@
 
 Facts come from the taxonomy (synonym-aware regexes); Jev only gets a second
 look at requirements the taxonomy found nothing for, and its answers are
-advisory evidence. Everything works with no Jev key.
+advisory evidence. A term the taxonomy doesn't know is matched by its plain
+words, which misfires ("Access" in "access tokens"), so those matches count
+only once Jev confirms them; with no Jev key they don't count at all. Degree
+requirements are checked against the vault's degree passages, not by words.
 """
 
 from __future__ import annotations
@@ -88,6 +91,38 @@ def _req_term_names(r: dict) -> list[str]:
     return out
 
 
+# --- degree requirements ---------------------------------------------------
+
+_DEGREE = {
+    "bachelor": re.compile(r"\bbachelor|\bundergraduate degree|\bb\.?sc\b|\bb\.?a\.? degree|\bb\.?s\.? degree", re.IGNORECASE),
+    "master": re.compile(r"\bmaster['’]?s\b|\bm\.?sc\b|\bgraduate degree", re.IGNORECASE),
+    "phd": re.compile(r"\bph\.?\s?d\b|\bdoctora", re.IGNORECASE),
+}
+_LEVELS = ["bachelor", "master", "phd"]
+
+
+def degree_level(text: str) -> str | None:
+    """Lowest degree level a requirement asks for ("Bachelor's or Master's" asks for a Bachelor's)."""
+    return next((lvl for lvl in _LEVELS if _DEGREE[lvl].search(text)), None)
+
+
+def _degree_check(r: dict, claims: dict[str, dict]) -> dict | None:
+    """Evidence entry for a degree requirement, or None when the requirement isn't about a degree."""
+    need = degree_level(f"{r.get('text', '')} {r.get('quote', '')}")
+    if need is None:
+        return None
+    # A graduate degree must read as held ("Master's degree, conferred ..."), not as a
+    # passing mention ("worked with Master's students").
+    held = {lvl: [pid for pid, p in claims.items() if _DEGREE[lvl].search(p["text"])
+                  and (lvl == "bachelor" or re.search(r"\bdegree\b|\bconferred\b|\bgraduated\b", p["text"], re.IGNORECASE))]
+            for lvl in _LEVELS}
+    have = [lvl for lvl in _LEVELS if held[lvl]]
+    ok = bool(have) and _LEVELS.index(have[-1]) >= _LEVELS.index(need)
+    pids = held[have[-1]] if ok else []
+    return {"id": r["id"], "status": "covered" if ok else "missing", "strength": 2 if ok else 0,
+            "passages": pids, "method": "degree"}
+
+
 # --- passage strength ------------------------------------------------------
 
 def _skills_only(p: dict) -> bool:
@@ -167,6 +202,38 @@ def _jev_pass(reqs_missing: list[dict], claims: dict[str, dict], cfg: dict, jev:
     return {rid: [pid for _, pid in sorted(v, key=lambda x: -x[0])] for rid, v in hits.items()}
 
 
+def _confirm_unknown(entries: list[dict], claims: dict[str, dict], base_texts: dict[str, str],
+                     cfg: dict, jev: Any) -> dict[str, set[str]]:
+    """Keep only Jev-confirmed plain-word matches for terms the taxonomy doesn't know.
+
+    Trims each such entry's passages in place and returns, per term, the base ids
+    whose text Jev confirmed. With no Jev, nothing is confirmed.
+    """
+    threshold = float((cfg.get("evidence") or {}).get("jev_yes", 0.6))
+    usable = jev is not None and getattr(jev, "available", True)
+    confirmed_bases: dict[str, set[str]] = {}
+
+    def yes(term: str, text: str) -> bool:
+        if not usable:
+            return False
+        q = Question(id="shows", type="yesno",
+                     text=f"Does this text show the candidate has used or has the skill: {term}?")
+        a = jev.ask(text, [q])[0]
+        return a.ok and isinstance(a.value, (int, float)) and a.value >= threshold
+
+    for e in entries:
+        if e.get("canonical"):
+            continue
+        e["passages"] = [pid for pid in e["passages"] if yes(e["term"], claims[pid]["text"])]
+        e["related"] = []
+        confirmed_bases[e["term"]] = set()
+        for bid, text in base_texts.items():
+            lines = [ln for ln in text.splitlines() if term_mentioned(e, ln)]
+            if any(yes(e["term"], ln) for ln in lines):
+                confirmed_bases[e["term"]].add(bid)
+    return confirmed_bases
+
+
 def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     app_dir = Path(app_dir)
     reqs = appdir.read_json(app_dir / "requirements.json")
@@ -185,6 +252,12 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         hits = [p for p in ranked if term_mentioned(e, p["text"])]
         e["passages"] = [p["id"] for p in hits if term_exact(e, p["text"])][:cap]
         e["related"] = [p["id"] for p in hits if not term_exact(e, p["text"])][:3]
+    confirmed_bases = _confirm_unknown(entries, claims, base_texts, cfg, jev)
+
+    def in_base(e: dict, bid: str) -> bool:
+        if e.get("canonical"):
+            return term_mentioned(e, base_texts[bid])
+        return bid in confirmed_bases.get(e["term"], set())
 
     def best(names: list[str]) -> dict[str, int]:
         return {n: max((passage_strength(claims[i]) for i in by_name[n]["passages"]), default=0)
@@ -192,17 +265,27 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
 
     req_out: list[dict] = []
     for r in reqs.get("requirements", []):
+        deg = _degree_check(r, claims)
+        if deg is not None:
+            req_out.append(deg)
+            continue
         names = list(dict.fromkeys(_req_term_names(r)))
         covered = [n for n in names if by_name[n]["passages"]]
         pids = list(dict.fromkeys(i for n in covered for i in by_name[n]["passages"]))[:cap]
         status = "missing" if not covered else "covered" if len(covered) == len(names) else "partial"
         strength = max(best(covered).values(), default=0)
+        method = "taxonomy" if covered else "none"
+        # Synonym-only matches ("Data QA" for data quality) don't back the posting's wording,
+        # but they do show the work, so the requirement is partly covered rather than missing.
+        rel = list(dict.fromkeys(i for n in names if n not in covered for i in by_name[n]["related"]))
+        if status == "missing" and rel:
+            status, strength, pids, method = "partial", 1, rel[:cap], "related"
         req_out.append({"id": r["id"], "status": status, "strength": strength,
-                        "passages": pids, "method": "taxonomy" if covered else "none"})
+                        "passages": pids, "method": method})
 
     # Jev second look at requirements the taxonomy found nothing for.
     text_by_id = {r["id"]: r for r in reqs.get("requirements", [])}
-    missing = [text_by_id[o["id"]] for o in req_out if o["status"] == "missing"]
+    missing = [text_by_id[o["id"]] for o in req_out if o["status"] == "missing" and o["method"] != "degree"]
     for rid, pids in _jev_pass(missing, claims, cfg, jev).items():
         o = next(x for x in req_out if x["id"] == rid)
         o.update(status="covered", strength=2, passages=pids, method="jev")
@@ -211,8 +294,8 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
                 by_name[n]["passages"] = list(pids)
 
     buckets: dict[str, dict] = {}
-    for bid, text in base_texts.items():
-        matched = {e["term"] for e in entries if term_mentioned(e, text)}
+    for bid in base_texts:
+        matched = {e["term"] for e in entries if in_base(e, bid)}
         inject = {e["term"] for e in entries if e["term"] not in matched and e["passages"]}
         related = {e["term"] for e in entries if e["term"] not in matched | inject and e["related"]}
         buckets[bid] = {
@@ -227,7 +310,7 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
 
     terms_out = [{"term": e["term"], "canonical": e["canonical"], "kind": e["kind"], "weight": e["weight"],
                   "passages": e["passages"], "related": e["related"],
-                  "in_base": {bid: term_mentioned(e, t) for bid, t in base_texts.items()}} for e in entries]
+                  "in_base": {bid: in_base(e, bid) for bid in base_texts}} for e in entries]
     present = [t["term"] for t in terms_out if t["passages"] or any(t["in_base"].values())]
     result = {
         "requirements": req_out, "terms": terms_out, "buckets": buckets,

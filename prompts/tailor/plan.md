@@ -39,16 +39,28 @@ plan cannot change them.
 6. Do not plan anything for terms in `absent`. They stay out of the resume. Terms in the
    `related` bucket are absent too; a `related` passage may be swapped in for what it actually says.
 7. Do not touch the code fields already in `plan.json`; read them only.
+8. **Confirm the evidence you use.** `evidence.json` comes from word matching and can be wrong (an
+   "Access" requirement once matched "OAuth access tokens"). Before planning, read the passage text
+   behind every term you will rely on: each `matched` or `injectable` term in the chosen base's
+   bucket that you plan around, and every `swap_in` passage. If a passage does not actually show
+   the skill or work the posting means, treat the term as absent and record it in
+   `evidence_drops`. Record a drop for a term the base resume itself matches by accident too, and
+   do not plan anything that leans on it.
 
 ## Output
 
-Merge these four keys into `plan.json` (keep every existing key unchanged):
+Merge these five keys into `plan.json` (keep every existing key unchanged):
 
 ```json
 {"headline": "Data Analyst | null", "summary_angle": "...",
  "swap_in": ["passage.id"], "swap_out": ["section/entry/bullet-id"],
- "skills_order": ["skills.languages", "skills.tools"]}
+ "skills_order": ["skills.languages", "skills.tools"],
+ "evidence_drops": [{"term": "Microsoft Access", "passage": "firmament.oauth-2-0",
+                     "reason": "Mentions OAuth access tokens, not Microsoft Access"}]}
 ```
+
+`evidence_drops` is `[]` when every match held up. Use `"passage": "base"` for an accidental match
+in the base resume. The review packet lists every drop for the candidate.
 
 ## Worked example (invented)
 
@@ -74,4 +86,6 @@ shows analyst work.
 - [ ] Every `swap_in` id exists in the index; no `swap_out` path is in `protected_paths`.
 - [ ] `skills_order` lists each base group id exactly once.
 - [ ] Nothing from `absent` appears anywhere in the plan.
+- [ ] I read the passage behind every term and `swap_in` I rely on; false matches are in
+      `evidence_drops` and nothing in the plan leans on them.
 - [ ] All pre-existing `plan.json` keys are unchanged and the file is valid JSON.

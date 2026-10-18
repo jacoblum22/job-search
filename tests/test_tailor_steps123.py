@@ -308,3 +308,91 @@ def test_evidence_synonym_only_is_related_and_boilerplate_not_absent(env, tmp_pa
     assert ab["term"] in b["related"] and ab["term"] not in b["injectable"]
     assert ab["term"] not in ev["present"]
     assert "extended health" not in ev["absent"] and "extended health" not in b["non_injectable"]
+
+
+# --- false-match guards (VCH run, Oct 18 2026) ----------------------------------------
+
+
+@pytest.mark.parametrize("term,canon", [
+    ("Oracle", "SQL"), ("MS SQL", "SQL"), ("Access", "Microsoft Access"),
+    ("Word", "Microsoft Word"), ("SPSS", "SPSS"), ("Oracle Fusion", "ERP (SAP/Oracle/Workday)"),
+])
+def test_taxonomy_posting_terms(term, canon):
+    from src.tailor import taxonomy
+
+    assert taxonomy.canonical(term) == canon
+
+
+@pytest.mark.parametrize("text,absent", [
+    ("Placed first at the WiDS × SAP datathon", "ERP (SAP/Oracle/Workday)"),
+    ("Scrapes Workday career sites for postings", "ERP (SAP/Oracle/Workday)"),
+    ("Exchanged OAuth codes for access tokens", "Microsoft Access"),
+    ("Generates Word documents with python-docx", "Microsoft Word"),
+])
+def test_taxonomy_no_false_match(text, absent):
+    from src.tailor import taxonomy
+
+    assert absent not in taxonomy.find(text)
+
+
+def test_taxonomy_data_qa_is_data_quality():
+    from src.tailor import taxonomy
+
+    text = "Validated and combined Shopify, BigCommerce, Yotpo and Google Sheets data landing in BigQuery"
+    assert "data quality / validation" in taxonomy.find(text)
+    assert "data quality / validation" in taxonomy.find("Data QA and integration of third-party sources")
+
+
+def _with_reqs(app, reqs, keywords=()):
+    data = appdir.read_json(app / "requirements.json")
+    data["requirements"] = reqs
+    data["keywords"] = list(keywords)
+    appdir.write_json(app / "requirements.json", data)
+
+
+def test_unknown_term_needs_jev(env):
+    cfg, app = env
+    # "transformer" isn't in the taxonomy; the spam-classifier passage mentions it.
+    _with_reqs(app, [{"id": "a", "text": "Transformers", "kind": "nice", "terms": ["transformer"],
+                      "weight": "role", "quote": "SQL"}])
+    ev = run_evidence(app, cfg, None)
+    assert ev["requirements"][0]["status"] == "missing"
+    assert "transformer" in ev["absent"]
+    jev = FakeJev(lambda s, q: 0.9 if q.id == "shows" and "PyTorch" in s else 0.1)
+    ev = run_evidence(app, cfg, jev)
+    assert ev["requirements"][0]["status"] == "covered"
+    assert ev["terms"][0]["passages"] == ["proj.spam.model"]
+
+
+def test_unknown_term_rejected_by_jev(env):
+    cfg, app = env
+    _with_reqs(app, [{"id": "a", "text": "Transformers", "kind": "nice", "terms": ["transformer"],
+                      "weight": "role", "quote": "SQL"}])
+    ev = run_evidence(app, cfg, FakeJev(lambda s, q: 0.1))
+    assert ev["terms"][0]["passages"] == [] and "transformer" in ev["absent"]
+
+
+@pytest.mark.parametrize("quote,status", [
+    ("Bachelor's degree in Statistics or a related field", "covered"),
+    ("Bachelor's or Master's degree in a quantitative field", "covered"),
+    ("Master's degree in Statistics required", "missing"),
+])
+def test_degree_requirement(env, quote, status):
+    cfg, app = env
+    _with_reqs(app, [{"id": "a", "text": quote, "kind": "must", "terms": [], "weight": "role", "quote": quote}])
+    r = run_evidence(app, cfg, FakeJev(lambda s, q: 0.9))["requirements"][0]
+    assert r["status"] == status and r["method"] == "degree"
+    assert r["passages"] == (["course.degree"] if status == "covered" else [])
+
+
+def test_synonym_only_requirement_is_partial(env):
+    cfg, app = env
+    # "Data QA" is a synonym of data quality, not the posting's wording.
+    idx = json.loads((Path(cfg["paths"]["vault_index"])).read_text())
+    idx["passages"].append({**idx["passages"][0], "id": "northwind.qa",
+                            "text": "Data QA of third-party sources landing in BigQuery."})
+    Path(cfg["paths"]["vault_index"]).write_text(json.dumps(idx))
+    _with_reqs(app, [{"id": "a", "text": "Maintain data quality", "kind": "nice", "terms": ["data quality"],
+                      "weight": "role", "quote": "SQL"}])
+    r = run_evidence(app, cfg, None)["requirements"][0]
+    assert r["status"] == "partial" and r["method"] == "related" and "northwind.qa" in r["passages"]

@@ -14,7 +14,9 @@ from functools import lru_cache
 
 T = [
 # Languages
-("Languages","SQL",r"\bsql\b|t-sql|pl/sql|\bmysql\b|postgres|sql server"),
+("Languages","SQL",r"\bsql\b|t-sql|pl/sql|\bmysql\b|postgres|sql server"
+ # Bare "Oracle" is the database; Oracle's ERP products go to the ERP entry below.
+ r"|\boracle\b(?! ?(?:erp|fusion|e-?business|netsuite|cloud erp|cloud applications|financials|hcm))"),
 ("Languages","Python",r"\bpython\b"),
 ("Languages","R",r"(?-i)\bR\b(?![&-])(?!\s?&)|\bRStudio\b|\btidyverse\b"),
 ("Languages","Java",r"\bjava\b(?!script)"),
@@ -25,6 +27,7 @@ T = [
 ("Languages","Go",r"(?-i)\b(Golang|Go)\b(?=[,/) ]+(?:and|or|Java|Python|Rust|Kotlin|C\+\+|Scala))|\b[Gg]olang\b"),
 ("Languages","Scala",r"\bscala\b"),
 ("Languages","SAS",r"(?-i)\bSAS\b"),
+("Languages","SPSS",r"\bspss\b"),
 ("Languages","VBA",r"\bvba\b|\bmacros?\b"),
 ("Languages","Bash/Shell",r"\bbash\b|shell script|\blinux\b|\bunix\b"),
 ("Languages","Kotlin/Swift",r"\bkotlin\b|\bswift\b"),
@@ -70,7 +73,8 @@ T = [
 ("Data platforms","data pipelines",r"data pipelines?|etl pipelines?|ml pipelines?|pipelines? (?:for|that) data"),
 ("Data platforms","data warehouse",r"data warehous|warehouse|data lake|lakehouse"),
 ("Data platforms","data modeling",r"data model|dimensional model|star schema"),
-("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"),
+("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"
+ r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b"),
 ("Data platforms","data governance",r"data governance|data stewardship|metadata"),
 ("Data platforms","NoSQL (MongoDB etc.)",r"nosql|mongodb|dynamodb|cassandra|cosmos ?db"),
 ("Data platforms","APIs / REST",r"\bapis?\b|\brest(ful)?\b"),
@@ -114,8 +118,16 @@ T = [
 ("ML & statistics","quantitative analysis",r"quantitative"),
 # Business tools
 ("Business tools","Salesforce/CRM",r"salesforce|\bcrm\b|hubspot|dynamics 365"),
-("Business tools","ERP (SAP/Oracle/Workday)",r"\berp\b|\bsap\b|oracle|netsuite"),
+# ERP only on ERP product wording: a sponsor name ("WiDS × SAP datathon") or a Workday careers
+# site is not ERP experience.
+("Business tools","ERP (SAP/Oracle/Workday)",r"\berp\b|\bsap\b(?! ?(?:datathon|hackathon|challenge))|s/4 ?hana"
+ r"|oracle ?(?:erp|fusion|e-?business|netsuite|cloud erp|financials|hcm)|netsuite"
+ r"|workday (?:hcm|financials|adaptive|prism)"),
 ("Business tools","Jira/Confluence",r"\bjira\b|confluence"),
+# A bare "Access" or "Word" only counts as the Microsoft tool when it is the whole term
+# (a posting's tools list), never as a word inside a sentence ("access tokens").
+("Business tools","Microsoft Access",r"microsoft access|ms access|access database|^access$"),
+("Business tools","Microsoft Word",r"microsoft word|ms word|^word$"),
 ("Business tools","Microsoft Office",r"microsoft office|ms office|office 365|microsoft 365|word, excel|powerpoint"),
 ("Business tools","Agile/Scrum",r"\bagile\b|scrum|kanban|sprint"),
 ("Business tools","project management",r"project management|project manager|pmp"),

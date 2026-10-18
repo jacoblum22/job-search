@@ -1,8 +1,11 @@
-"""Company research files: slugs, staleness and quote verification (step 1b).
+"""Company research files: slugs, staleness, page fetching and quote verification (step 1b).
 
-Code never fetches anything here. The research subagent saves page text under
-``pages/`` and writes ``facts.json``; ``verify_company`` then marks each fact
-verified only when its quote really appears in the page it names.
+The research subagent finds pages with web search, then saves each one with
+``fetch_page`` (the ``company-fetch`` command), which stores the page's own
+text. Agent web-fetch tools can return a model's summary of a page instead,
+and a quote copied from a summary is not the company's wording, so pages are
+never saved from them. ``verify_company`` then marks each fact verified only
+when its quote really appears in the page it names.
 """
 
 from __future__ import annotations
@@ -81,8 +84,54 @@ def _notes(name: str, facts: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+_DROP_TAGS = ("script", "style", "noscript", "nav", "header", "footer", "form", "svg", "iframe")
+
+
+def page_text(html: str) -> str:
+    """Visible text of an HTML page, one block per line, without menus, scripts or footers."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(_DROP_TAGS):
+        tag.decompose()
+    root = soup.find("main") or soup.body or soup
+    lines = [" ".join(ln.split()) for ln in root.get_text("\n").splitlines()]
+    return "\n".join(ln for ln in lines if ln)
+
+
+def fetch_page(directory: Path, url: str, timeout: float = 30.0) -> dict[str, Any]:
+    """Download `url` and save its text as the next ``pages/<n>.txt`` (first line ``URL: <url>``)."""
+    import httpx
+
+    directory = Path(directory)
+    try:
+        resp = httpx.get(url, follow_redirects=True, timeout=timeout,
+                         headers={"User-Agent": "Mozilla/5.0 (job-search company research)"})
+        resp.raise_for_status()
+    except httpx.HTTPError as e:
+        raise TailorError(f"could not fetch {url}: {e}") from e
+    ctype = resp.headers.get("content-type", "")
+    if "html" in ctype:
+        text = page_text(resp.text)
+    elif ctype.startswith("text/"):
+        text = resp.text
+    else:
+        raise TailorError(f"{url} is {ctype or 'an unknown type'}, not a web page; skip it")
+    if not text.strip():
+        raise TailorError(f"{url} has no readable text (it may need JavaScript); skip it")
+    pages = directory / "pages"
+    pages.mkdir(parents=True, exist_ok=True)
+    n = 1 + max((int(f.stem) for f in pages.glob("*.txt") if f.stem.isdigit()), default=0)
+    path = pages / f"{n}.txt"
+    path.write_text(f"URL: {resp.url}\n\n{text}\n", encoding="utf-8")
+    return {"page": n, "path": str(path), "url": str(resp.url), "chars": len(text)}
+
+
 def verify_company(directory: Path) -> dict[str, Any]:
-    """Check each fact's quote against its saved page; rewrite facts.json and notes.md."""
+    """Check each fact's quote against its saved page; rewrite facts.json and write verified.md.
+
+    ``notes.md`` belongs to the research step and is left alone.
+    """
     directory = Path(directory)
     facts_path = directory / "facts.json"
     facts = read_json(facts_path)
@@ -118,7 +167,7 @@ def verify_company(directory: Path) -> dict[str, Any]:
         else:
             f["verified"], f["reason"] = False, "quote not found in page text"
     write_json(facts_path, facts)
-    (directory / "notes.md").write_text(_notes(directory.name, facts), encoding="utf-8")
+    (directory / "verified.md").write_text(_notes(directory.name, facts), encoding="utf-8")
     n_ok = sum(1 for f in facts if f["verified"])
     return {
         "company_dir": str(directory),

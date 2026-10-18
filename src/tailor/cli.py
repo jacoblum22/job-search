@@ -55,6 +55,16 @@ def requirements(app_dir):
     _out(normalize(app_dir, load_config()))
 
 
+@main.command("company-fetch")
+@click.argument("company_dir", type=click.Path(file_okay=False, path_type=Path))
+@click.argument("url")
+def company_fetch(company_dir, url):
+    """Step 1b: save one web page's own text as the next pages/<n>.txt."""
+    from src.tailor.company import fetch_page
+
+    _out(fetch_page(company_dir, url))
+
+
 @main.command("company-verify")
 @click.argument("company_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
 def company_verify(company_dir):

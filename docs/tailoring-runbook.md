@@ -41,7 +41,8 @@ folder before starting the next. Keep a running note of the outcome for the dige
 3. **Company research (only if stale).** Look in `materials/companies/<company-slug>/facts.json`. If it has at
    least 3 facts and the newest `read` is under 30 days old, skip. Otherwise start a **Haiku subagent**
    with `prompts/tailor/company-research.md`, the company name and folder path. It may write only inside
-   that company folder. Then run `uv run python -m src.tailor company-verify "materials/companies/<company-slug>"`.
+   that company folder and must save pages with `company-fetch`, not a web-fetch tool. Then run
+   `uv run python -m src.tailor company-verify "materials/companies/<company-slug>"`.
    If research finds nothing usable, continue; the letter then uses the posting alone and the digest says so.
 4. `uv run python -m src.tailor evidence "<app>"`.
 5. `uv run python -m src.tailor base "<app>"`.

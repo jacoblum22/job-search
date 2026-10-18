@@ -151,6 +151,50 @@ def test_five_years_caps_tier_at_d():
 def test_phd_required_skips_but_phd_or_masters_does_not():
     assert _score("Data Scientist", "A PhD is required. python " * 30).tier == "skip"
     assert _score("Data Scientist", "Candidates must hold a PhD in statistics. " * 10).tier == "skip"
-    r = _score("Data Scientist", "Master's or PhD in a quantitative field. python sql " * 20)
+    r = _score("Data Scientist", "Bachelor's required; Master's or PhD preferred. python sql " * 20)
     assert r.tier != "skip"
     assert not any("phd" in x.lower() for x in r.reasons)
+
+
+def test_required_masters_skipped():
+    r = _score("Data Scientist", "* Master's or PhD in Biology or a related field.\n" + "python sql " * 40)
+    assert r.tier == "skip"
+    assert "Master's required" in r.reasons[0]
+
+
+def test_optional_masters_penalised():
+    desc = "python sql " * 40
+    base = _score("Data Analyst", desc)
+    for line in [
+        "Bachelor's degree in Biology; Master's degree preferred.",
+        "Master's degree in Biology, or experience working in Biology",
+        "A master's degree is an asset.",
+    ]:
+        r = _score("Data Analyst", f"{line}\n{desc}")
+        assert r.tier != "skip", line
+        assert r.score == base.score - 10, line
+        assert any("Master's preferred or optional" in x for x in r.reasons)
+
+
+def test_masters_elsewhere_is_optional_when_bachelors_accepted():
+    desc = "* Bachelor's degree with 3+ years of experience\n* An M.Sc. with 1+ years of experience\n" + "python sql " * 40
+    assert _score("Data Analyst", desc).tier != "skip"
+
+
+def test_bachelors_or_masters_costs_nothing():
+    desc = "python sql " * 40
+    base = _score("Data Analyst", desc).score
+    for line in [
+        "Bachelor's or Master's degree in Biology.",
+        "Bachelor's/Master's in Biology or equivalent work experience",
+        "Masters complex workflows quickly.",
+        "Master's salaries range from $56,550 a year.",
+    ]:
+        assert _score("Data Analyst", f"{line}\n{desc}").score == base, line
+
+
+def test_two_years_is_neutral():
+    desc = "python sql " * 40
+    none = _score("Data Analyst", desc, years=None)
+    assert _score("Data Analyst", desc, years=2).score == none.score
+    assert _score("Data Analyst", desc, years=1).score == none.score + 5

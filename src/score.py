@@ -10,7 +10,8 @@ A points system, tuned by the `score:` section of config/settings.yaml:
   - title says senior / level II-III or intern, or the posting asks for 3-5 years
 
 Some things are hard skips rather than penalties (more than 5 years
-required, wrong-field title, US residence required). A skipped job gets
+required, wrong-field title, US residence required, a PhD or
+Master's required; an optional Master's is a penalty). A skipped job gets
 tier "skip" and no score.
 
 Every point comes with a reason string, so the dashboard can show why a job
@@ -30,6 +31,54 @@ from typing import Any
 from src.tier import parse_min_years_experience
 
 _YEARS_IN_TITLE_RE = re.compile(r"\d+\s*(?:[-–]\s*\d+\s*)?\+?\s*(?:years?|yrs?)\b", re.IGNORECASE)
+
+# Master's-level degree mentions. Bare "masters" only counts next to degree
+# words, so "Masters data modeling concepts" doesn't.
+_MASTERS_RE = re.compile(
+    r"\bmaster['’]s\b|\bmasters\b(?=\s*(?:degree|or\b|in\b|program|student|[,/).]|$))"
+    r"|\bmaster of\b|\bM\.?Sc\b|\bMBA\b|(?<!under)(?<!under-)\bgraduate degree|\badvanced degree"
+    r"|\bpost-?graduate degree",
+    re.IGNORECASE,
+)
+# Any sign the posting accepts an undergraduate degree.
+_BACHELOR_RE = re.compile(
+    r"\bbachelor|\bundergrad|\bB\.?Sc\b|\bB\.?A\.? degree|\bB\.?S\.? degree|post-?secondary"
+    r"|\buniversity degree|\bcollege diploma|\bdegree in an? (?:quantitative|relevant|related)",
+    re.IGNORECASE,
+)
+_PREFERRED_RE = re.compile(
+    r"prefer|\basset\b|\ba plus\b|\bbonus\b|nice to have|desir|ideal|\bstrongly considered\b",
+    re.IGNORECASE,
+)
+# "Master's or equivalent experience": the Master's can be swapped for experience.
+_ESCAPE_RE = re.compile(
+    r"\bor (?:an? )?(?:equivalent|related|relevant|comparable)\b[^.]*\bexperience|\bor experience\b"
+    r"|equivalent (?:work |practical |professional )?experience|\band/or\b",
+    re.IGNORECASE,
+)
+
+
+def _masters_ask(description: str) -> tuple[str, str] | None:
+    """("required" | "optional", line) for the strongest Master's ask, else None.
+
+    Required: a Master's line with no "preferred"/"or equivalent experience"
+    escape, in a posting that never mentions accepting a Bachelor's. A line
+    like "Bachelor's or Master's degree" asks for nothing extra.
+    """
+    bachelor_ok = bool(_BACHELOR_RE.search(description))
+    optional = None
+    for line in description.splitlines():
+        if not _MASTERS_RE.search(line) or "$" in line or re.search(r"salar", line, re.IGNORECASE):
+            continue
+        line = line.strip(" *-•\t")
+        preferred = bool(_PREFERRED_RE.search(line))
+        if _BACHELOR_RE.search(line) and not preferred:
+            continue
+        if preferred or bachelor_ok or _ESCAPE_RE.search(line):
+            optional = optional or line
+        else:
+            return ("required", line)
+    return ("optional", optional) if optional else None
 
 
 @dataclass
@@ -106,6 +155,11 @@ def score_job(
     if location_category == "other" and cfg.get("skip_other_locations", True):
         return ScoreResult(None, "skip", ["location outside Vancouver / remote"])
 
+    masters_cfg = cfg.get("masters") or {}
+    masters = _masters_ask(description) if masters_cfg else None
+    if masters and masters[0] == "required" and masters_cfg.get("required_skip", True):
+        return ScoreResult(None, "skip", [f"Master's required: \"{masters[1][:120]}\""])
+
     # ── Points ────────────────────────────────────────────────────────
     score = 0
 
@@ -165,6 +219,11 @@ def score_job(
                 sign = "+" if rule["points"] >= 0 else ""
                 reasons.append(f"{sign}{rule['points']} asks for {years_experience} years")
                 break
+
+    if masters and masters[0] == "optional" and masters_cfg.get("optional_points"):
+        pts = masters_cfg["optional_points"]
+        score += pts
+        reasons.append(f"{pts} Master's preferred or optional")
 
     have_pts = min(sum(skills["have"][kw] for kw in have_hits), skills.get("have_cap", 40))
     if have_pts:
