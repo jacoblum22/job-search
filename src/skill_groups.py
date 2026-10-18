@@ -49,8 +49,15 @@ _ITEM_END = re.compile(r"\s+(?:is|are|was|for|to|in|on|at|with|within|as|that|wh
                        r"programming|development|languages?|frameworks?|tools|platforms?|concepts|use cases|"
                        r"technologies|databases|software|systems?|solutions?)\b|[(),]|\s+[–—-]\s", re.IGNORECASE)
 # Words a posting adds to an item that aren't part of its name ("FastAPI preferred").
-_ITEM_NOISE = re.compile(r"\s+(?:preferred|acceptable|required|a plus|an asset|strongly preferred)$|^\+\s*",
+_ITEM_NOISE = re.compile(r"\s+(?:preferred|acceptable|required|a plus|an asset|strongly preferred)$|^\+\s*"
+                         r"|^(?:proficient|proficiency|experienced?|expertise|knowledge|familiar(?:ity)?|skilled|"
+                         r"fluent|fluency|comfortable|strong|advanced|working knowledge)\s+(?:in|with|of|using)\s+",
                          re.IGNORECASE)
+# The kind of thing a list names, just before its cue: "visualization tools (e.g. Excel, ...)".
+_BEFORE_CUE = re.compile(r"(?:\b(?:such as|like|including|e\.g\b\.?|for example)|\()[\s,(]*"
+                         r"(?:\b(?:such as|like|including|e\.g\b\.?)[\s,]*)?$", re.IGNORECASE)
+_NOT_CATEGORY = {"in", "of", "with", "using", "use", "more", "the", "any", "all", "and", "or", "a", "an", "one",
+                 "to", "on", "for", "experience", "proficiency", "knowledge", "familiarity", "skills"}
 # An item that stands for "anything like the others" rather than a named option.
 _OPEN_ITEM = re.compile(r"^(?:other|another|any|similar|equivalent|comparable|related|a similar|a comparable|"
                         r"an equivalent|the like|etc|others)\b", re.IGNORECASE)
@@ -82,6 +89,8 @@ class Group:
     reason: str  # "or" (an "or" before the last item) or "cue" (a "such as"-style lead-in)
     open_end: bool  # the list ends with "or similar", "etc" or the like
     text: str  # the clause, for review
+    category: str | None = None  # what the list is a list of, when the posting says ("visualization tools")
+    category_skills: tuple[str, ...] = ()  # taxonomy skills that wording names ("data visualization")
 
     @property
     def options(self) -> tuple[str, ...]:
@@ -121,7 +130,24 @@ def _first_start(clause: str, a: int, b: int) -> tuple[int, bool]:
     return a, bool(leads)
 
 
-def _list_before(clause: str, end: int) -> list[tuple[int, int]]:
+def _category(clause: str, start: int) -> tuple[str | None, tuple[str, ...]]:
+    """The words naming a list's kind, before a cue like "such as" or "(e.g." that starts it."""
+    m = _BEFORE_CUE.search(clause[:start])
+    if not m:
+        return None, ()
+    words = clause[:m.start()].split()[-_MAX_WORDS:]
+    while words and words[0].lower().strip(",") not in _NOT_CATEGORY and any(
+            w.lower().strip(",") in _NOT_CATEGORY for w in words[1:]):
+        words = words[1:]
+    while words and words[0].lower().strip(",") in _NOT_CATEGORY:
+        words = words[1:]
+    text = " ".join(words).strip(" ,")
+    if not text:
+        return None, ()
+    return text, tuple(sorted(n for n in taxonomy.find(text) if n not in _SKIP))
+
+
+def _list_before(clause: str, end: int, hits: list[tuple[int, int, str]]) -> list[tuple[int, int]]:
     """Spans of the comma-separated items that end at `end`, walking left until a lead-in,
     a long segment or an "and"."""
     cuts = [-1] + [i for i, ch in enumerate(clause[:end]) if ch == ","] + [end]
@@ -132,9 +158,19 @@ def _list_before(clause: str, end: int) -> list[tuple[int, int]]:
         if ")" in seg:
             break  # a closed bracket isn't part of this list
         first, led = _first_start(clause, a, b)
+        if not led and len(clause[first:b].split()) > _MAX_WORDS:
+            # A long lead-in we don't recognise ("projects involving Microsoft 365"): the item
+            # starts at the first skill in its last few words, if there is one.
+            tail = b - len(" ".join(clause[first:b].split()[-_MAX_WORDS:]))
+            first = min((h[0] for h in hits if tail - 1 <= h[0] < b), default=b)
         if led or len(seg.split()) > _MAX_WORDS or re.search(r"\s(?:and|&)\s", seg, re.IGNORECASE):
-            spans.append((first, b))
+            if first < b:
+                spans.append((first, b))
             break
+        if a == 0:
+            # The clause's first words lead into the list ("projects involving Microsoft 365"):
+            # the item starts at its first skill.
+            a = min((h[0] for h in hits if a <= h[0] < b), default=a)
         spans.append((a, b))
     spans.reverse()
     return spans
@@ -153,14 +189,15 @@ def _or_lists(clause: str, hits: list[tuple[int, int, str]]) -> list[Group]:
         if clause[:m.start()].rstrip().endswith(")"):
             continue  # "(e.g. PyTorch, TensorFlow) and/or distributed systems" joins two asks
         cut = _ITEM_END.search(clause, m.end())
-        spans = [*_list_before(clause, m.start()), (m.end(), cut.start() if cut else len(clause))]
+        spans = [*_list_before(clause, m.start(), hits), (m.end(), cut.start() if cut else len(clause))]
         items = [i for i in (_item(clause, a, b, hits) for a, b in spans) if i]
         if _is_fields_of_study(items, clause):
             continue
         open_end = bool(items) and bool(_OPEN_ITEM.match(items[-1].text))
         items = [i for i in items if not _OPEN_ITEM.match(i.text)]
         if len(items) >= 2 and sum(any(map(_is_tool, i.skills)) for i in items) >= 2:
-            out.append(Group(tuple(items), "or", open_end, " ".join(clause.split())))
+            out.append(Group(tuple(items), "or", open_end, " ".join(clause.split()),
+                             *_category(clause, spans[0][0])))
     return out
 
 
@@ -174,7 +211,7 @@ def _cue_lists(clause: str, hits: list[tuple[int, int, str]]) -> list[Group]:
         cuts = [m.end() - 1] + [i for i in range(m.end(), stop.start()) if clause[i] == ","] + [stop.start()]
         items = [i for i in (_item(clause, a + 1, b, hits) for a, b in pairwise(cuts)) if i]
         if len(items) >= 2 and sum(any(map(_is_tool, i.skills)) for i in items) >= 2 and not _is_fields_of_study(items, clause):
-            out.append(Group(tuple(items), "cue", True, " ".join(clause.split())))
+            out.append(Group(tuple(items), "cue", True, " ".join(clause.split()), *_category(clause, m.end())))
     return out
 
 

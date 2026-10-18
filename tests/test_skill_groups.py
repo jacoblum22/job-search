@@ -77,3 +77,12 @@ def test_products_are_their_own_skills():
     assert taxonomy.find("Looker Studio dashboards") == {"Looker Studio", "dashboards"}
     assert taxonomy.find("Looker") == {"Looker"}
     assert taxonomy.RELATED["Vertex AI"] == "GCP"
+
+
+def test_lead_ins_and_list_kind():
+    (g,) = alternative_groups("projects involving Microsoft 365, SharePoint, Power Platform, or similar environments")
+    assert g.options == ("Microsoft 365", "SharePoint", "Power Platform")
+    (g,) = alternative_groups("use Microsoft Office at an advanced level (e.g. Outlook, Word, Proficient in Excel, PowerPoint)")
+    assert g.options == ("Outlook", "Word", "Excel", "PowerPoint")
+    (g,) = alternative_groups("Use one or more industry analytics visualization tools (e.g. Excel, Tableau, QuickSight)")
+    assert g.category == "industry analytics visualization tools" and g.category_skills == ("data visualization",)
