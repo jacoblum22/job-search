@@ -29,10 +29,17 @@ T = [
 ("Languages","TypeScript",r"typescript"),
 ("Languages","C#/.NET",r"c#|\.net\b"),
 ("Languages","C/C++",r"(?-i)[Cc]\+\+|\bC\b(?!#|\+)(?=[,/ ]+(?:C\+\+|and|or|Java|Python))"),
-("Languages","Go",r"(?-i)\b(Golang|Go)\b(?=[,/) ]+(?:and|or|Java|Python|Rust|Kotlin|C\+\+|Scala))|\b[Gg]olang\b"),
+("Languages","Go",r"(?-i)\b(Golang|Go)\b(?=[,/) ]+(?:and|or|Java|Python|Rust|Kotlin|C\+\+|Scala))|\b[Gg]olang\b"
+ r"|(?<=, )Go\b|(?<=or )Go\b|(?<=and )Go\b"),
 ("Languages","Scala",r"\bscala\b"),
 ("Languages","SAS",r"(?-i)\bSAS\b"),
 ("Languages","SPSS",r"\bspss\b"),
+("Languages","Stata",r"\bstata\b"),
+("Languages","MATLAB",r"\bmatlab\b"),
+("Languages","Julia",r"(?-i)\bJulia\b"),
+("Languages","Perl",r"\bperl\b"),
+("Languages","Ruby",r"\bruby\b"),
+("Languages","PowerShell",r"powershell"),
 ("Languages","VBA",r"\bvba\b|\bmacros?\b"),
 ("Languages","Bash/Shell",r"\bbash\b|shell script|\blinux\b|\bunix\b"),
 ("Languages","Kotlin/Swift",r"\bkotlin\b|\bswift\b"),
@@ -46,6 +53,7 @@ T = [
 ("Libraries","TensorFlow/Keras",r"tensorflow|\bkeras\b"),
 ("Libraries","XGBoost/LightGBM",r"xgboost|lightgbm|catboost|gradient boost"),
 ("Libraries","Hugging Face",r"hugging ?face|transformers library"),
+("Libraries","JAX",r"(?-i)\bJAX\b"),
 ("Libraries","LangChain/LlamaIndex",r"langchain|llamaindex|langgraph"),
 ("Libraries","Jupyter",r"jupyter|notebooks?\b"),
 ("Libraries","matplotlib/seaborn/plotly",r"matplotlib|seaborn|plotly|ggplot"),
@@ -55,7 +63,10 @@ T = [
 ("BI & analytics","Excel",r"\bexcel\b|spreadsheets?|pivot tables?|vlookup|xlookup"),
 ("BI & analytics","Power BI",r"power ?bi|\bdax\b"),
 ("BI & analytics","Tableau",r"tableau"),
-("BI & analytics","Looker / Looker Studio",r"\blooker\b|data studio"),
+# Looker (the enterprise BI platform, LookML) and Looker Studio (formerly Data Studio) are
+# different products.
+("BI & analytics","Looker",r"\blooker\b(?!\s+studio)|\blookml\b"),
+("BI & analytics","Looker Studio",r"looker\s+studio|data studio"),
 ("BI & analytics","Qlik",r"\bqlik"),
 ("BI & analytics","Google Analytics",r"google analytics|\bga4\b"),
 ("BI & analytics","dashboards",r"dashboard"),
@@ -63,7 +74,17 @@ T = [
 ("BI & analytics","reporting",r"\breporting\b|\breports\b|\bbuild(?:ing)? reports?"),
 ("BI & analytics","KPIs/metrics",r"\bkpis?\b|key performance|metrics"),
 ("BI & analytics","A/B testing / experimentation",r"a/b test|experiment(?:ation|al design| design)|\bab test"),
-("BI & analytics","Power Query/Power Platform",r"power query|power automate|power apps|power platform"),
+("BI & analytics","Power Query",r"power query"),
+("BI & analytics","Power Automate",r"power automate"),
+("BI & analytics","Power Apps",r"power apps"),
+("BI & analytics","Microsoft Power Platform",r"power platform"),
+("BI & analytics","Dataverse",r"dataverse"),
+("BI & analytics","Superset",r"\bsuperset\b"),
+("BI & analytics","Metabase",r"metabase"),
+("BI & analytics","Sigma",r"(?-i)\bSigma\b(?! ?(?:Xi|Chi))|sigma computing"),
+("BI & analytics","MicroStrategy",r"microstrategy"),
+("BI & analytics","Cognos",r"cognos"),
+("BI & analytics","Amplitude / Mixpanel",r"(?-i)\bAmplitude\b|\bmixpanel\b"),
 # Data engineering / warehouse
 ("Data platforms","Snowflake",r"snowflake"),
 ("Data platforms","Databricks",r"databricks"),
@@ -72,8 +93,13 @@ T = [
 ("Data platforms","Spark/PySpark",r"\bspark\b|pyspark"),
 ("Data platforms","dbt",r"\bdbt\b"),
 ("Data platforms","Airflow",r"airflow"),
+("Data platforms","Prefect",r"(?-i)\bPrefect\b"),
+("Data platforms","Fivetran",r"fivetran"),
+("Data platforms","Flink",r"\bflink\b"),
+("Data platforms","Elasticsearch",r"elasticsearch|opensearch"),
+("Data platforms","vector databases",r"vector (?:database|db|store)s?|pinecone|weaviate|pgvector"),
 ("Data platforms","Kafka",r"\bkafka\b"),
-("Data platforms","Hadoop/Hive",r"hadoop|\bhive\b"),
+("Data platforms","Hadoop/Hive",r"hadoop|\bhive\b|\bhbase\b"),
 ("Data platforms","ETL/ELT",r"\betl\b|\belt\b|extract, transform"),
 ("Data platforms","data pipelines",r"data pipelines?|etl pipelines?|ml pipelines?|pipelines? (?:for|that) data"),
 ("Data platforms","data warehouse",r"data warehous|warehouse|data lake|lakehouse"),
@@ -87,11 +113,13 @@ T = [
 ("Data platforms","SSIS/SSRS",r"\bssis\b|\bssrs\b|\bssas\b"),
 # Cloud & devops
 # A platform's own products get their own entries: S3 experience doesn't show SageMaker.
-# PART_OF links each product to its platform ("AWS S3" in the vault matches both).
+# RELATED links each product to its platform ("AWS S3" in the vault matches both).
 ("Cloud & DevOps","AWS",r"\baws\b|amazon web services"),
 ("Cloud & DevOps","AWS S3",r"\bs3\b"),
 ("Cloud & DevOps","AWS Lambda",r"\blambda\b(?! ?(?:function|expression|calculus))|aws lambda"),
 ("Cloud & DevOps","Amazon SageMaker",r"sagemaker"),
+("Cloud & DevOps","Amazon Bedrock",r"bedrock"),
+("Cloud & DevOps","Amazon Kinesis",r"kinesis"),
 ("Cloud & DevOps","Azure",r"\bazure\b"),
 ("Cloud & DevOps","Azure Machine Learning",r"azure machine learning|azure ml\b"),
 ("Cloud & DevOps","GCP",r"\bgcp\b|google cloud"),
@@ -116,6 +144,7 @@ T = [
 ("ML & statistics","clustering/segmentation",r"cluster|segmentation"),
 ("ML & statistics","deep learning / neural nets",r"deep learning|neural net"),
 ("ML & statistics","NLP",r"\bnlp\b|natural language"),
+("ML & statistics","embeddings",r"\bembeddings?\b"),
 ("ML & statistics","LLMs / generative AI",r"\bllms?\b|large language|generative ai|\bgenai\b|\bgpt\b|prompt engineering|\brag\b|retrieval.augmented"),
 ("ML & statistics","computer vision",r"computer vision|image processing"),
 ("ML & statistics","time series",r"time.series"),
@@ -137,7 +166,8 @@ T = [
  r"|oracle ?(?:erp|fusion|e-?business|netsuite|cloud erp|financials|hcm)|netsuite"
  r"|\boracle\b(?=[^.;\n]{0,80}" + _BUSINESS_SYSTEMS + r")|(?<=sap, )oracle|(?<=sap or )oracle|(?<=sap/)oracle"
  r"|workday (?:hcm|financials|adaptive|prism)"),
-("Business tools","Jira/Confluence",r"\bjira\b|confluence"),
+("Business tools","Jira/Confluence",r"\bjira\b|confluence(?! cloud)"),
+("Business tools","Visio / diagramming",r"\bvisio\b|lucidchart|draw\.io|\bmiro\b"),
 # A bare "Access" or "Word" only counts as the Microsoft tool when it is the whole term
 # (a posting's tools list), never as a word inside a sentence ("access tokens").
 ("Business tools","Microsoft Access",r"microsoft access|ms access|access database|^access$"),
@@ -180,9 +210,13 @@ T = [
 ("Credentials","degree in economics/business",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)[^.;]{0,80}(?:economics|business|commerce|finance)"),
 ]
 
-# Products and the platform or practice they belong to: related, but not the same skill.
-PART_OF = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS",
-           "Azure Machine Learning": "Azure", "Vertex AI": "GCP", "MLflow": "MLOps"}
+# Products and the platform, family or close cousin they belong with: related, but not the
+# same skill (Looker Studio experience doesn't show Looker).
+RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Amazon Bedrock": "AWS",
+           "Amazon Kinesis": "AWS", "Azure Machine Learning": "Azure", "Vertex AI": "GCP", "MLflow": "MLOps",
+           "Power Query": "Microsoft Power Platform", "Power Automate": "Microsoft Power Platform",
+           "Power Apps": "Microsoft Power Platform", "Dataverse": "Microsoft Power Platform",
+           "Looker Studio": "Looker"}
 
 HARD_CATEGORIES = {c for c, _, _ in T} - {"Soft skills", "Credentials"}
 
