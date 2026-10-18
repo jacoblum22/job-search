@@ -360,6 +360,27 @@ def test_jev_flag_and_unavailable(tmp_path):
     assert run_check(app, 1, cfg, FakeJev(lambda s, q: 0.9))["flags"] == []
 
 
+def test_jev_no_from_a_missed_citation_adds_the_passage(tmp_path):
+    # The line claims dashboard work but cites only the SQL passage: a citation gap, not an overclaim.
+    app, cfg = make_app(tmp_path)
+    value = SQL_NEW[:-1] + ", and maintained Tableau dashboards used by the operations team."
+    write_edits(app, [sql_edit(value=value)])
+    apply_edits(app, 1, cfg)
+    fake = FakeJev(lambda state, q: 0.9 if "Maintained Tableau" in state else 0.2)
+    res = run_check(app, 1, cfg, fake)
+    assert [f["code"] for f in res["flags"]] == ["jev_citation_gap"]
+    assert "northwind.dashboards" in res["flags"][0]["message"]
+    draft = yaml.safe_load((app / "drafts" / "r1" / "resume.yaml").read_text())
+    srcs = next(b["sources"] for e in draft["experience"] for b in e["bullets"] if b["id"] == "northwind.sql-daily")
+    assert srcs[0] == "northwind.sql-daily" and "northwind.dashboards" in srcs
+    # Still "no" with the related passages: a real doubt, and nothing is added.
+    write_edits(app, [sql_edit(value=value)])
+    apply_edits(app, 1, cfg)
+    res = run_check(app, 1, cfg, FakeJev(lambda s, q: 0.2))
+    assert [f["code"] for f in res["flags"]] == ["jev_unsupported"]
+    assert "even with northwind.dashboards" in res["flags"][0]["message"]
+
+
 def test_metrics():
     posting = "Write SQL dashboards Tableau Looker"
     assert alignment("SQL dashboards", posting) == 1.0
