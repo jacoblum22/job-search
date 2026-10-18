@@ -14,6 +14,10 @@ workflow; code is original unless stated.
   the banned-phrase list and the refinement prompt rules.
 - **ATS Resume Improver** by SimeonOnSecurity, MIT License. Adapted: parts of the banned-phrase list
   and keyword-handling rules.
+- **Humanizer** by Siqi Chen, MIT License (github.com/blader/humanizer), built on Wikipedia's "Signs of
+  AI writing" (WikiProject AI Cleanup). Adapted: the phrase patterns in `src/tailor/phrases.py`
+  (sayings that sound deep, staged run-ups, inflated significance, sales language, "serves as" verbs,
+  arguing with no one, extra overused words) and the rewrite principles in `prompts/tailor/humanize.md`.
 - **ResumeFlow** by Saurabh Zinjad, MIT License. Adapted: structure ideas for the resume and letter
   generation steps.
 - **O\*NET Technology Skills** (O\*NET Resource Center, U.S. Department of Labor, Employment and

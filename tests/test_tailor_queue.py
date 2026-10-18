@@ -191,3 +191,22 @@ def test_packet_lists_evidence_drops(cfg):
     assert "## Evidence matches the plan rejected" in check
     assert "- [ ] Undo  Microsoft Access (firmament.oauth-2-0): OAuth access tokens" in check
     assert check.index("rejected") < check.index("Changes from the base")
+
+
+def test_packet_lists_jev_no_answers(cfg):
+    _, d = _packet_app(cfg)
+    g = d / "drafts" / "r1" / "grade.json"
+    data = json.loads(g.read_text())
+    data["checklist"] = [{"id": "letter.closer", "question": "Could this closing sentence end any letter?",
+                          "passed": False, "confidence": 0.53},
+                         {"id": "top_third", "question": "Top third?", "passed": True, "confidence": 0.9}]
+    g.write_text(json.dumps(data))
+    ev = json.loads((d / "evidence.json").read_text())
+    ev["jev_said_no"] = [{"term": "Microsoft Access", "passage": "firmament.oauth", "text": "OAuth access tokens"}]
+    (d / "evidence.json").write_text(json.dumps(ev))
+    run_packet(d, cfg)
+    check = (d / "check.md").read_text()
+    assert "## Jev said no: check for false rejections" in check
+    assert "- Failed: Could this closing sentence end any letter? (confidence 0.53)" in check
+    assert "Top third?" not in check
+    assert '- Not counted as evidence: Microsoft Access in firmament.oauth: "OAuth access tokens"' in check

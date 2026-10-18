@@ -1,7 +1,10 @@
 """Phrases that make writing sound AI-generated, and the rule for when they're allowed.
 
 Word lists merged from AI Job Hunter (Apache-2.0, natural-voice.ts), Resume-Matcher
-(Apache-2.0, prompts/refinement.py) and ATS Resume Improver (MIT), adapted.
+(Apache-2.0, prompts/refinement.py) and ATS Resume Improver (MIT), adapted. The phrase
+patterns (sayings that sound deep, staged run-ups, inflated significance, sales
+language, "serves as" verbs, arguing with no one) follow the Humanizer skill (MIT,
+github.com/blader/humanizer), which is built on Wikipedia's "Signs of AI writing".
 
 Protection rule (shared by the writer prompts, the checks and the humanize pass):
 a phrase is allowed when it is an exact term from the job posting, or when it
@@ -23,6 +26,7 @@ BANNED_WORDS = [
     "ever-evolving", "paradigm shift", "spearheaded", "spearheading", "orchestrated", "utilize", "utilized",
     "utilizing", "synergy", "synergies", "holistic", "game-changer", "navigate the complexities",
     "in today's fast-paced", "landscape", "meticulously", "dynamic", "innovative solutions",
+    "additionally", "bolstered", "enduring", "interplay", "deep dive",
 ]
 BANNED_SELF = [
     "passionate", "results-driven", "proven track record", "team player", "detail-oriented",
@@ -41,6 +45,20 @@ SUGGESTIONS = {
     "streamline": "simplify", "streamlined": "simplified", "in order to": "to", "showcase": "show",
 }
 
+# Phrase patterns: each dresses up a plain point instead of stating it (Humanizer patterns 3-5, 13, 16, 18).
+PATTERNS = {
+    "deep_saying": r"\b(?:the real question is|at its core|what really matters|the heart of the matter|"
+                   r"the deeper issue|about as \w+ as \w+ (?:gets?|get)|fundamentally)\b",
+    "run_up": r"(?:^|[.!?]\s+)(?:here's the thing|the thing is|let's dive in|let's be honest|honestly\?|"
+              r"here's what you need to know|real talk)\b",
+    "inflated": r"\b(?:stands? as a testament|plays? a (?:key|pivotal|crucial|vital) role|setting the stage for|"
+                r"marking a (?:pivotal|turning)|evolving landscape|indelible mark|reflects a broader)\b",
+    "sales": r"\b(?:nestled|in the heart of|renowned|breathtaking|groundbreaking|diverse array)\b",
+    "fancy_verb": r"\b(?:serves as|stands as|functions as|boasts)\b",
+    "no_one": r"\b(?:i'm not saying|i am not saying|don't get me wrong|this is not to say|to be clear,)",
+}
+_PATTERNS = {code: re.compile(rx, re.IGNORECASE) for code, rx in PATTERNS.items()}
+
 _DASH = re.compile(r"\s[—–]\s|—")
 _NOT_JUST = re.compile(r"\bnot (?:just|only)\b[^.]{1,80}\bbut\b", re.I)
 _ING_TAIL = re.compile(r",\s+(?:showcasing|highlighting|demonstrating|underscoring|reflecting|ensuring)\b", re.I)
@@ -49,7 +67,7 @@ _TRIPLE = re.compile(r"\b\w+(?:\s\w+)?,\s\w+(?:\s\w+)?,?\s(?:and|or)\s\w+", re.I
 
 @dataclass
 class Hit:
-    code: str  # banned_word | banned_self | opener | closer | dash | not_just | ing_tail | triple
+    code: str  # banned_word | banned_self | opener | closer | dash | not_just | ing_tail | triple | PATTERNS key
     phrase: str
     start: int
 
@@ -89,6 +107,11 @@ def scan(text: str, posting: str = "", own_texts: Iterable[str] = (), *, letter:
                     hits.append(Hit(code, w, i))
         for m in _TRIPLE.finditer(text):
             hits.append(Hit("triple", m.group(0), m.start()))
+    for code, rx in _PATTERNS.items():
+        for m in rx.finditer(low):
+            phrase = m.group(0).strip(" .!?")
+            if not is_protected(phrase, posting, own):
+                hits.append(Hit(code, phrase, m.start()))
     for code, rx in (("dash", _DASH), ("not_just", _NOT_JUST), ("ing_tail", _ING_TAIL)):
         for m in rx.finditer(text):
             hits.append(Hit(code, m.group(0).strip(), m.start()))

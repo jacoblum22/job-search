@@ -36,6 +36,15 @@ If `flags.json` is empty, write `[]` to `humanize/patches.json` and stop.
    fact that was not there.
 8. The whole pass is reverted if the warning count goes up, so prefer the smallest change that clears
    the flag.
+9. Reasons that name a phrase pattern (wording adapted from the Humanizer skill, MIT):
+   - `deep_saying` ("about as real as problems get", "at its core"): replace the saying with the
+     plain claim, or cut it if it adds nothing.
+   - `run_up` ("Here's the thing"): cut the run-up and start with the point.
+   - `inflated` ("plays a key role"): keep the fact and drop the significance.
+   - `sales` ("in the heart of", "renowned"): say what the thing is.
+   - `fancy_verb` ("serves as", "boasts"): use is, are or has.
+   - `no_one` ("I'm not saying"): cut the defence of a point nobody made.
+   Every sentence you keep must tell the reader something they didn't already have.
 
 ## Output
 

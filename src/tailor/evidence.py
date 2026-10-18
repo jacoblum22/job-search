@@ -208,27 +208,35 @@ def _jev_pass(reqs_missing: list[dict], claims: dict[str, dict], cfg: dict, jev:
 
 
 def _confirm_unknown(entries: list[dict], claims: dict[str, dict], base_texts: dict[str, str],
-                     cfg: dict, jev: Any, cache: rejects.JevCache | None = None) -> dict[str, set[str]]:
+                     cfg: dict, jev: Any, cache: rejects.JevCache | None = None,
+                     said_no: list[dict] | None = None) -> dict[str, set[str]]:
     """Keep only Jev-confirmed plain-word matches for terms the taxonomy doesn't know.
 
     Trims each such entry's passages in place and returns, per term, the base ids
-    whose text Jev confirmed. With no Jev, nothing is confirmed.
+    whose text Jev confirmed. With no Jev, nothing is confirmed. Every "no" goes in
+    `said_no` so the candidate can spot a false rejection.
     """
     threshold = float((cfg.get("evidence") or {}).get("jev_yes", 0.6))
     usable = jev is not None and getattr(jev, "available", True)
     confirmed_bases: dict[str, set[str]] = {}
 
-    def yes(term: str, text: str) -> bool:
+    def yes(term: str, text: str, where: str = "") -> bool:
+        ok = _ask(term, text)
+        if ok is False and said_no is not None:
+            said_no.append({"term": term, "passage": where, "text": text[:160]})
+        return bool(ok)
+
+    def _ask(term: str, text: str) -> bool | None:
         q = Question(id="shows", type="yesno",
                      text=f"Does this text show the candidate has used or has the skill: {term}?")
         cached = cache.get(q.text, text) if cache is not None else None
         if cached is not None:
             return cached >= threshold
         if not usable:
-            return False
+            return None
         a = jev.ask(text, [q])[0]
         if not (a.ok and isinstance(a.value, (int, float))):
-            return False
+            return None
         if cache is not None:
             cache.put(q.text, text, float(a.value))
         return a.value >= threshold
@@ -236,12 +244,12 @@ def _confirm_unknown(entries: list[dict], claims: dict[str, dict], base_texts: d
     for e in entries:
         if e.get("canonical"):
             continue
-        e["passages"] = [pid for pid in e["passages"] if yes(e["term"], claims[pid]["text"])]
+        e["passages"] = [pid for pid in e["passages"] if yes(e["term"], claims[pid]["text"], pid)]
         e["related"] = []
         confirmed_bases[e["term"]] = set()
         for bid, text in base_texts.items():
             lines = [ln for ln in text.splitlines() if term_mentioned(e, ln)]
-            if any(yes(e["term"], ln) for ln in lines):
+            if any(yes(e["term"], ln, f"base:{bid}") for ln in lines):
                 confirmed_bases[e["term"]].add(bid)
     return confirmed_bases
 
@@ -268,7 +276,8 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         e["related"] = [p["id"] for p in hits if not term_exact(e, p["text"])][:3]
         e["base_rejected"] = rejects.rejected(names, rejects.BASE, active)
     cache = rejects.JevCache(cfg)
-    confirmed_bases = _confirm_unknown(entries, claims, base_texts, cfg, jev, cache)
+    said_no: list[dict] = []
+    confirmed_bases = _confirm_unknown(entries, claims, base_texts, cfg, jev, cache, said_no)
     cache.save()
 
     def in_base(e: dict, bid: str) -> bool:
@@ -335,6 +344,7 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         "requirements": req_out, "terms": terms_out, "buckets": buckets,
         "present": present,
         "absent": [t["term"] for t in terms_out if t["term"] not in present and t["weight"] != "boilerplate"],
+        "jev_said_no": said_no,
     }
     appdir.write_json(app_dir / "evidence.json", result)
     n_cov = sum(o["status"] == "covered" for o in req_out)

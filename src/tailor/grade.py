@@ -291,7 +291,18 @@ def _must_sections(data: dict[str, Any], passage_ids: set[str]) -> list[str]:
     return ["summary", "skills", *cited]
 
 
-def _build_questions(app_dir, rnd, data, req, company, has_letter):
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"'])")
+
+
+def _first_last_sentences(letter: dict[str, Any]) -> tuple[str, str]:
+    paras = [str(p.get("text") or "") if isinstance(p, dict) else str(p) for p in letter.get("paragraphs") or []]
+    paras = [p.strip() for p in paras if p.strip()]
+    if not paras:
+        return "", ""
+    return _SENTENCE_END.split(paras[0])[0], _SENTENCE_END.split(paras[-1])[-1]
+
+
+def _build_questions(app_dir, rnd, data, req, company, letter):
     qs: list[Question] = []
     meta: dict[str, dict[str, Any]] = {}
 
@@ -308,9 +319,16 @@ def _build_questions(app_dir, rnd, data, req, company, has_letter):
     for path in _changed_bullets(app_dir, rnd, data):
         add(f"portable.{path}", "Could this bullet describe almost any candidate?", fail_on_yes=True,
             sections=[_entry_of(path)], bullet=path)
-    if has_letter:
+    if letter is not None:
         add("letter.specific", f"Does the letter name something specific to {company or 'the company'}?", sections=["letter"])
-        add("letter.generic", "Does the letter avoid generic openers and closers?", sections=["letter"])
+        # One question each, about the one sentence, so a doubt about either is clear.
+        opener, closer = _first_last_sentences(letter)
+        if opener:
+            add("letter.opener", f'Could this opening sentence start a cover letter for almost any job: "{opener}"?',
+                fail_on_yes=True, sections=["letter"])
+        if closer:
+            add("letter.closer", f'Could this closing sentence end a cover letter for almost any job: "{closer}"?',
+                fail_on_yes=True, sections=["letter"])
     return qs, meta
 
 
@@ -359,7 +377,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
 
     text = resume_text(data)
     must_reqs = {r["id"]: r for r in req.get("requirements") or [] if r.get("kind") == "must"}
-    qs, meta = _build_questions(app_dir, rnd, data, req, company, letter is not None)
+    qs, meta = _build_questions(app_dir, rnd, data, req, company, letter)
     state = strip_identity(text + ("\n\n--- LETTER ---\n" + letter_text(letter) if letter else ""), data.get("contact"))
     items = _run_checklist(jev, state, qs, meta)
     for it in items:
@@ -426,8 +444,10 @@ def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeate
             sentences.append(f"Bullet {path} could fit almost anyone; add its specific tool, scope or result{tail}.")
         elif iid == "letter.specific":
             sentences.append(f"Name one concrete fact about {req.get('company') or 'the company'} from the posting in the letter.")
-        elif iid == "letter.generic":
-            sentences.append("Replace the generic opener or closer in the letter with a concrete line about the role.")
+        elif iid == "letter.opener":
+            sentences.append("The letter's first sentence could open any letter; start with something specific to this role.")
+        elif iid == "letter.closer":
+            sentences.append("The letter's last sentence could end any letter; tie it to this role or team.")
     if repeated:
         sentences.append(f"Cut repeated keywords ({', '.join(repeated[:3])}) back to a natural count.")
     return gaps, sentences

@@ -82,7 +82,7 @@ def _reasons(hits: list[phrases.Hit]) -> list[str]:
     for h in hits:
         if h.code in ("banned_word", "banned_self"):
             r = f"banned:{h.phrase}"
-        elif h.code in ("opener", "closer"):
+        elif h.code in ("opener", "closer") or h.code in phrases.PATTERNS:
             r = f"{h.code}:{h.phrase}"
         else:
             r = h.code

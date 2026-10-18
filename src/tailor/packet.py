@@ -121,6 +121,16 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             lines.append("- Keyword stuffing suspected")
     else:
         lines.append("- No grade available")
+    # Jev's "no" answers are advice; listing them lets the candidate catch a false rejection.
+    said_no = [it for it in (grade or {}).get("checklist") or [] if it.get("passed") is False]
+    ev_no = (_opt_json(app_dir / "evidence.json") or {}).get("jev_said_no") or []
+    if said_no or ev_no:
+        lines += ["", "## Jev said no: check for false rejections", ""]
+        for it in said_no:
+            conf = f" (confidence {it['confidence']:.2f})" if isinstance(it.get("confidence"), (int, float)) else ""
+            lines.append(f"- Failed: {it.get('question', it.get('id'))}{conf}")
+        for n in ev_no:
+            lines.append(f"- Not counted as evidence: {n.get('term')} in {n.get('passage')}: \"{n.get('text', '')}\"")
     drops = (_opt_json(app_dir / "plan.json") or {}).get("evidence_drops") or []
     if drops:
         new = {(r["term"].lower(), r["passage"]) for r in rejects.load(cfg)

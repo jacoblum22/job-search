@@ -207,3 +207,17 @@ def test_fetch_page_rejects_pdf(tmp_path, monkeypatch):
         200, headers={"content-type": "application/pdf"}, content=b"%PDF", request=httpx.Request("GET", url)))
     with pytest.raises(TailorError, match="not a web page"):
         fetch_page(tmp_path, "https://example.com/a.pdf")
+
+
+def test_phrase_patterns_flag_dressed_up_lines():
+    from src.tailor import phrases
+
+    def codes(t, posting=""):
+        return {h.code for h in phrases.scan(t, posting)}
+
+    assert "deep_saying" in codes("Health care is about as real as problems get.")
+    assert "fancy_verb" in codes("The portal serves as a hub for patients.")
+    assert "run_up" in codes("Here's the thing. I like data.")
+    assert codes("I wrote SQL for the marketing team.") == set()
+    # protection rule: an exact posting phrase is allowed
+    assert "inflated" not in codes("Data plays a key role here.", posting="Data plays a key role at VCH")

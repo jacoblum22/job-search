@@ -145,7 +145,7 @@ def test_run_grade_without_jev_marks_everything_unchecked(tmp_path):
     saved = json.loads((app / "drafts" / "r1" / "grade.json").read_text())
     assert saved["score"] == out["score"]
     ids = {it["id"] for it in out["checklist"]}
-    assert {"must.r1", "must.r2", "top_third", "letter.specific", "letter.generic"} <= ids
+    assert {"must.r1", "must.r2", "top_third", "letter.specific", "letter.opener", "letter.closer"} <= ids
     assert any(i.startswith("portable.") for i in ids)
 
 
@@ -200,3 +200,25 @@ def test_failed_checklist_lowers_score(tmp_path):
     bad = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.9 if q.id.startswith("portable.") else 0.9))
     assert bad["score"] < good["score"]
     assert good["ats"]["total"] == bad["ats"]["total"]
+
+
+def test_letter_opener_and_closer_are_separate_questions(tmp_path):
+    app = make_app(tmp_path)
+    letter_path = app / "drafts" / "r1" / "cover-letter.json"
+    letter = json.loads(letter_path.read_text())
+    letter["paragraphs"] = [{"text": "I am applying for this role. I wrote SQL daily.", "sources": [], "company_facts": []},
+                            {"text": "I used dbt. I would like to talk soon.", "sources": [], "company_facts": []}]
+    letter_path.write_text(json.dumps(letter))
+    asked = {}
+
+    def answers(state, q):
+        asked[q.id] = q.text
+        return 0.9 if q.id == "letter.closer" else 0.1
+
+    out = run_grade(app, 1, CFG, FakeJev(answers))
+    assert '"I am applying for this role."' in asked["letter.opener"]
+    assert '"I would like to talk soon."' in asked["letter.closer"]
+    by_id = {it["id"]: it for it in out["checklist"]}
+    assert by_id["letter.opener"]["passed"] is True and by_id["letter.closer"]["passed"] is False
+    assert any("last sentence" in s for s in out["feedback"])
+    assert not any("first sentence" in s for s in out["feedback"])

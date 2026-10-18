@@ -84,6 +84,9 @@ role. If the vault has no `motivation.*` passages, keep movement 3 to one senten
      posting, or already in the candidate's own writing.
    - No em dashes. No "not just X but Y". No trailing ", showcasing ..." clauses. No lists of three
      used as a rhythm trick. No fake-profound last line.
+   - No sayings that sound deep ("about as real as problems get", "as direct as data gets"), no
+     staged run-ups ("Here's the thing"), no inflated significance ("plays a key role"). Every
+     sentence must tell the reader something they didn't already know.
    - Mix sentence lengths: some of 3-7 words, some of 20-30.
    - Banned openers: "I am writing to apply", "I am excited to apply", "As a passionate", "Please
      accept this letter".
