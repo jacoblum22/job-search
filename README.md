@@ -68,6 +68,30 @@ Search behaviour lives in `config/settings.yaml` (`search:`) and
 Tune phrases in `src/search_match.py` (`DEFAULT_ALIASES`) or
 `search.keyword_aliases` in YAML.
 
+## Experience vault passage index
+
+Tailored resumes and cover letters cite vault passages by id
+(`algaecal.sql-daily`), so every claim can be checked against the vault.
+Ids live in the vault files as Obsidian block ids at the end of each bullet,
+table row or header line (`- Wrote SQL in BigQuery every day. ^sql-daily`);
+the file's prefix is the `<!-- id: algaecal -->` comment on its first line.
+Editing a bullet's text keeps its id. Don't reuse an id for a different fact.
+
+```bash
+# After adding new bullets to the vault: give them ids, then rebuild the index
+uv run python scripts/vault_index.py --assign
+# Rebuild only (fails if a passage has no id or an id is used twice)
+uv run python scripts/vault_index.py
+# Look up one passage
+uv run python scripts/vault_index.py --show algaecal.sql-daily
+```
+
+The index is written to `materials/profile/vault-index.json` (git-ignored).
+It warns when an id from the previous build disappeared, since drafts citing it
+would break. Each passage is marked `use: claim`, `interview-only` (manager
+feedback, departure) or `guidance` (framing rules, "do not claim" notes), and
+`ai_assisted: true` for projects built mostly by Claude Code.
+
 ## Usage (legacy UBC markdown scrape)
 
 ```bash
