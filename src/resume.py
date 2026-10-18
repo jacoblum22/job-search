@@ -389,31 +389,57 @@ def build_document(data: dict[str, Any], contact: dict[str, str]):
 # ---------------------------------------------------------------------------
 
 
-def docx_to_pdf(docx_path: Path, pdf_path: Path) -> Path:
-    """Convert with Word (Windows, pywin32) when available, else LibreOffice."""
-    docx_path, pdf_path = Path(docx_path).resolve(), Path(pdf_path).resolve()
-    if sys.platform == "win32":
+_SOFFICE_WINDOWS = (
+    Path("C:/Program Files/LibreOffice/program/soffice.exe"),
+    Path("C:/Program Files (x86)/LibreOffice/program/soffice.exe"),
+)
+
+
+def _word_to_pdf(docx_path: Path, pdf_path: Path) -> bool:
+    """Convert with Word through COM; False when pywin32 or Word itself isn't available."""
+    try:
+        import pythoncom
+        import win32com.client
+    except ImportError:
+        return False
+    pythoncom.CoInitialize()
+    try:
         try:
-            import pythoncom
-            import win32com.client
-        except ImportError:
-            pass
-        else:
-            pythoncom.CoInitialize()
             word = win32com.client.Dispatch("Word.Application")
-            word.Visible = False
-            word.DisplayAlerts = False
-            try:
-                doc = word.Documents.Open(str(docx_path))
-                doc.SaveAs(str(pdf_path), FileFormat=17)  # 17 = wdFormatPDF
-                doc.Close(0)
-            finally:
-                word.Quit()
-                pythoncom.CoUninitialize()
-            return pdf_path
-    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+        except Exception:  # noqa: BLE001 - pywin32 is installed but Word isn't
+            return False
+        word.Visible = False
+        word.DisplayAlerts = False
+        try:
+            doc = word.Documents.Open(str(docx_path))
+            doc.SaveAs(str(pdf_path), FileFormat=17)  # 17 = wdFormatPDF
+            doc.Close(0)
+        finally:
+            word.Quit()
+        return True
+    finally:
+        pythoncom.CoUninitialize()
+
+
+def _find_soffice() -> str | None:
+    found = shutil.which("soffice") or shutil.which("libreoffice")
+    if found:
+        return found
+    # The Windows installer doesn't put LibreOffice on PATH.
+    return next((str(p) for p in _SOFFICE_WINDOWS if p.exists()), None) if sys.platform == "win32" else None
+
+
+def docx_to_pdf(docx_path: Path, pdf_path: Path) -> Path:
+    """Convert with Word (Windows) when it is installed, else LibreOffice."""
+    docx_path, pdf_path = Path(docx_path).resolve(), Path(pdf_path).resolve()
+    if sys.platform == "win32" and _word_to_pdf(docx_path, pdf_path):
+        return pdf_path
+    soffice = _find_soffice()
     if not soffice:
-        raise RuntimeError("No PDF converter: install pywin32 (Windows + Word) or LibreOffice")
+        raise RuntimeError(
+            "No PDF converter found: needs Microsoft Word (with `uv sync` run so pywin32 is installed) "
+            "or LibreOffice (Windows: `winget install TheDocumentFoundation.LibreOffice`)"
+        )
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(
             [soffice, "--headless", "--convert-to", "pdf", "--outdir", tmp, str(docx_path)],

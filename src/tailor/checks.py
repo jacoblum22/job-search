@@ -459,6 +459,21 @@ def _ask_supported(jev: Any, path: str, text: str, srcs: list[str], index: dict[
     return float(ans.value) if ans.ok and isinstance(ans.value, (int, float)) else None
 
 
+def _prune_extra(jev: Any, path: str, text: str, srcs: list[str], extra: list[str], p: float,
+                 index: dict[str, Any]) -> tuple[list[str], float]:
+    """Keep only the added passages Jev needs: drop each in turn (weakest match first) and keep the
+    drop while Jev still says yes, so a summary isn't padded with every passage that shared a word."""
+    keep = list(extra)
+    for pid in reversed(extra):
+        trial = [x for x in keep if x != pid]
+        if not trial:
+            continue
+        v = _ask_supported(jev, path, text, [*srcs, *trial], index)
+        if v is not None and v >= 0.5:
+            keep, p = trial, v
+    return keep, p
+
+
 def _jev_flags(jev: Any, lines: list[tuple[str, str, list[str]]], index: dict[str, Any]) -> tuple[list[dict], dict[str, list[str]]]:
     """Ask Jev whether each changed line is supported by its cited passages.
 
@@ -477,6 +492,7 @@ def _jev_flags(jev: Any, lines: list[tuple[str, str, list[str]]], index: dict[st
         extra = related_passages(text, srcs, index)
         second = _ask_supported(jev, path, text, [*srcs, *extra], index) if extra else None
         if second is not None and second >= 0.5:
+            extra, second = _prune_extra(jev, path, text, srcs, extra, second, index)
             added[path] = extra
             flags.append({
                 "code": "jev_citation_gap",

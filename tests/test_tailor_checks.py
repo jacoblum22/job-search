@@ -370,9 +370,11 @@ def test_jev_no_from_a_missed_citation_adds_the_passage(tmp_path):
     res = run_check(app, 1, cfg, fake)
     assert [f["code"] for f in res["flags"]] == ["jev_citation_gap"]
     assert "northwind.dashboards" in res["flags"][0]["message"]
+    assert "northwind.dbt" not in res["flags"][0]["message"]  # not needed, so trimmed
+    assert "northwind.forecast" not in res["flags"][0]["message"]
     draft = yaml.safe_load((app / "drafts" / "r1" / "resume.yaml").read_text())
     srcs = next(b["sources"] for e in draft["experience"] for b in e["bullets"] if b["id"] == "northwind.sql-daily")
-    assert srcs[0] == "northwind.sql-daily" and "northwind.dashboards" in srcs
+    assert srcs == ["northwind.sql-daily", "northwind.dashboards"]
     # Still "no" with the related passages: a real doubt, and nothing is added.
     write_edits(app, [sql_edit(value=value)])
     apply_edits(app, 1, cfg)
