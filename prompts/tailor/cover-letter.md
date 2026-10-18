@@ -40,6 +40,10 @@ phrased as a hedged reading, never as inside knowledge:
    n counting from 1). The employer already knows its own facts, so never just restate them, list
    their stats, or praise their mission: say why that thing matters to the candidate and the work.
    Use at most one or two facts. Do not say where a motivation came from or quote the file.
+   **At least one fact must show real research:** a number, a named product, project, launch or
+   event, or anything else that could only be true of this employer. "Values high-quality care" or
+   "a leader in innovation" could be said of anyone and does not count. Prefer a verified
+   `facts.json` fact over the posting's own boilerplate.
 4. **Short confident close.** One or two sentences: what the candidate would like to do next. No
    "thank you for your consideration", no "I look forward to hearing from you".
 
@@ -115,6 +119,7 @@ Power BI are ABSENT.
 - [ ] Greeting is "Dear Hiring Manager," unless `hiring_contact` is non-null.
 - [ ] Every achievement has `sources`; every company fact has a real id; no invented number.
 - [ ] Movement 3 links a `motivation.*` passage to the employer instead of restating their facts.
+- [ ] At least one cited fact is specific to this employer (a number or a named thing), not generic.
 - [ ] No ABSENT term except at most one "keen to grow into"; no "familiar with".
 - [ ] No banned phrase, em dash, "not just X but Y", "-ing" tail, banned opener or closer.
 - [ ] Portability test applied to every sentence; the final pass cut anything unbacked.
