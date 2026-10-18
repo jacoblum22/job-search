@@ -12,8 +12,9 @@ from pathlib import Path
 from typing import Any
 
 from src.resume import load_resume
-from src.tailor import TailorError, appdir, rejects, store
+from src.tailor import TailorError, appdir, explain, rejects, store
 from src.tailor.paths import resolve
+from src.tailor.sources import load_index, load_titles
 
 OUTCOMES = ("applied", "callback", "interview", "offer", "rejected", "no_reply")
 
@@ -73,43 +74,80 @@ def _fit_notes(app: dict[str, Any], evidence: dict[str, Any], reqs: dict[str, An
     return "\n".join(lines) + "\n"
 
 
+def _final_resume(rd: Path | None, app_dir: Path) -> tuple[Path | None, dict[str, Any] | None]:
+    """The resume that was rendered: the humanized one if present, else the best round's."""
+    path = app_dir / "humanize" / "resume.yaml"
+    if not path.exists() and rd is not None:
+        path = rd / "resume.yaml"
+    if not path.exists():
+        return None, None
+    try:
+        return path, load_resume(path)
+    except Exception:  # a broken draft still gets a packet; the checker reports it
+        return path, None
+
+
+def _vault_index(cfg: dict[str, Any]) -> dict[str, dict] | None:
+    """Passages by id, each with its file's title for readable labels; None without an index."""
+    try:
+        index = load_index(cfg)
+    except TailorError:
+        return None
+    titles = load_titles(cfg)
+    return {pid: {**p, "file_title": titles.get(p.get("file", ""))} for pid, p in index.items()}
+
+
 def _changes(rd: Path | None, app_dir: Path, cfg: dict[str, Any]) -> list[str]:
-    """Line-by-line difference between the base resume and the final one (humanized if present)."""
+    """Line-by-line difference between the base resume and the final one, named in plain words."""
     from src.tailor.checks import units  # local: checks pulls in the heavier metrics stack
     from src.tailor.edits import load_base
 
-    final_path = app_dir / "humanize" / "resume.yaml"
-    if not final_path.exists() and rd is not None:
-        final_path = rd / "resume.yaml"
-    if not final_path.exists():
+    final_path, final_data = _final_resume(rd, app_dir)
+    if final_data is None:
         return []
     try:
-        base = dict(units(load_base(app_dir, cfg)))
+        base_data = load_base(app_dir, cfg)
     except TailorError:
         return []
-    final = dict(units(load_resume(final_path)))
+    base = dict(units(base_data))
+    final = dict(units(final_data))
     out: list[str] = []
     for path, after in final.items():
         before = base.get(path)
+        label = explain.path_label(path, final_data)
         if before is None:
-            out.append(f"- `{path}` (added): {after}")
+            out.append(f"- **{label}** (added)\n  - After: {after}")
         elif before != after:
-            out.append(f"- `{path}`\n  - before: {before}\n  - after: {after}")
-    out += [f"- `{path}` (removed): {before}" for path, before in base.items() if path not in final]
+            out.append(f"- **{label}**\n  - Before: {before}\n  - After: {after}")
+    out += [f"- **{explain.path_label(path, base_data)}** (removed)\n  - Before: {before}"
+            for path, before in base.items() if path not in final]
     return out
+
+
+def _note(text: str) -> list[str]:
+    return [f"> {text}", ""]
 
 
 def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
               check: dict[str, Any] | None, cfg: dict[str, Any]) -> str:
+    """check.md: every section opens with a "> " note saying what it is and what to decide, and
+    every line says what it's about in plain words (explain.py). Box lines keep their fixed shape
+    because approve and the dashboard server read them."""
     gate = app.get("gate") or {}
     gate_flags = gate.get("flags") or []
-    lines = ["# Check", ""]
+    reqs_json = _opt_json(app_dir / "requirements.json") or {}
+    reqs = {r["id"]: r for r in reqs_json.get("requirements") or [] if "id" in r}
+    _, data = _final_resume(rd, app_dir)
+    index = _vault_index(cfg)
+    lines = ["# Check", ""] + _note(explain.INTRO)
     if gate.get("checked") is False:
         lines += ["Gate not checked: Jev is not configured.", ""]
     if gate_flags:
-        lines += ["## Gate flags: review before applying", ""]
+        lines += ["## Gate flags: review before applying", ""] + _note(explain.GATE)
         for f in gate_flags:
-            lines.append(f"- [ ] Reviewed  {f.get('question', '?')}: {f.get('reason', '')}")
+            head, details = explain.gate_flag(f)
+            lines.append(f"- [ ] Reviewed  {head}")
+            lines += [f"  - {d}" for d in details]
         lines.append("")
     grade = _opt_json(rd / "grade.json") if rd else None
     floor = float(cfg.get("ats_floor", 70))
@@ -117,62 +155,86 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     if isinstance(ats_total, (int, float)) and ats_total < floor:
         # Never send below the floor without a look, and say which kind of gap it is.
         unused = grade.get("unused_terms") or []
+        unused_soft = grade.get("unused_soft_terms") or []
         unbacked = grade.get("unbacked_terms") or []
         ceiling = grade.get("ats_ceiling")
         if grade.get("fit_gap"):
             lines += ["## Weaker fit: review before applying", ""]
-            lines.append(f"- [ ] Reviewed  ATS {ats_total}; the best your evidence can reach is about {ceiling}, "
-                         f"under the {floor:g} minimum, so this is missing skills, not wording")
+            lines += _note(f"{explain.FIT} {explain.FIT_GAP}")
+            lines.append(f"- [ ] Reviewed  ATS {ats_total} out of 100. Even using every skill your vault backs, "
+                         f"the best this resume could reach is about {ceiling}, under the {floor:g} minimum.")
         else:
             lines += [f"## ATS score below {floor:g}: review before applying", ""]
+            lines += _note(f"{explain.FIT} {explain.WORDING_GAP}")
             lines.append(f"- [ ] Reviewed  ATS {ats_total} is below the {floor:g} minimum"
-                         + (f"; your evidence could reach about {ceiling}, so the gap is wording"
-                            if ceiling is not None else ""))
+                         + (f"; your evidence could reach about {ceiling}, so the gap is wording."
+                            if ceiling is not None else "."))
+
+        def term_list(label: str, terms: list[str]) -> None:
+            lines.append(f"  - {label}:")
+            lines.extend([f"    - {t}" for t in terms] or ["    - None"])
+
+        term_list("The posting asks for these and your vault doesn't show them", unbacked)
+        term_list("Your vault shows these but the resume doesn't use the posting's words", unused)
+        if unused_soft:
+            term_list("Soft skills your vault shows that the resume leaves out on purpose (they count half "
+                      "and are never added just for points)", unused_soft)
         if unbacked:
-            lines.append(f"  - The posting asks for these and your vault doesn't show them: {', '.join(unbacked)}")
-        if unused:
-            lines.append(f"  - You have these but the resume doesn't use the posting's words: {', '.join(unused)}")
+            lines.append("  - If you do have something in the first list, add it to your experience vault and "
+                         "rerun from the evidence step: the resume can only claim what the vault shows.")
         lines.append("")
-    lines += ["## Grade", ""]
+    lines += ["## Grade", ""] + _note(explain.GRADE)
     if grade:
         ats = grade.get("ats") or {}
         comps = ", ".join(f"{k} {v}" for k, v in (ats.get("components") or {}).items())
-        lines.append(f"- Score: {grade.get('score', 'n/a')} (ATS {ats.get('total', 'n/a')}"
-                     f"{f': {comps}' if comps else ''})")
+        lines.append(f"- Score: {grade.get('score', 'n/a')}")
+        lines.append(f"- ATS estimate: {ats.get('total', 'n/a')}{f' ({comps})' if comps else ''}")
+        asked = [it for it in grade.get("checklist") or [] if it.get("passed") is not None]
+        if asked:
+            lines.append(f"- Jev's checks passed: {sum(1 for it in asked if it['passed'])} of {len(asked)}")
         if grade.get("stuffing"):
-            lines.append("- Keyword stuffing suspected")
+            lines.append("- Keyword stuffing suspected: the score is high only because terms repeat")
     else:
         lines.append("- No grade available")
     # Jev's "no" answers are advice; listing them lets the candidate catch a false rejection.
     said_no = [it for it in (grade or {}).get("checklist") or [] if it.get("passed") is False]
     ev_no = (_opt_json(app_dir / "evidence.json") or {}).get("jev_said_no") or []
     if said_no or ev_no:
-        lines += ["", "## Jev said no: check for false rejections", ""]
+        lines += ["", "## Jev said no: check for false rejections", ""] + _note(explain.JEV_NO)
         for it in said_no:
-            conf = f" (confidence {it['confidence']:.2f})" if isinstance(it.get("confidence"), (int, float)) else ""
-            lines.append(f"- Failed: {it.get('question', it.get('id'))}{conf}")
-        for n in ev_no:
-            lines.append(f"- Not counted as evidence: {n.get('term')} in {n.get('passage')}: \"{n.get('text', '')}\"")
+            head, details = explain.jev_item(it, reqs, data, str(reqs_json.get("title") or app.get("title") or ""),
+                                             str(reqs_json.get("company") or app.get("company") or ""))
+            lines.append(f"- [ ] Reviewed  {head}")
+            lines += [f"  - {d}" for d in details]
+        if ev_no:
+            lines += [""] + _note(explain.JEV_NO_EVIDENCE)
+            lines += [f"- {explain.evidence_no(n, index)}" for n in ev_no]
     drops = (_opt_json(app_dir / "plan.json") or {}).get("evidence_drops") or []
     if drops:
         new = {(r["term"].lower(), r["passage"]) for r in rejects.load(cfg)
                if r.get("job_id") == app.get("job_id") and not r.get("undone")}
-        lines += ["", "## Evidence matches the plan rejected", "",
-                  "Tick Undo if a match was right; approving then removes it from the shared reject list.", ""]
+        lines += ["", "## Evidence set aside", ""] + _note(explain.DROPS)
         for d in drops:
-            mark = " (new)" if (str(d.get("term", "")).lower(), d.get("passage")) in new else ""
-            lines.append(f"- [ ] Undo  {d.get('term', '?')} ({d.get('passage', '?')}): {d.get('reason', '')}{mark}")
-    lines += ["", "## Changes from the base", ""]
+            term, pid = str(d.get("term", "?")), str(d.get("passage", "?"))
+            head, details = explain.drop(d, index, (term.lower(), pid) in new)
+            lines.append(f"- [ ] Undo  {head} <!-- undo: {term} | {pid} -->")
+            lines += [f"  - {x}" for x in details]
+    base_id = app.get("base_id") or (_opt_json(app_dir / "plan.json") or {}).get("base_id") or "chosen"
+    lines += ["", "## Changes from the base", ""] + _note(explain.CHANGES.format(base=base_id))
     lines += _changes(rd, app_dir, cfg) or ["- No changes"]
-    lines += ["", "## Remaining issues", ""]
-    n = 0
-    for sev in ("criticals", "warnings", "flags"):
-        for it in (check or {}).get(sev) or []:
-            n += 1
-            path = f" ({it['path']})" if it.get("path") else ""
-            lines.append(f"- [ ] Keep  - [ ] Remove  {it.get('code', sev)}: {it.get('message', '')}{path}")
-    if not n:
+    issues = [it for sev in ("criticals", "warnings", "flags") for it in (check or {}).get(sev) or []]
+    lines += ["", "## Remaining issues", ""] + _note(explain.ISSUES)
+    boxed = [it for it in issues if not explain.is_note(it)]
+    for it in boxed:
+        head, details = explain.issue(it, data)
+        lines.append(f"- [ ] Keep  - [ ] Remove  {head}")
+        lines += [f"  - {d}" for d in details]
+    if not boxed:
         lines.append("- None")
+    notes = [it for it in issues if explain.is_note(it)]
+    if notes:
+        lines += ["", "## Already handled", ""] + _note(explain.NOTES)
+        lines += [f"- {explain.note(it, data, index)}" for it in notes]
     return "\n".join(lines) + "\n"
 
 

@@ -291,5 +291,16 @@ def build_index(vault: Path) -> tuple[list[Passage], list[str]]:
     return passages, problems
 
 
+def file_titles(vault: Path) -> dict[str, str]:
+    """Each vault file's first "# " heading, by path relative to the vault (for readable labels)."""
+    titles = {}
+    for path in vault_files(vault):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("# "):
+                titles[path.relative_to(vault).as_posix()] = _strip_id(line[2:].strip(), table=False)[0].strip()
+                break
+    return titles
+
+
 def to_json(passages: list[Passage]) -> list[dict]:
     return [asdict(p) for p in passages]

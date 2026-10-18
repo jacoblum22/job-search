@@ -24,7 +24,10 @@ from src.tailor import appdir, taxonomy
 from src.tailor.paths import DEFAULT_PATHS, resolve
 
 BASE = "base"  # passage value for a match in the base resume itself
-_UNDO = re.compile(r"^- \[(?P<x>[ xX])\] Undo\s+(?P<term>.+?) \((?P<passage>[^()]+)\):")
+# check.md's Undo lines carry the pair in a trailing comment ("<!-- undo: term | passage -->") so
+# the visible text can be plain language; older check.md files used "Undo  term (passage): reason".
+_UNDO = re.compile(r"^- \[(?P<x>[ xX])\] Undo\s+(?:.*<!-- undo: (?P<term>.+?) \| (?P<passage>[^>]+?) -->"
+                   r"|(?P<old_term>.+?) \((?P<old_passage>[^()]+)\):)")
 
 
 def _path(cfg: dict[str, Any], name: str) -> Path:
@@ -95,8 +98,8 @@ def sync_plan_drops(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
 
 def apply_undos(check_md: str, cfg: dict[str, Any]) -> list[tuple[str, str]]:
     """Mark the rejects ticked "Undo" in check.md as undone; return the pairs changed."""
-    ticked = {(_key(m["term"]), m["passage"].strip()) for line in check_md.splitlines()
-              if (m := _UNDO.match(line)) and m["x"] != " "}
+    ticked = {(_key(m["term"] or m["old_term"]), (m["passage"] or m["old_passage"]).strip())
+              for line in check_md.splitlines() if (m := _UNDO.match(line)) and m["x"] != " "}
     if not ticked:
         return []
     path = _path(cfg, "evidence_rejects")

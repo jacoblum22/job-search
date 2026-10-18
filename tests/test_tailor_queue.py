@@ -129,9 +129,11 @@ def test_packet_and_approve_gate(cfg):
     assert "Looker" in notes and "Must-have: Strong SQL" in notes
     check = (d / "check.md").read_text()
     assert check.index("Gate flags: review before applying") < check.index("Score: 76.2")
-    assert "- [ ] Reviewed  is_coop: failed" in check
-    assert "- [ ] Keep  - [ ] Remove  dash: em dash (summary)" in check
-    assert "before: old" in check and "after: new" in check
+    assert "- [ ] Reviewed  This may be a co-op or student work term." in check
+    assert "- [ ] Keep  - [ ] Remove  Summary: em dash" in check  # an unknown code keeps its message
+    assert "- [ ] Keep  - [ ] Remove  p: Jev doesn't think this line is backed" in check
+    assert "  - Before: old\n  - After: new" in check and "- **Summary**" in check
+    assert check.count("\n> ") >= 4  # each section opens with a note saying what it's for
     conn = store.connect(cfg["paths"]["db"])
     assert store.get_app(conn, jid)["status"] == "ready_for_review"
 
@@ -188,9 +190,15 @@ def test_packet_lists_evidence_drops(cfg):
         {"term": "Microsoft Access", "passage": "firmament.oauth-2-0", "reason": "OAuth access tokens"}]})
     run_packet(d, cfg)
     check = (d / "check.md").read_text()
-    assert "## Evidence matches the plan rejected" in check
-    assert "- [ ] Undo  Microsoft Access (firmament.oauth-2-0): OAuth access tokens" in check
-    assert check.index("rejected") < check.index("Changes from the base")
+    assert "## Evidence set aside" in check
+    line = next(x for x in check.splitlines() if "Undo" in x and x.startswith("- [ ]"))
+    assert line == ("- [ ] Undo  Microsoft Access: not counted from firmament.oauth-2-0. "
+                    "<!-- undo: Microsoft Access | firmament.oauth-2-0 -->")
+    assert "  - Why: OAuth access tokens." in check
+    assert check.index("Evidence set aside") < check.index("Changes from the base")
+    # The pair in the comment is what approve uses to undo the reject.
+    from src.tailor import rejects
+    assert rejects._UNDO.match(line.replace("[ ]", "[x]"))["passage"] == "firmament.oauth-2-0"
 
 
 def test_packet_lists_jev_no_answers(cfg):
@@ -207,9 +215,9 @@ def test_packet_lists_jev_no_answers(cfg):
     run_packet(d, cfg)
     check = (d / "check.md").read_text()
     assert "## Jev said no: check for false rejections" in check
-    assert "- Failed: Could this closing sentence end any letter? (confidence 0.53)" in check
-    assert "Top third?" not in check
-    assert '- Not counted as evidence: Microsoft Access in firmament.oauth: "OAuth access tokens"' in check
+    assert "- [ ] Reviewed  The letter's closing sentence may be generic: it could fit almost any job (53% sure)." in check
+    assert "Top third?" not in check and "Jev's checks passed: 1 of 2" in check
+    assert '- Microsoft Access: not counted from firmament.oauth: "OAuth access tokens"' in check
 
 
 def test_packet_flags_ats_below_floor(cfg):
@@ -223,9 +231,9 @@ def test_packet_flags_ats_below_floor(cfg):
     assert res["below_ats_floor"] is True
     check = (d / "check.md").read_text()
     assert "## ATS score below 70: review before applying" in check
-    assert "- [ ] Reviewed  ATS 51.3 is below the 70 minimum; your evidence could reach about 70.7, so the gap is wording" in check
-    assert "doesn't use the posting's words: data analysis, presentations" in check
-    assert "your vault doesn't show them: SPSS" in check
+    assert "- [ ] Reviewed  ATS 51.3 is below the 70 minimum; your evidence could reach about 70.7, so the gap is wording." in check
+    assert "doesn't use the posting's words:\n    - data analysis\n    - presentations" in check
+    assert "your vault doesn't show them:\n    - SPSS\n" in check
     assert "ATS score below" not in check.split("## Grade")[1]  # flag sits above the grade
     with pytest.raises(TailorError):
         approve(d, cfg)  # the Reviewed line must be ticked first
@@ -242,5 +250,6 @@ def test_packet_calls_a_low_ceiling_a_weaker_fit(cfg):
     assert res["weaker_fit"] is True
     check = (d / "check.md").read_text()
     assert "## Weaker fit: review before applying" in check
-    assert "best your evidence can reach is about 66.0, under the 70 minimum, so this is missing skills" in check
-    assert "your vault doesn't show them: SPSS, healthcare data" in check
+    assert "the best this resume could reach is about 66.0, under the 70 minimum" in check
+    assert "your vault doesn't show them:\n    - SPSS\n    - healthcare data" in check
+    assert "doesn't use the posting's words:\n    - None" in check  # both lists always shown

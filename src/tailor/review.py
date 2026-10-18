@@ -22,8 +22,13 @@ _OPTIONS = {"keep_remove": ["Keep", "Remove"], "reviewed": ["Reviewed"], "undo":
 _BOX = re.compile(r"\[[ xX]\]")
 
 
+_COMMENT = re.compile(r"\s*<!--.*?-->")
+
+
 def parse(text: str) -> list[dict[str, Any]]:
-    """check.md as blocks: headings, plain lines, and items with boxes (with their line number)."""
+    """check.md as blocks: headings, "> " notes (what a section is for), plain lines, and items
+    with boxes (with their line number). An item's indented lines are its details, each with a
+    level (1 for "  - ", 2 for "    - "). HTML comments (machine keys) are left out of the text."""
     blocks: list[dict[str, Any]] = []
     for i, line in enumerate(text.splitlines()):
         if not line.strip():
@@ -32,20 +37,25 @@ def parse(text: str) -> list[dict[str, Any]]:
             blocks.append({"type": "heading", "level": len(line) - len(line.lstrip("#")),
                            "text": line.lstrip("#").strip()})
             continue
+        if line.startswith(">"):
+            blocks.append({"type": "note", "text": line[1:].strip()})
+            continue
         for kind, rx in _KINDS.items():
             m = rx.match(line)
             if m:
                 boxes = [m[f"b{n}"] != " " for n in range(len(_OPTIONS[kind]))]
-                blocks.append({"type": "item", "kind": kind, "line": i, "raw": line, "text": m["text"],
+                blocks.append({"type": "item", "kind": kind, "line": i, "raw": line,
+                               "text": _COMMENT.sub("", m["text"]),
                                "options": [{"name": n, "checked": c} for n, c in zip(_OPTIONS[kind], boxes,
                                                                                     strict=True)],
                                "details": []})
                 break
         else:
-            if line.startswith("  ") and blocks and blocks[-1]["type"] == "item":
-                blocks[-1]["details"].append(line.strip().removeprefix("- "))
+            stripped = line.lstrip()
+            indent = len(line) - len(stripped)
+            if indent and blocks and blocks[-1]["type"] == "item":
+                blocks[-1]["details"].append({"text": stripped.removeprefix("- "), "level": 2 if indent >= 4 else 1})
             else:
-                stripped = line.lstrip()
                 blocks.append({"type": "text", "text": stripped.removeprefix("- "),
                                "bullet": stripped.startswith("- "), "indent": line != stripped})
     return blocks

@@ -30,6 +30,25 @@ def load_index(cfg: dict[str, Any]) -> dict[str, dict]:
     return {p["id"]: p for p in passages if isinstance(p, dict) and "id" in p}
 
 
+def load_titles(cfg: dict[str, Any]) -> dict[str, str]:
+    """Vault file titles by relative path. Indexes built before titles were recorded fall back
+    to reading each file's first heading from the vault folder the index names."""
+    path = resolve(cfg, "vault_index")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    if isinstance(data.get("titles"), dict):
+        return data["titles"]
+    vault = Path(str(data.get("vault") or ""))
+    if not data.get("vault") or not vault.is_dir():
+        return {}
+    from src.vault import file_titles
+    return file_titles(vault)
+
+
 def claim_passages(index: dict[str, dict]) -> dict[str, dict]:
     """Only passages that may be claimed on a resume (`use == "claim"`)."""
     return {i: p for i, p in index.items() if p.get("use") == "claim"}

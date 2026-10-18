@@ -373,10 +373,10 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
         opener, closer = _first_last_sentences(letter)
         if opener:
             add("letter.opener", f'Could this opening sentence start a cover letter for almost any job: "{opener}"?',
-                fail_on_yes=True, sections=["letter"])
+                fail_on_yes=True, sections=["letter"], sentence=opener)
         if closer:
             add("letter.closer", f'Could this closing sentence end a cover letter for almost any job: "{closer}"?',
-                fail_on_yes=True, sections=["letter"])
+                fail_on_yes=True, sections=["letter"], sentence=closer)
     return qs, meta
 
 
@@ -398,6 +398,8 @@ def _run_checklist(jev, state: str, qs: list[Question], meta) -> list[dict[str, 
             item["source"] = "jev"
         if "sections" in m:
             item["sections"] = m["sections"]
+        # Kept so the review page can show the requirement, bullet or sentence a question was about.
+        item.update({k: m[k] for k in ("req_id", "bullet", "sentence") if k in m})
         items.append(item)
     return items
 

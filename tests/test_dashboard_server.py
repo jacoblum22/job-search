@@ -16,14 +16,17 @@ from src.tailor.paths import load_config
 
 CHECK = """# Check
 
+> Your review list for this application.
+
 ## Weaker fit: review before applying
 
 - [ ] Reviewed  ATS 59.0; the best your evidence can reach is about 68.9
-  - The posting asks for these and your vault doesn't show them: SPSS
+  - The posting asks for these and your vault doesn't show them:
+    - SPSS
 
-## Evidence matches the plan rejected
+## Evidence set aside
 
-- [ ] Undo  Excel (job-search.outputs): an export is not Excel skill (new)
+- [ ] Undo  Excel: not counted from Job Application System. <!-- undo: Excel | job-search.outputs -->
 
 ## Remaining issues
 
@@ -72,7 +75,10 @@ def test_parse_and_open_items():
     blocks = review.parse(CHECK)
     items = [b for b in blocks if b["type"] == "item"]
     assert [b["kind"] for b in items] == ["reviewed", "undo", "keep_remove"]
-    assert items[0]["details"] == ["The posting asks for these and your vault doesn't show them: SPSS"]
+    assert items[0]["details"] == [{"text": "The posting asks for these and your vault doesn't show them:", "level": 1},
+                                   {"text": "SPSS", "level": 2}]
+    assert items[1]["text"] == "Excel: not counted from Job Application System."  # the machine key is hidden
+    assert blocks[1] == {"type": "note", "text": "Your review list for this application."}
     assert [o["name"] for o in items[2]["options"]] == ["Keep", "Remove"]
     assert review.open_items(CHECK) == 2  # Undo is optional
 
