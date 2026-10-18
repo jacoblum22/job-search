@@ -48,11 +48,15 @@ phrased as a hedged reading, never as inside knowledge:
    I noticed...") instead of dropping it in unannounced. Keep it short: name the thing and what it
    does, without dates or detail the point doesn't need. Don't force a clever link between the fact
    and the job.
-   **Show, don't tell.** Never state the motivation or the wish ("I want to contribute to this",
-   "this is the kind of work I want", "I'm passionate about") anywhere before the letter's last
-   sentence. Instead, say what about the fact matters (who it helps and what it depends on), and let
-   that point at work the candidate has really done. The motivation should be visible without being
-   named. The final sentence is the only place for "I would like to...".
+   **Name the value, then show it with the fact.** State one of the candidate's real motivations
+   plainly as something they value ("One thing I really value is...", "Something I enjoy seeing
+   is..."), using only what the `motivation.*` passages say, then give the researched fact as an
+   example of the employer doing that. Never invent a value the passages don't state, and never
+   dress the fact up with a word that sounds meaningful but isn't ("as direct as data gets").
+   Only tie the fact to the candidate's own past work when the link is literal and obvious; a
+   stretched link ("I did the same thing, just for other teams") is worse than none.
+   Never write "I want to contribute to this", "this is the kind of work I want" or similar before
+   the letter's last sentence; the final sentence is the only place for "I would like to...".
 4. **Short confident close.** One or two sentences: what the candidate would like to do next.
    Say it once: no "I would like..." sentence at the end of movement 3 that the close then repeats. No
    "thank you for your consideration", no "I look forward to hearing from you".
