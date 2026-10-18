@@ -31,6 +31,7 @@ SENIORITY_WORDS = {
 MAX_PORTABILITY = 6
 BOILERPLATE_FACTOR = 0.25
 MUST_FACTOR = 1.5
+SOFT_FACTOR = 0.5  # soft skills count half: an ATS search and a recruiter filter on hard skills
 
 _RANGE = re.compile(r"^[A-Z][a-z]{2} \d{4}\s*[–-]\s*(?:[A-Z][a-z]{2} \d{4}|Present)$")
 _SINGLE = re.compile(r"^[A-Z][a-z]{2} \d{4}$")
@@ -102,7 +103,8 @@ def _collect_terms(req: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], set[
         key = term.strip().lower()
         if not key:
             return
-        t = terms.setdefault(key, {"term": term.strip(), "boilerplate": True, "must": False})
+        t = terms.setdefault(key, {"term": term.strip(), "boilerplate": True, "must": False,
+                                   "soft": taxonomy.category(taxonomy.canonical(term) or "") == "Soft skills"})
         t["must"] = t["must"] or must
         t["boilerplate"] = t["boilerplate"] and weight == "boilerplate"
 
@@ -148,24 +150,30 @@ def _count(term: str, text: str) -> int:
     return len(re.findall(rf"(?<![\w+#]){t}(?![\w+#])", text, re.I))
 
 
-def _keyword_score(terms, backed, text, synonym_credit) -> float | None:
+def _term_weight(t: dict[str, Any], soft_factor: float = SOFT_FACTOR) -> float:
+    return ((BOILERPLATE_FACTOR if t["boilerplate"] else 1.0) * (MUST_FACTOR if t["must"] else 1.0)
+            * (soft_factor if t.get("soft") else 1.0))
+
+
+def _keyword_score(terms, backed, text, synonym_credit, soft_factor: float = SOFT_FACTOR) -> float | None:
     if not terms:
         return None
     got = total = 0.0
     for t in terms.values():
-        w = (BOILERPLATE_FACTOR if t["boilerplate"] else 1.0) * (MUST_FACTOR if t["must"] else 1.0)
+        w = _term_weight(t, soft_factor)
         total += w
         if _is_backed(t["term"], backed):
             got += w * _credit(t["term"], text, synonym_credit)
     return 100.0 * got / total
 
 
-def _skills_score(req_terms: set[str], terms, data) -> float | None:
+def _skills_score(req_terms: set[str], terms, data, soft_factor: float = SOFT_FACTOR) -> float | None:
     if not req_terms:
         return None
     hay = _skills_text(data) + "\n" + "\n".join(t for _, t in _bullet_texts(data))
-    found = sum(1 for k in req_terms if _credit(terms[k]["term"], hay, 0.5) > 0)
-    return 100.0 * found / len(req_terms)
+    w = {k: soft_factor if terms[k].get("soft") else 1.0 for k in req_terms}
+    found = sum(w[k] for k in req_terms if _credit(terms[k]["term"], hay, 0.5) > 0)
+    return 100.0 * found / sum(w.values())
 
 
 def _core_title(title: str) -> str:
@@ -211,9 +219,10 @@ def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any
     text = resume_text(data)
     terms, req_terms = _collect_terms(req)
     backed = _backed_set(evidence)
+    soft = cfg.get("ats_soft_weight", SOFT_FACTOR)
     comps: dict[str, float | None] = {
-        "keyword": _keyword_score(terms, backed, text, cfg.get("synonym_credit", 0.5)),
-        "skills": _skills_score(req_terms, terms, data),
+        "keyword": _keyword_score(terms, backed, text, cfg.get("synonym_credit", 0.5), soft),
+        "skills": _skills_score(req_terms, terms, data, soft),
         "title": _title_score(str(req.get("title") or ""), data),
         "sections": _sections_score(data),
         "dates": _dates_score(data),
@@ -233,9 +242,10 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     text = resume_text(data)
     terms, req_terms = _collect_terms(req)
     backed = _backed_set(evidence)
+    soft = cfg.get("ats_soft_weight", SOFT_FACTOR)
 
     def weight(t: dict[str, Any]) -> float:
-        return (BOILERPLATE_FACTOR if t["boilerplate"] else 1.0) * (MUST_FACTOR if t["must"] else 1.0)
+        return _term_weight(t, soft)
 
     ranked = sorted(terms.values(), key=lambda t: -weight(t))
     unused = [t["term"] for t in ranked if _is_backed(t["term"], backed) and _credit(t["term"], text, 1.0) < 1.0]
@@ -245,7 +255,8 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     if total_w:
         comps["keyword"] = 100.0 * sum(weight(t) for t in terms.values() if _is_backed(t["term"], backed)) / total_w
     if req_terms:
-        comps["skills"] = 100.0 * sum(1 for k in req_terms if _is_backed(terms[k]["term"], backed)) / len(req_terms)
+        sw = {k: soft if terms[k]["soft"] else 1.0 for k in req_terms}
+        comps["skills"] = 100.0 * sum(sw[k] for k in req_terms if _is_backed(terms[k]["term"], backed)) / sum(sw.values())
     weights = {**DEFAULT_WEIGHTS, **(cfg.get("ats_weights") or {})}
     live = {k: v for k, v in comps.items() if v is not None}
     wsum = sum(weights.get(k, 0) for k in live)

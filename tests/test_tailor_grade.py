@@ -82,6 +82,14 @@ def test_boilerplate_weighs_a_quarter_and_must_one_and_a_half():
     assert out["components"]["keyword"] == pytest.approx(63.6, abs=0.1)
 
 
+def test_soft_skills_weigh_half():
+    r = req(terms=["SQL", "communication"])
+    out = ats_score(base(), r, ev(["SQL"]), CFG)
+    # SQL must 1.5 earned, communication must 1.5 x 0.5 unbacked -> 1.5 / 2.25
+    assert out["components"]["keyword"] == pytest.approx(66.7, abs=0.1)
+    assert ats_score(base(), r, ev(["SQL"]), {**CFG, "ats_soft_weight": 1.0})["components"]["keyword"] == 50.0
+
+
 def test_unscorable_components_are_none_and_weight_is_redistributed():
     data = base()
     data["experience"][1]["dates"] = "2024"  # one of four dated entries is malformed -> 75

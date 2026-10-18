@@ -220,7 +220,9 @@ Codes are short snake_case strings; the full list lives in `src/tailor/checks.py
 ```
 
 `score` = 0.6 × ATS total + 0.4 × checklist pass rate × 100 (unchecked items count as passed for the
-score but are listed). `feedback` is built by code from failed items; it never quotes the checklist
+score but are listed). In the keyword and skills components a must-have term weighs 1.5, a
+boilerplate term 0.25 and a soft skill (taxonomy "Soft skills": communication, teamwork...) 0.5
+(`tailor.ats_soft_weight`), since ATS searches and recruiter filters key on hard skills. `feedback` is built by code from failed items; it never quotes the checklist
 question wording.
 
 ATS floor (`tailor.ats_floor`, 70): grade.json also has `ats_floor`, `below_floor`, `ats_ceiling`
