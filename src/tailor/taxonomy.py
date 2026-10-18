@@ -86,15 +86,23 @@ T = [
 ("Data platforms","Microsoft Fabric / Azure Synapse / ADF",r"microsoft fabric|\bfabric\b(?= data| lakehouse)|synapse|data factory"),
 ("Data platforms","SSIS/SSRS",r"\bssis\b|\bssrs\b|\bssas\b"),
 # Cloud & devops
-("Cloud & DevOps","AWS",r"\baws\b|amazon web services|sagemaker|\bs3\b|lambda"),
+# A platform's own products get their own entries: S3 experience doesn't show SageMaker.
+# PART_OF links each product to its platform ("AWS S3" in the vault matches both).
+("Cloud & DevOps","AWS",r"\baws\b|amazon web services"),
+("Cloud & DevOps","AWS S3",r"\bs3\b"),
+("Cloud & DevOps","AWS Lambda",r"\blambda\b(?! ?(?:function|expression|calculus))|aws lambda"),
+("Cloud & DevOps","Amazon SageMaker",r"sagemaker"),
 ("Cloud & DevOps","Azure",r"\bazure\b"),
-("Cloud & DevOps","GCP",r"\bgcp\b|google cloud|vertex ai"),
+("Cloud & DevOps","Azure Machine Learning",r"azure machine learning|azure ml\b"),
+("Cloud & DevOps","GCP",r"\bgcp\b|google cloud"),
+("Cloud & DevOps","Vertex AI",r"vertex ai"),
 ("Cloud & DevOps","Docker",r"docker|containeri[sz]"),
 ("Cloud & DevOps","Kubernetes",r"kubernetes|\bk8s\b"),
 ("Cloud & DevOps","CI/CD",r"ci/cd|continuous integration|continuous deliver|github actions|jenkins"),
 ("Cloud & DevOps","Git",r"\bgit\b|github|gitlab|bitbucket|version control"),
 ("Cloud & DevOps","Terraform/IaC",r"terraform|infrastructure as code"),
-("Cloud & DevOps","MLOps",r"mlops|model deployment|deploy(?:ing)? models|mlflow|model monitoring"),
+("Cloud & DevOps","MLOps",r"mlops|model deployment|deploy(?:ing)? models|model monitoring"),
+("Cloud & DevOps","MLflow",r"mlflow"),
 ("Cloud & DevOps","testing (unit/automated)",r"unit test|automated test|test automation|pytest|\btdd\b"),
 ("Cloud & DevOps","microservices",r"microservice"),
 ("Cloud & DevOps","distributed systems",r"distributed system"),
@@ -171,6 +179,10 @@ T = [
 ("Credentials","degree in engineering",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)[^.;]{0,80}engineering"),
 ("Credentials","degree in economics/business",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)[^.;]{0,80}(?:economics|business|commerce|finance)"),
 ]
+
+# Products and the platform or practice they belong to: related, but not the same skill.
+PART_OF = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS",
+           "Azure Machine Learning": "Azure", "Vertex AI": "GCP", "MLflow": "MLOps"}
 
 HARD_CATEGORIES = {c for c, _, _ in T} - {"Soft skills", "Credentials"}
 

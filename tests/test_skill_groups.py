@@ -58,4 +58,12 @@ def test_space_or_slash_joins_one_option():
     (g,) = alternative_groups("Experience with React, TypeScript/JavaScript, or comparable frontend technologies")
     assert g.options == (("React",), ("TypeScript", "JavaScript"))
     (g,) = alternative_groups("Familiarity with MLflow, Azure Machine Learning, or comparable tools")
-    assert g.options == (("MLOps",), ("Azure", "machine learning"))
+    assert g.options == (("MLflow",), ("Azure Machine Learning",))
+
+
+def test_cloud_products_are_their_own_skills():
+    from src.tailor import taxonomy
+    assert taxonomy.find("SageMaker") == {"Amazon SageMaker"}  # not AWS in general
+    assert taxonomy.find("AWS S3") == {"AWS", "AWS S3"}  # the vault's S3 work still shows AWS
+    assert taxonomy.find("lambda functions in Python") == {"Python"}
+    assert taxonomy.PART_OF["Vertex AI"] == "GCP"
