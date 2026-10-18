@@ -44,7 +44,13 @@ phrased as a hedged reading, never as inside knowledge:
    event, or anything else that could only be true of this employer. "Values high-quality care" or
    "a leader in innovation" could be said of anyone and does not count. Prefer a verified
    `facts.json` fact over the posting's own boilerplate.
-4. **Short confident close.** One or two sentences: what the candidate would like to do next. No
+   **Introduce the researched fact as research** ("Researching your company, I found...", "One thing
+   I noticed...") instead of dropping it in unannounced. Keep it short: name the thing and what it
+   does, without dates or detail the point doesn't need. Don't force a clever link between the fact
+   and the job; it is enough to say it connects to the candidate's motivation and that this is the
+   kind of work they want to contribute to.
+4. **Short confident close.** One or two sentences: what the candidate would like to do next.
+   Say it once: no "I would like..." sentence at the end of movement 3 that the close then repeats. No
    "thank you for your consideration", no "I look forward to hearing from you".
 
 If no verified company fact exists, link the motivation to the posting's own description of the
