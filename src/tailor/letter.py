@@ -132,7 +132,10 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
             ftext = None
             if fid.startswith("posting:"):
                 try:
-                    f = posting_facts[int(fid.split(":", 1)[1])]
+                    n = int(fid.split(":", 1)[1])  # 1-based, matching prompts/tailor/requirements.md
+                    if n < 1:
+                        raise IndexError(n)
+                    f = posting_facts[n - 1]
                     ftext = f"{f.get('fact', '')} {f.get('quote', '')}"
                 except (ValueError, IndexError, TypeError, AttributeError):
                     ftext = None

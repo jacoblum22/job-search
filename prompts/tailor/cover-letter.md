@@ -34,7 +34,7 @@ phrased as a hedged reading, never as inside knowledge:
 2. **Proof.** 1-2 real achievements from the vault, told with concrete tools and scope, each citing
    its passage ids in `sources`. Use a number only if the cited passage has it.
 3. **Why this company.** 1-2 specific facts, each cited by id: a fact id from `facts.json` (`f2`) or
-   `posting:<n>` for the n-th item of `requirements.json.company_facts`. Say what you noticed and why
+   `posting:<n>` for the n-th item of `requirements.json.company_facts` (n counts from 1). Say what you noticed and why
    it matters to the work. Never write "I admire your mission" without a cited fact behind it.
 4. **Short confident close.** One or two sentences: what the candidate would like to do next. No
    "thank you for your consideration", no "I look forward to hearing from you".

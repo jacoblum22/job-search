@@ -848,6 +848,7 @@ tailor:
   evidence:
     jev_candidates: 15   # passages per unmatched requirement sent to Jev
     jev_yes: 0.6         # probability at which Jev's "passage shows requirement" counts
+    max_passages: 8      # strongest exact-match passages kept per term or requirement
   ats_weights: {keyword: 40, skills: 20, title: 15, sections: 15, dates: 10}
   synonym_credit: 0.5
   target_score: 80

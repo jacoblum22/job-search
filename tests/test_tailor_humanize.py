@@ -144,3 +144,11 @@ def test_whole_pass_reverts_when_style_hits_go_up(tmp_path):
     resume = yaml.safe_load((app / "humanize" / "resume.yaml").read_text())
     assert resume["experience"][0]["bullets"][0]["text"] == RESUME["experience"][0]["bullets"][0]["text"]
     assert resume["summary"]["text"] == RESUME["summary"]["text"]
+
+
+def test_apply_without_flags_or_patches_writes_final_copies(tmp_path):
+    app = make_app(tmp_path)
+    write_json(app / "humanize" / "flags.json", [])
+    res = humanize_apply(app, CFG)
+    assert res["applied"] == [] and res["rejected"] == []
+    assert (app / "humanize" / "resume.yaml").exists()

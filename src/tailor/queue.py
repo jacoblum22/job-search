@@ -147,15 +147,18 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
         if not job_ids:
             # Jev only needs to look at enough candidates to fill the cap with room to reorder.
             rows = rows[: int(gate.get("max_candidates", max(limit * 5, 20)))]
-        resume = _master_resume(cfg) if jev is not None else ""
+        # Without a Jev key the gate is skipped (no flags); "unchecked" is kept for
+        # answers that fail when Jev is configured, since those deserve a look.
+        use_jev = jev is not None and getattr(jev, "available", True)
+        resume = _master_resume(cfg) if use_jev else ""
         entries = []
         for r in rows:
-            if jev is None:
-                answers = [Answer(q.id, ok=False, error="no jev") for q, _ in GATE_QUESTIONS]
-            else:
-                state = (f"JOB POSTING\n{r['title']} at {r['company']}\n\n"
-                         f"{_to_markdown(r['description'])}\n\nRESUME\n{resume}")
-                answers = jev.ask(state, [q for q, _ in GATE_QUESTIONS])
+            if not use_jev:
+                entries.append((r, []))
+                continue
+            state = (f"JOB POSTING\n{r['title']} at {r['company']}\n\n"
+                     f"{_to_markdown(r['description'])}\n\nRESUME\n{resume}")
+            answers = jev.ask(state, [q for q, _ in GATE_QUESTIONS])
             entries.append((r, _flags(answers, gate)))
         entries.sort(key=lambda e: (tier_pos.get(e[0]["tier"], len(tiers)), bool(e[1]),
                                     -(e[0]["score"] or 0), e[0]["id"]))
@@ -171,10 +174,13 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
             appdir.save_app(folder, {
                 "job_id": r["id"], "company": r["company"], "title": r["title"], "url": r["url"],
                 "tier": r["tier"], "score": r["score"], "created": today, "status": "shortlisted",
-                "gate": {"flags": flags, "flagged": bool(flags), "queue_rank": rank},
+                "gate": {"flags": flags, "flagged": bool(flags), "queue_rank": rank,
+                         "checked": use_jev},
                 "base_id": None, "rounds": [], "best_round": None, "history": [],
             })
             note = f"rank {rank}, " + (f"{len(flags)} gate flag(s)" if flags else "no gate flags")
+            if not use_jev:
+                note += " (gate skipped: Jev not configured)"
             store.upsert_app(conn, appdir.log(folder, "queue", note), folder)
             out.append(folder)
         return out

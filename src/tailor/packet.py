@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from src.tailor import TailorError, appdir, store
+from src.resume import load_resume
 from src.tailor.paths import resolve
 
 OUTCOMES = ("applied", "callback", "interview", "offer", "rejected", "no_reply")
@@ -71,36 +72,39 @@ def _fit_notes(app: dict[str, Any], evidence: dict[str, Any], reqs: dict[str, An
     return "\n".join(lines) + "\n"
 
 
-def _changes(rd: Path | None, app_dir: Path) -> list[str]:
+def _changes(rd: Path | None, app_dir: Path, cfg: dict[str, Any]) -> list[str]:
+    """Line-by-line difference between the base resume and the final one (humanized if present)."""
+    from src.tailor.checks import units  # local: checks pulls in the heavier metrics stack
+    from src.tailor.edits import load_base
+
+    final_path = app_dir / "humanize" / "resume.yaml"
+    if not final_path.exists() and rd is not None:
+        final_path = rd / "resume.yaml"
+    if not final_path.exists():
+        return []
+    try:
+        base = dict(units(load_base(app_dir, cfg)))
+    except TailorError:
+        return []
+    final = dict(units(load_resume(final_path)))
     out: list[str] = []
-    applied = _opt_json(rd / "applied.json") if rd else None
-    items: list[Any] = []
-    if isinstance(applied, list):
-        items = applied
-    elif isinstance(applied, dict):
-        for key in ("applied", "accepted", "edits"):
-            if isinstance(applied.get(key), list):
-                items = applied[key]
-                break
-    for e in items:
-        if not isinstance(e, dict):
-            continue
-        before, after = e.get("original"), e.get("value")
-        what = f"`{e.get('path', '?')}` ({e.get('action', 'edit')})"
-        if before and isinstance(after, str):
-            out.append(f"- {what}\n  - before: {before}\n  - after: {after}")
-        else:
-            out.append(f"- {what}: {after if after is not None else ''}".rstrip(": "))
-    patches = _opt_json(app_dir / "humanize" / "patches.json")
-    for p in patches if isinstance(patches, list) else []:
-        out.append(f"- `{p.get('path', '?')}` (humanize): {p.get('replacement', '')}")
+    for path, after in final.items():
+        before = base.get(path)
+        if before is None:
+            out.append(f"- `{path}` (added): {after}")
+        elif before != after:
+            out.append(f"- `{path}`\n  - before: {before}\n  - after: {after}")
+    out += [f"- `{path}` (removed): {before}" for path, before in base.items() if path not in final]
     return out
 
 
 def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
-              check: dict[str, Any] | None) -> str:
-    gate_flags = (app.get("gate") or {}).get("flags") or []
+              check: dict[str, Any] | None, cfg: dict[str, Any]) -> str:
+    gate = app.get("gate") or {}
+    gate_flags = gate.get("flags") or []
     lines = ["# Check", ""]
+    if gate.get("checked") is False:
+        lines += ["Gate not checked: Jev is not configured.", ""]
     if gate_flags:
         lines += ["## Gate flags: review before applying", ""]
         for f in gate_flags:
@@ -118,7 +122,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     else:
         lines.append("- No grade available")
     lines += ["", "## Changes from the base", ""]
-    lines += _changes(rd, app_dir) or ["- No edits recorded"]
+    lines += _changes(rd, app_dir, cfg) or ["- No changes"]
     lines += ["", "## Remaining issues", ""]
     n = 0
     for sev in ("criticals", "warnings", "flags"):
@@ -141,7 +145,7 @@ def run_packet(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     base = _base_id(app_dir, app, evidence.get("buckets") or {})
     (app_dir / "fit-notes.md").write_text(
         _fit_notes(app, evidence, _opt_json(app_dir / "requirements.json"), base), encoding="utf-8")
-    (app_dir / "check.md").write_text(_check_md(app, rd, app_dir, check), encoding="utf-8")
+    (app_dir / "check.md").write_text(_check_md(app, rd, app_dir, check, cfg), encoding="utf-8")
     criticals = len((check or {}).get("criticals") or [])
     status = "needs_fixes" if criticals else "ready_for_review"
     app = appdir.log(app_dir, "packet", f"{status}, {criticals} critical(s)", status=status)

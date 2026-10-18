@@ -36,7 +36,8 @@ plan cannot change them.
    must-have). Same count or fewer than `swap_in`.
 5. **`skills_order`**: the base's skills group ids, reordered so the groups holding tier-1 and `must`
    terms come first. Use only ids that exist in the base; include all of them exactly once.
-6. Do not plan anything for terms in `absent`. They stay out of the resume.
+6. Do not plan anything for terms in `absent`. They stay out of the resume. Terms in the
+   `related` bucket are absent too; a `related` passage may be swapped in for what it actually says.
 7. Do not touch the code fields already in `plan.json`; read them only.
 
 ## Output

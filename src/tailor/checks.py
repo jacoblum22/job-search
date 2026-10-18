@@ -124,6 +124,12 @@ def _bullet_map(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return dict(iter_bullets(data))
 
 
+def _wording_in(words: str, text: str) -> bool:
+    """`words` appears in `text` as a phrase, ignoring a plural s/es on the last word."""
+    stem = re.sub(r"(?:es|s)$", "", words.strip(), flags=re.I) if len(words.strip()) > 3 else words.strip()
+    return bool(re.search(rf"(?<![\w+#]){re.escape(stem)}(?:s|es)?(?![\w+#])", text, re.I))
+
+
 def _norm_dash(s: str) -> str:
     return re.sub(r"[–—]", "-", s)
 
@@ -227,6 +233,7 @@ def check_resume(
     allowed_years = years_in(allowed_text)
     allowed_skills = taxonomy.find(allowed_text)
     d_units = units(draft)
+    base_bullets = {k: v.get("text") for k, v in _bullet_map(base).items()}
 
     # Locked fields, entries, employers.
     base_entries = {s: {e["id"]: e for e in base.get(s) or []} for s in ("experience", "projects", "education")}
@@ -284,8 +291,11 @@ def check_resume(
             c("invented_number", f"{raw!r} appears in no vault passage or the base", path)
         for y in sorted(years_in(text) - allowed_years):
             c("unsupported_date", f"year {y} appears in no vault passage or the base", path)
-        for skill in sorted(taxonomy.find(text) - allowed_skills):
-            if taxonomy.is_hard(skill):
+        # A skill counts as backed only when the draft's own wording for it is in the
+        # vault or base: "experimentation" in a passage doesn't back "A/B testing".
+        for skill, words in sorted(taxonomy.find_wordings(text).items()):
+            if taxonomy.is_hard(skill) and (
+                    skill not in allowed_skills or not any(_wording_in(w, allowed_text) for w in words)):
                 c("invented_skill", f"{skill} appears in no vault passage or the base", path)
 
     full = "\n".join(t for _, t in d_units)
@@ -311,7 +321,7 @@ def check_resume(
     for t in terms:
         n = _count(t, full)
         pn = _count(t, posting)
-        if n and (n / words_n > 0.04 or n > 6 or (n >= 3 and n > 2 * pn)):
+        if n and (n / words_n > 0.03 or n > 6):
             w("term_stuffing", f"'{t}' appears {n} times in {words_n} words (posting: {pn})")
     prose = "\n".join(t for p, t in d_units if not p.startswith("skills/"))
     skills_text = "\n".join(t for p, t in d_units if p.startswith("skills/"))
@@ -338,7 +348,8 @@ def check_resume(
             if not 1 <= len(bl) <= 6:
                 w("bullet_count", f"{len(bl)} bullets (want 1-6)", f"{section}/{e.get('id')}")
             for i, b in enumerate(bl):
-                if len(str(b.get("text", ""))) > 200:
+                # Base bullets are already approved; only judge the length of rewritten ones.
+                if len(str(b.get("text", ""))) > 200 and b.get("text") != base_bullets.get(f"{section}/{e.get('id')}/{b.get('id')}"):
                     w("bullet_long", f"{len(b['text'])} characters (limit 200)", f"{section}/{e.get('id')}/{b.get('id')}")
                 for b2 in bl[i + 1 :]:
                     if _jaccard(b["text"], b2["text"]) >= 0.8:

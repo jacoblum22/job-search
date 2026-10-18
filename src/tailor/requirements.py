@@ -129,8 +129,9 @@ def normalize(app_dir: Path, cfg: dict[str, Any]) -> dict:
                             "reason": "quote not found in posting"})
             continue
         r["canonical"] = [taxonomy.canonical(t) for t in r["terms"]]
-        for t, c in zip(r["terms"], r["canonical"]):
-            note_unknown(t, c)
+        if r.get("weight", "role") != "boilerplate":  # perks and EEO text aren't skills to learn
+            for t, c in zip(r["terms"], r["canonical"]):
+                note_unknown(t, c)
         reqs.append(r)
     data["requirements"] = reqs
 
@@ -140,7 +141,8 @@ def normalize(app_dir: Path, cfg: dict[str, Any]) -> dict:
             dropped.append({"type": "keyword", "term": k["term"], "reason": "quote not found in posting"})
             continue
         k["canonical"] = taxonomy.canonical(k["term"])
-        note_unknown(k["term"], k["canonical"])
+        if k.get("weight", "role") != "boilerplate":
+            note_unknown(k["term"], k["canonical"])
         kws.append(k)
     data["keywords"] = kws
 

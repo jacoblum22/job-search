@@ -26,7 +26,7 @@ LETTER = {
     "greeting": "Dear Priya Shah,",
     "paragraphs": [
         {"text": "I write SQL daily and maintain dashboards, which matches the Contoso Retail analytics work.",
-         "sources": ["northwind.sql-daily"], "company_facts": ["posting:0"]},
+         "sources": ["northwind.sql-daily"], "company_facts": ["posting:1"]},
         {"text": "At Northwind I explained results to stakeholders in weekly reviews.",
          "sources": ["northwind.stakeholders"], "company_facts": []},
         {"text": "I would welcome a conversation about the role.", "sources": [], "company_facts": []},

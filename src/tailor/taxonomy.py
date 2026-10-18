@@ -184,6 +184,15 @@ def find(text: str) -> set[str]:
     return {name for _, name, rx in compiled() if rx.search(text)}
 
 
+def find_wordings(text: str) -> dict[str, set[str]]:
+    """Each taxonomy skill mentioned in `text`, with the exact words that matched it."""
+    out: dict[str, set[str]] = {}
+    for _, name, rx in compiled():
+        for m in rx.finditer(text):
+            out.setdefault(name, set()).add(m.group(0))
+    return out
+
+
 def canonical(term: str) -> str | None:
     """The taxonomy skill a posting term refers to ("Postgres" -> "SQL"), or None."""
     t = term.strip()

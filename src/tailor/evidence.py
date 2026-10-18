@@ -33,6 +33,16 @@ def term_mentioned(entry: dict, text: str) -> bool:
     return taxonomy.exact(entry["term"], text)
 
 
+def term_exact(entry: dict, text: str) -> bool:
+    """True when `text` uses the posting's own wording (or the skill's canonical name).
+
+    A synonym-only match ("experimentation" for A/B testing) is too loose to back an
+    injected keyword, so those passages are kept apart as `related`.
+    """
+    names = list(entry.get("raw") or []) + [entry["term"]]
+    return any(taxonomy.exact(n, text) for n in names if n)
+
+
 def collect_terms(reqs: dict) -> list[dict]:
     """Every requirement term and keyword, deduped by canonical (else lower-case term)."""
     terms: dict[str, dict] = {}
@@ -42,8 +52,11 @@ def collect_terms(reqs: dict) -> list[dict]:
         key = canon or term.strip().lower()
         cur = terms.get(key)
         if cur is None:
-            terms[key] = {"term": canon or term.strip(), "canonical": canon, "kind": kind, "weight": weight}
+            terms[key] = {"term": canon or term.strip(), "canonical": canon, "kind": kind, "weight": weight,
+                          "raw": [term.strip()]}
             return
+        if term.strip() not in cur["raw"]:
+            cur["raw"].append(term.strip())
         if KIND_RANK[kind] < KIND_RANK[cur["kind"]]:
             cur["kind"] = kind
         if weight == "role":
@@ -90,6 +103,15 @@ def passage_strength(p: dict) -> int:
     has_tool = any(taxonomy.is_hard(n) for n in taxonomy.find(text))
     has_scope = bool(p.get("numbers")) or bool(SCOPE_WORDS.search(text))
     return 3 if has_tool and has_scope else 2
+
+
+def _origin_rank(p: dict) -> int:
+    """Work bullets first, then project bullets, then coursework; tech-stack lists and other files last."""
+    f = str(p.get("file", "")).replace("\\", "/").lower()
+    rank = 0 if f.startswith("work/") else 1 if f.startswith("projects/") else 2 if "coursework" in f else 3
+    if any("stack" in str(s).lower() for s in p.get("section") or []):
+        rank += 2
+    return rank
 
 
 def _words(s: str) -> set[str]:
@@ -154,9 +176,15 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
 
     entries = collect_terms(reqs)
     by_name = {e["term"]: e for e in entries}
-    primary_first = sorted(claims.values(), key=lambda p: p.get("source") != "primary")
+    cap = int((cfg.get("evidence") or {}).get("max_passages", 8))
+    # Real bullets before skills-list mentions; within those, work before projects before coursework,
+    # then the stronger passage, primary copies before cross-references.
+    ranked = sorted(claims.values(), key=lambda p: (passage_strength(p) < 2, _origin_rank(p),
+                                                    -passage_strength(p), p.get("source") != "primary"))
     for e in entries:
-        e["passages"] = [p["id"] for p in primary_first if term_mentioned(e, p["text"])]
+        hits = [p for p in ranked if term_mentioned(e, p["text"])]
+        e["passages"] = [p["id"] for p in hits if term_exact(e, p["text"])][:cap]
+        e["related"] = [p["id"] for p in hits if not term_exact(e, p["text"])][:3]
 
     def best(names: list[str]) -> dict[str, int]:
         return {n: max((passage_strength(claims[i]) for i in by_name[n]["passages"]), default=0)
@@ -166,7 +194,7 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     for r in reqs.get("requirements", []):
         names = list(dict.fromkeys(_req_term_names(r)))
         covered = [n for n in names if by_name[n]["passages"]]
-        pids = list(dict.fromkeys(i for n in covered for i in by_name[n]["passages"]))
+        pids = list(dict.fromkeys(i for n in covered for i in by_name[n]["passages"]))[:cap]
         status = "missing" if not covered else "covered" if len(covered) == len(names) else "partial"
         strength = max(best(covered).values(), default=0)
         req_out.append({"id": r["id"], "status": status, "strength": strength,
@@ -186,21 +214,25 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     for bid, text in base_texts.items():
         matched = {e["term"] for e in entries if term_mentioned(e, text)}
         inject = {e["term"] for e in entries if e["term"] not in matched and e["passages"]}
+        related = {e["term"] for e in entries if e["term"] not in matched | inject and e["related"]}
         buckets[bid] = {
             "matched": [e["term"] for e in entries if e["term"] in matched],
             "injectable": [e["term"] for e in entries if e["term"] in inject],
-            "non_injectable": [e["term"] for e in entries if e["term"] not in matched | inject],
+            "related": [e["term"] for e in entries if e["term"] in related],
+            "non_injectable": [e["term"] for e in entries if e["term"] not in matched | inject | related
+                               and e["weight"] != "boilerplate"],
             "current_pct": _pct(entries, matched),
             "potential_pct": _pct(entries, matched | inject),
         }
 
     terms_out = [{"term": e["term"], "canonical": e["canonical"], "kind": e["kind"], "weight": e["weight"],
-                  "passages": e["passages"],
+                  "passages": e["passages"], "related": e["related"],
                   "in_base": {bid: term_mentioned(e, t) for bid, t in base_texts.items()}} for e in entries]
     present = [t["term"] for t in terms_out if t["passages"] or any(t["in_base"].values())]
     result = {
         "requirements": req_out, "terms": terms_out, "buckets": buckets,
-        "present": present, "absent": [t["term"] for t in terms_out if t["term"] not in present],
+        "present": present,
+        "absent": [t["term"] for t in terms_out if t["term"] not in present and t["weight"] != "boilerplate"],
     }
     appdir.write_json(app_dir / "evidence.json", result)
     n_cov = sum(o["status"] == "covered" for o in req_out)

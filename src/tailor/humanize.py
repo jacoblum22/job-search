@@ -164,7 +164,9 @@ def humanize_apply(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     app_dir = Path(app_dir)
     n, resume, letter = _load_best(app_dir)
     flagged = {f["path"] for f in read_json(app_dir / "humanize" / "flags.json")}
-    patches = read_json(app_dir / "humanize" / "patches.json")
+    pfile = app_dir / "humanize" / "patches.json"
+    # No flags means nothing to patch; the step still writes the final copies.
+    patches = read_json(pfile) if pfile.exists() or flagged else []
     if not isinstance(patches, list):
         raise TailorError("humanize/patches.json must be a list of {path, replacement}")
     posting, own = _posting(app_dir), _own_texts(app_dir, cfg)

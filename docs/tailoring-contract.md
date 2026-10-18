@@ -106,7 +106,8 @@ outcome_at`.
 `normalize` adds `canonical` (taxonomy display name or `null`) to every term, checks every `quote`
 appears in `posting.md` (whitespace/case-insensitive) and drops items whose quote doesn't, sets
 `hiring_contact` to `null` unless its quote is verbatim in the posting **and** contains the name,
-and appends unknown terms to `unknown_terms`. Results are written back plus a `"_normalized"` block
+and appends unknown non-boilerplate terms to `unknown_terms`. Each requirement also gets a
+`canonical` list parallel to its `terms` list. Results are written back plus a `"_normalized"` block
 listing what was dropped.
 
 ### `evidence.json`
@@ -116,15 +117,22 @@ listing what was dropped.
   "requirements": [{"id": "r1", "status": "covered|partial|missing", "strength": 0,
                      "passages": ["algaecal.sql-daily"], "method": "taxonomy|jev|none"}],
   "terms": [{"term": "SQL", "canonical": "SQL", "kind": "must|nice|keyword", "weight": "role|boilerplate",
-             "passages": ["..."], "in_base": {"data-scientist": true}}],
-  "buckets": {"data-scientist": {"matched": ["SQL"], "injectable": ["dbt"], "non_injectable": ["Tableau"],
+             "raw": ["SQL"], "passages": ["..."], "related": ["..."], "in_base": {"data-scientist": true}}],
+  "buckets": {"data-scientist": {"matched": ["SQL"], "injectable": ["dbt"], "related": ["A/B testing"],
+                                  "non_injectable": ["Tableau"],
                                   "current_pct": 62.5, "potential_pct": 81.0}},
   "present": ["SQL", "dbt"], "absent": ["Tableau"]
 }
 ```
 
 Strength: 0 none, 1 mentioned only in a skills list, 2 in a bullet, 3 in a bullet with a concrete
-tool and scope. `present` = matched + injectable (vault-backed); `absent` = non-injectable.
+tool and scope. `passages` hold only passages that use the posting's own wording (or the skill's
+canonical name), strongest first, capped at `evidence.max_passages` (8). Passages that match only
+through a taxonomy synonym ("experimentation" for A/B testing) go in `related` (at most 3); a term
+backed only that way lands in the `related` bucket, is not in `present`, and may be written only
+in the passage's own wording. `present` = matched + injectable; `absent` = everything else except
+boilerplate terms (perks, EEO text), which never reach `absent`, `non_injectable` or the
+unknown-terms log.
 
 ### `plan.json`
 
@@ -161,7 +169,7 @@ exactly the same items, every `sources` id exists in the vault index and is a `c
 ```
 
 `company_facts` cite ids from the company's `facts.json` or `posting:<n>` for the n-th item of
-`requirements.json.company_facts`.
+`requirements.json.company_facts`, counting from 1.
 
 ### `check.json`
 
@@ -179,8 +187,9 @@ Codes are short snake_case strings; the full list lives in `src/tailor/checks.py
 
 ```json
 {"ats": {"total": 78.0, "components": {"keyword": 80, "skills": 75, "title": 100, "sections": 100, "dates": 100}},
- "checklist": [{"id": "must.r1", "question": "...", "passed": true, "confidence": 0.9, "source": "jev|code|unchecked"}],
- "score": 76.2, "stuffing": false,
+ "checklist": [{"id": "must.r1", "question": "...", "passed": true, "confidence": 0.9, "source": "jev|code|unchecked",
+                "sections": ["summary", "experience/algaecal"]}],
+ "score": 76.2, "stuffing": false, "gaps": [{"id": "must.r1", "sentence": "...", "sections": ["experience/algaecal"]}],
  "feedback": ["Must-have 'dbt' isn't shown; passage resess.pipeline supports it."]}
 ```
 
@@ -210,7 +219,7 @@ reverted if the warning count goes up.
 | `taxonomy.py`, `requirements.py`, `evidence.py`, `base.py` | steps 1-3 (code) | `normalize(app_dir, cfg)`, `run_evidence(app_dir, cfg, jev)`, `run_base(app_dir, cfg, jev)` |
 | `phrases.py` | shared (done) | `scan(text, posting, own_texts, letter=False) -> list[Hit]`, `is_protected(phrase, posting, own_texts)` |
 | `edits.py`, `checks.py`, `metrics.py`, `letter.py` | steps 4-5 | `apply_edits(app_dir, round, cfg)`, `run_check(app_dir, round, cfg, jev)` |
-| `grade.py`, `loop.py`, `humanize.py` | steps 6-8 | `run_grade(app_dir, round, cfg, jev)`, `next_round(app_dir, cfg) -> dict`, `humanize_flags(app_dir, cfg)`, `humanize_apply(app_dir, cfg)` |
+| `grade.py`, `loop.py`, `humanize.py` | steps 6-8 | `run_grade(app_dir, round, cfg, jev)`, `next_round(app_dir, cfg) -> {"action": "stop"|"repair", "best_round", "reason", "next_round"}`, `humanize_flags(app_dir, cfg)`, `humanize_apply(app_dir, cfg)` |
 | `render.py`, `parsecheck.py`, `company.py`, `packet.py` | steps 1b (verify), 9, 10 | `verify_company(company_dir)`, `run_render(app_dir, cfg)`, `parse_check(pdf, source)`, `run_packet(app_dir, cfg)` |
 | `prompts/tailor/*.md`, `docs/tailoring-runbook.md`, `scripts/skills_crosscheck.py` | Claude steps + skills growth | |
 

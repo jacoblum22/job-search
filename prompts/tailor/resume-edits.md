@@ -40,6 +40,8 @@ list is also the before/after diff the candidate reviews.
 6. **Strategy** (set at the top of the output):
    - `nudge`: swap or reorder only; minimal wording changes. Use when the base already matches well.
    - `keywords` (default): rephrase existing bullets and add injectable terms the vault backs.
+     A term in the `related` bucket is backed only by a looser synonym: use the cited passage's
+     own wording for it, never the posting's term.
    - `full`: new or expanded bullets elaborating real work. **Only when `app.json` tier is "A".**
      For any other tier `full` is not allowed.
 7. **Protected bullets.** Do not remove or replace a path listed in `protected_paths` in a way that

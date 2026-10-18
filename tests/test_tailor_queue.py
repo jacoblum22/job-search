@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -111,8 +112,11 @@ def _packet_app(cfg):
         "criticals": [], "warnings": [{"code": "dash", "message": "em dash", "path": "summary"}],
         "flags": [{"code": "jev_unsupported", "message": "unsupported", "path": "p"}]})
     appdir.write_json(r1 / "grade.json", {"ats": {"total": 78, "components": {"keyword": 80}}, "score": 76.2})
-    appdir.write_json(r1 / "applied.json", {"applied": [
-        {"path": "summary", "action": "replace", "original": "old", "value": "new"}]})
+    appdir.write_json(d / "plan.json", {"base_id": "data-analyst"})
+    bases = Path(cfg["paths"]["bases"])
+    bases.mkdir(parents=True, exist_ok=True)
+    (bases / "data-analyst.yaml").write_text("id: data-analyst\nsummary: {text: old}\n")
+    (r1 / "resume.yaml").write_text("id: data-analyst\nsummary: {text: new}\n")
     return jid, d
 
 
@@ -127,7 +131,7 @@ def test_packet_and_approve_gate(cfg):
     assert check.index("Gate flags: review before applying") < check.index("Score: 76.2")
     assert "- [ ] Reviewed  is_coop: failed" in check
     assert "- [ ] Keep  - [ ] Remove  dash: em dash (summary)" in check
-    assert "before: old" in check
+    assert "before: old" in check and "after: new" in check
     conn = store.connect(cfg["paths"]["db"])
     assert store.get_app(conn, jid)["status"] == "ready_for_review"
 
@@ -165,3 +169,14 @@ def test_packet_criticals_and_missing_inputs(cfg):
     (d / "evidence.json").unlink()
     with pytest.raises(TailorError):
         run_packet(d, cfg)
+
+
+def test_gate_skipped_without_jev_key(cfg):
+    add(cfg, "k1", "Analyst", "A", 80)
+
+    class NoKey:
+        available = False
+
+    out = run_queue(cfg, jev=NoKey())
+    gate = appdir.load_app(out[0])["gate"]
+    assert gate["flags"] == [] and gate["checked"] is False

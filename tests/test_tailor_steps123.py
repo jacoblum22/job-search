@@ -289,3 +289,22 @@ def test_base_needs_evidence(env):
     cfg, app = env
     with pytest.raises(TailorError, match="evidence.json"):
         run_base(app, cfg, None)
+
+
+def test_evidence_synonym_only_is_related_and_boilerplate_not_absent(env, tmp_path):
+    cfg, app = env
+    idx = json.loads((tmp_path / "vault-index.json").read_text())
+    idx["passages"].append({**idx["passages"][0], "id": "northwind.churn-status",
+                            "text": "The churn model was still in the experimentation phase."})
+    (tmp_path / "vault-index.json").write_text(json.dumps(idx))
+    req = appdir.read_json(app / "requirements.json")
+    req["keywords"] += [{"term": "A/B testing", "weight": "role", "quote": "A/B testing"},
+                        {"term": "extended health", "weight": "boilerplate", "quote": "extended health"}]
+    appdir.write_json(app / "requirements.json", req)
+    ev = run_evidence(app, cfg, None)
+    ab = next(t for t in ev["terms"] if t["canonical"] and t["canonical"].startswith("A/B"))
+    assert ab["passages"] == [] and ab["related"] == ["northwind.churn-status"]
+    b = ev["buckets"]["data-analyst"]
+    assert ab["term"] in b["related"] and ab["term"] not in b["injectable"]
+    assert ab["term"] not in ev["present"]
+    assert "extended health" not in ev["absent"] and "extended health" not in b["non_injectable"]
