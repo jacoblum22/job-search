@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from src.resume import iter_bullets, load_resume
-from src.tailor import TailorError, taxonomy
+from src.tailor import TailorError, rejects, taxonomy
 from src.tailor.appdir import log, read_json, round_dir, write_json
 from src.tailor.jev import Question, strip_identity
 
@@ -345,7 +345,8 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     app_dir = Path(app_dir)
     d = round_dir(app_dir, rnd)
     req = read_json(app_dir / "requirements.json")
-    evidence = read_json(app_dir / "evidence.json")
+    # Repair notes must never point back at a match that was rejected (here or on an earlier job).
+    evidence = rejects.scrub_evidence(read_json(app_dir / "evidence.json"), req, rejects.pairs(cfg, app_dir))
     if not (d / "resume.yaml").exists():
         raise TailorError(f"resume.yaml is missing in {d}")
     data = load_resume(d / "resume.yaml")

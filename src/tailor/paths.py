@@ -20,6 +20,8 @@ DEFAULT_PATHS = {
     "rules": "materials/docs/tailoring-rules.md",
     "db": "jobs.db",
     "unknown_terms": "materials/tailor/unknown-terms.csv",
+    "evidence_rejects": "materials/tailor/evidence-rejects.json",
+    "jev_cache": "materials/tailor/jev-cache.json",
 }
 
 

@@ -189,5 +189,5 @@ def test_packet_lists_evidence_drops(cfg):
     run_packet(d, cfg)
     check = (d / "check.md").read_text()
     assert "## Evidence matches the plan rejected" in check
-    assert "- Microsoft Access (firmament.oauth-2-0): OAuth access tokens" in check
+    assert "- [ ] Undo  Microsoft Access (firmament.oauth-2-0): OAuth access tokens" in check
     assert check.index("rejected") < check.index("Changes from the base")

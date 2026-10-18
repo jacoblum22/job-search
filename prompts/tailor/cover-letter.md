@@ -13,7 +13,8 @@ or the verified company notes can back. Code checks every claim, company fact an
 
 - `requirements.json` (including `company_facts` and `hiring_contact`) and `posting.md`
 - `evidence.json` (PRESENT / ABSENT) and `plan.json` (`summary_angle`)
-- `materials/profile/vault-index.json` (passage ids and texts)
+- `materials/profile/vault-index.json` (passage ids and texts), including the `motivation.*`
+  passages (what the candidate wants from their work)
 - `materials/companies/<company-slug>/facts.json` (verified facts; skip any fact whose quote the
   `company-verify` step dropped)
 - The rules file (`materials/docs/tailoring-rules.md`)
@@ -33,14 +34,37 @@ phrased as a hedged reading, never as inside knowledge:
    sentence is about the work, not about the candidate's feelings.
 2. **Proof.** 1-2 real achievements from the vault, told with concrete tools and scope, each citing
    its passage ids in `sources`. Use a number only if the cited passage has it.
-3. **Why this company.** 1-2 specific facts, each cited by id: a fact id from `facts.json` (`f2`) or
-   `posting:<n>` for the n-th item of `requirements.json.company_facts` (n counts from 1). Say what you noticed and why
-   it matters to the work. Never write "I admire your mission" without a cited fact behind it.
-4. **Short confident close.** One or two sentences: what the candidate would like to do next. No
+3. **Why this company.** Link one of the candidate's real motivations (a `motivation.*` passage,
+   cited in `sources`) to one specific thing about this employer or this role (cited by id: a fact id
+   from `facts.json` (`f2`) or `posting:<n>` for the n-th item of `requirements.json.company_facts`,
+   n counting from 1). The employer already knows its own facts, so never just restate them, list
+   their stats, or praise their mission: say why that thing matters to the candidate and the work.
+   Use at most one or two facts. Do not say where a motivation came from or quote the file.
+   **At least one fact must show real research:** a number, a named product, project, launch or
+   event, or anything else that could only be true of this employer. "Values high-quality care" or
+   "a leader in innovation" could be said of anyone and does not count. Prefer a verified
+   `facts.json` fact over the posting's own boilerplate.
+   **Introduce the researched fact as research** ("Researching your company, I found...", "One thing
+   I noticed...") instead of dropping it in unannounced. Keep it short: name the thing and what it
+   does, without dates or detail the point doesn't need. Don't force a clever link between the fact
+   and the job.
+   **Name the value, then show it with the fact.** State one of the candidate's real motivations
+   plainly as something they value ("One thing I really value is...", "Something I enjoy seeing
+   is..."), using only what the `motivation.*` passages say, then give the researched fact as an
+   example of the employer doing that. Never invent a value the passages don't state, and never
+   dress the fact up with a word that sounds meaningful but isn't ("as direct as data gets").
+   Only tie the fact to the candidate's own past work when the link is literal and obvious; a
+   stretched link ("I did the same thing, just for other teams") is worse than none.
+   Never write "I want to contribute to this", "this is the kind of work I want" or similar before
+   the letter's last sentence; the final sentence is the only place for "I would like to...".
+4. **Short confident close.** One or two sentences: what the candidate would like to do next.
+   Say it once: no "I would like..." sentence at the end of movement 3 that the close then repeats.
+   The close must follow on from movement 3 (for example "I would like to be part of that kind of
+   work, ..."), so it reads as one thought, not a separate sign-off. No
    "thank you for your consideration", no "I look forward to hearing from you".
 
-If no verified company fact exists, write movement 3 from the posting alone and keep it to one
-sentence.
+If no verified company fact exists, link the motivation to the posting's own description of the
+role. If the vault has no `motivation.*` passages, keep movement 3 to one sentence from the posting.
 
 ## Hard rules
 
@@ -90,14 +114,15 @@ not from memory.
 Posting: Junior Data Analyst at Contoso Retail; "Partner with stakeholders to define KPIs"; the
 company says it is "an AI-first company that values curiosity" (`posting:1`). Hiring contact
 `null`. Vault: `northwind.sql-daily` (daily SQL for operations and sales teams),
-`northwind.dashboards`. Dashboards in Power BI are ABSENT.
+`northwind.dashboards`, `motivation.relied-on` (wants work that other people rely on). Dashboards in
+Power BI are ABSENT.
 
 ```json
 {"greeting": "Dear Hiring Manager,",
  "paragraphs": [
   {"text": "The marketing team at Contoso will mostly need answers fast and in plain language. That is the job I did at Northwind Analytics: writing SQL every day so the operations and sales teams could stop waiting on a report.", "sources": ["northwind.sql-daily"], "company_facts": []},
   {"text": "I also kept the Tableau dashboards those teams relied on and traced every metric back to its source tables, so people could trust what they saw. I have not used Power BI yet and would be keen to grow into it.", "sources": ["northwind.dashboards"], "company_facts": []},
-  {"text": "Your posting calls Contoso an AI-first company that values curiosity. I like that it names curiosity as a working habit, because tracing a metric back to its source tables, as I did at Northwind, starts with exactly that.", "sources": ["northwind.dashboards"], "company_facts": ["posting:1"]},
+  {"text": "I do my best work when other people depend on it. Your posting says the KPIs this team defines will guide Contoso's AI-first work, so the numbers behind them need to be ones people can trust.", "sources": ["motivation.relied-on"], "company_facts": ["posting:1"]},
   {"text": "I would like to talk about the KPIs your team is defining this year.", "sources": [], "company_facts": []}
  ],
  "sign_off": "Sincerely,\n<name>"}
@@ -109,6 +134,8 @@ company says it is "an AI-first company that values curiosity" (`posting:1`). Hi
 - [ ] Four movements in order; 3-5 short paragraphs.
 - [ ] Greeting is "Dear Hiring Manager," unless `hiring_contact` is non-null.
 - [ ] Every achievement has `sources`; every company fact has a real id; no invented number.
+- [ ] Movement 3 links a `motivation.*` passage to the employer instead of restating their facts.
+- [ ] At least one cited fact is specific to this employer (a number or a named thing), not generic.
 - [ ] No ABSENT term except at most one "keen to grow into"; no "familiar with".
 - [ ] No banned phrase, em dash, "not just X but Y", "-ing" tail, banned opener or closer.
 - [ ] Portability test applied to every sentence; the final pass cut anything unbacked.

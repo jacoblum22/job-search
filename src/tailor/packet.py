@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.tailor import TailorError, appdir, store
+from src.tailor import TailorError, appdir, rejects, store
 from src.resume import load_resume
 from src.tailor.paths import resolve
 
@@ -123,9 +123,13 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
         lines.append("- No grade available")
     drops = (_opt_json(app_dir / "plan.json") or {}).get("evidence_drops") or []
     if drops:
-        lines += ["", "## Evidence matches the plan rejected", ""]
+        new = {(r["term"].lower(), r["passage"]) for r in rejects.load(cfg)
+               if r.get("job_id") == app.get("job_id") and not r.get("undone")}
+        lines += ["", "## Evidence matches the plan rejected", "",
+                  "Tick Undo if a match was right; approving then removes it from the shared reject list.", ""]
         for d in drops:
-            lines.append(f"- {d.get('term', '?')} ({d.get('passage', '?')}): {d.get('reason', '')}")
+            mark = " (new)" if (str(d.get("term", "")).lower(), d.get("passage")) in new else ""
+            lines.append(f"- [ ] Undo  {d.get('term', '?')} ({d.get('passage', '?')}): {d.get('reason', '')}{mark}")
     lines += ["", "## Changes from the base", ""]
     lines += _changes(rd, app_dir, cfg) or ["- No changes"]
     lines += ["", "## Remaining issues", ""]
@@ -190,9 +194,10 @@ def approve(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     bad = unresolved_lines(path.read_text(encoding="utf-8"))
     if bad:
         raise TailorError(f"{len(bad)} line(s) in check.md still need a decision:\n" + "\n".join(bad))
+    undone = rejects.apply_undos(path.read_text(encoding="utf-8"), cfg)
     app = appdir.log(app_dir, "approve", "all check.md lines resolved", status="approved")
     _sync(app_dir, cfg, app, "approved")
-    return {"status": "approved"}
+    return {"status": "approved", "rejects_undone": len(undone)}
 
 
 def record_outcome(app_dir: Path, cfg: dict[str, Any], outcome: str) -> dict[str, Any]:

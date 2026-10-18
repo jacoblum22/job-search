@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from src.tailor import TailorError, appdir
+from src.tailor import TailorError, appdir, rejects
 from src.tailor.base import run_base
 from src.tailor.evidence import run_evidence
 from src.tailor.jev import FakeJev
@@ -396,3 +396,80 @@ def test_synonym_only_requirement_is_partial(env):
                       "weight": "role", "quote": "SQL"}])
     r = run_evidence(app, cfg, None)["requirements"][0]
     assert r["status"] == "partial" and r["method"] == "related" and "northwind.qa" in r["passages"]
+
+
+# --- reject list and Jev cache ----------------------------------------------------
+
+def _write_rejects(cfg, *pairs_):
+    appdir.write_json(Path(cfg["paths"]["evidence_rejects"]), {"rejects": [
+        {"term": t, "passage": p, "reason": "test", "job_id": 1, "added": "2026-10-18"} for t, p in pairs_]})
+
+
+def test_evidence_skips_rejected_pairs(env):
+    cfg, app = env
+    normalize(app, cfg)
+    _write_rejects(cfg, ("DBT", "northwind.dbt"), ("SQL", "base"))
+    ev = run_evidence(app, cfg, FakeJev())
+    reqs = {r["id"]: r for r in ev["requirements"]}
+    assert "northwind.dbt" not in reqs["r2"]["passages"]
+    terms = {t["term"]: t for t in ev["terms"]}
+    assert "northwind.dbt" not in terms["dbt"]["passages"]
+    assert terms["SQL"]["in_base"] == {"data-analyst": False, "researcher": False}  # base match rejected
+    assert "northwind.sql-daily" in reqs["r1"]["passages"]  # the passage itself still counts
+
+
+def test_undone_reject_is_ignored(env):
+    cfg, app = env
+    normalize(app, cfg)
+    appdir.write_json(Path(cfg["paths"]["evidence_rejects"]), {"rejects": [
+        {"term": "dbt", "passage": "northwind.dbt", "undone": True}]})
+    ev = run_evidence(app, cfg, FakeJev())
+    assert {r["id"]: r for r in ev["requirements"]}["r2"]["passages"] == ["northwind.dbt"]
+
+
+def test_sync_plan_drops_and_undo(env):
+    cfg, app = env
+    appdir.write_json(app / "plan.json", {"evidence_drops": [
+        {"term": "Excel", "passage": "proj.x", "reason": "an export, not the skill"},
+        {"term": "excel", "passage": "proj.x", "reason": "duplicate"},
+        {"term": "reporting", "passage": "base"}]})
+    new = rejects.sync_plan_drops(app, cfg)
+    assert [(r["term"], r["passage"], r["job_id"]) for r in new] == [("Excel", "proj.x", 7), ("reporting", "base", 7)]
+    assert rejects.sync_plan_drops(app, cfg) == []  # idempotent
+    assert ("excel", "proj.x") in rejects.pairs(cfg)
+    md = "- [x] Undo  Excel (proj.x): an export, not the skill (new)\n- [ ] Undo  reporting (base): x\n"
+    assert rejects.apply_undos(md, cfg) == [("excel", "proj.x")]
+    assert ("excel", "proj.x") not in rejects.pairs(cfg)
+    assert rejects.sync_plan_drops(app, cfg) == []  # an undone pair is never re-added
+    assert ("excel", "proj.x") in rejects.pairs(cfg, app)  # but this job's own plan still drops it
+
+
+def test_scrub_evidence_for_repair_notes():
+    ev = {"requirements": [{"id": "r2", "passages": ["resess.six-skills", "course.x"]}],
+          "terms": [{"term": "problem solving", "canonical": "problem solving",
+                     "passages": ["resess.six-skills"], "related": []}]}
+    req = {"requirements": [{"id": "r2", "text": "Analytical skills", "terms": ["problem-solving"]}]}
+    out = rejects.scrub_evidence(ev, req, {("problem solving", "resess.six-skills")})
+    assert out["requirements"][0]["passages"] == ["course.x"]
+    assert out["terms"][0]["passages"] == []
+    assert ev["requirements"][0]["passages"][0] == "resess.six-skills"  # input untouched
+
+
+def test_unknown_term_answers_are_cached(env):
+    cfg, app = env
+    _with_reqs(app, [{"id": "a", "text": "Transformers", "kind": "nice", "terms": ["transformer"],
+                      "weight": "role", "quote": "SQL"}])
+    calls = []
+
+    def answer(s, q):
+        calls.append(q.id)
+        return 0.9 if "PyTorch" in s else 0.1
+
+    run_evidence(app, cfg, FakeJev(answer))
+    assert calls
+    n = len(calls)
+    ev = run_evidence(app, cfg, FakeJev(answer))  # same questions: all from the cache
+    assert len(calls) == n
+    assert ev["terms"][0]["passages"] == ["proj.spam.model"]
+    ev = run_evidence(app, cfg, None)  # cached answers count even with no Jev
+    assert ev["terms"][0]["passages"] == ["proj.spam.model"]
