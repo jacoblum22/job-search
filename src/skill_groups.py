@@ -5,9 +5,11 @@ candidate has none of them. This module reads the list itself, not just the skil
 it recognises: every comma-separated item is an option, whether or not the skills
 taxonomy knows it, so "Stata, R, or Python" is three options even though Stata isn't
 in the taxonomy. A list counts as a choice when its last item follows an "or"
-("Python, R, or Java"), or when it follows an examples cue and ends openly ("such
-as TensorFlow, PyTorch, etc", "(e.g. AWS, GCP)"). A list closed by a plain "and" is
-separate asks. An item that only gestures at more ("or similar tools") marks the
+("Python, R, or Java"), when it follows an examples cue ("such as TensorFlow, PyTorch,
+etc", "(e.g. AWS, GCP)", "such as R, SAS and Matlab"; "including X and Y" lists
+parts that are all wanted unless it ends openly), or when it ends in "etc"
+("Redshift, Oracle, NoSQL etc."): examples stand for a kind of tool, so one is
+enough. Any other list closed by a plain "and" is separate asks. An item that only gestures at more ("or similar tools") marks the
 list as open-ended instead of being an option.
 """
 
@@ -43,7 +45,7 @@ _FIELD = re.compile(r"^(?:computer science|(?:\w+ )?engineering|mathematics|math
                     re.IGNORECASE)
 _FIELD_WORD = re.compile(r"\b(?:field|discipline|degree|program|major)s?\b", re.IGNORECASE)
 # Words that end the last item: "Power BI is an asset", "Python for tools and testing".
-_ITEM_END = re.compile(r"\s+(?:is|are|was|for|to|in|on|at|with|within|as|that|which|who|when|where|while|"
+_ITEM_END = re.compile(r"\s+(?:is|are|was|for|to|in|on|at|with|within|throughout|during|across|into|by|as|that|which|who|when|where|while|"
                        r"and|or|experience|skills?|knowledge|expertise|proficiency|preferred|required|"
                        r"strongly|would|will|a plus|an asset|including|before|after|such|preferred|acceptable|especially|"
                        r"programming|development|languages?|frameworks?|tools|platforms?|concepts|use cases|"
@@ -61,6 +63,11 @@ _NOT_CATEGORY = {"in", "of", "with", "using", "use", "more", "the", "any", "all"
 # An item that stands for "anything like the others" rather than a named option.
 _OPEN_ITEM = re.compile(r"^(?:other|another|any|similar|equivalent|comparable|related|a similar|a comparable|"
                         r"an equivalent|the like|etc|others)\b", re.IGNORECASE)
+# Where an examples list after a cue stops: a bracket, "etc", or the conjunction before its last item.
+_CUE_END = re.compile(r"\)|\betc\b|\band so on\b|\band/or\b|\bor\b|\s(?:and|&)\s(?!so on\b)|\(", re.IGNORECASE)
+# "Including" names the parts of something; with a closing "and" those parts are all wanted.
+_PARTS_CUE = re.compile(r"includ", re.IGNORECASE)
+_ETC = re.compile(r",?\s*\b(?:etc\b|and so on\b)", re.IGNORECASE)
 _MAX_WORDS = 4
 # Catch-all skills that overlap a more specific one ("AI/ML") never count as a known item.
 _SKIP = {"AI (any mention)"}
@@ -86,7 +93,7 @@ class Item:
 @dataclass(frozen=True)
 class Group:
     items: tuple[Item, ...]
-    reason: str  # "or" (an "or" before the last item) or "cue" (a "such as"-style lead-in)
+    reason: str  # "or" (an "or" before the last item), "cue" (a "such as"-style lead-in) or "etc"
     open_end: bool  # the list ends with "or similar", "etc" or the like
     text: str  # the clause, for review
     category: str | None = None  # what the list is a list of, when the posting says ("visualization tools")
@@ -216,16 +223,50 @@ def _or_lists(clause: str, hits: list[tuple[int, int, str]]) -> list[Group]:
 
 
 def _cue_lists(clause: str, hits: list[tuple[int, int, str]]) -> list[Group]:
-    """A cue, then items joined only by commas, then an open end: "(e.g. AWS, GCP)", "like X, Y, etc"."""
+    """A cue, then examples: "(e.g. AWS, GCP)", "like X, Y, etc", "such as R, SAS and Matlab".
+    Examples stand for a kind of tool, so having one of them is enough, even when the
+    list closes with "and"."""
     out = []
     for m in _CUE_START.finditer(clause):
-        stop = re.compile(r"\)|\betc\b|\band so on\b", re.IGNORECASE).search(clause, m.end())
-        if not stop or re.search(r"\b(?:and|or)\b|[&(]", clause[m.end():stop.start()], re.IGNORECASE):
-            continue  # an "and" closes the list; an "or" list is read by _or_lists
-        cuts = [m.end() - 1] + [i for i in range(m.end(), stop.start()) if clause[i] == ","] + [stop.start()]
-        items = [i for i in (_item(clause, a + 1, b, hits) for a, b in pairwise(cuts)) if i]
+        stop = _CUE_END.search(clause, m.end())
+        word = stop.group(0).strip().lower() if stop else ""
+        if word in ("or", "and/or", "("):
+            continue  # an "or" list is read by _or_lists
+        end = stop.start() if stop else len(clause)
+        cuts = [m.end() - 1] + [i for i in range(m.end(), end) if clause[i] == ","] + [end]
+        spans = [(a + 1, b) for a, b in pairwise(cuts)]
+        open_end = word in (")", "etc", "and so on")
+        if word in ("and", "&") or not stop:
+            if word:
+                spans.append((stop.end(), len(clause)))
+            # The last item ends where the sentence moves on: "and Matlab to build models".
+            a, b = spans[-1]
+            cut = _ITEM_END.search(clause, a)
+            if cut and cut.start() < b:
+                spans[-1] = (a, cut.start())
+            open_end = bool(re.match(r"[\s,]*(?:etc\b|and so on\b|(?:and/)?or (?:other|similar|equivalent|comparable)\b)",
+                                     clause[spans[-1][1]:], re.IGNORECASE))
+        items = [i for i in (_item(clause, a, b, hits) for a, b in spans) if i]
+        if items and _OPEN_ITEM.match(items[-1].text):
+            open_end = True  # "including Copilot, Claude Code, and similar tools"
+        items = [i for i in items if not _OPEN_ITEM.match(i.text)]
+        if word in ("and", "&") and _PARTS_CUE.match(m.group(0)) and not open_end:
+            continue  # "a stack including Docker and Kubernetes" lists the parts it uses, all of them
         if len(items) >= 2 and sum(any(map(_is_tool, i.skills)) for i in items) >= 2 and not _is_fields_of_study(items, clause):
-            out.append(Group(tuple(items), "cue", True, " ".join(clause.split()), *_category(clause, m.end())))
+            out.append(Group(tuple(items), "cue", open_end, " ".join(clause.split()), *_category(clause, m.end())))
+    return out
+
+
+def _etc_lists(clause: str, hits: list[tuple[int, int, str]]) -> list[Group]:
+    """A comma list that ends in "etc" or "and so on" with no cue before it: "Redshift, Oracle,
+    NoSQL etc." names examples, so having one is enough."""
+    out = []
+    for m in _ETC.finditer(clause):
+        spans = _list_before(clause, m.start(), hits)
+        items = [i for i in (_item(clause, a, b, hits) for a, b in spans) if i]
+        items = [i for i in items if not _OPEN_ITEM.match(i.text)]
+        if len(items) >= 2 and sum(any(map(_is_tool, i.skills)) for i in items) >= 2 and not _is_fields_of_study(items, clause):
+            out.append(Group(tuple(items), "etc", True, " ".join(clause.split()), *_category(clause, spans[0][0])))
     return out
 
 
@@ -236,5 +277,10 @@ def alternative_groups(text: str) -> list[Group]:
     for cm in _CLAUSE.finditer(masked):
         clause = text[cm.start():cm.end()]
         hits = _hits(clause)
-        groups += _or_lists(clause, hits) + _cue_lists(clause, hits)
+        found: list[Group] = []
+        for g in _or_lists(clause, hits) + _cue_lists(clause, hits) + _etc_lists(clause, hits):
+            # A list read twice ("such as X, Y etc" is a cue list and an etc list) counts once.
+            if not any(set(g.options) <= set(f.options) for f in found):
+                found.append(g)
+        groups += found
     return groups

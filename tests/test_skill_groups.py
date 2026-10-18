@@ -45,14 +45,31 @@ def test_choices_are_found(text, want):
     assert groups(text) == want
 
 
+@pytest.mark.parametrize("text, want, open_end", [
+    # Examples after a cue stand for a kind of tool, even when the list closes with "and" (Jake's call).
+    ("Experience in Statistical Analysis packages such as R, SAS and Matlab", ("R", "SAS", "Matlab"), False),
+    ("Proficiency in programming languages such as Python and SQL", ("Python", "SQL"), False),
+    ("Use AWS services including SageMaker, Lambda and other AI/ML services", ("SageMaker", "Lambda"), True),
+    ("tools such as Airflow, dbt and Dagster, or similar", ("Airflow", "dbt", "Dagster"), True),
+    ("BI tools such as Tableau, Looker", ("Tableau", "Looker"), False),
+    # "etc" makes a list examples with no cue at all.
+    ("3+ years of analyzing and interpreting data with Redshift, Oracle, NoSQL etc. experience",
+     ("Redshift", "Oracle", "NoSQL"), True),
+    ("Cloud platforms (AWS, Azure, GCP and so on)", ("AWS", "Azure", "GCP"), True),
+])
+def test_example_lists_are_choices(text, want, open_end):
+    (g,) = alternative_groups(text)
+    assert (g.options, g.open_end) == (want, open_end)
+
+
 def test_open_end_is_recorded_not_an_option():
     (g,) = alternative_groups("Experience with data visualization using Tableau, Quicksight, or similar tools")
     assert g.options == ("Tableau", "Quicksight") and g.open_end
 
 
 @pytest.mark.parametrize("text", [
-    "Proficiency in programming languages such as Python and SQL",  # both wanted
-    "Experience with AWS services including S3, Redshift, and EC2",
+    "Experience with AWS services including S3, Redshift, and EC2",  # "including ... and" lists parts, all wanted
+    "Build and deploy APIs using a modern engineering stack, including Docker and Kubernetes",
     "Build AI/ML models with React/TypeScript and Go",
     "Strong software development experience using C/C++ and Python",
     "Dashboards in Tableau, Power BI, and Looker, or other tools",  # "and" closes the list first
