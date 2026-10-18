@@ -219,6 +219,41 @@ RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Ama
            "Power Apps": "Microsoft Power Platform", "Dataverse": "Microsoft Power Platform",
            "Looker Studio": "Looker"}
 
+# The kind of tool each one is. An open list ("e.g. Tableau, QuickSight", "or similar tools")
+# takes its type from the tools it names, so any tool of that type can stand in. Excel isn't a
+# BI / visualization tool here (Jake's call, Oct 18 2026): it's a stretch for "dashboards (e.g. ...)".
+_TYPES = {
+    "programming language": ["SQL", "Python", "R", "Java", "JavaScript", "TypeScript", "C#/.NET", "C/C++", "Go",
+                             "Scala", "Julia", "Perl", "Ruby", "PowerShell", "VBA", "Bash/Shell", "Kotlin/Swift",
+                             "Rust", "MATLAB", "SAS"],
+    "statistical software": ["SAS", "SPSS", "Stata", "MATLAB", "R", "Python", "Julia"],
+    "ML framework": ["PyTorch", "TensorFlow/Keras", "JAX", "scikit-learn", "XGBoost/LightGBM", "Hugging Face",
+                     "LangChain/LlamaIndex"],
+    "data library": ["pandas", "NumPy", "scikit-learn", "matplotlib/seaborn/plotly", "Jupyter"],
+    "web framework": ["React", "FastAPI/Flask/Django"],
+    "BI / visualization tool": ["Power BI", "Tableau", "Looker", "Looker Studio", "Qlik", "Superset", "Metabase",
+                                "Sigma", "MicroStrategy", "Cognos", "Amazon QuickSight", "SSIS/SSRS"],
+    "product analytics": ["Google Analytics", "Amplitude / Mixpanel"],
+    "data warehouse": ["Snowflake", "Databricks", "BigQuery", "Redshift", "Microsoft Fabric / Azure Synapse / ADF"],
+    "database": ["SQL", "NoSQL (MongoDB etc.)", "Elasticsearch", "vector databases"],
+    "big data / streaming": ["Spark/PySpark", "Kafka", "Flink", "Hadoop/Hive", "Amazon Kinesis", "Databricks"],
+    "orchestration / ETL tool": ["Airflow", "Prefect", "dbt", "Fivetran", "SSIS/SSRS",
+                                 "Microsoft Fabric / Azure Synapse / ADF"],
+    "cloud platform": ["AWS", "Azure", "GCP", "AWS S3", "AWS Lambda", "Amazon SageMaker", "Amazon Bedrock",
+                       "Amazon Kinesis", "Azure Machine Learning", "Vertex AI"],
+    "ML / AI platform": ["Amazon SageMaker", "Azure Machine Learning", "Vertex AI", "MLflow", "Databricks",
+                         "Amazon Bedrock"],
+    "DevOps tool": ["Docker", "Kubernetes", "CI/CD", "Git", "Terraform/IaC"],
+    "business software": ["Salesforce/CRM", "ERP (SAP/Oracle/Workday)", "Jira/Confluence", "Visio / diagramming",
+                          "Microsoft Access", "Microsoft Word", "Microsoft Office", "SharePoint", "Excel",
+                          "Microsoft Power Platform", "Power Apps", "Power Automate", "Power Query", "Dataverse"],
+}
+TOOL_TYPES: dict[str, set[str]] = {}
+for _type, _names in _TYPES.items():
+    for _n in _names:
+        TOOL_TYPES.setdefault(_n, set()).add(_type)
+
+
 HARD_CATEGORIES = {c for c, _, _ in T} - {"Soft skills", "Credentials"}
 
 

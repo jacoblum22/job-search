@@ -100,6 +100,20 @@ class Group:
     def skills(self) -> tuple[str, ...]:
         return tuple(dict.fromkeys(s for i in self.items for s in i.skills))
 
+    @property
+    def tool_type(self) -> str | None:
+        """The type most of the named tools share (two thirds of the known ones, at least two),
+        taken from the tools themselves, so the posting's wording doesn't matter."""
+        known = [{t for s in i.skills for t in taxonomy.TOOL_TYPES.get(s, ())} for i in self.items]
+        known = [k for k in known if k]
+        counts: dict[str, int] = {}
+        for k in known:
+            for t in k:
+                counts[t] = counts.get(t, 0) + 1
+        need = max(2, -(-2 * len(known) // 3))
+        best = sorted((n, t) for t, n in counts.items() if n >= need)
+        return best[-1][1] if best else None
+
 
 def _hits(clause: str) -> list[tuple[int, int, str]]:
     """Hard-skill mentions in the clause; matched on the whole clause because some patterns

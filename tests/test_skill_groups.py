@@ -95,3 +95,11 @@ def test_vault_false_matches():
     assert "ERP (SAP/Oracle/Workday)" not in taxonomy.find("WiDS × SAP Customer Churn Prediction")
     assert "ERP (SAP/Oracle/Workday)" not in taxonomy.find("predict churn from SAP customer data. The WiDS x SAP competition")
     assert "ERP (SAP/Oracle/Workday)" in taxonomy.find("Oracle, SAP, or similar systems")
+
+
+def test_list_type_comes_from_its_tools():
+    (g,) = alternative_groups("Experience with data visualization using Tableau, Quicksight, or similar tools")
+    assert g.tool_type == "BI / visualization tool"
+    (g,) = alternative_groups("Experience with Pandas, PySpark, or AWS")  # mixed: no single type
+    assert g.tool_type is None
+    assert "BI / visualization tool" not in taxonomy.TOOL_TYPES["Excel"]  # Jake's call
