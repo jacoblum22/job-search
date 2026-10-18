@@ -3,7 +3,7 @@
 Used both to decide what's worth fetching from broad/national searches (so
 the aggregator doesn't pull in every on-site Toronto/Calgary posting) and
 to tag every ingested job with a visible category, so nothing is silently
-hidden — see AGGREGATION_PLAN.md.
+hidden — see docs/history/v2-aggregation-plan.md.
 """
 
 from __future__ import annotations

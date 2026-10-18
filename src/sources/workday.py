@@ -2,8 +2,7 @@
 
 Reuses `src.scraper.AsyncWorkdayScraper` as-is (no changes to the proven scraping
 logic). This adapter just maps its output into the shared `src.db.Job` shape so
-Workday sources can feed the same aggregation DB as every other source, without
-touching the existing markdown/tiering workflow in scripts/scrape.py.
+Workday sources can feed the same aggregation DB as every other source.
 """
 
 from __future__ import annotations

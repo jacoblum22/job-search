@@ -14,8 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.experience import parse_min_years_experience
 from src.location_filter import classify_location
-from src.tier import parse_min_years_experience
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (

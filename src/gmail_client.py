@@ -3,7 +3,7 @@
 Each user (Jacob, or anyone who clones this repo) authenticates their OWN
 Google account, not a shared one. This module never embeds credentials —
 it just loads whatever `credentials.json` / `token.json` the local person
-set up for themselves via `scripts/gmail_auth.py`. See GMAIL_SETUP.md for
+set up for themselves via `scripts/gmail_auth.py`. See docs/gmail-setup.md for
 the one-time setup steps.
 """
 
@@ -35,7 +35,7 @@ def run_auth_flow() -> Credentials:
     """
     if not CREDENTIALS_PATH.exists():
         raise FileNotFoundError(
-            f"{CREDENTIALS_PATH} not found. See GMAIL_SETUP.md for how to get your own "
+            f"{CREDENTIALS_PATH} not found. See docs/gmail-setup.md for how to get your own "
             "(each person running this project needs their own — it can't be shared)."
         )
 
@@ -54,7 +54,7 @@ def get_gmail_service() -> Resource:
     if not TOKEN_PATH.exists():
         raise RuntimeError(
             f"No {TOKEN_PATH.name} found. Run `uv run python scripts/gmail_auth.py` once "
-            "to connect your Gmail account (see GMAIL_SETUP.md)."
+            "to connect your Gmail account (see docs/gmail-setup.md)."
         )
 
     creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)

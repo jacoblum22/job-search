@@ -12,10 +12,10 @@ class FakeDoc:
     def __init__(self, log):
         self.log = log
 
-    def ExportAsFixedFormat(self, path, fmt):  # noqa: N802 - COM method name
+    def ExportAsFixedFormat(self, path, fmt):
         self.log.append(("export", path, fmt))
 
-    def Close(self, save):  # noqa: N802
+    def Close(self, save):
         self.log.append(("close", save))
 
 
@@ -29,7 +29,7 @@ class FakeWord:
             raise AttributeError("Open.SaveAs")
         return FakeDoc(self.log)
 
-    def Quit(self, *args):  # noqa: N802
+    def Quit(self, *args):
         self.log.append(("quit",))
 
 
@@ -67,7 +67,18 @@ def test_word_instance_is_reused_and_retried_once(fake_com, tmp_path):
 
 
 def test_word_error_is_reported_not_hidden(fake_com, tmp_path, monkeypatch):
-    log, instances = fake_com
     monkeypatch.setattr(FakeWord, "open", lambda self, *a: (_ for _ in ()).throw(RuntimeError("file locked")))
     with pytest.raises(RuntimeError, match="Word could not convert a.docx to PDF: file locked"):
         resume.docx_to_pdf(tmp_path / "a.docx", tmp_path / "a.pdf")
+
+
+def test_locked_docx_says_word_has_it_open(tmp_path):
+    target = tmp_path / "Jake Resume.docx"
+    (tmp_path / "~$ke Resume.docx").write_text("owner")
+
+    class Locked:
+        def save(self, path):
+            raise PermissionError(13, "Permission denied", path)
+
+    with pytest.raises(RuntimeError, match="Word has it open"):
+        resume._save_docx(Locked(), target)

@@ -2,7 +2,7 @@
 
 Mirrors gmail_client.py's role: this project never embeds credentials — it
 loads whatever local app registration + token cache the local person set up
-for themselves via `scripts/outlook_auth.py`. See OUTLOOK_SETUP.md for the
+for themselves via `scripts/outlook_auth.py`. See docs/outlook-setup.md for the
 one-time setup steps.
 
 Uses MSAL's device-code flow rather than a local-redirect browser flow: it
@@ -27,7 +27,7 @@ GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 
 # "common" accepts both personal Microsoft accounts (outlook.com/hotmail/live)
 # and work/school accounts, matching whatever account type the app was
-# registered for in OUTLOOK_SETUP.md.
+# registered for in docs/outlook-setup.md.
 AUTHORITY = "https://login.microsoftonline.com/common"
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -38,7 +38,7 @@ TOKEN_CACHE_PATH = Path(os.environ.get("OUTLOOK_TOKEN_FILE", PROJECT_ROOT / "tok
 def _require_client_id() -> str:
     if not CLIENT_ID:
         raise RuntimeError(
-            "OUTLOOK_CLIENT_ID is not set. See OUTLOOK_SETUP.md for how to register your own "
+            "OUTLOOK_CLIENT_ID is not set. See docs/outlook-setup.md for how to register your own "
             "free Azure app (each person running this project needs their own client ID)."
         )
     return CLIENT_ID
@@ -90,7 +90,7 @@ def get_access_token() -> str:
     if not TOKEN_CACHE_PATH.exists():
         raise RuntimeError(
             f"No {TOKEN_CACHE_PATH.name} found. Run `uv run python scripts/outlook_auth.py` "
-            "once to connect your Outlook account (see OUTLOOK_SETUP.md)."
+            "once to connect your Outlook account (see docs/outlook-setup.md)."
         )
 
     cache = _load_cache()

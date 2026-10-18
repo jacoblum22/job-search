@@ -2,7 +2,7 @@
 
 Source: `noreply@glassdoor.com`. Glassdoor's plaintext alert body is
 unusable — heavy nested-table HTML email markup garbles the plaintext
-conversion (confirmed against a live sample in AGGREGATION_PLAN.md) — so
+conversion (confirmed against a live sample in docs/history/v2-aggregation-plan.md) — so
 this parses the raw HTML body with BeautifulSoup instead.
 
 Job ID lives in `jobListingId=<numeric>` on every job card anchor — the

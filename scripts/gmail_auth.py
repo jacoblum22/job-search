@@ -7,7 +7,7 @@ Run this once per person/machine using this project:
 It opens your browser, you sign into YOUR Google account and click Allow,
 and a `token.json` gets saved locally so the aggregator can read your
 LinkedIn/Indeed/Glassdoor alert emails from then on. Nothing to copy or
-paste. See GMAIL_SETUP.md if `credentials.json` isn't set up yet.
+paste. See docs/gmail-setup.md if `credentials.json` isn't set up yet.
 """
 
 from __future__ import annotations

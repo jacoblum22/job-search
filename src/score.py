@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 
-from src.tier import parse_min_years_experience
+from src.experience import parse_min_years_experience
 
 _YEARS_IN_TITLE_RE = re.compile(r"\d+\s*(?:[-–]\s*\d+\s*)?\+?\s*(?:years?|yrs?)\b", re.IGNORECASE)
 

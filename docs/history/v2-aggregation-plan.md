@@ -100,7 +100,7 @@ Parsing notes, from live samples pulled during planning:
 ## Tiering
 
 **Deferred** — not part of this build pass. Options on the table for later: keep the
-existing keyword classifier ([tier.py](src/tier.py)), replace it with LLM-based fit scoring,
+existing keyword classifier ([tier.py](../../src/tier.py)), replace it with LLM-based fit scoring,
 or run both side by side (cheap keyword pass + LLM score for close calls). Decide before
 wiring the `tier` column into the dashboard.
 
@@ -163,16 +163,16 @@ returns usable, identifiable job data:
 
 **2026-09-17 — steps 1, 2, 3, 5, 6 implemented and tested against live data:**
 
-- [src/db.py](src/db.py) — SQLite schema, `upsert_job` (insert-or-refresh on
+- [src/db.py](../../src/db.py) — SQLite schema, `upsert_job` (insert-or-refresh on
   `(source, external_id)`), source cursors, `grouped_jobs()` for dedup-grouped display.
-- [src/sources/adzuna.py](src/sources/adzuna.py), [src/sources/careerjet.py](src/sources/careerjet.py) —
+- [src/sources/adzuna.py](../../src/sources/adzuna.py), [src/sources/careerjet.py](../../src/sources/careerjet.py) —
   tested against the real APIs, real Vancouver jobs returned.
-- [src/sources/workday.py](src/sources/workday.py) — wraps the existing `AsyncWorkdayScraper`
+- [src/sources/workday.py](../../src/sources/workday.py) — wraps the existing `AsyncWorkdayScraper`
   unchanged, maps output into the shared `Job` schema. Tested against live UBC data.
-- [src/dedup.py](src/dedup.py) — compound rapidfuzz match on (company, location, title).
+- [src/dedup.py](../../src/dedup.py) — compound rapidfuzz match on (company, location, title).
   Tested with synthetic cases and a real cross-source duplicate (the same "Teck Resources —
   Data Scientist III" posting from both Adzuna and CareerJet).
-- [src/dashboard.py](src/dashboard.py), [src/export_xlsx.py](src/export_xlsx.py) — static HTML
+- [src/dashboard.py](../../src/dashboard.py), [src/export_xlsx.py](../../src/export_xlsx.py) — static HTML
   (vanilla JS sort/filter, verified interactively in-browser) and xlsx export, both grouped by
   dedup cluster.
 - [scripts/aggregate.py](scripts/aggregate.py) — CLI tying it all together. Confirmed
@@ -199,19 +199,19 @@ different cities apart (Nanaimo vs. Greater Vancouver scores 30).
 
 **2026-09-17 (cont'd) — two more additions:**
 
-- **`years_experience` column.** Turns out [src/tier.py](src/tier.py) already had
+- **`years_experience` column.** Turns out [src/tier.py](../../src/tier.py) already had
   `parse_min_years_experience()`, built for the tier classifier's experience cutoff — reused
   it rather than writing a new parser. It's computed automatically in `Job.__post_init__` from
   the description, so every source gets it for free with no adapter changes. Shows up in both
   the dashboard and the xlsx export. Tested against real descriptions: correctly pulled 3, 5,
   8, 10, 12 years etc. out of real Adzuna/CareerJet postings.
 - **Multi-user Gmail auth**, since this repo is going to be shared and a friend will connect
-  their own inbox, not Jacob's. Built [src/gmail_client.py](src/gmail_client.py) +
+  their own inbox, not Jacob's. Built [src/gmail_client.py](../../src/gmail_client.py) +
   [scripts/gmail_auth.py](scripts/gmail_auth.py) using the standard OAuth "installed app" flow
   (`run_local_server()`) — opens the browser, user clicks Allow, zero copy-pasting. Each person
   needs their own lightweight Google Cloud project + OAuth client (Google requires this per
   app; there's no way around it), documented step-by-step in
-  [GMAIL_SETUP.md](GMAIL_SETUP.md). `credentials.json` and `token.json` are both gitignored —
+  [gmail-setup.md](../gmail-setup.md). `credentials.json` and `token.json` are both gitignored —
   per-person, never committed. Verified the error paths (missing credentials.json, missing
   token.json) give clear messages pointing at the setup doc; the actual browser consent click
   is Jacob's own action to do interactively, not something automatable here.
@@ -243,7 +243,7 @@ Fix, decided with Jacob to filter at the source rather than just hide-in-dashboa
 aggregator stops wasting rows on irrelevant on-site postings from other cities), while keeping
 everything visible/auditable rather than silently dropping anything:
 
-- [src/location_filter.py](src/location_filter.py) — `classify_location()` returns
+- [src/location_filter.py](../../src/location_filter.py) — `classify_location()` returns
   `"vancouver"` / `"remote"` / `"other"`. Vancouver keyword list is generous (all Metro
   Vancouver municipalities) to avoid false negatives. Remote detection checks the location
   field (not description — too noisy) for "remote"/"wfh"/bare "Canada", with a guard against
@@ -275,7 +275,7 @@ re-verified (111 → 14 shown when filtering to "Remote").
 Jacob flagged a specific bad value: a Champion Petfoods posting showed "35 years" required.
 Root-caused to two separate issues, only one of which is fixable:
 
-1. **Real bug**: [tier.py](src/tier.py)'s `parse_min_years_experience()` matched any bare "N
+1. **Real bug**: [tier.py](../../src/tier.py)'s `parse_min_years_experience()` matched any bare "N
    years" in the text — no check that it was actually about experience. The Champion Petfoods
    description said "a reputation of trust spanning 35 years" (company history, not a job
    requirement) and the regex happily matched it, then `max()` picked it over any real
@@ -333,7 +333,7 @@ starved the set:
 
 Fix (this change):
 
-- [src/search_match.py](src/search_match.py) — shared `keep_job()` + `api_queries()` with
+- [src/search_match.py](../../src/search_match.py) — shared `keep_job()` + `api_queries()` with
   alias table, title-only weak words (`recruiting`), noisy "events" not matching
   "in the event of", location gate via `classify_location(location, company)`.
 - Settings: `location: Vancouver, BC`, `remote_sweep_location: Canada`,
@@ -353,7 +353,7 @@ of the keyword list; Workday `asyncio.gather` without `return_exceptions` could
 drop every tenant if one board failed. Search snippets were never refreshed on
 upsert (`last_seen` only).
 
-- [src/http_retry.py](src/http_retry.py) — shared GET retries for 429/502/503/504 and
+- [src/http_retry.py](../../src/http_retry.py) — shared GET retries for 429/502/503/504 and
   network errors.
 - Adzuna: per-query isolation, request pacing, pagination stop on persistent 503
   (keep pages already fetched), hydrate descriptions from `adzuna.ca/land/ad/{id}`
