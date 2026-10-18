@@ -413,6 +413,13 @@ score:
     # PhD required (not "Master's or PhD", "PhD preferred", "pursuing a PhD")
     - "(?:must|required to) (?:hold|have|possess) (?:an? )?(?:MD and/or )?Ph\\.?\\s?D"
     - "Ph\\.?\\s?D\\.?(?: degree)? (?:is )?required"
+  # Jake has a Bachelor's. A Master's the posting requires (no "preferred",
+  # no "or equivalent experience", and no Bachelor's accepted anywhere) is a
+  # skip; any other Master's ask (preferred, an asset, one of several
+  # options) costs optional_points. "Bachelor's or Master's" costs nothing.
+  masters:
+    required_skip: true
+    optional_points: -10
 
   # Title family: only the best-matching family counts
   title_families:
