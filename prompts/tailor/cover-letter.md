@@ -58,7 +58,9 @@ phrased as a hedged reading, never as inside knowledge:
    Never write "I want to contribute to this", "this is the kind of work I want" or similar before
    the letter's last sentence; the final sentence is the only place for "I would like to...".
 4. **Short confident close.** One or two sentences: what the candidate would like to do next.
-   Say it once: no "I would like..." sentence at the end of movement 3 that the close then repeats. No
+   Say it once: no "I would like..." sentence at the end of movement 3 that the close then repeats.
+   The close must follow on from movement 3 (for example "I would like to be part of that kind of
+   work, ..."), so it reads as one thought, not a separate sign-off. No
    "thank you for your consideration", no "I look forward to hearing from you".
 
 If no verified company fact exists, link the motivation to the posting's own description of the
