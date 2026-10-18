@@ -33,8 +33,10 @@ from src.sources.adzuna import fetch_adzuna_jobs
 from src.sources.careerjet import fetch_careerjet_jobs
 from src.sources.glassdoor_email import fetch_glassdoor_jobs
 from src.sources.indeed_email import fetch_indeed_jobs
+from src.sources.jobright_email import fetch_jobright_jobs
 from src.sources.linkedin_email import fetch_linkedin_jobs
 from src.sources.registry import BOARD_PLATFORMS, FEEDS
+from src.sources.wellfound_email import fetch_wellfound_jobs
 from src.sources.workday import fetch_workday_jobs
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -274,7 +276,10 @@ def run(
         # here while the downloads above get going.
         if not skip_email:
             forward_from = cfg.get("email_sources", {}).get("forward_from") or None
-            for fetch_fn in (fetch_linkedin_jobs, fetch_indeed_jobs, fetch_glassdoor_jobs):
+            for fetch_fn in (
+                fetch_linkedin_jobs, fetch_indeed_jobs, fetch_glassdoor_jobs,
+                fetch_jobright_jobs, fetch_wellfound_jobs,
+            ):
                 try:
                     jobs = fetch_fn(conn, forward_from=forward_from)
                 except Exception:

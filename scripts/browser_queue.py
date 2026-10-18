@@ -34,7 +34,7 @@ DEFAULT_DB = PROJECT_ROOT / "jobs.db"
 
 SNIPPET_MAX_CHARS = 1000  # same threshold as src/enrich.py
 MIN_FULL_CHARS = 300
-BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet")
+BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet", "jobright", "wellfound")
 RETRY_AFTER = timedelta(days=3)
 # enrich_attempts.ok: 1 = filled, 0 = plain HTTP fetch failed, -1 = the
 # browser couldn't read it either (retried after RETRY_AFTER).
