@@ -36,6 +36,8 @@ All personal data lives under the git-ignored `materials/`. Defaults, overridabl
 | `rules` | `materials/docs/tailoring-rules.md` |
 | `db` | `jobs.db` |
 | `unknown_terms` | `materials/tailor/unknown-terms.csv` |
+| `evidence_rejects` | `materials/tailor/evidence-rejects.json` |
+| `jev_cache` | `materials/tailor/jev-cache.json` |
 
 ## Application folder
 
@@ -142,6 +144,12 @@ passage or base line counts only after Jev answers yes to "does this text show t
 against the vault's degree passages with `method: "degree"`: covered when the candidate holds that
 level or higher, else missing, and Jev's second look skips it.
 
+Pairs in the shared reject list are never matched: a rejected `(term, passage)` pair is left out of
+`passages`, `related` and Jev's second look, and `(term, "base")` means the base resumes don't
+count as having the term. Jev's answers to the unknown-term question are cached in `jev-cache.json`
+by question and text, so a repeated question is answered from the cache (also when Jev is
+unreachable).
+
 ### `plan.json`
 
 Code part (`run_base`): `{"base_id", "base_scores": {base: potential_pct}, "jev_pick": base|null,
@@ -150,7 +158,11 @@ Code part (`run_base`): `{"base_id", "base_scores": {base: potential_pct}, "jev_
 Claude adds: `{"headline": "...|null", "summary_angle": "...", "swap_in": [passage ids],
 "swap_out": [paths], "skills_order": [group ids], "evidence_drops": [{"term", "passage", "reason"}]}`.
 `evidence_drops` lists matches Claude read and rejected (passage `"base"` for an accidental match
-in the base resume); `check.md` shows them.
+in the base resume); `check.md` shows them. `apply-edits` copies them into the shared reject list
+`evidence-rejects.json` (`{"rejects": [{"term", "passage", "reason", "job_id", "added", "undone"?}]}`),
+so later jobs skip them, and `grade` leaves rejected passages out of its repair notes. In `check.md`
+each drop is a `- [ ] Undo` line, marked `(new)` when this job added it; ticking Undo and running
+`approve` marks that entry `undone`, which stops it applying and keeps it from being re-added.
 
 ### `edits.json` (Claude writes)
 

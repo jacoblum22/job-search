@@ -16,7 +16,7 @@ from typing import Any
 import yaml
 
 from src.resume import iter_bullets, load_resume, validate
-from src.tailor import TailorError
+from src.tailor import TailorError, rejects
 from src.tailor.appdir import log, read_json, round_dir, write_json
 from src.tailor.paths import resolve
 
@@ -361,5 +361,7 @@ def apply_edits(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
     }
     write_json(rdir / "applied.json", result)
     if (app_dir / "app.json").exists():
+        # The plan's evidence drops join the shared reject list so later jobs skip them.
+        result["new_rejects"] = len(rejects.sync_plan_drops(app_dir, cfg))
         log(app_dir, "apply-edits", f"r{rnd}: {len(applied)} applied, {len(rejected)} rejected")
     return result

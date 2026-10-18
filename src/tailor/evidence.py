@@ -6,6 +6,7 @@ advisory evidence. A term the taxonomy doesn't know is matched by its plain
 words, which misfires ("Access" in "access tokens"), so those matches count
 only once Jev confirms them; with no Jev key they don't count at all. Degree
 requirements are checked against the vault's degree passages, not by words.
+Term and passage pairs rejected on earlier jobs (`rejects.py`) are never matched.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.tailor import appdir, taxonomy
+from src.tailor import appdir, rejects, taxonomy
 from src.tailor.jev import Question
 from src.tailor.sources import base_text, claim_passages, load_bases, load_index
 
@@ -176,7 +177,8 @@ def _pct(entries: list[dict], names: set[str]) -> float:
 
 # --- main ------------------------------------------------------------------
 
-def _jev_pass(reqs_missing: list[dict], claims: dict[str, dict], cfg: dict, jev: Any) -> dict[str, list[str]]:
+def _jev_pass(reqs_missing: list[dict], claims: dict[str, dict], cfg: dict, jev: Any,
+              active: set[tuple[str, str]] = frozenset()) -> dict[str, list[str]]:
     """Ask Jev whether candidate passages show each missing requirement; one call per passage."""
     ev_cfg = cfg.get("evidence") or {}
     n_cand = int(ev_cfg.get("jev_candidates", 15))
@@ -187,9 +189,12 @@ def _jev_pass(reqs_missing: list[dict], claims: dict[str, dict], cfg: dict, jev:
     for r in reqs_missing:
         want = _words(r["text"] + " " + " ".join(_req_term_names(r)))
         ranked = sorted(((len(want & _words(p["text"])), pid) for pid, p in claims.items()), key=lambda x: -x[0])
+        names = _req_term_names(r) + [r["text"]]
         for overlap, pid in ranked[:n_cand]:
             if overlap <= 0:
                 break
+            if rejects.rejected(names, pid, active):
+                continue
             q = Question(id=f"{r['id']}|{pid}", type="yesno",
                          text=f"Does this passage show the candidate has: {r['text']}?")
             per_passage.setdefault(pid, []).append((r, q))
@@ -203,7 +208,7 @@ def _jev_pass(reqs_missing: list[dict], claims: dict[str, dict], cfg: dict, jev:
 
 
 def _confirm_unknown(entries: list[dict], claims: dict[str, dict], base_texts: dict[str, str],
-                     cfg: dict, jev: Any) -> dict[str, set[str]]:
+                     cfg: dict, jev: Any, cache: rejects.JevCache | None = None) -> dict[str, set[str]]:
     """Keep only Jev-confirmed plain-word matches for terms the taxonomy doesn't know.
 
     Trims each such entry's passages in place and returns, per term, the base ids
@@ -214,12 +219,19 @@ def _confirm_unknown(entries: list[dict], claims: dict[str, dict], base_texts: d
     confirmed_bases: dict[str, set[str]] = {}
 
     def yes(term: str, text: str) -> bool:
-        if not usable:
-            return False
         q = Question(id="shows", type="yesno",
                      text=f"Does this text show the candidate has used or has the skill: {term}?")
+        cached = cache.get(q.text, text) if cache is not None else None
+        if cached is not None:
+            return cached >= threshold
+        if not usable:
+            return False
         a = jev.ask(text, [q])[0]
-        return a.ok and isinstance(a.value, (int, float)) and a.value >= threshold
+        if not (a.ok and isinstance(a.value, (int, float))):
+            return False
+        if cache is not None:
+            cache.put(q.text, text, float(a.value))
+        return a.value >= threshold
 
     for e in entries:
         if e.get("canonical"):
@@ -248,13 +260,20 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     # then the stronger passage, primary copies before cross-references.
     ranked = sorted(claims.values(), key=lambda p: (passage_strength(p) < 2, _origin_rank(p),
                                                     -passage_strength(p), p.get("source") != "primary"))
+    active = rejects.pairs(cfg)
     for e in entries:
-        hits = [p for p in ranked if term_mentioned(e, p["text"])]
+        names = [e["term"], e.get("canonical") or "", *(e.get("raw") or [])]
+        hits = [p for p in ranked if term_mentioned(e, p["text"]) and not rejects.rejected(names, p["id"], active)]
         e["passages"] = [p["id"] for p in hits if term_exact(e, p["text"])][:cap]
         e["related"] = [p["id"] for p in hits if not term_exact(e, p["text"])][:3]
-    confirmed_bases = _confirm_unknown(entries, claims, base_texts, cfg, jev)
+        e["base_rejected"] = rejects.rejected(names, rejects.BASE, active)
+    cache = rejects.JevCache(cfg)
+    confirmed_bases = _confirm_unknown(entries, claims, base_texts, cfg, jev, cache)
+    cache.save()
 
     def in_base(e: dict, bid: str) -> bool:
+        if e.get("base_rejected"):
+            return False
         if e.get("canonical"):
             return term_mentioned(e, base_texts[bid])
         return bid in confirmed_bases.get(e["term"], set())
@@ -286,7 +305,7 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     # Jev second look at requirements the taxonomy found nothing for.
     text_by_id = {r["id"]: r for r in reqs.get("requirements", [])}
     missing = [text_by_id[o["id"]] for o in req_out if o["status"] == "missing" and o["method"] != "degree"]
-    for rid, pids in _jev_pass(missing, claims, cfg, jev).items():
+    for rid, pids in _jev_pass(missing, claims, cfg, jev, active).items():
         o = next(x for x in req_out if x["id"] == rid)
         o.update(status="covered", strength=2, passages=pids, method="jev")
         for n in _req_term_names(text_by_id[rid]):  # its terms are now backed by those passages
