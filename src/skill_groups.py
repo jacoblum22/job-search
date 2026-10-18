@@ -67,6 +67,7 @@ _OPEN_ITEM = re.compile(r"^(?:other|another|any|similar|equivalent|comparable|re
 # The kind of thing a bracketed list gives examples of: "cloud platforms (AWS, GCP)", "a cloud data warehouse (...)".
 _KIND_NOUN = re.compile(r"\b(?:tools|platforms|services|libraries|frameworks|languages|technologies|toolkits|packages|"
                         r"warehouses?|clouds?|databases|stores|assistants|engines|providers|solutions)\s*$", re.IGNORECASE)
+_A_SET = re.compile(r"\b(?:multiple|across|all|both)\b[\w\s/-]*$", re.IGNORECASE)
 # Where an examples list after a cue stops: a bracket, "etc", or the conjunction before its last item.
 _CUE_END = re.compile(r"\)|\betc\b|\band so on\b|\band/or\b|\bor\b|\s(?:and|&)\s(?!so on\b)|\(", re.IGNORECASE)
 # "Including" names the parts of something; with a closing "and" those parts are all wanted.
@@ -282,7 +283,8 @@ def _bracket_lists(clause: str, hits: list[tuple[int, int, str]]) -> list[Group]
         body = m.group(1)
         # Only a kind of tool has examples: "Python (pandas, NumPy)", "Microsoft Office (Word, Excel)" or
         # "multiple cloud providers (AWS, Azure, GCP)" name parts or a set, all wanted.
-        if not _KIND_NOUN.search(clause[:m.start()]) or re.search(r"\b(?:multiple|across|all|both)\b[\w\s/-]*$", clause[:m.start()], re.I):
+        before = clause[:m.start()]
+        if not _KIND_NOUN.search(before) or _A_SET.search(before):
             continue
         if _CUE_START.match(body) or re.search(r"\b(?:or|etc|and so on)\b", body, re.IGNORECASE):
             continue  # cue, "or" and "etc" lists are read by the other readers
