@@ -8,7 +8,7 @@ It prints a short device code — open the URL it gives you in any browser,
 sign into YOUR Microsoft account, and enter the code. A `token_outlook.json`
 gets saved locally so the aggregator can read your LinkedIn/Indeed/Glassdoor
 alert emails from then on. Nothing to copy or paste besides the short code.
-See OUTLOOK_SETUP.md if OUTLOOK_CLIENT_ID isn't set up yet.
+See docs/outlook-setup.md if OUTLOOK_CLIENT_ID isn't set up yet.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """Indeed job-alert email adapter.
 
 Source: `donotreply@jobalert.indeed.com`. Alert emails are a multi-job
-digest, mostly clean plaintext (per AGGREGATION_PLAN.md's live sample
+digest, mostly clean plaintext (per docs/history/v2-aggregation-plan.md's live sample
 review) — unlike Glassdoor, plaintext parsing works fine here.
 
 If alerts are forwarded from another inbox (see `forward_from` in

@@ -1,5 +1,5 @@
-# Copy to config/contact.yaml (git-ignored) and fill in. Used by scripts/export.py
-# for the cover letter header and scripts/render_resume.py for resumes. Leave a field blank to omit it.
+# Copy to config/contact.yaml (git-ignored) and fill in. Used by scripts/render_resume.py
+# for the resume and cover letter headers. Leave a field blank to omit it.
 name: "Your Name"
 location: "City, Province"  # shown first on the resume contact line
 email: "you@example.com"
