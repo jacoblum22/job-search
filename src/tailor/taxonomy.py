@@ -489,11 +489,16 @@ def compiled() -> list[tuple[str, str, re.Pattern[str]]]:
     return [(cat, name, _compile(p)) for cat, name, p in T]
 
 
-def category(name: str) -> str | None:
+@lru_cache(maxsize=1)
+def _categories() -> dict[str, str]:
+    out: dict[str, str] = {}
     for cat, n, _ in T:
-        if n == name:
-            return cat
-    return None
+        out.setdefault(n, cat)
+    return out
+
+
+def category(name: str) -> str | None:
+    return _categories().get(name)
 
 
 def is_hard(name: str) -> bool:
