@@ -38,6 +38,7 @@ from src.tailor import taxonomy
     ("The median salary for this role", "descriptive statistics / correlation"),
     ("fine-tune our processes", "fine-tuning (LoRA / PEFT)"),
     ("LoRa radios on field sensors", "fine-tuning (LoRA / PEFT)"),
+    ("fine-tune your skills on the job", "fine-tuning (LoRA / PEFT)"),
     ("Samsara (NYSE: IOT) is the pioneer", "IoT / sensor data"),
     ("At Bloomberg, we build", "Bloomberg"),
     ("Create and populate data structures using one or more schema definition languages",

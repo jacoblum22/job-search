@@ -339,7 +339,7 @@ T = [
 ("ML & statistics","unstructured data / OCR",r"unstructured data|(?-i:\bOCR\b)|document ai|document (?:understanding|extraction|parsing)"),
 ("ML & statistics","scenario analysis / simulation",r"scenario (?:analysis|modell?ing|planning)|what.if (?:analysis|scenarios?)|stress test|monte carlo|simulation (?:models?|modell?ing|studies)|digital twins?"),
 # Model fine-tuning, not tuning a process. Uppercase LoRA only: LoRa is the IoT radio.
-("ML & statistics","fine-tuning (LoRA / PEFT)",r"\bfine.tun(?:ing|e|ed)\b(?! (?:our |the |your )?(?:process|processes|workflows?|strateg|operations))"
+("ML & statistics","fine-tuning (LoRA / PEFT)",r"\bfine.tun(?:ing|e|ed)\b(?! (?:our |the |your |their |my )?(?:process|processes|workflows?|strateg|operations|skills?|abilities))"
  r"|(?-i:\bQ?LoRA\b)|\bpeft\b|parameter.efficient"),
 ("ML & statistics","named entity recognition / entity resolution",r"named entity|entity (?:resolution|linking|extraction|recognition)|(?-i:\bNER\b)"),
 ("ML & statistics","model serving / inference optimization",r"model serving|serving models|inference (?:optimi[sz]ation|serving|latency|endpoints?)|quantization|(?:model|knowledge) distillation"),
