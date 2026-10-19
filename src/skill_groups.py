@@ -90,7 +90,13 @@ _CONCEPTS = {"dashboards", "data visualization", "reporting", "KPIs/metrics", "A
              "code review", "pipeline monitoring / alerting", "incident response / on-call",
              "root cause analysis", "data-driven decision-making", "product analytics (funnels / cohorts / LTV)",
              "churn / retention analysis", "SaaS metrics (ARR / MRR / NRR)", "marketing analytics / attribution",
-             "report / process automation", "requirements gathering", "process improvement", "Lean / Six Sigma"}
+             "report / process automation", "requirements gathering", "process improvement", "Lean / Six Sigma",
+             "business intelligence", "data analysis", "self-serve analytics", "SQL stored procedures",
+             "object-oriented programming", "data structures / algorithms", "data engineering",
+             "analytics engineering", "data migration", "data mapping", "OLAP / cubes", "big data",
+             "knowledge graphs / ontologies", "performance / load testing", "threat modeling / penetration testing",
+             "DevOps", "serverless", "IAM (identity and access management)", "GPU computing / CUDA",
+             "change management", "market research", "robotic process automation (RPA)", "low-code / no-code"}
 
 
 def _is_tool(name: str) -> bool:
