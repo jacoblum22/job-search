@@ -78,11 +78,19 @@ _MAX_WORDS = 4
 _SKIP = {"AI (any mention)"}
 # Skills that name a kind of work rather than a tool. A list needs two tool options to count:
 # "reports, dashboards, or analyses" is a list of outputs, not a choice of tools.
-_CONCEPT_CATEGORIES = {"ML & statistics", "Soft skills", "Credentials"}
+_CONCEPT_CATEGORIES = {"ML & statistics", "Soft skills", "Credentials", "Domain knowledge"}
 _CONCEPTS = {"dashboards", "data visualization", "reporting", "KPIs/metrics", "A/B testing / experimentation",
              "ETL/ELT", "data pipelines", "data warehouse", "data modeling", "data quality / validation",
              "data governance", "APIs / REST", "microservices", "distributed systems", "MLOps",
-             "testing (unit/automated)", "SDLC", "QA / UAT", "project management", "Agile/Scrum", "GIS"}
+             "testing (unit/automated)", "SDLC", "QA / UAT", "project management", "Agile/Scrum", "GIS",
+             "data transformation / preparation", "data integration", "data privacy / security",
+             "query / performance tuning", "data lineage / catalog", "semantic layer / metrics layer",
+             "data reconciliation", "relational databases / database design", "real-time / streaming data",
+             "SQL window functions / CTEs", "web development (full-stack)", "debugging / troubleshooting",
+             "code review", "pipeline monitoring / alerting", "incident response / on-call",
+             "root cause analysis", "data-driven decision-making", "product analytics (funnels / cohorts / LTV)",
+             "churn / retention analysis", "SaaS metrics (ARR / MRR / NRR)", "marketing analytics / attribution",
+             "report / process automation", "requirements gathering", "process improvement", "Lean / Six Sigma"}
 
 
 def _is_tool(name: str) -> bool:
