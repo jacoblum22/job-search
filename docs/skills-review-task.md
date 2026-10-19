@@ -106,6 +106,13 @@ git, network or other commands. The wrapper commits and opens the PR.
      wording seen
    - fixes to existing entries
    - candidates you skipped, one line each
+   - a "Vault evidence" section: for each added skill, the ids of passages in
+     `{MAIN}\materials\profile\vault-index.json` whose text `taxonomy.find`
+     matches to it. List the skills with no matching passage separately, so I
+     can say which ones I have (they need a vault line or a confirmed match,
+     or tailoring flags them as missing). Also flag any match where the
+     passage only mentions the skill without showing I used it (for example,
+     "the Dev team used X")
 
    Always write two more files:
    - `{MAIN}\materials\tailor\skill-proposals\{DATE}.md`: the same content,
