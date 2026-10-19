@@ -84,6 +84,25 @@ def test_rescore_all_writes_columns(tmp_path):
     assert rows["2"]["tier"] == "skip" and rows["2"]["score"] is None
 
 
+def test_rescore_all_cache_skips_unchanged_rows(tmp_path, monkeypatch):
+    conn = connect(tmp_path / "jobs.db")
+    upsert_job(conn, Job("t", "1", "Junior Data Scientist", "Acme", "Vancouver, BC", "python sql"))
+    upsert_job(conn, Job("t", "2", "Data Analyst", "Acme", "Vancouver, BC", "excel"))
+    cache: dict = {}
+    first = rescore_all(conn, CFG, cache=cache)
+
+    import src.score as score_mod
+    scored = []
+    real = score_mod.score_job
+    monkeypatch.setattr(score_mod, "score_job", lambda **kw: scored.append(kw["title"]) or real(**kw))
+    assert rescore_all(conn, CFG, cache=cache) == first
+    assert scored == []  # nothing changed, nothing rescored
+
+    conn.execute("UPDATE jobs SET description = 'python sql tableau' WHERE external_id = '2'")
+    rescore_all(conn, CFG, cache=cache)
+    assert scored == ["Data Analyst"]
+
+
 INTEGRATION_ENGINEER = (
     "Configure integrations for enterprise customers and troubleshoot tickets. "
     "1+ years of experience with Python. 1+ years of experience with SQL. "

@@ -19,6 +19,7 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from itertools import pairwise
 
 from src.tailor import taxonomy
@@ -142,11 +143,15 @@ class Group:
         return best[-1][1] if best else None
 
 
+@lru_cache(maxsize=1)
+def _hard_patterns() -> list[tuple[str, re.Pattern[str]]]:
+    return [(name, rx) for _, name, rx in taxonomy.compiled() if taxonomy.is_hard(name) and name not in _SKIP]
+
+
 def _hits(clause: str) -> list[tuple[int, int, str]]:
     """Hard-skill mentions in the clause; matched on the whole clause because some patterns
     need context ("C" counts only in a list like "C, C++, Java")."""
-    return [(m.start(), m.end(), name) for _, name, rx in taxonomy.compiled()
-            if taxonomy.is_hard(name) and name not in _SKIP for m in rx.finditer(clause)]
+    return [(m.start(), m.end(), name) for name, rx in _hard_patterns() for m in rx.finditer(clause)]
 
 
 def _item(clause: str, a: int, b: int, hits: list[tuple[int, int, str]]) -> Item | None:

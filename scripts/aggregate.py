@@ -54,6 +54,8 @@ DEFAULT_DB = PROJECT_ROOT / "jobs.db"
 DEFAULT_DASHBOARD = PROJECT_ROOT / "dashboard.html"
 DEFAULT_XLSX = PROJECT_ROOT / "export.xlsx"
 
+# Every run appends here too, with per-source download and save times.
+LOG_PATH = PROJECT_ROOT / "logs" / "aggregate.log"
 LOCK_PATH = PROJECT_ROOT / ".aggregate.lock"
 # A real run finishes in well under this; anything older means a previous
 # process crashed without cleaning up, not that it's still legitimately running.
@@ -133,6 +135,7 @@ def run(
     skip_ats: bool = False,
 ) -> None:
     conn = connect(db_path)
+    started = time.perf_counter()
     new_count = 0
     total_fetched = 0
     search = cfg.get("search", {})
@@ -200,12 +203,16 @@ def run(
         if kept:
             refresh_dashboard()
 
+    # Scores of rows unchanged since the last refresh are reused, so the
+    # dashboard refresh after each source only scores what that source changed.
+    score_cache: dict = {}
+
     def refresh_dashboard() -> None:
         # Save and redraw after every source, so a long run shows results as it
         # goes instead of only at the end. Dedup and the xlsx still wait for the end.
         conn.commit()
         try:
-            rescore_all(conn, cfg.get("score", {}))
+            rescore_all(conn, cfg.get("score", {}), cache=score_cache)
             conn.commit()
             generate_dashboard(conn, dashboard_path)
         except Exception:
@@ -288,13 +295,21 @@ def run(
             log.warning("Unknown sections in the board list (ignored): %s", ", ".join(sorted(unknown)))
 
     def safe_ingest(label: str, jobs: list) -> None:
+        t0 = time.perf_counter()
         try:
             ingest(jobs, match_keywords=True)
         except Exception:
             log.exception("Saving %s jobs failed — continuing with other sources", label)
+        log.info("%s: saved in %.0fs", label, time.perf_counter() - t0)
+
+    def timed(fetch: Callable[[], list]) -> Callable[[], tuple[list, float]]:
+        def call() -> tuple[list, float]:
+            t0 = time.perf_counter()
+            return fetch(), time.perf_counter() - t0
+        return call
 
     with ThreadPoolExecutor(max_workers=max(1, par.get("source_workers", 4))) as pool:
-        pending = {pool.submit(fetch): label for label, fetch in downloads}
+        pending = {pool.submit(timed(fetch)): label for label, fetch in downloads}
 
         # Email alerts read and update their cursors in jobs.db, so they run
         # here while the downloads above get going.
@@ -304,25 +319,27 @@ def run(
                 fetch_linkedin_jobs, fetch_indeed_jobs, fetch_glassdoor_jobs,
                 fetch_jobright_jobs, fetch_wellfound_jobs,
             ):
+                t0 = time.perf_counter()
                 try:
                     jobs = fetch_fn(conn, forward_from=forward_from)
                 except Exception:
                     log.exception("%s fetch failed — continuing with other sources", fetch_fn.__module__)
                     continue
+                log.info("%s: read %d listing(s) in %.0fs", fetch_fn.__module__, len(jobs), time.perf_counter() - t0)
                 safe_ingest(fetch_fn.__module__, jobs)
 
         for future in as_completed(pending):
             label = pending[future]
             try:
-                jobs = future.result()
+                jobs, took = future.result()
             except Exception:
                 log.exception("%s fetch failed — continuing with other sources", label)
                 continue
-            log.info("%s: downloaded %d listing(s)", label, len(jobs))
+            log.info("%s: downloaded %d listing(s) in %.0fs", label, len(jobs), took)
             safe_ingest(label, jobs)
 
     conn.commit()
-    log.info("Fetched %d jobs total (%d new)", total_fetched, new_count)
+    log.info("Fetched %d jobs total (%d new) in %.1f min", total_fetched, new_count, (time.perf_counter() - started) / 60)
 
     # Work through stored listings still holding a snippet (over last run's
     # cap, or saved before enrichment existed). Login-walled links are left
@@ -342,13 +359,14 @@ def run(
     merged = run_dedup(conn)
     log.info("Dedup merged %d job(s)", merged)
 
-    tiers = rescore_all(conn, cfg.get("score", {}))
+    tiers = rescore_all(conn, cfg.get("score", {}), cache=score_cache)
     log.info("Scored jobs by tier: %s", dict(sorted(tiers.items())))
 
     generate_dashboard(conn, dashboard_path)
     generate_xlsx(conn, xlsx_path)
     log.info("Dashboard: %s", dashboard_path)
     log.info("Export: %s", xlsx_path)
+    log.info("Run finished in %.1f min", (time.perf_counter() - started) / 60)
 
     conn.close()
 
@@ -390,10 +408,17 @@ def main(
     verbose: bool,
 ) -> None:
     """Aggregate jobs from all configured sources into the DB + dashboard + xlsx."""
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    try:
+        LOG_PATH.parent.mkdir(exist_ok=True)
+        handlers.append(logging.FileHandler(LOG_PATH, encoding="utf-8"))
+    except OSError:
+        pass
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s %(levelname)-8s %(message)s",
-        datefmt="%H:%M:%S",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=handlers,
     )
     # httpx INFO logs include the full URL, which embeds Adzuna app_key.
     logging.getLogger("httpx").setLevel(logging.WARNING)

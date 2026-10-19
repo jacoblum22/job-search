@@ -289,16 +289,33 @@ def score_job(
     return ScoreResult(score, tier, reasons)
 
 
-def rescore_all(conn: sqlite3.Connection, cfg: dict[str, Any]) -> dict[str, int]:
-    """Recompute score/tier for every row. Returns a count per tier."""
+def rescore_all(
+    conn: sqlite3.Connection, cfg: dict[str, Any], *, cache: dict | None = None
+) -> dict[str, int]:
+    """Recompute score/tier for every row. Returns a count per tier.
+
+    `cache` (kept by the caller across calls in one run, same cfg) skips rows
+    whose scored fields haven't changed since the previous call.
+    """
     counts: dict[str, int] = {}
     rows = conn.execute(
         "SELECT id, title, description, location_category, years_experience FROM jobs"
     ).fetchall()
     updates = []
     vault_cfg = cfg.get("vault_gaps") or {}
-    vault = load_vault(vault_cfg.get("index", "materials/profile/vault-index.json")) if vault_cfg else None
+    vault = None
+    if vault_cfg:
+        if cache is not None and "_vault" in cache:
+            vault = cache["_vault"]
+        else:
+            vault = load_vault(vault_cfg.get("index", "materials/profile/vault-index.json"))
+            if cache is not None:
+                cache["_vault"] = vault
     for row in rows:
+        key = (row[1], row[2], row[3], row[4])
+        if cache is not None and cache.get(row[0], (None,))[0] == key:
+            counts[cache[row[0]][1]] = counts.get(cache[row[0]][1], 0) + 1
+            continue
         desc = row[2] or ""
         # Re-parse: years_experience is stored from the description at insert
         # time and goes stale once enrichment fills in the full posting.
@@ -313,6 +330,8 @@ def rescore_all(conn: sqlite3.Connection, cfg: dict[str, Any]) -> dict[str, int]
         )
         counts[result.tier] = counts.get(result.tier, 0) + 1
         updates.append((result.score, result.tier, result.reasons_text, row[0]))
+        if cache is not None:
+            cache[row[0]] = (key, result.tier)
     conn.executemany(
         "UPDATE jobs SET score = ?, tier = ?, score_reasons = ? WHERE id = ?", updates
     )
