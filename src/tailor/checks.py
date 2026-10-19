@@ -15,7 +15,8 @@ Warning codes:
   years_inflation, title_drift, keyword_coverage_dropped, term_stuffing,
   skill_only_in_list, verbatim_posting_copy, too_many_skills, bullet_count,
   bullet_long, duplicate_bullets, ai_phrase, resume_invalid, rejected_edit_note,
-  no_company_fact, paragraph_count, familiar_absent_term, keen_to_grow (letter)
+  no_company_fact, paragraph_count, familiar_absent_term, keen_to_grow, keen_not_must,
+  course_grade (letter)
 Flag codes (source "jev"): jev_unsupported, jev_citation_gap
 """
 
