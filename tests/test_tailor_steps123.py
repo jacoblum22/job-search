@@ -310,6 +310,72 @@ def test_evidence_synonym_only_is_related_and_boilerplate_not_absent(env, tmp_pa
     assert "extended health" not in ev["absent"] and "extended health" not in b["non_injectable"]
 
 
+# --- soft-skill evidence (VCH run, Oct 19 2026) ------------------------------------------
+
+def _soft_env(env, tmp_path, requirements):
+    cfg, app = env
+    idx = json.loads((tmp_path / "vault-index.json").read_text())
+    base = {"kind": "bullet", "use": "claim", "source": "primary", "numbers": [], "links": [], "section": []}
+    idx["passages"] += [
+        {**base, "id": "extra.strong-collaboration", "file": "extra-skills.md",
+         "section": ["Interpersonal and Teamwork Skills"],
+         "text": "Strong collaboration across departments, cooperation, and teamwork abilities.",
+         "markdown": "Strong collaboration across departments, cooperation, and teamwork abilities."},
+        {**base, "id": "soft.data-team", "file": "soft-skills.md", "kind": "table", "source": "crossref",
+         "section": ["Teamwork & Collaboration"], "numbers": ["5", "80"],
+         "text": "Evidence: Worked on a 5-person data team with regular contact with teams across an "
+                 "80-person office; Source: northwind",
+         "markdown": "Evidence: Worked on a 5-person data team with regular contact with teams across an "
+                     "80-person office; Source: [[northwind]]"},
+    ]
+    (tmp_path / "vault-index.json").write_text(json.dumps(idx))
+    req = appdir.read_json(app / "requirements.json")
+    req["requirements"], req["keywords"] = requirements, []
+    appdir.write_json(app / "requirements.json", req)
+    return cfg, app
+
+
+def test_self_description_ranks_after_a_story(env, tmp_path):
+    from src.tailor.evidence import _folders, _origin_rank, passage_strength
+    cfg, app = _soft_env(env, tmp_path, [
+        {"id": "s1", "text": "Collaborate across departments", "kind": "nice", "terms": ["collaborate"],
+         "weight": "role", "quote": "collaborate across departments"}])
+    claims = claim_passages(load_index(cfg))
+    assert passage_strength(claims["extra.strong-collaboration"]) == 1  # a self-description, no story
+    assert passage_strength(claims["soft.data-team"]) == 2  # a row naming where it happened
+    assert _origin_rank(claims["soft.data-team"], _folders(claims)) == 0  # cites a work note
+    # The taxonomy only finds the self-description (it says "collaboration"); Jev is asked about the
+    # story too, says yes, and the story leads.
+    jev = FakeJev(lambda s, q: 0.9 if "5-person" in s or "Strong collaboration" in s else 0.1)
+    s1 = run_evidence(app, cfg, jev)["requirements"][0]
+    assert s1["passages"][0] == "soft.data-team" and "extra.strong-collaboration" in s1["passages"]
+    assert s1["status"] == "covered" and s1["method"] == "jev" and s1["strength"] == 2
+
+
+def test_jev_ranks_the_story_that_shows_a_soft_skill(env, tmp_path):
+    cfg, app = _soft_env(env, tmp_path, [
+        {"id": "s1", "text": "Explain results to stakeholders", "kind": "nice", "terms": ["stakeholders"],
+         "weight": "role", "quote": "explain results to stakeholders"}])
+    # The taxonomy finds the stakeholders line; Jev is still asked, and its "no" on another line that
+    # happens to share the words keeps that line out.
+    jev = FakeJev(lambda s, q: 0.9 if "Explained results" in s else 0.2)
+    s1 = run_evidence(app, cfg, jev)["requirements"][0]
+    assert s1["passages"] == ["northwind.stakeholders"] and s1["method"] == "taxonomy+jev"
+    assert [q for _, qs in jev.calls for q in qs if q.id.startswith("s1|")]
+
+
+def test_jev_candidates_are_mostly_real_bullets(env, tmp_path):
+    cfg, app = _soft_env(env, tmp_path, [
+        {"id": "s1", "text": "Work well across departments", "kind": "nice", "terms": [],
+         "weight": "role", "quote": "work well across departments"}])
+    cfg["evidence"] = {"jev_candidates": 1, "jev_generic_candidates": 0, "jev_yes": 0.6}
+    jev = FakeJev(lambda s, q: 0.1)
+    run_evidence(app, cfg, jev)
+    asked = [s for s, qs in jev.calls for q in qs if q.id.startswith("s1|")]
+    # The self-description shares more words, but the one slot goes to the real row.
+    assert len(asked) == 1 and "5-person" in asked[0]
+
+
 # --- false-match guards (VCH run, Oct 18 2026) ----------------------------------------
 
 

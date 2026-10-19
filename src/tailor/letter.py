@@ -26,6 +26,24 @@ _KEEN = re.compile(
     re.I,
 )
 
+# A course grade used as evidence ("88% in STAT 301", "STAT 301 (A)"): the work is the evidence.
+_GRADE = re.compile(
+    r"\b[A-Z]{3,4}\s?\d{3}\b[^.\n]{0,40}?(?:\b\d{2,3}(?:\.\d)?\s?%|\([A-D][+-]?\))"
+    r"|\b\d{2,3}(?:\.\d)?\s?%\s+in\s+[A-Z]{3,4}\s?\d{3}\b"
+    r"|(?i:\b(?:an?|earned|got|received)\s+(?:an?\s+)?[A-D][+-]?\s+in\s+)[A-Z]{3,4}\s?\d{3}\b"
+)
+
+
+def _must_missing(app_dir: Path, req: dict[str, Any]) -> bool:
+    """Whether evidence.json has a `must` requirement the vault doesn't back at all."""
+    path = app_dir / "evidence.json"
+    if not path.exists():
+        return True  # can't tell; don't warn
+    kinds = {r.get("id"): r.get("kind") for r in req.get("requirements") or [] if isinstance(r, dict)}
+    ev = read_json(path)
+    return any(o.get("status") == "missing" and kinds.get(o.get("id")) == "must"
+               for o in (ev.get("requirements") or []) if isinstance(o, dict))
+
 
 def company_slug(company: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
@@ -165,6 +183,10 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     full = "\n".join(str(p.get("text", "")) for p in paras)
     if len(_KEEN.findall(full)) > 1:
         warn("keen_to_grow", "more than one 'keen to grow' style phrase")
+    elif _KEEN.search(full) and not _must_missing(app_dir, req):
+        warn("keen_not_must", "a 'keen to grow' style phrase, but no must-have is missing")
+    for m in _GRADE.finditer(full):
+        warn("course_grade", f"course grade used as evidence: {m.group(0)!r}", term=m.group(0))
     for i, p in enumerate(paras):
         for h in phrases.scan(str(p.get("text", "")), ctx["posting"], ctx["own_texts"], letter=True):
             warn("ai_phrase", f"paragraphs[{i}]: {h.code} {h.phrase!r}", f"paragraphs[{i}]")

@@ -40,29 +40,37 @@ list is also the before/after diff the candidate reviews.
    says in the posting's wording ("presentations" where the base says "talk", "data analysis" where
    it says "EDA"). Before writing, list every PRESENT hard-skill term the base doesn't already use
    word for word, and work each one into the summary, a bullet or the skills list where a cited
-   passage supports it. Soft skills (communication, collaboration, critical thinking) go in only
-   where a bullet already shows them naturally; never add one just for the score. If the posting's
+   passage supports it. If the posting's
    main skills aren't in the vault, a lower score is the honest result: it is flagged as a weaker
    fit for Jake, not something to write around.
    **Mirror the posting's exact wording only for vault-backed terms.** If the posting says
    "Power BI" and the vault backs it, write "Power BI", not "BI tools". If the vault does not back it,
    leave it out, even when it is a must-have.
-5. **Headline.** Use the posting's title as the headline only when `plan.json` says it is truthful
+5. **Soft skills: show at least one, naturally.** Pick the posting's soft-skill asks (communication,
+   collaboration, managing several tasks, working independently ...) that `evidence.json` backs with
+   a work or project story, not only with a self-description line ("Strong collaboration ...") or
+   a skills list. Show at least one of them, more if they fit, through a bullet that describes the
+   work that shows it ("explained the numbers to non-technical teams", "worked with the senior
+   analysts to review queries"), cited like any other claim. Use the posting's word only where it
+   reads naturally. Never as an adjective about the candidate ("strong communicator",
+   "detail-oriented") and never in the skills list; don't add a line or stretch one only to fit a
+   soft skill in. The cover letter shows the ones the resume doesn't.
+6. **Headline.** Use the posting's title as the headline only when `plan.json` says it is truthful
    (`headline` not null). Never change a job title, company, location, dates, school, degree, name,
    url or contact. Those paths are rejected anyway.
-6. **Strategy** (set at the top of the output):
+7. **Strategy** (set at the top of the output):
    - `nudge`: swap or reorder only; minimal wording changes. Use when the base already matches well.
    - `keywords` (default): rephrase existing bullets and add injectable terms the vault backs.
      A term in the `related` bucket is backed only by a looser synonym: use the cited passage's
      own wording for it, never the posting's term.
    - `full`: new or expanded bullets elaborating real work. **Only when `app.json` tier is "A".**
      For any other tier `full` is not allowed.
-7. **Protected bullets.** Do not remove or replace a path listed in `protected_paths` in a way that
+8. **Protected bullets.** Do not remove or replace a path listed in `protected_paths` in a way that
    drops the matched must-have term.
-8. **Keep it believable.** Bullets stay roughly the same length as the original (under about 200
+9. **Keep it believable.** Bullets stay roughly the same length as the original (under about 200
    characters). Vary the opening verbs and shapes across bullets; rows of identically shaped bullets
    are the biggest AI tell. One page is a hard limit, so prefer replacing over appending.
-9. **Banned phrases.** Do not use any phrase in the banned list (`src/tailor/phrases.py`: words such
+10. **Banned phrases.** Do not use any phrase in the banned list (`src/tailor/phrases.py`: words such
    as leverage, spearheaded, robust, seamless; self-descriptions such as passionate, results-driven,
    team player; no em dashes; no "not just X but Y"; no ", showcasing ..." tails). **Protection
    rule:** a phrase is allowed when it is an exact term in the posting, or already appears in the

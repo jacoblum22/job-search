@@ -1,8 +1,11 @@
 """Step 2: what in the vault backs each posting requirement, and what each base already says.
 
-Facts come from the taxonomy (synonym-aware regexes); Jev only gets a second
-look at requirements the taxonomy found nothing for, and its answers are
-advisory evidence. A term the taxonomy doesn't know is matched by its plain
+Facts come from the taxonomy (synonym-aware regexes); Jev gets a second look at
+requirements the taxonomy found nothing for or only a synonym for, and at every
+soft-skill requirement: soft skills rarely use the posting's words ("explained
+results to non-technical stakeholders" shows communication without saying it), and
+self-descriptions that do ("strong communication skills") are the weakest evidence.
+Its answers are advisory evidence. A term the taxonomy doesn't know is matched by its plain
 words, which misfires ("Access" in "access tokens"), so those matches count
 only once Jev confirms them; with no Jev key they don't count at all. Degree
 requirements are checked against the vault's degree passages, not by words.
@@ -20,7 +23,14 @@ from src.tailor.jev import Question
 from src.tailor.sources import base_text, claim_passages, load_bases, load_index
 
 KIND_RANK = {"must": 0, "nice": 1, "keyword": 2}
-SKILLS_FILES = {"skills-map.md", "soft-skills.md"}
+SKILLS_FILES = {"skills-map.md"}
+# Self-descriptions with no story ("Strong collaboration, cooperation, and teamwork abilities"): they
+# repeat posting vocabulary, so they rank last, after any line that shows the skill in real work.
+GENERIC_FILES = {"extra-skills.md"}
+# Rows that name what happened and where ("Worked on a 5-person data team | [[algaecal]]"):
+# evidence, ranked by the note they cite.
+EVIDENCE_TABLES = {"soft-skills.md"}
+_LINK = re.compile(r"\[\[([^\]|#]+)")
 SCOPE_WORDS = re.compile(
     r"\b(teams?|stakeholders?|datasets?|records?|rows?|users?|customers?|clients?|"
     r"departments?|daily|weekly|monthly|million|thousand|\d+k)\b", re.I)
@@ -126,9 +136,15 @@ def _degree_check(r: dict, claims: dict[str, dict]) -> dict | None:
 
 # --- passage strength ------------------------------------------------------
 
+def _file_name(p: dict) -> str:
+    return str(p.get("file", "")).replace("\\", "/").rsplit("/", 1)[-1].lower()
+
+
 def _skills_only(p: dict) -> bool:
-    name = str(p.get("file", "")).replace("\\", "/").rsplit("/", 1)[-1].lower()
-    return name in SKILLS_FILES or any("skill" in s.lower() for s in p.get("section") or [])
+    name = _file_name(p)
+    if name in EVIDENCE_TABLES:
+        return False
+    return name in SKILLS_FILES | GENERIC_FILES or any("skill" in s.lower() for s in p.get("section") or [])
 
 
 def passage_strength(p: dict) -> int:
@@ -141,9 +157,21 @@ def passage_strength(p: dict) -> int:
     return 3 if has_tool and has_scope else 2
 
 
-def _origin_rank(p: dict) -> int:
-    """Work bullets first, then project bullets, then coursework; tech-stack lists and other files last."""
+def _folders(claims: dict[str, dict]) -> dict[str, str]:
+    """Vault note name -> its file path ("algaecal" -> "work/algaecal.md"), to follow [[links]]."""
+    return {str(p.get("file", "")).replace("\\", "/").rsplit("/", 1)[-1].lower().removesuffix(".md"):
+            str(p.get("file", "")).replace("\\", "/").lower() for p in claims.values()}
+
+
+def _origin_rank(p: dict, folders: dict[str, str] | None = None) -> int:
+    """Work bullets first, then project bullets, then coursework; tech-stack lists and other files last.
+
+    An evidence-table row ranks as the note it cites: "[[algaecal]]" is work.
+    """
     f = str(p.get("file", "")).replace("\\", "/").lower()
+    if _file_name(p) in EVIDENCE_TABLES and folders:
+        link = _LINK.search(p.get("markdown") or "")
+        f = folders.get(link.group(1).strip().lower(), f) if link else f
     rank = 0 if f.startswith("work/") else 1 if f.startswith("projects/") else 2 if "coursework" in f else 3
     if any("stack" in str(s).lower() for s in p.get("section") or []):
         rank += 2
@@ -152,6 +180,25 @@ def _origin_rank(p: dict) -> int:
 
 def _words(s: str) -> set[str]:
     return {w for w in re.findall(r"[a-z0-9+#]+", s.lower()) if len(w) > 2 and w not in STOP}
+
+
+def _stems(s: str) -> set[str]:
+    """Word starts, so "departments" meets "department" and "collaborate" meets "collaborated"."""
+    return {w[:6] for w in _words(s)}
+
+
+def _rank_key(p: dict, folders: dict[str, str]) -> tuple:
+    """Real bullets before skills lists and self-descriptions; work, then projects, then coursework;
+    the stronger passage; primary copies before cross-references."""
+    s = passage_strength(p)
+    return (s < 2, _origin_rank(p, folders), -s, p.get("source") != "primary")
+
+
+def _is_soft(r: dict) -> bool:
+    """A requirement whose terms are all soft skills, or that has none ("work on your own")."""
+    canons = r.get("canonical") if isinstance(r.get("canonical"), list) else [
+        t.get("canonical") if isinstance(t, dict) else taxonomy.canonical(t) for t in r.get("terms") or []]
+    return all(c and taxonomy.category(c) == "Soft skills" for c in canons)
 
 
 # --- weights ---------------------------------------------------------------
@@ -177,34 +224,56 @@ def _pct(entries: list[dict], names: set[str]) -> float:
 
 # --- main ------------------------------------------------------------------
 
-def _jev_pass(reqs_missing: list[dict], claims: dict[str, dict], cfg: dict, jev: Any,
-              active: set[tuple[str, str]] = frozenset()) -> dict[str, list[str]]:
-    """Ask Jev whether candidate passages show each missing requirement; one call per passage."""
+def _soft_cats(text: str) -> set[str]:
+    return {c for c in taxonomy.find(text) if taxonomy.category(c) == "Soft skills"}
+
+
+def _jev_pass(reqs: list[dict], claims: dict[str, dict], cfg: dict, jev: Any,
+              active: set[tuple[str, str]] = frozenset(),
+              known: dict[str, list[str]] | None = None) -> dict[str, dict[str, float]]:
+    """Ask Jev whether candidate passages show each requirement; one call per passage.
+
+    Candidates are the passages sharing the most words with the requirement, plus, for a soft
+    skill, the real bullets and evidence rows about the same soft skill (soft-skills.md files
+    its rows under "Communication", "Teamwork & Collaboration", ...), plus the passages the
+    taxonomy already found (`known`). Self-descriptions and skills lists repeat a posting's
+    words ("strong collaboration") and would otherwise fill every slot ahead of the story that
+    shows the skill, so only a few of them get asked. Returns every parsed answer as
+    `{requirement id: {passage id: value}}`.
+    """
     ev_cfg = cfg.get("evidence") or {}
     n_cand = int(ev_cfg.get("jev_candidates", 15))
-    threshold = float(ev_cfg.get("jev_yes", 0.6))
-    if jev is None or not reqs_missing or n_cand <= 0:
+    n_generic = int(ev_cfg.get("jev_generic_candidates", 2))
+    if jev is None or not reqs or n_cand <= 0:
         return {}
+    known = known or {}
+    folders = _folders(claims)
+    stems = {pid: _stems(p["text"]) for pid, p in claims.items()}
+    cats = {pid: _soft_cats(p["text"] + ". " + ". ".join(p.get("section") or [])) for pid, p in claims.items()}
     per_passage: dict[str, list[tuple[dict, Question]]] = {}
-    for r in reqs_missing:
-        want = _words(r["text"] + " " + " ".join(_req_term_names(r)))
-        ranked = sorted(((len(want & _words(p["text"])), pid) for pid, p in claims.items()), key=lambda x: -x[0])
+    for r in reqs:
+        want = _stems(r["text"] + " " + " ".join(_req_term_names(r)))
+        overlap = {pid: len(want & s) for pid, s in stems.items() if want & s}
+        order = sorted(overlap, key=lambda pid: (-overlap[pid], _rank_key(claims[pid], folders)))
+        real = [pid for pid in order if passage_strength(claims[pid]) >= 2][:n_cand]
+        weak = [pid for pid in order if passage_strength(claims[pid]) < 2][:min(n_generic, n_cand)]
+        r_cats = _soft_cats(f"{r['text']}. {r.get('quote', '')}")
+        same = sorted((pid for pid in claims if r_cats & cats[pid] and passage_strength(claims[pid]) >= 2),
+                      key=lambda pid: _rank_key(claims[pid], folders))[:n_cand]
         names = _req_term_names(r) + [r["text"]]
-        for overlap, pid in ranked[:n_cand]:
-            if overlap <= 0:
-                break
+        for pid in dict.fromkeys([*known.get(r["id"], []), *real, *same, *weak]):
             if rejects.rejected(names, pid, active):
                 continue
             q = Question(id=f"{r['id']}|{pid}", type="yesno",
                          text=f"Does this passage show the candidate has: {r['text']}?")
             per_passage.setdefault(pid, []).append((r, q))
-    hits: dict[str, list[tuple[float, str]]] = {}
+    out: dict[str, dict[str, float]] = {}
     for pid, items in per_passage.items():
         answers = jev.ask(claims[pid]["text"], [q for _, q in items])
         for (r, _), a in zip(items, answers):
-            if a.ok and isinstance(a.value, (int, float)) and a.value >= threshold:
-                hits.setdefault(r["id"], []).append((float(a.value), pid))
-    return {rid: [pid for _, pid in sorted(v, key=lambda x: -x[0])] for rid, v in hits.items()}
+            if a.ok and isinstance(a.value, (int, float)):
+                out.setdefault(r["id"], {})[pid] = float(a.value)
+    return out
 
 
 def _confirm_unknown(entries: list[dict], claims: dict[str, dict], base_texts: dict[str, str],
@@ -266,8 +335,8 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     cap = int((cfg.get("evidence") or {}).get("max_passages", 8))
     # Real bullets before skills-list mentions; within those, work before projects before coursework,
     # then the stronger passage, primary copies before cross-references.
-    ranked = sorted(claims.values(), key=lambda p: (passage_strength(p) < 2, _origin_rank(p),
-                                                    -passage_strength(p), p.get("source") != "primary"))
+    folders = _folders(claims)
+    ranked = sorted(claims.values(), key=lambda p: _rank_key(p, folders))
     active = rejects.pairs(cfg)
     for e in entries:
         names = [e["term"], e.get("canonical") or "", *(e.get("raw") or [])]
@@ -311,15 +380,44 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         req_out.append({"id": r["id"], "status": status, "strength": strength,
                         "passages": pids, "method": method})
 
-    # Jev second look at requirements the taxonomy found nothing for.
+    # Jev second look at requirements the taxonomy found nothing for, and at every soft-skill
+    # requirement: the taxonomy only finds lines that use the skill's own word ("collaborated"), so
+    # the story that shows it ("worked on a 5-person data team ...") needs Jev to be found and ranked.
     text_by_id = {r["id"]: r for r in reqs.get("requirements", [])}
-    missing = [text_by_id[o["id"]] for o in req_out if o["status"] == "missing" and o["method"] != "degree"]
-    for rid, pids in _jev_pass(missing, claims, cfg, jev, active).items():
+    threshold = float((cfg.get("evidence") or {}).get("jev_yes", 0.6))
+
+    def needs_look(o: dict) -> bool:
+        if o["method"] == "degree":
+            return False
+        r = text_by_id[o["id"]]
+        if o["status"] == "missing" or o["method"] == "related":  # related: only a synonym matched
+            return True
+        if r.get("weight") == "boilerplate":
+            return False
+        # A soft skill, or a soft term in a mixed requirement ("reports and presentations") that only
+        # a self-description or skills list backs so far.
+        soft = [n for n in _req_term_names(r) if taxonomy.category(n) == "Soft skills"]
+        return _is_soft(r) or any(not any(passage_strength(claims[i]) >= 2 for i in by_name[n]["passages"])
+                                  for n in soft if n in by_name)
+
+    look = [text_by_id[o["id"]] for o in req_out if needs_look(o)]
+    known = {o["id"]: o["passages"] for o in req_out}
+    for rid, answers in _jev_pass(look, claims, cfg, jev, active, known).items():
+        yes = [pid for pid, v in answers.items() if v >= threshold]
+        if not yes:
+            continue
         o = next(x for x in req_out if x["id"] == rid)
-        o.update(status="covered", strength=2, passages=pids, method="jev")
+        # Real bullets Jev agrees with first, most confident first; then the taxonomy's other finds;
+        # self-descriptions and skills lists last.
+        merged = sorted(dict.fromkeys(yes + o["passages"]), key=lambda i: (
+            passage_strength(claims[i]) < 2, i not in yes, -round(answers.get(i, 0.0), 1),
+            *_rank_key(claims[i], folders)[1:]))[:cap]
+        strength = max(passage_strength(claims[i]) for i in merged)
+        o.update(status="covered", strength=max(strength, o["strength"]), passages=merged,
+                 method="jev" if o["method"] in ("none", "related") else f"{o['method']}+jev")
         for n in _req_term_names(text_by_id[rid]):  # its terms are now backed by those passages
             if n in by_name and not by_name[n]["passages"]:
-                by_name[n]["passages"] = list(pids)
+                by_name[n]["passages"] = [i for i in merged if i in yes]
 
     buckets: dict[str, dict] = {}
     for bid in base_texts:

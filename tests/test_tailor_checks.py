@@ -12,6 +12,7 @@ import yaml
 
 from src.resume import load_resume, validate
 from src.tailor import TailorError
+from src.tailor.appdir import read_json, write_json
 from src.tailor.checks import extract_numbers, number_keys, run_check, supported_years
 from src.tailor.edits import apply_edits
 from src.tailor.jev import FakeJev
@@ -445,6 +446,21 @@ def test_letter_numbers_skills_sources(tmp_path):
     assert len(invented) == 1 and "45%" in invented[0]  # 140 comes from the verified fact
     assert any(c["code"] == "invented_skill" and "Looker" in c["message"] for c in cs)
     assert {"unknown_source", "non_claim_source"} <= set(codes(cs))
+
+
+def test_letter_keen_only_for_a_missing_must_and_no_grades(tmp_path):
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "text": paras[1]["text"] + " I earned 88% in STAT 301 and am keen to grow into dbt."}
+    app, cfg = make_app(tmp_path)
+    put_draft(app, base_data(cfg))
+    write_letter(app, with_(paragraphs=paras))
+    req = read_json(app / "requirements.json")
+    must = next(r["id"] for r in req["requirements"] if r["kind"] == "must")
+    write_json(app / "evidence.json", {"requirements": [{"id": must, "status": "covered"}]})
+    ws = codes(run_check(app, 1, cfg, None)["warnings"])
+    assert "keen_not_must" in ws and "course_grade" in ws
+    write_json(app / "evidence.json", {"requirements": [{"id": must, "status": "missing"}]})
+    assert "keen_not_must" not in codes(run_check(app, 1, cfg, None)["warnings"])
 
 
 def test_letter_warnings(tmp_path):
