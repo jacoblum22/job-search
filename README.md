@@ -39,8 +39,9 @@ to `settings.yaml`'s `sources:`): Greenhouse, Lever, Ashby, SmartRecruiters,
 Workable, Oracle HCM, iCIMS/Jibe, SuccessFactors, Taleo, ADP, UKG, Dayforce,
 PeopleSoft, BambooHR, Pinpoint, Breezy, Rippling, Teamtailor, Jobvite, JazzHR
 and Humi, plus plain custom careers pages (`html:`, e.g. PHSA). The same file
-turns on whole-market feeds: Job Bank, BC Public Service and Hacker News "Who
-is hiring?". These sources return the full posting, so they skip snippet
+turns on whole-market feeds: Job Bank, BC Public Service, Hacker News "Who
+is hiring?", and the Himalayas and Jobicy remote-job boards (Canada-open
+remote jobs only; `HIMALAYAS_API_KEY` in `.env` is optional). These sources return the full posting, so they skip snippet
 enrichment. `--skip-ats` leaves them all out.
 
 Old postings are aged out: every run skips and deletes jobs posted more than

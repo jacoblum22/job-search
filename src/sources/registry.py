@@ -16,10 +16,12 @@ from src.sources.bcps import fetch_bcps_jobs
 from src.sources.breezy import fetch_breezy_jobs
 from src.sources.dayforce import fetch_dayforce_jobs
 from src.sources.greenhouse import fetch_greenhouse_jobs
+from src.sources.himalayas import fetch_himalayas_jobs
 from src.sources.hn_hiring import fetch_hn_jobs
 from src.sources.icims import fetch_icims_jobs
 from src.sources.jibe import fetch_jibe_jobs
 from src.sources.jobbank import fetch_jobbank_jobs
+from src.sources.jobicy import fetch_jobicy_jobs
 from src.sources.jobvite import fetch_jobvite_jobs
 from src.sources.jsonld_board import fetch_jsonld_board_jobs
 from src.sources.lever import fetch_lever_jobs
@@ -69,4 +71,15 @@ FEEDS: dict[str, FeedFetcher] = {
     ),
     "bcps": lambda o, s, q: fetch_bcps_jobs(search=s),
     "hn": lambda o, s, q: fetch_hn_jobs(),
+    "himalayas": lambda o, s, q: fetch_himalayas_jobs(
+        o.get("queries") or q,
+        country=o.get("country", "CA"),
+        seniority=o.get("seniority"),
+        max_pages=o.get("max_pages", 3),
+    ),
+    "jobicy": lambda o, s, q: fetch_jobicy_jobs(
+        geo=o.get("geo", "canada"),
+        industries=o.get("industries"),
+        max_pages=o.get("max_pages", 5),
+    ),
 }

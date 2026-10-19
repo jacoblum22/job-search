@@ -462,3 +462,48 @@ def test_workday_summary_location_from_bullets_and_hidden_locations():
     assert (ubc.location, ubc.job_req_id) == ("Vancouver Campus", "JR22878")
     assert all(_undetermined(x) for x in ("", "3 Locations", "Location Negotiable"))
     assert not _undetermined("Vancouver, BC")
+
+
+def test_himalayas_keeps_canada_open_and_worldwide_and_pages():
+    from src.sources import himalayas
+
+    client = FakeClient([("himalayas.app/jobs/api/search", data("himalayas_search.json"))])
+    jobs = himalayas.fetch_himalayas_jobs(["data scientist", "data analyst"], client=client, api_key="")
+    titles = {j.title: j for j in jobs}
+    # US-only dropped; worldwide (no restrictions) kept; same guid from two queries kept once
+    assert set(titles) == {"Junior Data Scientist", "Data Scientist"}
+    j = titles["Junior Data Scientist"]
+    assert j.source == "himalayas" and j.location_category == "remote"
+    assert j.url == "https://himalayas.app/companies/micro1/jobs/junior-data-scientist"
+    assert "Python" in j.description and j.posted_date and j.posted_date.startswith("2026-")
+    assert titles["Data Scientist"].location == "Remote - Worldwide"
+    # fewer than 20 jobs on a page = last page, so one call per query
+    assert len(client.calls) == 2
+    params = client.calls[0][2]["params"]
+    assert params["country"] == "CA" and params["seniority"] == "Entry-level,Mid-level"
+
+
+def test_jobicy_drops_non_canada_geo_and_walks_each_industry():
+    from src.sources import jobicy
+
+    client = FakeClient([("jobicy.com/api/v2/remote-jobs", data("jobicy_list.json"))])
+    jobs = jobicy.fetch_jobicy_jobs(industries=["data-science", "engineering"], client=client)
+    assert {j.title for j in jobs} == {"Data Analyst", "Audio Contributor"}
+    j = next(j for j in jobs if j.title == "Data Analyst")
+    assert j.source == "jobicy" and j.external_id == "155241" and j.posted_date == "2026-10-13"
+    assert j.location == "Remote - EMEA, LATAM, Canada, USA" and j.location_category == "remote"
+    assert "SQL" in j.description
+    assert [c[2]["params"]["industry"] for c in client.calls] == ["data-science", "engineering"]
+
+
+def test_remote_feeds_registered():
+    from src.sources.registry import FEEDS
+
+    assert {"himalayas", "jobicy"} <= set(FEEDS)
+
+
+def test_location_ok_reads_remote_region_shorthand():
+    for loc in ("Remote - USA, CAN, MEX", "Remote, AMER", "Remote - NAMER", "Remote - Ontario", "Remote BC"):
+        assert location_ok(loc), loc
+    for loc in ("Remote - US", "Remote - Germany", "Remote - Mexico City", "Remote (EST)"):
+        assert not location_ok(loc), loc
