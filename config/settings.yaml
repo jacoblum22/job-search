@@ -597,7 +597,10 @@ tailor:
     score_fail: 1
     yes_threshold: 0.5
   evidence:
-    jev_candidates: 15   # passages per unmatched requirement sent to Jev
+    # Jev also looks at every soft-skill requirement, since the taxonomy only finds lines using the
+    # skill's own word and misses the stories that show it.
+    jev_candidates: 15   # real bullets per requirement sent to Jev, by shared words (and as many again by soft skill)
+    jev_generic_candidates: 2  # self-descriptions and skills-list lines also asked, per requirement
     jev_yes: 0.6         # probability at which Jev's "passage shows requirement" counts
     max_passages: 8      # strongest exact-match passages kept per term or requirement
   ats_weights: {keyword: 40, skills: 20, title: 15, sections: 15, dates: 10}

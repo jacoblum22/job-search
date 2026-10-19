@@ -33,7 +33,11 @@ phrased as a hedged reading, never as inside knowledge:
 1. **Value for this role.** What the candidate offers *this* job, led by the through-line. First
    sentence is about the work, not about the candidate's feelings.
 2. **Proof.** 1-2 real achievements from the vault, told with concrete tools and scope, each citing
-   its passage ids in `sources`. Use a number only if the cited passage has it.
+   its passage ids in `sources`. Use a number only if the cited passage has it. Choose them so they
+   also show one or two of the posting's main soft-skill asks that the resume doesn't already show
+   (working across teams, juggling several projects, explaining results to non-technical people),
+   taken from requirements whose evidence is a work or project story, not a self-description line.
+   Let what happened show the skill; never name it as a trait ("I am a strong communicator").
 3. **Why this company.** Link one of the candidate's real motivations (a `motivation.*` passage,
    cited in `sources`) to one specific thing about this employer or this role (cited by id: a fact id
    from `facts.json` (`f2`) or `posting:<n>` for the n-th item of `requirements.json.company_facts`,

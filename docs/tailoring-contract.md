@@ -144,6 +144,12 @@ passage or base line counts only after Jev answers yes to "does this text show t
 against the vault's degree passages with `method: "degree"`: covered when the candidate holds that
 level or higher, else missing, and Jev's second look skips it.
 
+Jev's second look also covers every soft-skill requirement, a requirement whose soft term only a
+self-description or skills list backs, and one only a synonym matched (`related`). A yes adds
+`+jev` to the method (`taxonomy+jev`) and reorders `passages`: real bullets Jev agreed with first,
+most confident first, then the taxonomy's other finds, then self-descriptions (extra-skills.md)
+and skills-list lines. soft-skills.md rows are evidence, ranked as the note they cite.
+
 Pairs in the shared reject list are never matched: a rejected `(term, passage)` pair is left out of
 `passages`, `related` and Jev's second look, and `(term, "base")` means the base resumes don't
 count as having the term. Jev's answers to the unknown-term question are cached in `jev-cache.json`
