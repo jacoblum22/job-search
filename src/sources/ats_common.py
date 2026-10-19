@@ -129,6 +129,13 @@ def remote_label(location: str, is_remote_flag: bool) -> str:
 # Remote postings from global boards name the region they hire in. Only these
 # (or no region at all) are open to someone in Canada.
 _REMOTE_OK_REGIONS = ("canada", "north america", "americas", "worldwide", "anywhere", "global")
+# Shorthand remote boards use for the same regions ("USA, CAN, MEX", "AMER",
+# "NAMER") and Canadian provinces ("Remote - Ontario", "Remote BC").
+_REMOTE_OK_WORDS = re.compile(
+    r"\b(?:can|n?amer|noram|british columbia|bc|alberta|ontario|quebec|québec|manitoba|"
+    r"saskatchewan|nova scotia|new brunswick|newfoundland|prince edward island)\b",
+    re.IGNORECASE,
+)
 
 
 def location_ok(location: str) -> bool:
@@ -146,7 +153,7 @@ def location_ok(location: str) -> bool:
         return False
     loc = location.lower()
     region = re.sub(r"\bremote\b|[-–(),;:/]", " ", loc).strip()
-    return not region or any(r in loc for r in _REMOTE_OK_REGIONS)
+    return not region or any(r in loc for r in _REMOTE_OK_REGIONS) or bool(_REMOTE_OK_WORDS.search(loc))
 
 
 def localize(location: str, board: dict) -> str:

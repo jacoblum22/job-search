@@ -500,3 +500,10 @@ def test_remote_feeds_registered():
     from src.sources.registry import FEEDS
 
     assert {"himalayas", "jobicy"} <= set(FEEDS)
+
+
+def test_location_ok_reads_remote_region_shorthand():
+    for loc in ("Remote - USA, CAN, MEX", "Remote, AMER", "Remote - NAMER", "Remote - Ontario", "Remote BC"):
+        assert location_ok(loc), loc
+    for loc in ("Remote - US", "Remote - Germany", "Remote - Mexico City", "Remote (EST)"):
+        assert not location_ok(loc), loc

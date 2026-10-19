@@ -306,6 +306,22 @@ greenhouse:
   - {name: "Atomic Cartoons", slug: "atomiccartoons"}
   - {name: "Sony Pictures Imageworks", slug: "sonypicturesimageworks"}
   - {name: "Take-Two Interactive", slug: "taketwo"}
+  # Remote-friendly employers that hire across Canada (found Oct 19 2026 via
+  # remote-job boards); only their Vancouver and Canada-open remote jobs are kept.
+  - {name: "Affirm", slug: "affirm"}
+  - {name: "Mercury", slug: "mercury"}
+  - {name: "Faire", slug: "faire"}
+  - {name: "StackAdapt", slug: "stackadapt"}
+  - {name: "Instacart", slug: "instacart"}
+  - {name: "GitLab", slug: "gitlab"}
+  - {name: "Fleetio", slug: "fleetio"}
+  - {name: "Twilio", slug: "twilio"}
+  - {name: "Reddit", slug: "reddit"}
+  - {name: "Fivetran", slug: "fivetran"}
+  - {name: "KoBold Metals", slug: "koboldmetals"}
+  - {name: "League", slug: "leagueinc"}
+  - {name: "Roofr", slug: "roofr"}
+  - {name: "Lightspeed Commerce", slug: "lightspeedhq"}
 
 lever:
   - {name: "Quartech", slug: "quartech-systems"}
@@ -324,6 +340,7 @@ lever:
   - {name: "Kabam", slug: "kabam"}
   - {name: "Sandbox VR", slug: "sandboxvr"}
   - {name: "Skybox Labs", slug: "skyboxlabs"}
+  - {name: "PointClickCare", slug: "pointclickcare"}
 
 ashby:
   - {name: "Visier", slug: "visier"}
@@ -347,6 +364,18 @@ ashby:
   - {name: "Spexi", slug: "spexi"}
   - {name: "Thinkific", slug: "thinkific"}
   - {name: "Trulioo", slug: "trulioo"}
+  # Remote-friendly employers that hire across Canada (found Oct 19 2026).
+  - {name: "1Password", slug: "1password"}
+  - {name: "Jane", slug: "jane"}
+  - {name: "Jobber", slug: "jobber"}
+  - {name: "Benevity", slug: "benevity"}
+  - {name: "Cohere", slug: "cohere"}
+  - {name: "Float", slug: "float"}
+  - {name: "Docebo", slug: "docebo"}
+  - {name: "RevenueCat", slug: "revenuecat"}
+  - {name: "Zapier", slug: "zapier"}
+  - {name: "Docker", slug: "docker"}
+  - {name: "Kraken", slug: "kraken.com"}
 
 smartrecruiters:
   - {name: "Leger", slug: "Leger2"}
