@@ -32,10 +32,11 @@ def _base() -> dict:
 # ----- company -----
 
 
-def test_slug_and_dir():
+def test_slug_and_dir(tmp_path):
     assert company_slug("  Acme, Inc. & Sons! ") == "acme-inc-sons"
-    cfg = {"paths": {"companies": "/tmp/cos"}}
-    assert company_dir(cfg, "Acme Co") == Path("/tmp/cos/acme-co")
+    # tmp_path is absolute on every OS; "/tmp" gains a drive letter on Windows.
+    cfg = {"paths": {"companies": str(tmp_path / "cos")}}
+    assert company_dir(cfg, "Acme Co") == tmp_path / "cos" / "acme-co"
 
 
 def test_verify_company(tmp_path):
