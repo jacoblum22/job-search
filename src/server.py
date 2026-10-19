@@ -424,9 +424,10 @@ const BUTTONS = {
   reviewed: [['In review', 'Reviewed', 'review']],
   keep_remove: [['Keep', 'Keep', 'good'], ['Remove', 'Remove', 'bad']],
   drop: [['Correctly set aside', 'Correctly set aside', 'good'], ['Shows the skill', 'Shows the skill', 'warn']],
+  confirm: [["Doesn't show it", "Doesn't show it", 'bad'], ['This shows it', 'This shows it', 'good']],
   undo: [['Undo', 'Undo', 'warn']],
 };
-const PAIRS = new Set(['keep_remove', 'drop']);
+const PAIRS = new Set(['keep_remove', 'drop', 'confirm']);
 
 function checkHtml(blocks) {
   let h = '';

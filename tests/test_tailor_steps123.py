@@ -376,6 +376,111 @@ def test_jev_candidates_are_mostly_real_bullets(env, tmp_path):
     assert len(asked) == 1 and "5-person" in asked[0]
 
 
+# --- confirmed matches (evidence-confirms.json) -------------------------------------
+
+
+def _team_player(env, tmp_path):
+    return _soft_env(env, tmp_path, [
+        {"id": "s1", "text": "Strong team player", "kind": "nice", "terms": [], "weight": "role",
+         "quote": "a strong team player"}])
+
+
+def _confirm(cfg, **entry):
+    path = Path(cfg["paths"]["evidence_confirms"])
+    data = appdir.read_json(path) if path.exists() else {"confirms": []}
+    data["confirms"].append({"term": "collaboration/teamwork", "passage": "soft.data-team", **entry})
+    appdir.write_json(path, data)
+
+
+def test_confirmed_pair_counts_first_without_asking_jev(env, tmp_path):
+    cfg, app = _team_player(env, tmp_path)
+    # Confirmed for "collaboration" on another posting; this one words it "team player".
+    _confirm(cfg, source="jake")
+    jev = FakeJev(lambda s, q: 0.1)
+    s1 = run_evidence(app, cfg, jev)["requirements"][0]
+    assert s1["passages"][0] == "soft.data-team" and s1["status"] == "covered" and s1["method"] == "confirmed"
+    assert not [q for s, qs in jev.calls for q in qs if "5-person" in s]
+
+
+def test_candidate_confirm_beats_a_reject_but_plan_and_jev_confirms_dont(env, tmp_path):
+    cfg, app = _team_player(env, tmp_path)
+    _write_rejects(cfg, ("collaboration/teamwork", "soft.data-team"))
+    _confirm(cfg, source="plan")
+    assert not rejects.confirmed(cfg)
+    assert run_evidence(app, cfg, FakeJev(lambda s, q: 0.1))["requirements"][0]["status"] == "missing"
+    rejects.add_confirms(cfg, [{"term": "Collaboration/teamwork", "passage": "soft.data-team", "source": "jake"}])
+    assert [c["source"] for c in rejects.load_confirms(cfg)] == ["jake"]  # upgraded, not duplicated
+    assert ("collaboration/teamwork", "soft.data-team") not in rejects.pairs(cfg)
+    assert run_evidence(app, cfg, FakeJev(lambda s, q: 0.1))["requirements"][0]["status"] == "covered"
+
+
+def test_jev_yes_on_a_soft_skill_is_remembered_by_skill(env, tmp_path):
+    cfg, app = _soft_env(env, tmp_path, [
+        {"id": "s1", "text": "Collaborate across departments", "kind": "nice", "terms": [], "weight": "role",
+         "quote": "collaborate across departments"}])
+    run_evidence(app, cfg, FakeJev(lambda s, q: 0.9 if "5-person" in s or "Strong collab" in s else 0.1))
+    saved = rejects.load_confirms(cfg)
+    # The story is remembered; the self-description isn't (it would then always count).
+    assert [(c["passage"], c["source"], c["value"]) for c in saved] == [("soft.data-team", "jev", 0.9)]
+    cfg, app = _team_player(env, tmp_path)
+    jev = FakeJev(lambda s, q: 0.0)
+    s1 = run_evidence(app, cfg, jev)["requirements"][0]
+    assert s1["passages"] == ["soft.data-team"] and s1["status"] == "covered"
+    assert not [q for s, qs in jev.calls for q in qs if "5-person" in s]
+
+
+def test_weak_requirement_offers_this_shows_it(env, tmp_path):
+    from src.tailor import packet, review
+    from src.tailor.sources import load_index as _idx
+
+    cfg, app = _team_player(env, tmp_path)
+    s1 = run_evidence(app, cfg, FakeJev(lambda s, q: 0.35 if "5-person" in s else 0.05))["requirements"][0]
+    assert s1["status"] == "missing"
+    assert s1["confirm_key"] == "collaboration/teamwork"
+    assert s1["candidates"] == [{"passage": "soft.data-team", "value": 0.35}]
+    reqs = {r["id"]: r for r in appdir.read_json(app / "requirements.json")["requirements"]}
+    md = "\n".join(packet._suggestions(app, reqs, _idx(cfg), cfg)) + "\n"
+    line = next(ln for ln in md.splitlines() if "<!-- confirm:" in ln)
+    assert line.startswith("- [ ] Doesn't show it  - [ ] This shows it  Collaboration/teamwork:")
+    assert line.endswith("<!-- confirm: collaboration/teamwork | soft.data-team -->")
+    item = next(b for b in review.parse(md) if b["type"] == "item")
+    assert item["kind"] == "confirm" and review.undecided(md) == [line]
+    picked = review.set_box(md, item["line"], line, "This shows it", True)
+    with pytest.raises(TailorError):  # a pick can be swapped, not cleared
+        review.set_box(picked, item["line"], picked.splitlines()[item["line"]], "This shows it", False)
+    assert rejects.apply_confirms(picked, cfg, 7)["confirmed"] == [("collaboration/teamwork", "soft.data-team")]
+    s1 = run_evidence(app, cfg, FakeJev(lambda s, q: 0.05))["requirements"][0]
+    assert s1["status"] == "covered" and "candidates" not in s1
+    assert "<!-- confirm:" not in "\n".join(packet._suggestions(app, reqs, _idx(cfg), cfg))  # decided
+
+
+def test_doesnt_show_it_records_a_reject(env, tmp_path):
+    cfg, app = _team_player(env, tmp_path)
+    _confirm(cfg, source="jev", value=0.9)
+    md = ("- [x] Doesn't show it  - [ ] This shows it  Collaboration/teamwork: does it show it? "
+          "<!-- confirm: collaboration/teamwork | soft.data-team -->\n")
+    assert rejects.apply_confirms(md, cfg, 7)["rejected"] == [("collaboration/teamwork", "soft.data-team")]
+    assert rejects.load_confirms(cfg)[0]["undone"] is True
+    assert ("collaboration/teamwork", "soft.data-team") in rejects.pairs(cfg)
+    s1 = run_evidence(app, cfg, FakeJev(lambda s, q: 0.35 if "5-person" in s else 0.05))["requirements"][0]
+    assert "soft.data-team" not in s1["passages"] and "candidates" not in s1  # never suggested again
+
+
+def test_plan_adds_join_the_shared_list_and_count_in_grade(env):
+    cfg, app = env
+    appdir.write_json(app / "plan.json", {"evidence_adds": [
+        {"term": "Tableau", "passage": "northwind.stakeholders", "reason": "built the dashboards they used"}]})
+    assert ("tableau", "northwind.stakeholders") in rejects.confirmed(cfg, app)  # this job, before syncing
+    new = rejects.sync_plan_adds(app, cfg)
+    assert [(c["source"], c["job_id"]) for c in new] == [("plan", 7)]
+    assert rejects.sync_plan_adds(app, cfg) == []  # idempotent
+    ev = {"terms": [{"term": "Tableau", "canonical": "Tableau", "passages": []}], "present": [],
+          "absent": ["Tableau"], "requirements": []}
+    out = rejects.add_evidence(ev, {"requirements": []}, rejects.confirmed(cfg, app))
+    assert out["present"] == ["Tableau"] and not out["absent"]
+    assert out["terms"][0]["passages"] == ["northwind.stakeholders"]
+
+
 # --- false-match guards (VCH run, Oct 18 2026) ----------------------------------------
 
 
@@ -507,7 +612,8 @@ def test_sync_plan_drops_and_undo(env):
     assert rejects.apply_undos(md, cfg) == [("excel", "proj.x")]
     assert ("excel", "proj.x") not in rejects.pairs(cfg)
     assert rejects.sync_plan_drops(app, cfg) == []  # an undone pair is never re-added
-    assert ("excel", "proj.x") in rejects.pairs(cfg, app)  # but this job's own plan still drops it
+    assert ("excel", "proj.x") not in rejects.pairs(cfg, app)  # Undo = it shows the skill, which beats this plan too
+    assert ("excel", "proj.x") in rejects.confirmed(cfg)
 
 
 def test_scrub_evidence_for_repair_notes():

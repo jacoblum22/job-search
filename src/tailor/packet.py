@@ -216,6 +216,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             head, details = explain.drop(d, index, (term.lower(), pid) in new)
             lines.append(f"- [ ] Set aside  - [ ] Undo  {head} <!-- undo: {term} | {pid} -->")
             lines += [f"  - {x}" for x in details]
+    lines += _suggestions(app_dir, reqs, index, cfg)
     base_id = app.get("base_id") or (_opt_json(app_dir / "plan.json") or {}).get("base_id") or "chosen"
     lines += ["", "## Changes from the base", ""] + _note(explain.CHANGES.format(base=base_id))
     lines += _changes(rd, app_dir, cfg) or ["- No changes"]
@@ -233,6 +234,42 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
         lines += ["", "## Already handled", ""] + _note(explain.NOTES)
         lines += [f"- {explain.note(it, data, index)}" for it in notes]
     return "\n".join(lines) + "\n"
+
+
+def _confirm_line(key: str, pid: str, head: str) -> str:
+    # The pair in the comment is what approve records (rejects.apply_confirms).
+    return f"- [ ] Doesn't show it  - [ ] This shows it  {head} <!-- confirm: {key} | {pid} -->"
+
+
+def _suggestions(app_dir: Path, reqs: dict[str, dict], index: dict[str, dict] | None,
+                 cfg: dict[str, Any]) -> list[str]:
+    """The plan's evidence adds, and passages Jev came close to accepting for requirements the
+    vault backs badly: each a "Doesn't show it" / "This shows it" pair."""
+    lines: list[str] = []
+    adds = (_opt_json(app_dir / "plan.json") or {}).get("evidence_adds") or []
+    adds = [d for d in adds if isinstance(d, dict) and d.get("term") and d.get("passage")]
+    if adds:
+        lines += ["", "## Evidence the plan added", ""] + _note(explain.ADDS)
+        for d in adds:
+            head, details = explain.add(d, index)
+            lines.append(_confirm_line(rejects.key(d["term"]), str(d["passage"]), head))
+            lines += [f"  - {x}" for x in details]
+    done = {(rejects.key(d["term"]), str(d["passage"])) for d in adds}
+    done |= set(rejects.pairs(cfg, app_dir)) | set(rejects.confirmed(cfg, app_dir))  # already decided
+    sugg = []
+    for e in (_opt_json(app_dir / "evidence.json") or {}).get("requirements") or []:
+        key = e.get("confirm_key")
+        for c in e.get("candidates") or [] if key else []:
+            if (key, c.get("passage")) not in done:
+                done.add((key, c["passage"]))
+                sugg.append((key, c, reqs.get(e.get("id"), {}).get("text", "")))
+    if sugg:
+        lines += ["", "## Could these show it?", ""] + _note(explain.SUGGESTED)
+        for key, c, req_text in sugg:
+            head, details = explain.suggestion(key, c["passage"], c.get("value"), req_text, index)
+            lines.append(_confirm_line(key, c["passage"], head))
+            lines += [f"  - {x}" for x in details]
+    return lines
 
 
 def run_packet(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
@@ -287,10 +324,13 @@ def approve(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     bad = unresolved_lines(path.read_text(encoding="utf-8"))
     if bad:
         raise TailorError(f"{len(bad)} line(s) in check.md still need a decision:\n" + "\n".join(bad))
-    undone = rejects.apply_undos(path.read_text(encoding="utf-8"), cfg)
+    text = path.read_text(encoding="utf-8")
+    undone = rejects.apply_undos(text, cfg)
+    picks = rejects.apply_confirms(text, cfg, appdir.load_app(app_dir).get("job_id"))
     app = appdir.log(app_dir, "approve", "all check.md lines resolved", status="approved")
     _sync(app_dir, cfg, app, "approved")
-    return {"status": "approved", "rejects_undone": len(undone)}
+    return {"status": "approved", "rejects_undone": len(undone), "confirmed": len(picks["confirmed"]),
+            "not_shown": len(picks["rejected"])}
 
 
 def record_outcome(app_dir: Path, cfg: dict[str, Any], outcome: str) -> dict[str, Any]:
