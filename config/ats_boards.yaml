@@ -571,3 +571,7 @@ feeds:
   jobbank: {enabled: true, max_pages: 2}   # Government of Canada Job Bank, BC postings
   bcps: {enabled: true}                    # BC Public Service (all ministries)
   hn: {enabled: true}                      # latest Hacker News "Who is hiring?" thread
+  # Remote-job boards, Canada-open jobs only. Both ask for a link back, so the
+  # stored url is their listing page.
+  himalayas: {enabled: true, country: CA, seniority: [Entry-level, Mid-level], max_pages: 3}
+  jobicy: {enabled: true, geo: canada, industries: [data-science, engineering], max_pages: 5}
