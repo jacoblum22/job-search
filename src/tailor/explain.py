@@ -45,6 +45,15 @@ DROPS = ("Before writing, the pipeline looks for vault passages that prove each 
          "resume doesn't lean on them. For each, pick Correctly set aside if that's right, or Shows the skill if "
          "the passage really does show it (Set aside or Undo in check.md); approving with Shows the skill "
          "lets later applications use it again.")
+SUGGESTED = ("The posting asks for these and the vault didn't back them well. Jev was asked about each "
+             "passage below and said no or wasn't sure. If one does show the skill, pick This shows it: "
+             "approving saves the match, so every later application counts it without asking Jev. Pick "
+             "Doesn't show it to stop it being suggested again. This resume was written without these "
+             "passages; to use one here, rerun from the evidence step after approving.")
+ADDS = ("The plan read these passages and found they show a skill the word matching missed, so this "
+        "resume could use them. Pick This shows it if that's right, or Doesn't show it if not; approving "
+        "records the choice for every later application. Doesn't show it doesn't change this resume, so "
+        "if a line leans on that passage, fix the line yourself.")
 CHANGES = ("Every line this resume says differently from the {base} base resume. Read each one and "
            "make sure you're comfortable defending it in an interview.")
 ISSUES = ("Automatic checks on the final resume and letter. Pick Keep if it's fine as it is, or Remove if "
@@ -243,6 +252,41 @@ def evidence_no(n: dict[str, Any], index: dict[str, dict] | None) -> str:
     text = n.get("text") or passage_text(pid, index) or ""
     where = passage_label(pid, index) if pid else "a vault passage"
     return f"{n.get('term', '?')}: not counted from {where}: \"{text}\""
+
+
+# ---------------------------------------------------------------------------
+# Passages that might show a skill (evidence.json candidates) and the plan's adds
+# ---------------------------------------------------------------------------
+
+
+def _skill(key: str) -> str:
+    from src.tailor import taxonomy
+    name = taxonomy.canonical(key) or key
+    return name[:1].upper() + name[1:]
+
+
+def suggestion(key: str, pid: str, value: float | None, req_text: str,
+               index: dict[str, dict] | None) -> tuple[str, list[str]]:
+    head = f"{_skill(key)}: does {passage_label(pid, index)} show it?"
+    details = [f"The posting asks: \"{req_text}\""] if req_text else []
+    text = passage_text(pid, index)
+    if text:
+        details.append(f"The passage: \"{text}\"")
+    if value is not None:
+        details.append(f"Jev's answer: {'not sure' if value >= 0.4 else 'no'} ({value:.2f} out of 1).")
+    return head, details
+
+
+def add(d: dict[str, Any], index: dict[str, dict] | None) -> tuple[str, list[str]]:
+    pid = str(d.get("passage") or "?")
+    head = f"{_skill(str(d.get('term') or '?'))}: counted from {passage_label(pid, index)}."
+    details = []
+    text = passage_text(pid, index)
+    if text:
+        details.append(f"The passage: \"{text}\"")
+    if d.get("reason"):
+        details.append(f"Why: {d['reason']}.".replace("..", "."))
+    return head, details
 
 
 # ---------------------------------------------------------------------------

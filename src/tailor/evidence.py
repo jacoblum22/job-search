@@ -9,7 +9,11 @@ Its answers are advisory evidence. A term the taxonomy doesn't know is matched b
 words, which misfires ("Access" in "access tokens"), so those matches count
 only once Jev confirms them; with no Jev key they don't count at all. Degree
 requirements are checked against the vault's degree passages, not by words.
-Term and passage pairs rejected on earlier jobs (`rejects.py`) are never matched.
+Term and passage pairs rejected on earlier jobs (`rejects.py`) are never matched;
+confirmed pairs (`evidence-confirms.json`) always count, rank first and aren't asked
+about again. Requirements still missing or weak afterwards keep the passages Jev
+came closest to saying yes to (`candidates`), so the review page can ask the
+candidate whether one of them shows the skill after all.
 """
 
 from __future__ import annotations
@@ -230,13 +234,17 @@ def _soft_cats(text: str) -> set[str]:
 
 def _jev_pass(reqs: list[dict], claims: dict[str, dict], cfg: dict, jev: Any,
               active: set[tuple[str, str]] = frozenset(),
-              known: dict[str, list[str]] | None = None) -> dict[str, dict[str, float]]:
+              known: dict[str, list[str]] | None = None,
+              remembered: dict[str, dict[str, float]] | None = None,
+              confirmed: dict[str, list[str]] | None = None) -> dict[str, dict[str, float]]:
     """Ask Jev whether candidate passages show each requirement; one call per passage.
 
     Candidates are the passages sharing the most words with the requirement, plus, for a soft
     skill, the real bullets and evidence rows about the same soft skill (soft-skills.md files
     its rows under "Communication", "Teamwork & Collaboration", ...), plus the passages the
-    taxonomy already found (`known`). Self-descriptions and skills lists repeat a posting's
+    taxonomy already found (`known`). Confirmed passages aren't asked about, and a passage Jev
+    already said yes to for the same soft skill (`remembered`, by skill key) reuses that answer.
+    Self-descriptions and skills lists repeat a posting's
     words ("strong collaboration") and would otherwise fill every slot ahead of the story that
     shows the skill, so only a few of them get asked. Returns every parsed answer as
     `{requirement id: {passage id: value}}`.
@@ -247,10 +255,13 @@ def _jev_pass(reqs: list[dict], claims: dict[str, dict], cfg: dict, jev: Any,
     if jev is None or not reqs or n_cand <= 0:
         return {}
     known = known or {}
+    remembered = remembered or {}
+    confirmed = confirmed or {}
     folders = _folders(claims)
     stems = {pid: _stems(p["text"]) for pid, p in claims.items()}
     cats = {pid: _soft_cats(p["text"] + ". " + ". ".join(p.get("section") or [])) for pid, p in claims.items()}
     per_passage: dict[str, list[tuple[dict, Question]]] = {}
+    out: dict[str, dict[str, float]] = {}
     for r in reqs:
         want = _stems(r["text"] + " " + " ".join(_req_term_names(r)))
         overlap = {pid: len(want & s) for pid, s in stems.items() if want & s}
@@ -261,13 +272,17 @@ def _jev_pass(reqs: list[dict], claims: dict[str, dict], cfg: dict, jev: Any,
         same = sorted((pid for pid in claims if r_cats & cats[pid] and passage_strength(claims[pid]) >= 2),
                       key=lambda pid: _rank_key(claims[pid], folders))[:n_cand]
         names = _req_term_names(r) + [r["text"]]
+        keys = rejects.req_keys(r)
         for pid in dict.fromkeys([*known.get(r["id"], []), *real, *same, *weak]):
-            if rejects.rejected(names, pid, active):
+            if rejects.rejected(names, pid, active) or pid in confirmed.get(r["id"], []):
+                continue
+            hit = [remembered[k][pid] for k in keys if pid in remembered.get(k, {})]
+            if hit:
+                out.setdefault(r["id"], {})[pid] = max(hit)
                 continue
             q = Question(id=f"{r['id']}|{pid}", type="yesno",
                          text=f"Does this passage show the candidate has: {r['text']}?")
             per_passage.setdefault(pid, []).append((r, q))
-    out: dict[str, dict[str, float]] = {}
     for pid, items in per_passage.items():
         answers = jev.ask(claims[pid]["text"], [q for _, q in items])
         for (r, _), a in zip(items, answers):
@@ -289,7 +304,9 @@ def _confirm_unknown(entries: list[dict], claims: dict[str, dict], base_texts: d
     usable = jev is not None and getattr(jev, "available", True)
     confirmed_bases: dict[str, set[str]] = {}
 
-    def yes(term: str, text: str, where: str = "") -> bool:
+    def yes(term: str, text: str, where: str = "", sure: bool = False) -> bool:
+        if sure:  # a confirmed pair isn't asked about again
+            return True
         ok = _ask(term, text)
         if ok is False and said_no is not None:
             said_no.append({"term": term, "passage": where, "text": text[:160]})
@@ -313,7 +330,8 @@ def _confirm_unknown(entries: list[dict], claims: dict[str, dict], base_texts: d
     for e in entries:
         if e.get("canonical"):
             continue
-        e["passages"] = [pid for pid in e["passages"] if yes(e["term"], claims[pid]["text"], pid)]
+        e["passages"] = [pid for pid in e["passages"]
+                         if yes(e["term"], claims[pid]["text"], pid, pid in e.get("confirmed", []))]
         e["related"] = []
         confirmed_bases[e["term"]] = set()
         for bid, text in base_texts.items():
@@ -321,6 +339,53 @@ def _confirm_unknown(entries: list[dict], claims: dict[str, dict], base_texts: d
             if any(yes(e["term"], ln, f"base:{bid}") for ln in lines):
                 confirmed_bases[e["term"]].add(bid)
     return confirmed_bases
+
+
+def _soft_key(keys: list[str]) -> str | None:
+    soft = [k for k in keys if taxonomy.category(taxonomy.canonical(k) or k) == "Soft skills"]
+    return soft[0] if len(soft) == 1 else None
+
+
+def _remember_and_suggest(req_out: list[dict], answers: dict[str, dict[str, float]], reqs: dict[str, dict],
+                          by_name: dict[str, dict], claims: dict[str, dict], folders: dict[str, str],
+                          remembered: dict[str, dict[str, float]], app_dir: Path, cfg: dict) -> None:
+    """Remember Jev's confident yes answers on soft skills, by skill, so later jobs don't ask again; and
+    give each requirement that's still missing or weak the passages Jev came closest to accepting
+    (`candidates`), with the skill key a "This shows it" pick would confirm (`confirm_key`)."""
+    ev_cfg = cfg.get("evidence") or {}
+    remember_min = float(ev_cfg.get("jev_remember", 0.8))
+    cand_min = float(ev_cfg.get("review_candidate_min", 0.2))
+    n_cand = int(ev_cfg.get("review_candidates", 2))
+    memory = []
+    for rid, got in answers.items():
+        r = reqs[rid]
+        key = _soft_key(rejects.req_keys(r)) if _is_soft(r) else None
+        if key is None:  # a requirement mixing skills can't say which one the passage shows
+            continue
+        for pid, v in got.items():
+            if v >= remember_min and passage_strength(claims[pid]) >= 2 and pid not in remembered.get(key, {}):
+                memory.append({"term": taxonomy.canonical(key) or key, "passage": pid, "source": "jev", "value": v,
+                               "reason": f"Jev said yes for: {r['text']}"})
+    if memory:
+        job_id = appdir.load_app(app_dir).get("job_id") if (app_dir / "app.json").exists() else None
+        rejects.add_confirms(cfg, memory, job_id)
+    for o in req_out:
+        r = reqs[o["id"]]
+        if o["method"] == "degree" or r.get("weight") == "boilerplate" or r.get("kind") == "keyword":
+            continue
+        if o["status"] == "covered" and o["strength"] >= 2:
+            continue
+        keys = rejects.req_keys(r)
+        missing = [n for n in _req_term_names(r) if n in by_name and not by_name[n]["passages"]]
+        key = (rejects.key(missing[0]) if len(missing) == 1 else keys[0] if len(keys) == 1
+               else _soft_key(keys) if _is_soft(r) else None)
+        got = answers.get(o["id"], {})
+        pids = sorted((pid for pid, v in got.items() if pid not in o["passages"] and v >= cand_min
+                       and passage_strength(claims[pid]) >= 2),
+                      key=lambda pid: (-round(got[pid], 1), _rank_key(claims[pid], folders)))[:n_cand]
+        if key and pids:
+            o["confirm_key"] = key
+            o["candidates"] = [{"passage": pid, "value": round(got[pid], 2)} for pid in pids]
 
 
 def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
@@ -338,10 +403,23 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     folders = _folders(claims)
     ranked = sorted(claims.values(), key=lambda p: _rank_key(p, folders))
     active = rejects.pairs(cfg)
+    # Confirmed pairs by skill key: the candidate's and the plan's always count and rank first;
+    # Jev's remembered yes answers stand in for asking again.
+    strong: dict[str, list[str]] = {}
+    remembered: dict[str, dict[str, float]] = {}
+    for (k, pid), c in rejects.confirmed(cfg).items():
+        if pid not in claims:
+            continue
+        if c.get("source") == "jev":
+            remembered.setdefault(k, {})[pid] = float(c.get("value", 1.0))
+        else:
+            strong.setdefault(k, []).append(pid)
     for e in entries:
         names = [e["term"], e.get("canonical") or "", *(e.get("raw") or [])]
         hits = [p for p in ranked if term_mentioned(e, p["text"]) and not rejects.rejected(names, p["id"], active)]
-        e["passages"] = [p["id"] for p in hits if term_exact(e, p["text"])][:cap]
+        e["confirmed"] = list(dict.fromkeys(p for n in names if n for p in strong.get(rejects.key(n), [])))
+        e["passages"] = list(dict.fromkeys(
+            e["confirmed"] + [p["id"] for p in hits if term_exact(e, p["text"])]))[:cap]
         e["related"] = [p["id"] for p in hits if not term_exact(e, p["text"])][:3]
         e["base_rejected"] = rejects.rejected(names, rejects.BASE, active)
     cache = rejects.JevCache(cfg)
@@ -380,11 +458,31 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         req_out.append({"id": r["id"], "status": status, "strength": strength,
                         "passages": pids, "method": method})
 
+    # Confirmed passages for the requirement as a whole, including its soft-skill categories
+    # ("team player" is collaboration), which have no term entry of their own.
+    text_by_id = {r["id"]: r for r in reqs.get("requirements", [])}
+    req_conf: dict[str, list[str]] = {}
+    for o in req_out:
+        if o["method"] == "degree":
+            continue
+        r = text_by_id[o["id"]]
+        ck = list(dict.fromkeys(p for k in rejects.req_keys(r) for p in strong.get(k, [])))
+        if not ck:
+            continue
+        req_conf[o["id"]] = ck
+        o["passages"] = list(dict.fromkeys(ck + o["passages"]))[:cap]
+        o["strength"] = max(o["strength"], max(passage_strength(claims[i]) for i in ck))
+        if _is_soft(r):
+            o["status"] = "covered"
+        elif o["status"] == "missing":
+            o["status"] = "partial"
+        o["method"] = "confirmed" if o["method"] in ("none", "related") else f"{o['method']}+confirmed"
+
     # Jev second look at requirements the taxonomy found nothing for, and at every soft-skill
     # requirement: the taxonomy only finds lines that use the skill's own word ("collaborated"), so
     # the story that shows it ("worked on a 5-person data team ...") needs Jev to be found and ranked.
-    text_by_id = {r["id"]: r for r in reqs.get("requirements", [])}
-    threshold = float((cfg.get("evidence") or {}).get("jev_yes", 0.6))
+    ev_cfg = cfg.get("evidence") or {}
+    threshold = float(ev_cfg.get("jev_yes", 0.6))
 
     def needs_look(o: dict) -> bool:
         if o["method"] == "degree":
@@ -402,15 +500,17 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
 
     look = [text_by_id[o["id"]] for o in req_out if needs_look(o)]
     known = {o["id"]: o["passages"] for o in req_out}
-    for rid, answers in _jev_pass(look, claims, cfg, jev, active, known).items():
+    all_answers = _jev_pass(look, claims, cfg, jev, active, known, remembered, req_conf)
+    for rid, answers in all_answers.items():
         yes = [pid for pid, v in answers.items() if v >= threshold]
         if not yes:
             continue
         o = next(x for x in req_out if x["id"] == rid)
-        # Real bullets Jev agrees with first, most confident first; then the taxonomy's other finds;
-        # self-descriptions and skills lists last.
-        merged = sorted(dict.fromkeys(yes + o["passages"]), key=lambda i: (
-            passage_strength(claims[i]) < 2, i not in yes, -round(answers.get(i, 0.0), 1),
+        conf = req_conf.get(rid, [])
+        # Confirmed passages first; then real bullets Jev agrees with, most confident first; then the
+        # taxonomy's other finds; self-descriptions and skills lists last.
+        merged = sorted(dict.fromkeys(conf + yes + o["passages"]), key=lambda i: (
+            i not in conf, passage_strength(claims[i]) < 2, i not in yes, -round(answers.get(i, 0.0), 1),
             *_rank_key(claims[i], folders)[1:]))[:cap]
         strength = max(passage_strength(claims[i]) for i in merged)
         o.update(status="covered", strength=max(strength, o["strength"]), passages=merged,
@@ -418,6 +518,8 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         for n in _req_term_names(text_by_id[rid]):  # its terms are now backed by those passages
             if n in by_name and not by_name[n]["passages"]:
                 by_name[n]["passages"] = [i for i in merged if i in yes]
+
+    _remember_and_suggest(req_out, all_answers, text_by_id, by_name, claims, folders, remembered, app_dir, cfg)
 
     buckets: dict[str, dict] = {}
     for bid in base_texts:

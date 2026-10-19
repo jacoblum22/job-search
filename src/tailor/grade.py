@@ -415,6 +415,8 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     req = read_json(app_dir / "requirements.json")
     # Repair notes must never point back at a match that was rejected (here or on an earlier job).
     evidence = rejects.scrub_evidence(read_json(app_dir / "evidence.json"), req, rejects.pairs(cfg, app_dir))
+    # The plan may have added a match the evidence step missed; count it here too.
+    evidence = rejects.add_evidence(evidence, req, rejects.confirmed(cfg, app_dir))
     if not (d / "resume.yaml").exists():
         raise TailorError(f"resume.yaml is missing in {d}")
     data = load_resume(d / "resume.yaml")

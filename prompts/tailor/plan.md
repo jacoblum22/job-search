@@ -36,7 +36,8 @@ plan cannot change them.
    must-have). Same count or fewer than `swap_in`.
 5. **`skills_order`**: the base's skills group ids, reordered so the groups holding tier-1 and `must`
    terms come first. Use only ids that exist in the base; include all of them exactly once.
-6. Do not plan anything for terms in `absent`. They stay out of the resume. Terms in the
+6. Do not plan anything for terms in `absent` (unless you add evidence for one under rule 9). They
+   stay out of the resume. Terms in the
    `related` bucket are absent too; a `related` passage may be swapped in for what it actually says.
 7. Do not touch the code fields already in `plan.json`; read them only.
 8. **Confirm the evidence you use.** `evidence.json` comes from word matching and can be wrong (an
@@ -46,20 +47,29 @@ plan cannot change them.
    the skill or work the posting means, treat the term as absent and record it in
    `evidence_drops`. Record a drop for a term the base resume itself matches by accident too, and
    do not plan anything that leans on it.
+9. **Add evidence the matching missed.** The reverse also happens: a `claim` passage you read
+   clearly shows a skill the posting asks for, but `evidence.json` has the term in `absent` or the
+   requirement as `missing` or `partial` (the passage says it in other words: "explained results to
+   the Marketing team" shows communication). Record it in `evidence_adds` with the skill's name as
+   `term` (the taxonomy name, such as "communication" or "SQL", not the posting's whole sentence).
+   The term then counts as backed, so you may plan around it, and later jobs count it too. Add
+   only what the passage plainly shows; when unsure, leave it out.
 
 ## Output
 
-Merge these five keys into `plan.json` (keep every existing key unchanged):
+Merge these keys into `plan.json` (keep every existing key unchanged):
 
 ```json
 {"headline": "Data Analyst | null", "summary_angle": "...",
  "swap_in": ["passage.id"], "swap_out": ["section/entry/bullet-id"],
  "skills_order": ["skills.languages", "skills.tools"],
  "evidence_drops": [{"term": "Microsoft Access", "passage": "firmament.oauth-2-0",
-                     "reason": "Mentions OAuth access tokens, not Microsoft Access"}]}
+                     "reason": "Mentions OAuth access tokens, not Microsoft Access"}],
+ "evidence_adds": [{"term": "communication", "passage": "algaecal.explain-results",
+                    "reason": "Explained results to non-technical stakeholders"}]}
 ```
 
-`evidence_drops` is `[]` when every match held up. Use `"passage": "base"` for an accidental match
+`evidence_drops` is `[]` when every match held up, and `evidence_adds` is `[]` when nothing was missed. Use `"passage": "base"` for an accidental match
 in the base resume. The review packet lists every drop for the candidate.
 
 ## Worked example (invented)
@@ -85,7 +95,8 @@ shows analyst work.
 - [ ] `summary_angle` is one sentence with no flattery and no claim outside the vault.
 - [ ] Every `swap_in` id exists in the index; no `swap_out` path is in `protected_paths`.
 - [ ] `skills_order` lists each base group id exactly once.
-- [ ] Nothing from `absent` appears anywhere in the plan.
+- [ ] Nothing from `absent` appears anywhere in the plan, except terms I backed in `evidence_adds`.
 - [ ] I read the passage behind every term and `swap_in` I rely on; false matches are in
       `evidence_drops` and nothing in the plan leans on them.
+- [ ] Every `evidence_adds` passage is a `claim` passage that plainly shows the skill named in `term`.
 - [ ] All pre-existing `plan.json` keys are unchanged and the file is valid JSON.

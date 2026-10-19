@@ -1,8 +1,8 @@
 """Read and tick the boxes in an application's check.md from the dashboard server.
 
 check.md stays the record (approve reads it), so the server edits the same lines a
-person would tick by hand: `Reviewed` (on or off), and the pairs `Keep`/`Remove` and
-`Set aside`/`Undo`, where exactly one of the two is picked and can only be swapped for the other.
+person would tick by hand: `Reviewed` (on or off), and the pairs `Keep`/`Remove`,
+`Set aside`/`Undo` and `Doesn't show it`/`This shows it`, where exactly one of the two is picked and can only be swapped for the other.
 A lone `Undo` box (check.md files written before the pairs) stays optional.
 """
 
@@ -18,12 +18,13 @@ from src.tailor import TailorError
 _KINDS = {
     "keep_remove": re.compile(r"^- \[(?P<b0>[ xX])\] Keep\s+- \[(?P<b1>[ xX])\] Remove\s+(?P<text>.*)$"),
     "drop": re.compile(r"^- \[(?P<b0>[ xX])\] Set aside\s+- \[(?P<b1>[ xX])\] Undo\s+(?P<text>.*)$"),
+    "confirm": re.compile(r"^- \[(?P<b0>[ xX])\] Doesn't show it\s+- \[(?P<b1>[ xX])\] This shows it\s+(?P<text>.*)$"),
     "reviewed": re.compile(r"^- \[(?P<b0>[ xX])\] Reviewed\s+(?P<text>.*)$"),
     "undo": re.compile(r"^- \[(?P<b0>[ xX])\] Undo\s+(?P<text>.*)$"),
 }
-_OPTIONS = {"keep_remove": ["Keep", "Remove"], "drop": ["Set aside", "Undo"], "reviewed": ["Reviewed"],
-            "undo": ["Undo"]}
-_PAIRS = {"keep_remove", "drop"}
+_OPTIONS = {"keep_remove": ["Keep", "Remove"], "drop": ["Set aside", "Undo"],
+            "confirm": ["Doesn't show it", "This shows it"], "reviewed": ["Reviewed"], "undo": ["Undo"]}
+_PAIRS = {"keep_remove", "drop", "confirm"}
 _BOX = re.compile(r"\[[ xX]\]")
 
 
@@ -79,7 +80,7 @@ def open_items(text: str) -> int:
 def set_box(text: str, line: int, raw: str, option: str, checked: bool) -> str:
     """Tick or untick one box. `raw` is the line as the page saw it, so a check.md that
     changed since (a re-run packet) is refused instead of ticking the wrong line.
-    In a pair (Keep/Remove, Set aside/Undo) ticking one clears the other, and a pick can't be
+    In a pair (Keep/Remove, Set aside/Undo, Doesn't show it/This shows it) ticking one clears the other, and a pick can't be
     cleared, only swapped, so a decided line never goes back to undecided."""
     lines = text.splitlines()
     if not 0 <= line < len(lines) or lines[line] != raw:

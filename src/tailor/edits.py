@@ -361,7 +361,8 @@ def apply_edits(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
     }
     write_json(rdir / "applied.json", result)
     if (app_dir / "app.json").exists():
-        # The plan's evidence drops join the shared reject list so later jobs skip them.
+        # The plan's evidence drops and adds join the shared lists so later jobs follow them.
         result["new_rejects"] = len(rejects.sync_plan_drops(app_dir, cfg))
+        result["new_confirms"] = len(rejects.sync_plan_adds(app_dir, cfg))
         log(app_dir, "apply-edits", f"r{rnd}: {len(applied)} applied, {len(rejected)} rejected")
     return result

@@ -22,6 +22,7 @@ DEFAULT_PATHS = {
     "dashboard": "dashboard.html",
     "unknown_terms": "materials/tailor/unknown-terms.csv",
     "evidence_rejects": "materials/tailor/evidence-rejects.json",
+    "evidence_confirms": "materials/tailor/evidence-confirms.json",
     "jev_cache": "materials/tailor/jev-cache.json",
 }
 

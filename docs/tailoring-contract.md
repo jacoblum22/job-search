@@ -37,6 +37,7 @@ All personal data lives under the git-ignored `materials/`. Defaults, overridabl
 | `db` | `jobs.db` |
 | `unknown_terms` | `materials/tailor/unknown-terms.csv` |
 | `evidence_rejects` | `materials/tailor/evidence-rejects.json` |
+| `evidence_confirms` | `materials/tailor/evidence-confirms.json` |
 | `jev_cache` | `materials/tailor/jev-cache.json` |
 
 ## Application folder
@@ -118,7 +119,9 @@ listing what was dropped.
 ```json
 {
   "requirements": [{"id": "r1", "status": "covered|partial|missing", "strength": 0,
-                     "passages": ["algaecal.sql-daily"], "method": "taxonomy|jev|none"}],
+                     "passages": ["algaecal.sql-daily"], "method": "taxonomy|jev|confirmed|none (or a+b)",
+                     "confirm_key": "collaboration/teamwork",
+                     "candidates": [{"passage": "soft.data-team", "value": 0.35}]}],
   "terms": [{"term": "SQL", "canonical": "SQL", "kind": "must|nice|keyword", "weight": "role|boilerplate",
              "raw": ["SQL"], "passages": ["..."], "related": ["..."], "in_base": {"data-scientist": true}}],
   "buckets": {"data-scientist": {"matched": ["SQL"], "injectable": ["dbt"], "related": ["A/B testing"],
@@ -177,7 +180,38 @@ each drop is a `- [ ] Set aside  - [ ] Undo` line in plain words (exactly one mu
 `approve`), ending in `<!-- undo: term | passage -->` (the pair
 `approve` reads), with the passage quoted and "first set aside on this job" when this job added it;
 ticking Undo and running `approve` marks that entry `undone`, which stops it applying and keeps it
-from being re-added.
+from being re-added, and records the pair as a candidate confirm (below).
+
+Claude may also add `"evidence_adds": [{"term", "passage", "reason"}]`: a claim passage that plainly
+shows a skill the matching missed, with `term` the skill's name (the taxonomy name, not the
+posting's sentence). The term then counts as backed for this application (`grade` adds it to the
+evidence it scores against), and `apply-edits` copies it into the shared confirm list.
+
+### Confirmed matches: `evidence-confirms.json`
+
+`{"confirms": [{"term", "passage", "source": "jake|plan|jev", "reason", "job_id", "added",
+"value"?, "undone"?}]}`, the reverse of the reject list. Pairs are keyed by skill: `term` is the
+taxonomy name or soft-skill category (`rejects.req_keys` gives a requirement's keys: its terms
+plus the soft-skill categories its wording falls under, else its own text), so a passage
+confirmed for "collaborate across departments" also counts for "strong team player". Sources:
+
+- `jake`: picked "This shows it" (or "Shows the skill" on a drop) in check.md. Wins over any reject.
+- `plan`: the plan's `evidence_adds`. A reject wins over it.
+- `jev`: Jev said yes with at least `evidence.jev_remember` (0.8) to a real bullet for a soft
+  requirement with exactly one soft-skill key. A reject wins over it. Its stored `value` is reused
+  instead of asking Jev again.
+
+In the evidence step a `jake` or `plan` confirm always counts: its passage is put first in the
+term's and requirement's `passages`, Jev isn't asked about it, a soft requirement it backs is
+`covered` (`method` "confirmed"), and the plan's drops can't re-reject it. A requirement still
+missing, or covered only by strength-1 lines, keeps the passages Jev came closest to accepting
+(`candidates`: real bullets, value at least `evidence.review_candidate_min`, at most
+`evidence.review_candidates`) and the key a pick would confirm (`confirm_key`, omitted when the
+requirement mixes skills). `check.md` lists them under "Could these show it?" and the plan's adds
+under "Evidence the plan added", each as `- [ ] Doesn't show it  - [ ] This shows it  ...
+<!-- confirm: key | passage -->`, an exclusive pair. On `approve`, "This shows it" adds a `jake`
+confirm (and undoes a reject of the pair); "Doesn't show it" marks the pair's confirms `undone` and
+adds a reject, so it isn't suggested again. Pairs already decided aren't listed.
 
 ### `edits.json` (Claude writes)
 
