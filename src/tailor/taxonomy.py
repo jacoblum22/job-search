@@ -312,9 +312,6 @@ T = [
 ("Soft skills","creativity / innovation",r"creativ|innovative (?:solutions|ideas|thinking|approaches)|out.of.the.box|think outside"),
 ("Soft skills","strategic thinking",r"strategic (?:thinking|thinker|mindset)|think strategically"),
 ("Soft skills","organization",r"organi[sz]ational skills|(?:well|highly|very|extremely|stay) organi[sz]ed|strong organi[sz]ation"),
-# Asked for as competencies by BC health authorities and public employers (VCH, PHSA, Fraser Health).
-("Soft skills","diversity, equity & inclusion",r"diversity, equity|equity, diversity|(?-i:\b(?:EDI|DEI|JEDI)\b)|inclusive (?:practices|environments?|teams|culture)|anti.racis|equity.deserving|cultural (?:humility|competenc|awareness|sensitivity)"),
-("Soft skills","Indigenous cultural safety",r"cultural safety|indigenous (?:cultural|reconciliation|perspectives|ways)|truth and reconciliation|(?-i:\b(?:UNDRIP|DRIPA)\b)|trauma.informed"),
 ("Soft skills","empathy / compassion",r"empath|compassion"),
 # Credentials
 ("Credentials","Bachelor's degree",r"bachelor|undergraduate degree|b\.?sc|\bbs\b|\bba\b"),

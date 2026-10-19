@@ -60,8 +60,6 @@ def test_real_matches_still_work(text, right):
     ("proactively flags issues", "proactive"),
     ("build relationships with internal and external partners", "relationship building"),
     ("knowledge sharing across the team", "teaching / knowledge sharing"),
-    ("Indigenous cultural safety and humility", "Indigenous cultural safety"),
-    ("commitment to equity, diversity and inclusion", "diversity, equity & inclusion"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
