@@ -504,3 +504,16 @@ def test_letter_warnings(tmp_path):
     res, _ = letter_check(tmp_path, with_(paragraphs=paras))
     ws = set(codes(res["warnings"]))
     assert {"no_company_fact", "paragraph_count", "ai_phrase", "keen_to_grow", "familiar_absent_term"} <= ws
+
+
+def test_skill_pattern_ending_mid_word_still_finds_vault_wording():
+    # "data warehous" and "visualiz" are patterns that stop inside a word; the wording
+    # must be the whole word, or "data warehouse" in a vault passage never backs it.
+    from src.tailor import taxonomy
+    from src.tailor.checks import _wording_in
+
+    found = taxonomy.find_wordings("BigQuery, the company data warehouse, and data visualizations")
+    assert found["data warehouse"] == {"data warehouse"}
+    assert found["data visualization"] == {"visualizations"}
+    vault = "Skill: Google BigQuery; Concrete Evidence: Company data warehouse; dashboards and visualization"
+    assert all(_wording_in(w, vault) for w in found["data warehouse"] | found["data visualization"])

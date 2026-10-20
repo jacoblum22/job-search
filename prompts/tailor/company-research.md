@@ -27,8 +27,11 @@ old, **do nothing and report "fresh, skipped"**.
 - At most **5 web searches** and **6 pages read** in total.
 - Look at: the company's own site (about, values, products, engineering or data blog, careers),
   news from the **last 12 months**, and the team or product named in the posting.
-- Prefer the company's own pages; use a news article only for recent events. Skip social media,
-  review sites and job boards.
+- Prefer the company's own pages; use a news article only for recent events, and only from a real
+  news outlet or the company's own press release. Skip social media, review sites, job boards and
+  company-profile or summary sites (Crunchbase, ZoomInfo, BriefGlance and the like): they restate
+  other pages and can get them wrong.
+- Run commands with the Bash tool (the PowerShell tool is denied).
 
 ## Hard rules
 
