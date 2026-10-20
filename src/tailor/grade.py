@@ -504,9 +504,14 @@ def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeate
         pid = _req_passage(rid, r, evidence)
         return f"passage {pid} supports it" if pid else "add it only if the vault supports it"
 
+    jev_yes = {it["id"][5:] for it in items if it["id"].startswith("must.") and it["passed"] is True}
     # Must-haves with a vault-backed term that the resume doesn't show at all.
     for rid, r in must_reqs.items():
         terms = r.get("terms") or []
+        # A soft skill is shown by what a bullet describes, not by its name: once Jev says a bullet
+        # shows it, the missing word is no gap (soft words are never pushed in for points).
+        if rid in jev_yes and not any(taxonomy.is_hard(t) for t in terms):
+            continue
         if terms and any(_is_backed(t, backed) for t in terms) and not any(_credit(t, text, syn) for t in terms):
             sentence = f"Must-have {_req_label(r)} isn't shown; {passage_clause(rid, r)}."
             pids = {p for e in evidence.get("requirements") or [] if e.get("id") == rid for p in e.get("passages") or []}

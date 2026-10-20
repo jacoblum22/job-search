@@ -267,3 +267,17 @@ def test_ats_gap_lists_unused_and_unbacked_terms(tmp_path):
     if out["unused_terms"]:
         assert any(s.startswith("Use the posting's own words") for s in out["feedback"])
         assert any(g["id"] == "ats.unused" for g in out["gaps"])
+
+
+def test_soft_must_that_jev_passes_needs_no_word(tmp_path):
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "Strong communication", "terms": ["communication"]}
+    write_json(app / "requirements.json", r)
+    e = json.loads((app / "evidence.json").read_text())
+    e["present"] = list(e.get("present") or []) + ["communication"]
+    write_json(app / "evidence.json", e)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.8))
+    assert not any("communication" in f for f in out["feedback"])
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r2" else 0.8))
+    assert any("communication" in f for f in out["feedback"])
