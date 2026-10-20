@@ -645,3 +645,23 @@ def test_unknown_term_answers_are_cached(env):
     assert ev["terms"][0]["passages"] == ["proj.spam.model"]
     ev = run_evidence(app, cfg, None)  # cached answers count even with no Jev
     assert ev["terms"][0]["passages"] == ["proj.spam.model"]
+
+
+def test_jev_yes_on_an_or_list_backs_no_single_tool(env):
+    cfg, app = env
+    # Nothing in the vault names either tool; Jev says some bullets fit the requirement.
+    _with_reqs(app, [{"id": "a", "text": "Power BI or Power Automate dashboards", "kind": "nice",
+                      "terms": ["Power BI", "Power Automate"], "weight": "role", "quote": "SQL"}])
+    ev = run_evidence(app, cfg, FakeJev(lambda s, q: 0.9))
+    r = ev["requirements"][0]
+    assert r["status"] == "covered" and r["method"] == "jev" and r["passages"]
+    assert {"Power BI", "Power Automate"} <= set(ev["absent"])
+
+
+def test_positional_embeddings_are_not_embeddings():
+    from src.tailor import taxonomy as tx
+
+    assert "embeddings" not in tx.find("Rotary Position Embeddings (RoPE) and RoPE positional embeddings")
+    assert "embeddings" in tx.find("document loading, chunking, embeddings and search")
+    assert tx.canonical("RAG") == "RAG (retrieval-augmented generation)"
+    assert "RAG (retrieval-augmented generation)" not in tx.find("dragging the rag doll")

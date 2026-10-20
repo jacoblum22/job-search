@@ -515,9 +515,11 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         strength = max(passage_strength(claims[i]) for i in merged)
         o.update(status="covered", strength=max(strength, o["strength"]), passages=merged,
                  method="jev" if o["method"] in ("none", "related") else f"{o['method']}+jev")
-        for n in _req_term_names(text_by_id[rid]):  # its terms are now backed by those passages
-            if n in by_name and not by_name[n]["passages"]:
-                by_name[n]["passages"] = [i for i in merged if i in yes]
+        # A yes on the requirement backs its term only when it names one: for "ETL, data migration,
+        # Power BI or Power Automate" a yes shows one of them, not each, so no term is backed.
+        names = [n for n in dict.fromkeys(_req_term_names(text_by_id[rid])) if n in by_name]
+        if len(names) == 1 and not by_name[names[0]]["passages"]:
+            by_name[names[0]]["passages"] = [i for i in merged if i in yes]
 
     _remember_and_suggest(req_out, all_answers, text_by_id, by_name, claims, folders, remembered, app_dir, cfg)
 
