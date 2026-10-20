@@ -163,3 +163,11 @@ def test_fit_gap_stops_on_small_gain_even_below_floor(tmp_path):
         g.update(needs_ats_repair=False, fit_gap=True)
         gp.write_text(json.dumps(g))
     assert next_round(app, cfg)["action"] == "stop"
+
+
+def test_unfixable_must_does_not_count_as_a_failed_item(tmp_path):
+    app = new_app(tmp_path)
+    gap = {**item("must.r2", False), "fit_gap": ["C#"]}
+    add_round(app, 1, 85, items=[item("must.r1", True), gap], ats=82)
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and out["next_round"] is None

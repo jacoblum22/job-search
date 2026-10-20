@@ -436,6 +436,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         if it["id"].startswith("must."):
             r = must_reqs[meta[it["id"]]["req_id"]]
             it["sections"] = _must_sections(data, {p for e in evidence.get("requirements") or [] if e.get("id") == r["id"] for p in e.get("passages") or []})
+    _mark_fit_gaps(items, must_reqs, evidence, text, cfg)
 
     passed = sum(1 for it in items if it["passed"] is not False)
     rate = passed / len(items) if items else 1.0
@@ -474,6 +475,23 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     return result
 
 
+def _mark_fit_gaps(items, must_reqs, evidence, text, cfg) -> None:
+    """Tag a failed must-have whose only missing terms are ones the vault doesn't back.
+
+    Jev judges the whole requirement ("Python and C#/.NET"), so a real gap fails it even when
+    the backed part is already shown. No rewrite can fix that, so repair rounds skip it; it
+    still counts against the score and stays on the review page."""
+    backed = _backed_set(evidence)
+    syn = cfg.get("synonym_credit", 0.5)
+    for it in items:
+        if it["passed"] is not False or not it["id"].startswith("must."):
+            continue
+        terms = must_reqs.get(it["id"][5:], {}).get("terms") or []
+        unbacked = [t for t in terms if not _is_backed(t, backed)]
+        if unbacked and all(_credit(t, text, syn) > 0 for t in terms if t not in unbacked):
+            it["fit_gap"] = unbacked
+
+
 def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeated):
     """Plain-sentence fixes for failed items and for must-haves the resume doesn't show."""
     backed = _backed_set(evidence)
@@ -504,8 +522,11 @@ def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeate
             rid = iid[5:]
             if rid in seen_reqs:
                 continue
+            if it.get("fit_gap"):
+                continue
             r = must_reqs.get(rid, {})
-            sentences.append(f"Must-have {_req_label(r)} needs a bullet that names the tool and its scope; {passage_clause(rid, r)}.")
+            label = ", ".join(t for t in r.get("terms") or [] if _is_backed(t, backed)) or _req_label(r)
+            sentences.append(f"Must-have {label} needs a bullet that names the tool and its scope; {passage_clause(rid, r)}.")
         elif iid == "top_third":
             sentences.append(f"Rewrite the summary so the top of the resume reads as a {req.get('title') or 'target'} role.")
         elif iid.startswith("portable."):
