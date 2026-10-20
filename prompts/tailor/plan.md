@@ -52,8 +52,11 @@ plan cannot change them.
    requirement as `missing` or `partial` (the passage says it in other words: "explained results to
    the Marketing team" shows communication). Record it in `evidence_adds` with the skill's name as
    `term` (the taxonomy name, such as "communication" or "SQL", not the posting's whole sentence).
-   The term then counts as backed, so you may plan around it, and later jobs count it too. Add
-   only what the passage plainly shows; when unsure, leave it out.
+   The term then counts as backed, so you may plan around it, and later jobs count it too, but
+   only on a line that cites that passage in its `sources` (the skills list counts it anywhere): a
+   bullet or letter paragraph naming the term while citing other passages still fails the check.
+   `apply-edits` records the adds; rerunning `evidence` doesn't change what the check accepts.
+   Add only what the passage plainly shows; when unsure, leave it out.
 
 ## Output
 

@@ -341,10 +341,17 @@ def check_resume(
             w("term_stuffing", f"'{t}' appears {n} times in {words_n} words (posting: {pn})", term=t)
     prose = "\n".join(t for p, t in d_units if not p.startswith("skills/"))
     skills_text = "\n".join(t for p, t in d_units if p.startswith("skills/"))
+    listed_only: set[str] = set()
     for t in terms:
         canon = taxonomy.canonical(t)
         if canon and taxonomy.is_hard(canon) and _covered(t, skills_text) and not _covered(t, prose):
-            w("skill_only_in_list", f"'{t}' appears only in the skills list", "skills", term=t)
+            # One warning per skill, named as the list has it: "AWS S3" covers the posting's
+            # "AWS Step Functions" only through the skill AWS, which is what the list shows.
+            if canon in listed_only:
+                continue
+            listed_only.add(canon)
+            name = t if taxonomy.exact(t, skills_text) else canon
+            w("skill_only_in_list", f"'{name}' appears only in the skills list", "skills", term=name)
     if posting:
         pw = [x for x in re.findall(r"[a-z0-9']+", norm(posting))]
         post_runs = _runs(pw, 8)

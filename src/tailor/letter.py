@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.tailor import phrases, taxonomy
+from src.tailor import phrases, rejects, taxonomy
 from src.tailor.appdir import read_json, write_json
 from src.tailor.paths import resolve
 
@@ -36,14 +36,22 @@ _GRADE = re.compile(
 
 
 def _must_missing(app_dir: Path, req: dict[str, Any]) -> bool:
-    """Whether evidence.json has a `must` requirement the vault doesn't back at all."""
+    """Whether evidence.json has a `must` requirement the vault doesn't back at all, or a must term
+    in `absent` ("AWS, particularly SageMaker" is only partial when AWS is backed; SageMaker is missing)."""
     path = app_dir / "evidence.json"
     if not path.exists():
         return True  # can't tell; don't warn
-    kinds = {r.get("id"): r.get("kind") for r in req.get("requirements") or [] if isinstance(r, dict)}
+    musts = [r for r in req.get("requirements") or [] if isinstance(r, dict) and r.get("kind") == "must"]
     ev = read_json(path)
-    return any(o.get("status") == "missing" and kinds.get(o.get("id")) == "must"
-               for o in (ev.get("requirements") or []) if isinstance(o, dict))
+    ids = {r.get("id") for r in musts}
+    if any(o.get("status") == "missing" and o.get("id") in ids
+           for o in (ev.get("requirements") or []) if isinstance(o, dict)):
+        return True
+    absent = {str(t).lower() for t in ev.get("absent") or []}
+    names = {str(n).lower() for r in musts for t in r.get("terms") or [] if isinstance(t, str)
+             for n in (t, taxonomy.canonical(t)) if n}
+    names |= {str(c).lower() for r in musts for c in r.get("canonical") or [] if isinstance(c, str)}
+    return bool(absent & names)
 
 
 def company_slug(company: str) -> str:
@@ -98,7 +106,7 @@ def check_greeting(letter: dict[str, Any], contact: dict[str, Any] | None) -> tu
 def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
     """Return {"criticals", "warnings", "greeting_reset"}; resets an unverified greeting in the file.
 
-    `ctx` (built by checks.run_check): index, req, posting, base_text, claim_texts, own_texts.
+    `ctx` (built by checks.run_check): index, req, posting, base_text, claim_texts, own_texts, confirmed.
     """
     from src.tailor.checks import extract_numbers, number_keys  # lazy: checks imports this module
 
@@ -141,6 +149,7 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     vault_skills = taxonomy.find(ctx["base_text"] + "\n" + "\n".join(ctx["claim_texts"]))
     must_terms = {taxonomy.canonical(t) or t for r in req.get("requirements") or []
                   if isinstance(r, dict) and r.get("kind") == "must" for t in r.get("terms") or []}
+    confirmed = ctx.get("confirmed") or set()
 
     cited_fact = False
     for i, p in enumerate(paras):
@@ -176,8 +185,10 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
         # The one "keen to grow into" sentence may name the missing must-haves it is about.
         keen_ok = {s for sent in _SENTENCE.split(text) if _KEEN.search(sent)
                    for s in taxonomy.find(sent) & must_terms}
+        # As on the resume, a confirmed (skill, passage) pair backs the skill where that passage is cited.
+        srcs = p.get("sources") or []
         for skill in sorted(taxonomy.find(text) - vault_skills - fact_skills - keen_ok):
-            if taxonomy.is_hard(skill):
+            if taxonomy.is_hard(skill) and not any((rejects.key(skill), sid) in confirmed for sid in srcs):
                 crit("invented_skill", f"{where}: mentions {skill}, which is not in the vault or base", where, term=skill)
         for m in _FAMILIAR.finditer(text):
             for skill in sorted(taxonomy.find(m.group(1)) - vault_skills):
