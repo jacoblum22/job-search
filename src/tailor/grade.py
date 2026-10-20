@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from src.experience import parse_min_years_experience
 from src.resume import iter_bullets, load_resume
 from src.tailor import TailorError, rejects, taxonomy
 from src.tailor.appdir import log, read_json, round_dir, write_json
@@ -486,7 +487,12 @@ def _mark_fit_gaps(items, must_reqs, evidence, text, cfg) -> None:
     for it in items:
         if it["passed"] is not False or not it["id"].startswith("must."):
             continue
-        terms = must_reqs.get(it["id"][5:], {}).get("terms") or []
+        r = must_reqs.get(it["id"][5:], {})
+        terms = r.get("terms") or []
+        if not terms and any(parse_min_years_experience(str(r.get(k) or "")) for k in ("quote", "text")):
+            # Years of experience come from the dates, which no rewrite can change.
+            it["fit_gap"] = ["years of experience"]
+            continue
         unbacked = [t for t in terms if not _is_backed(t, backed)]
         if unbacked and all(_credit(t, text, syn) > 0 for t in terms if t not in unbacked):
             it["fit_gap"] = unbacked
