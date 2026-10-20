@@ -256,3 +256,23 @@ def test_packet_calls_a_low_ceiling_a_weaker_fit(cfg):
     assert "the best this resume could reach is about 66.0, under the 70 minimum" in check
     assert "your vault doesn't show them:\n    - SPSS\n    - healthcare data" in check
     assert "doesn't use the posting's words:\n    - None" in check  # both lists always shown
+
+
+def test_gate_judges_against_the_closest_base(cfg):
+    bases = Path(cfg["paths"]["bases"])
+    bases.mkdir(parents=True, exist_ok=True)
+    (bases / "data-scientist.yaml").write_text("summary: {text: Python with pandas and scikit-learn models}\n")
+    (bases / "junior-swe.yaml").write_text("summary: {text: TypeScript and React apps with Git and Docker}\n")
+    add(cfg, "s1", "Software Engineer I", "A", 80,
+        desc="Build features in TypeScript and React; use Git and Docker. " * 30)
+    add(cfg, "d1", "Data Scientist", "A", 70, desc="Build models in Python with pandas and scikit-learn. " * 30)
+    seen = {}
+
+    def answers(state, q):
+        seen[state.split("\n")[1]] = state.split("RESUME\n", 1)[1]
+        return GOOD[q.id]
+
+    out = run_queue(cfg, limit=5, jev=FakeJev(answers))
+    assert "React" in seen["Software Engineer I at Contoso Retail"]
+    assert "pandas" in seen["Data Scientist at Contoso Retail"]
+    assert {appdir.load_app(p)["gate"]["resume_base"] for p in out} == {"junior-swe", "data-scientist"}

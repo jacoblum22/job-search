@@ -32,6 +32,10 @@ Do **not** read the candidate's resume or vault in this step. Requirements come 
 3. **`kind: "must"` only when the ad itself says so** ("required", "essential", "must", "you have",
    "minimum", "we need"). "Strong asset", "preferred", "nice to have", "bonus", "familiarity with"
    and anything unmarked is `nice`. When unsure, choose `nice`.
+   A qualifications list the ad introduces as what it wants from the candidate ("What we're looking
+   for", "Requirements", "Qualifications", "You bring") counts as "you have" wording: its plain lines
+   are `must`, and lines inside it that soften themselves ("an asset", "beneficial", "familiarity
+   with", "preferred", "ideally") stay `nice`. Duty lists ("What you'll do") are not qualifications.
 4. **Tiers 1-3** (`tier`): 1 = defines the role (named in the title, first duties, or repeated);
    2 = clearly expected for the work; 3 = mentioned in passing. Tier is about importance, `kind` is
    about how the ad words it; they are independent.
