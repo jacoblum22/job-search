@@ -1,23 +1,28 @@
-"""Evidence matches that were rejected once, so they aren't made again.
+"""The skill record: what the candidate has, what they don't, and which lines don't show what.
 
-The plan step lists weak matches it refused in `plan.json` `evidence_drops`
-("problem solving" from a passage that only names the skill as a research
-result). Those drops are copied into one shared list, `evidence-rejects.json`,
-which the evidence step reads for every later job, and the grade step reads so
-its repair notes never point back at a rejected passage. A drop the candidate
-marks "Undo" in check.md stays in the list as undone, so it isn't re-added.
+One shared file, `skill-record.json`, every application reads and adds to:
 
-The reverse list, `evidence-confirms.json`, holds matches that are known to be
-right: ones the candidate marked "This shows it" (or "Shows the skill" on a drop)
-in check.md, ones the plan step added (`plan.json` `evidence_adds`), and soft-skill
-passages Jev said yes to with high confidence. Pairs are keyed by skill (the
-taxonomy name, or the soft-skill category), not by a posting's wording, so a match
-confirmed for "collaborate across departments" also counts for "strong team player".
-The candidate's own confirms win over any reject; a reject wins over a plan or Jev
-confirm. Jev's remembered answers aren't asked again.
+- `has`: matches known to be right, each a skill and the vault passage that shows it: ones the
+  candidate marked "This shows it" (or "Shows the skill" on a drop) in check.md, ones the plan step
+  added (`plan.json` `evidence_adds`), and soft-skill passages Jev said yes to with high confidence.
+  Pairs are keyed by skill (the taxonomy name, or the soft-skill category), not by a posting's
+  wording, so a match confirmed for "collaborate across departments" also counts for "strong team
+  player". The candidate's own matches win over any `not_shown` entry; a `not_shown` entry wins over
+  a plan or Jev match. Jev's remembered answers aren't asked again.
+- `lacks`: skills the candidate has said they don't have ("Node.js", "Power BI"). The evidence step
+  matches nothing to them, doesn't ask Jev about them and offers no "This shows it" candidates, so a
+  known gap is reported as a fit gap straight away. A candidate's own `has` entry for the skill wins.
+- `not_shown`: weak matches refused once, so they aren't made again: the plan step's
+  `evidence_drops` ("problem solving" from a passage that only names the skill as a research result)
+  and check.md "Doesn't show it" picks. The grade step reads them so its repair notes never point
+  back at a refused passage. One the candidate marks "Undo" stays, marked undone, so it isn't re-added.
 
-The same folder holds a small cache of Jev's yes/no answers for terms the
-taxonomy doesn't know, so a "no" sticks and the same question isn't paid twice.
+The tier score (`src/vault_gaps.py`) reads `has` and `lacks` too, so what applications learn
+changes future scores. Older setups kept these in `evidence-confirms.json`, `known-gaps.json` and
+`evidence-rejects.json`; those are read once when the record doesn't exist yet.
+
+The same folder holds a small cache of Jev's yes/no answers for terms the taxonomy doesn't know,
+so a "no" sticks and the same question isn't paid twice.
 """
 
 from __future__ import annotations
@@ -59,11 +64,28 @@ def _key(term: str) -> str:
     return " ".join((taxonomy.canonical(term) or term).lower().split())
 
 
+SECTIONS = ("has", "lacks", "not_shown")
+# Where each section lived before the record (same folder), and its list's key there.
+_LEGACY = {"has": ("evidence-confirms.json", "confirms"), "lacks": ("known-gaps.json", "gaps"),
+           "not_shown": ("evidence-rejects.json", "rejects")}
+
+
+def _record_path(cfg: dict[str, Any]) -> Path:
+    return _path(cfg, "skill_record")
+
+
 def _load(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {"rejects": []}
-    data = json.loads(path.read_text(encoding="utf-8") or "{}")
-    data.setdefault("rejects", [])
+    """The whole record, every section present. With no record yet, the older separate files are read."""
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8") or "{}")
+    else:
+        data = {}
+        for section, (name, list_key) in _LEGACY.items():
+            old = path.parent / name
+            if old.exists():
+                data[section] = (json.loads(old.read_text(encoding="utf-8") or "{}")).get(list_key) or []
+    for section in SECTIONS:
+        data.setdefault(section, [])
     return data
 
 
@@ -88,7 +110,7 @@ def req_keys(r: dict[str, Any]) -> list[str]:
 
 def load(cfg: dict[str, Any]) -> list[dict[str, Any]]:
     """Every reject entry, undone ones included."""
-    return _load(_path(cfg, "evidence_rejects"))["rejects"]
+    return _load(_record_path(cfg))["not_shown"]
 
 
 def pairs(cfg: dict[str, Any], app_dir: Path | None = None) -> set[tuple[str, str]]:
@@ -119,9 +141,9 @@ def sync_plan_drops(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
     if not plan_path.exists():
         return []
     drops = appdir.read_json(plan_path).get("evidence_drops") or []
-    path = _path(cfg, "evidence_rejects")
+    path = _record_path(cfg)
     data = _load(path)
-    known = {(_key(r["term"]), r["passage"]) for r in data["rejects"]}
+    known = {(_key(r["term"]), r["passage"]) for r in data["not_shown"]}
     known |= {k for k, c in _confirm_map(cfg).items() if c.get("source") in STRONG}  # the candidate said it shows it
     job_id = appdir.load_app(app_dir).get("job_id")
     new = []
@@ -135,7 +157,7 @@ def sync_plan_drops(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
         new.append({"term": d["term"], "passage": str(d["passage"]), "reason": d.get("reason", ""),
                     "job_id": job_id, "added": appdir.now()[:10]})
     if new:
-        data["rejects"].extend(new)
+        data["not_shown"].extend(new)
         appdir.write_json(path, data)
     return new
 
@@ -153,10 +175,10 @@ def apply_undos(check_md: str, cfg: dict[str, Any]) -> list[tuple[str, str]]:
             ticked.add((_key(m["term"] or m["old_term"]), (m["passage"] or m["old_passage"]).strip()))
     if not ticked:
         return []
-    path = _path(cfg, "evidence_rejects")
+    path = _record_path(cfg)
     data = _load(path)
     changed = []
-    for r in data["rejects"]:
+    for r in data["not_shown"]:
         k = (_key(r["term"]), r["passage"])
         if k in ticked and not r.get("undone"):
             r["undone"] = True
@@ -194,17 +216,9 @@ def scrub_evidence(evidence: dict[str, Any], req: dict[str, Any], active: set[tu
 
 # --- Confirmed matches -------------------------------------------------------
 
-def _load_confirms(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {"confirms": []}
-    data = json.loads(path.read_text(encoding="utf-8") or "{}")
-    data.setdefault("confirms", [])
-    return data
-
-
 def load_confirms(cfg: dict[str, Any]) -> list[dict[str, Any]]:
     """Every confirm entry, undone ones included."""
-    return _load_confirms(_path(cfg, "evidence_confirms"))["confirms"]
+    return _load(_record_path(cfg))["has"]
 
 
 def _confirm_map(cfg: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
@@ -230,9 +244,9 @@ def add_confirms(cfg: dict[str, Any], items: Iterable[dict[str, Any]], job_id: A
     items = [i for i in items if i.get("term") and i.get("passage")]
     if not items:
         return []
-    path = _path(cfg, "evidence_confirms")
-    data = _load_confirms(path)
-    by_key = {(_key(c["term"]), str(c["passage"])): c for c in data["confirms"]}
+    path = _record_path(cfg)
+    data = _load(path)
+    by_key = {(_key(c["term"]), str(c["passage"])): c for c in data["has"]}
     out = []
     for i in items:
         k = (_key(i["term"]), str(i["passage"]))
@@ -245,7 +259,7 @@ def add_confirms(cfg: dict[str, Any], items: Iterable[dict[str, Any]], job_id: A
         if i.get("value") is not None:
             entry["value"] = round(float(i["value"]), 3)
         if cur is None:
-            data["confirms"].append(entry)
+            data["has"].append(entry)
         else:
             cur.clear()
             cur.update(entry)
@@ -254,6 +268,19 @@ def add_confirms(cfg: dict[str, Any], items: Iterable[dict[str, Any]], job_id: A
     if out:
         appdir.write_json(path, data)
     return out
+
+
+# --- Known gaps ----------------------------------------------------------------
+
+def load_gaps(cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every known-gap entry ({skill, note?, added})."""
+    return _load(_record_path(cfg))["lacks"]
+
+
+def gap_keys(cfg: dict[str, Any]) -> set[str]:
+    """Skill keys the candidate doesn't have; a candidate's own confirm for the skill wins."""
+    mine = {k for (k, _), c in _confirm_map(cfg).items() if c.get("source") in STRONG}
+    return {_key(g["skill"]) for g in load_gaps(cfg) if g.get("skill")} - mine
 
 
 def sync_plan_adds(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
@@ -281,17 +308,17 @@ def apply_confirms(check_md: str, cfg: dict[str, Any], job_id: Any = None) -> di
                        for t, p in yes], job_id)
     keys_yes, keys_no = {(_key(t), p) for t, p in yes}, {(_key(t), p) for t, p in no}
     if keys_no:
-        path = _path(cfg, "evidence_confirms")
-        data = _load_confirms(path)
-        hit = [c for c in data["confirms"] if (_key(c["term"]), str(c["passage"])) in keys_no and not c.get("undone")]
+        path = _record_path(cfg)
+        data = _load(path)
+        hit = [c for c in data["has"] if (_key(c["term"]), str(c["passage"])) in keys_no and not c.get("undone")]
         for c in hit:
             c["undone"] = True
         if hit:
             appdir.write_json(path, data)
-    path = _path(cfg, "evidence_rejects")
+    path = _record_path(cfg)
     data = _load(path)
     changed = False
-    by_key = {(_key(r["term"]), r["passage"]): r for r in data["rejects"]}
+    by_key = {(_key(r["term"]), r["passage"]): r for r in data["not_shown"]}
     for k in keys_yes:
         r = by_key.get(k)
         if r is not None and not r.get("undone"):
@@ -301,7 +328,7 @@ def apply_confirms(check_md: str, cfg: dict[str, Any], job_id: Any = None) -> di
         if r is None:
             r = {"term": term, "passage": pid, "reason": "You said this doesn't show it", "job_id": job_id,
                  "added": appdir.now()[:10]}
-            data["rejects"].append(r)
+            data["not_shown"].append(r)
             by_key[k] = r
             changed = True
         elif r.get("undone"):

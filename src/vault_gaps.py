@@ -13,6 +13,11 @@ the vault index names it, and every tool the skills list knows can be one:
   the gap instead of closing it.
 - Each gap counts once per posting, and a product asked next to its platform
   (Cloud Composer with GCP) is one gap.
+
+The skill record (`materials/tailor/skill-record.json`, kept by the tailoring pipeline in
+`src/tailor/rejects.py`) corrects the vault: a tool Jake confirmed or the plan matched (`has`)
+counts even when no passage names it, a tool he said he doesn't have (`lacks`) never counts,
+and a passage marked as not showing a tool (`not_shown`) doesn't count for that tool.
 """
 
 from __future__ import annotations
@@ -44,23 +49,46 @@ class Gap:
     points: float
 
 
+def _skill(term: str) -> str:
+    return taxonomy.canonical(str(term)) or str(term)
+
+
+def _is_hard_tool(s: str) -> bool:
+    return taxonomy.is_hard(s) and _is_tool(s)
+
+
 @lru_cache(maxsize=4)
-def _load(path: str, mtime: float) -> Vault:
+def _load(path: str, mtime: float, record_path: str, record_mtime: float) -> Vault:
     passages = json.loads(Path(path).read_text(encoding="utf-8"))["passages"]
-    claims = "\n".join(p["text"] for p in passages if p.get("use", "claim") == "claim")
-    tools = frozenset(s for s in taxonomy.find(claims) if taxonomy.is_hard(s) and _is_tool(s))
+    record = json.loads(Path(record_path).read_text(encoding="utf-8") or "{}") if record_path else {}
+    live = lambda section: [e for e in record.get(section) or [] if isinstance(e, dict) and not e.get("undone")]
+    not_shown = {(_skill(e.get("term", "")), str(e.get("passage"))) for e in live("not_shown")}
+    tools = {s for p in passages if p.get("use", "claim") == "claim" for s in taxonomy.find(p["text"])
+             if _is_hard_tool(s) and (s, p.get("id")) not in not_shown}
+    # Jev's remembered answers are soft-skill stories; the candidate's and the plan's matches are tools too.
+    mine = {_skill(e.get("term", "")) for e in live("has") if e.get("source") == "jake"}
+    tools |= {s for s in (_skill(e.get("term", "")) for e in live("has") if e.get("source") in ("jake", "plan"))
+              if _is_hard_tool(s)}
+    tools -= {_skill(e.get("skill", "")) for e in live("lacks")} - mine
     types = frozenset(t for s in tools for t in taxonomy.TOOL_TYPES.get(s, ()))
-    return Vault(tools, types)
+    return Vault(frozenset(tools), types)
 
 
-def load_vault(index_path: str | Path) -> Vault | None:
-    """The vault's tools, or None when the index isn't there (a fresh clone, CI)."""
-    path = Path(index_path)
-    if not path.is_absolute():
-        path = ROOT / path
+def _abs(p: str | Path) -> Path:
+    p = Path(p)
+    return p if p.is_absolute() else ROOT / p
+
+
+def load_vault(index_path: str | Path, record_path: str | Path | None = None) -> Vault | None:
+    """The vault's tools, corrected by the skill record when there is one; None when the index
+    isn't there (a fresh clone, CI)."""
+    path = _abs(index_path)
     if not path.exists():
         return None
-    return _load(str(path), path.stat().st_mtime)
+    record = _abs(record_path) if record_path else None
+    if record is None or not record.exists():
+        return _load(str(path), path.stat().st_mtime, "", 0.0)
+    return _load(str(path), path.stat().st_mtime, str(record), record.stat().st_mtime)
 
 
 def _family(skill: str) -> str:

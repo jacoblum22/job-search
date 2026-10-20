@@ -36,8 +36,7 @@ All personal data lives under the git-ignored `materials/`. Defaults, overridabl
 | `rules` | `materials/docs/tailoring-rules.md` |
 | `db` | `jobs.db` |
 | `unknown_terms` | `materials/tailor/unknown-terms.csv` |
-| `evidence_rejects` | `materials/tailor/evidence-rejects.json` |
-| `evidence_confirms` | `materials/tailor/evidence-confirms.json` |
+| `skill_record` | `materials/tailor/skill-record.json` |
 | `jev_cache` | `materials/tailor/jev-cache.json` |
 
 ## Application folder
@@ -173,8 +172,8 @@ Code part (`run_base`): `{"base_id", "base_scores": {base: potential_pct}, "jev_
 Claude adds: `{"headline": "...|null", "summary_angle": "...", "swap_in": [passage ids],
 "swap_out": [paths], "skills_order": [group ids], "evidence_drops": [{"term", "passage", "reason"}]}`.
 `evidence_drops` lists matches Claude read and rejected (passage `"base"` for an accidental match
-in the base resume); `check.md` shows them. `apply-edits` copies them into the shared reject list
-`evidence-rejects.json` (`{"rejects": [{"term", "passage", "reason", "job_id", "added", "undone"?}]}`),
+in the base resume); `check.md` shows them. `apply-edits` copies them into the skill record's
+`not_shown` list (`{"term", "passage", "reason", "job_id", "added", "undone"?}`, see below),
 so later jobs skip them, and `grade` leaves rejected passages out of its repair notes. In `check.md`
 each drop is a `- [ ] Set aside  - [ ] Undo` line in plain words (exactly one must be ticked before
 `approve`), ending in `<!-- undo: term | passage -->` (the pair
@@ -185,20 +184,31 @@ from being re-added, and records the pair as a candidate confirm (below).
 Claude may also add `"evidence_adds": [{"term", "passage", "reason"}]`: a claim passage that plainly
 shows a skill the matching missed, with `term` the skill's name (the taxonomy name, not the
 posting's sentence). The term then counts as backed for this application (`grade` adds it to the
-evidence it scores against), and `apply-edits` copies it into the shared confirm list.
+evidence it scores against), and `apply-edits` copies it into the skill record's `has` list.
 
-### Confirmed matches: `evidence-confirms.json`
+### The skill record: `skill-record.json`
 
-`{"confirms": [{"term", "passage", "source": "jake|plan|jev", "reason", "job_id", "added",
-"value"?, "undone"?}]}`, the reverse of the reject list. Pairs are keyed by skill: `term` is the
+One file every application reads and adds to: `{"has": [...], "lacks": [...], "not_shown": [...]}`.
+It is the only record of which skills the candidate has; the taxonomy lists which skills exist and
+the vault holds the stories. The tier score reads it too (`score.vault_gaps.record`,
+`src/vault_gaps.py`): a tool with a `jake` or `plan` entry in `has` counts as one Jake has even if
+no passage names it, a tool in `lacks` never counts, and a `not_shown` pair stops that passage
+counting for that tool. Before the record existed the three lists were `evidence-confirms.json`,
+`known-gaps.json` and `evidence-rejects.json` in the same folder; they are read once while
+`skill-record.json` doesn't exist, and the first save writes all three into it.
+
+#### `has`: confirmed matches
+
+`[{"term", "passage", "source": "jake|plan|jev", "reason", "job_id", "added", "value"?, "undone"?}]`,
+the reverse of `not_shown`. Pairs are keyed by skill: `term` is the
 taxonomy name or soft-skill category (`rejects.req_keys` gives a requirement's keys: its terms
 plus the soft-skill categories its wording falls under, else its own text), so a passage
 confirmed for "collaborate across departments" also counts for "strong team player". Sources:
 
-- `jake`: picked "This shows it" (or "Shows the skill" on a drop) in check.md. Wins over any reject.
-- `plan`: the plan's `evidence_adds`. A reject wins over it.
+- `jake`: picked "This shows it" (or "Shows the skill" on a drop) in check.md. Wins over any `not_shown` pair.
+- `plan`: the plan's `evidence_adds`. A `not_shown` pair wins over it.
 - `jev`: Jev said yes with at least `evidence.jev_remember` (0.8) to a real bullet for a soft
-  requirement with exactly one soft-skill key. A reject wins over it. Its stored `value` is reused
+  requirement with exactly one soft-skill key. A `not_shown` pair wins over it. Its stored `value` is reused
   instead of asking Jev again.
 
 In the evidence step a `jake` or `plan` confirm always counts: its passage is put first in the
@@ -212,6 +222,15 @@ under "Evidence the plan added", each as `- [ ] Doesn't show it  - [ ] This show
 <!-- confirm: key | passage -->`, an exclusive pair. On `approve`, "This shows it" adds a `jake`
 confirm (and undoes a reject of the pair); "Doesn't show it" marks the pair's confirms `undone` and
 adds a reject, so it isn't suggested again. Pairs already decided aren't listed.
+
+#### `lacks`: known gaps
+
+`[{"skill", "note"?, "added"}]`: skills the candidate has said they don't have, keyed like
+confirms (`rejects.key`, so "node.js" and "Node.js" are one skill). In the evidence step a known
+gap's term gets no passages, related passages or base match (a skills-list mention or a plan or
+Jev confirm isn't evidence of it), Jev isn't asked about it, and a requirement made only of known
+gaps gets no "Could these show it?" candidates. Grade then treats a must made only of known gaps
+as a fit gap. A `jake` confirm for the same skill takes it off the list.
 
 ### `edits.json` (Claude writes)
 

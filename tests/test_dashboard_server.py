@@ -39,7 +39,7 @@ POST = {**H, "Origin": "http://127.0.0.1:8765", "Content-Type": "application/jso
 @pytest.fixture
 def env(tmp_path):
     cfg = load_config({"paths": {"db": str(tmp_path / "jobs.db"), "applications": str(tmp_path / "apps"),
-                                 "evidence_rejects": str(tmp_path / "rejects.json")}})
+                                 "skill_record": str(tmp_path / "skill-record.json")}})
     conn = connect(cfg["paths"]["db"])
     jid, _ = upsert_job(conn, Job("test", "a1", "Junior Analyst", "VCH", "Vancouver, BC", "SQL " * 50, "https://x/a1"))
     other, _ = upsert_job(conn, Job("test", "b1", "Data Analyst", "Acme", "Vancouver, BC", "SQL " * 50, "https://x/b1"))

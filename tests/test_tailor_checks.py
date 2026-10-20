@@ -248,8 +248,7 @@ def test_plan_add_backs_a_skill_on_the_line_that_cites_it(tmp_path):
     def m(d):
         bullet(d, "northwind.dashboards")["text"] += " Also built Looker explores."
     app, cfg = make_app(tmp_path)
-    cfg["paths"]["evidence_confirms"] = str(tmp_path / "confirms.json")
-    cfg["paths"]["evidence_rejects"] = str(tmp_path / "rejects.json")
+    cfg["paths"]["skill_record"] = str(tmp_path / "skill-record.json")
     plan = read_json(app / "plan.json")
     plan["evidence_adds"] = [{"term": "Looker", "passage": "northwind.dashboards", "reason": "test"}]
     write_json(app / "plan.json", plan)
@@ -355,8 +354,9 @@ def test_warnings(tmp_path):
             b["text"] = b["text"].replace("Tableau", "reports")  # drop a requirement term from the draft
     res, *_ = checked(tmp_path, m)
     ws = set(codes(res["warnings"]))
+    assert "bullet_long" in codes(res["criticals"]) and "bullet_long" not in ws
     for code in ("years_inflation", "title_drift", "keyword_coverage_dropped", "term_stuffing", "duplicate_bullets",
-                 "bullet_long", "verbatim_posting_copy", "ai_phrase", "too_many_skills", "bullet_count"):
+                 "verbatim_posting_copy", "ai_phrase", "too_many_skills", "bullet_count"):
         assert code in ws, (code, ws)
 
 

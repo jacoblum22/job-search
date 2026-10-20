@@ -376,7 +376,7 @@ def test_jev_candidates_are_mostly_real_bullets(env, tmp_path):
     assert len(asked) == 1 and "5-person" in asked[0]
 
 
-# --- confirmed matches (evidence-confirms.json) -------------------------------------
+# --- confirmed matches (skill-record.json has) -------------------------------------
 
 
 def _team_player(env, tmp_path):
@@ -386,9 +386,9 @@ def _team_player(env, tmp_path):
 
 
 def _confirm(cfg, **entry):
-    path = Path(cfg["paths"]["evidence_confirms"])
-    data = appdir.read_json(path) if path.exists() else {"confirms": []}
-    data["confirms"].append({"term": "collaboration/teamwork", "passage": "soft.data-team", **entry})
+    path = Path(cfg["paths"]["skill_record"])
+    data = appdir.read_json(path) if path.exists() else {"has": []}
+    data.setdefault("has", []).append({"term": "collaboration/teamwork", "passage": "soft.data-team", **entry})
     appdir.write_json(path, data)
 
 
@@ -572,7 +572,7 @@ def test_synonym_only_requirement_is_partial(env):
 # --- reject list and Jev cache ----------------------------------------------------
 
 def _write_rejects(cfg, *pairs_):
-    appdir.write_json(Path(cfg["paths"]["evidence_rejects"]), {"rejects": [
+    appdir.write_json(Path(cfg["paths"]["skill_record"]), {"not_shown": [
         {"term": t, "passage": p, "reason": "test", "job_id": 1, "added": "2026-10-18"} for t, p in pairs_]})
 
 
@@ -592,7 +592,7 @@ def test_evidence_skips_rejected_pairs(env):
 def test_undone_reject_is_ignored(env):
     cfg, app = env
     normalize(app, cfg)
-    appdir.write_json(Path(cfg["paths"]["evidence_rejects"]), {"rejects": [
+    appdir.write_json(Path(cfg["paths"]["skill_record"]), {"not_shown": [
         {"term": "dbt", "passage": "northwind.dbt", "undone": True}]})
     ev = run_evidence(app, cfg, FakeJev())
     assert {r["id"]: r for r in ev["requirements"]}["r2"]["passages"] == ["northwind.dbt"]
@@ -665,3 +665,45 @@ def test_positional_embeddings_are_not_embeddings():
     assert "embeddings" in tx.find("document loading, chunking, embeddings and search")
     assert tx.canonical("RAG") == "RAG (retrieval-augmented generation)"
     assert "RAG (retrieval-augmented generation)" not in tx.find("dragging the rag doll")
+
+
+def test_years_requirement_gets_no_this_shows_it(env, tmp_path):
+    cfg, app = _soft_env(env, tmp_path, [
+        {"id": "s1", "text": "About 2+ years of software development", "kind": "must", "terms": [], "weight": "role",
+         "quote": "2+ years of professional software development experience"}])
+    s1 = run_evidence(app, cfg, FakeJev(lambda s, q: 0.35))["requirements"][0]
+    assert "candidates" not in s1
+
+
+def test_known_gap_matches_nothing_and_asks_jev_nothing(env):
+    cfg, app = env
+    _with_reqs(app, [{"id": "a", "text": "Tableau", "kind": "must", "terms": ["Tableau"],
+                      "weight": "role", "quote": "Tableau"}])
+    assert run_evidence(app, cfg, FakeJev(lambda s, q: 0.1))["requirements"][0]["status"] == "covered"
+    appdir.write_json(Path(cfg["paths"]["skill_record"]), {"lacks": [{"skill": "tableau", "added": "2026-10-20"}]})
+    jev = FakeJev(lambda s, q: 0.35)
+    ev = run_evidence(app, cfg, jev)
+    r = ev["requirements"][0]
+    assert r["status"] == "missing" and r["passages"] == [] and "candidates" not in r
+    assert ev["terms"][0]["passages"] == [] and "Tableau" in ev["absent"]
+    assert not jev.calls
+    # The candidate's own "This shows it" for the skill wins over the gap list.
+    rejects.add_confirms(cfg, [{"term": "Tableau", "passage": "northwind.dashboards", "source": "jake"}])
+    assert rejects.gap_keys(cfg) == set()
+
+
+def test_skill_record_reads_the_older_separate_files_until_it_exists(env):
+    cfg, _ = env
+    folder = Path(cfg["paths"]["skill_record"]).parent
+    folder.mkdir(parents=True, exist_ok=True)
+    appdir.write_json(folder / "evidence-confirms.json", {"confirms": [
+        {"term": "SQL", "passage": "northwind.sql-daily", "source": "jake"}]})
+    appdir.write_json(folder / "known-gaps.json", {"gaps": [{"skill": "Node.js"}]})
+    appdir.write_json(folder / "evidence-rejects.json", {"rejects": [
+        {"term": "dbt", "passage": "northwind.dbt", "reason": "x"}]})
+    assert ("sql", "northwind.sql-daily") in rejects.confirmed(cfg)
+    assert rejects.gap_keys(cfg) == {"node.js"} and ("dbt", "northwind.dbt") in rejects.pairs(cfg)
+    # The first save writes all three sections into the one record.
+    rejects.add_confirms(cfg, [{"term": "Tableau", "passage": "northwind.dashboards", "source": "jake"}])
+    data = appdir.read_json(Path(cfg["paths"]["skill_record"]))
+    assert [len(data[k]) for k in ("has", "lacks", "not_shown")] == [2, 1, 1]

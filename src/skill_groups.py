@@ -84,7 +84,7 @@ _CONCEPTS = {"dashboards", "data visualization", "reporting", "KPIs/metrics", "A
              "ETL/ELT", "data pipelines", "data warehouse", "data modeling", "data quality / validation",
              "data governance", "APIs / REST", "microservices", "distributed systems", "MLOps",
              "testing (unit/automated)", "SDLC", "QA / UAT", "project management", "Agile/Scrum", "GIS",
-             "data transformation / preparation", "data integration", "data privacy / security",
+             "data transformation / preparation", "data integration", "data privacy / security", "secure coding / OWASP",
              "query / performance tuning", "data lineage / catalog", "semantic layer / metrics layer",
              "data reconciliation", "relational databases / database design", "real-time / streaming data",
              "SQL window functions / CTEs", "web development (full-stack)", "debugging / troubleshooting",

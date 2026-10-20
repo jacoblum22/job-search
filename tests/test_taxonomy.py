@@ -221,3 +221,31 @@ def test_named_api_products_and_node_get_their_own_skills():
     assert "Node.js" not in tx.find("Vanilla JavaScript dashboard frontend")
     assert "JavaScript" not in tx.find("REST APIs in Node.js")
     assert tx.RELATED["Node.js"] == "JavaScript"
+
+
+def test_exact_matches_singular_and_plural_wording():
+    from src.tailor import taxonomy as tx
+
+    assert tx.exact("relational database", "Relational databases, SQL")
+    assert tx.exact("relational databases", "designed a relational database")
+    assert tx.exact("dashboard", "maintained dashboards")
+    assert tx.exact("API", "built REST APIs")
+    assert not tx.exact("SQL", "SQLite")
+    assert "relational databases / database design" in tx.find("joined tables on primary and foreign keys")
+
+
+def test_bare_ownership_is_the_soft_skill_but_home_ownership_isnt():
+    from src.tailor import taxonomy as tx
+
+    assert tx.canonical("Ownership") == "ownership / accountability"
+    assert tx.canonical("high ownership of your work") == "ownership / accountability"
+    assert tx.canonical("home ownership") is None
+    assert tx.canonical("employee ownership plan") is None
+
+
+def test_owasp_is_its_own_skill_not_data_privacy():
+    from src.tailor import taxonomy as tx
+
+    assert tx.canonical("OWASP Top 10") == "secure coding / OWASP"
+    assert tx.canonical("secure coding practices") == "secure coding / OWASP"
+    assert tx.canonical("data security") == "data privacy / security"

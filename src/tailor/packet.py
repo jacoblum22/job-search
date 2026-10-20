@@ -127,6 +127,8 @@ def _note(text: str) -> list[str]:
 
 def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
               check: dict[str, Any] | None, cfg: dict[str, Any]) -> str:
+    from src.tailor.checks import units  # local: checks pulls in the heavier metrics stack
+
     """check.md: every section opens with a "> " note saying what it is and what to decide, and
     every line says what it's about in plain words (explain.py). Box lines keep their fixed shape
     because approve and the dashboard server read them."""
@@ -145,6 +147,16 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             head, details = explain.gate_flag(f)
             lines.append(f"- [ ] Reviewed  {head}")
             lines += [f"  - {d}" for d in details]
+        lines.append("")
+    dropped = ((_opt_json(app_dir / "final" / "parse.json") or {}).get("dropped")) or []
+    if dropped:
+        # Rendering cut these to fit one page; nobody chose to, so say so.
+        texts = dict(units(data)) if data else {}
+        lines += ["## Bullets cut to fit one page", ""]
+        lines += _note("The resume ran past one page, so rendering left out the least relevant bullets below. "
+                       "They aren't in the PDF. Check you're happy without them, or shorten other lines and render again.")
+        for path in dropped:
+            lines.append(f"- [ ] Reviewed  {explain.path_label(path, data)}: {texts.get(path, path)}")
         lines.append("")
     grade = _opt_json(rd / "grade.json") if rd else None
     floor = float(cfg.get("ats_floor", 70))

@@ -9,12 +9,12 @@ and ResumeFlow (MIT, alignment metrics).
 Critical codes:
   invented_number, dropped_employer, invented_employer, invented_project,
   invented_skill, unknown_source, non_claim_source, missing_source,
-  unsupported_date, locked_changed, letter_shape,
+  unsupported_date, locked_changed, letter_shape, bullet_long,
   greeting_unverified, unverified_company_fact (letter; see letter.py)
 Warning codes:
   years_inflation, title_drift, keyword_coverage_dropped, term_stuffing,
   skill_only_in_list, verbatim_posting_copy, too_many_skills, bullet_count,
-  bullet_long, duplicate_bullets, ai_phrase, resume_invalid, rejected_edit_note,
+  duplicate_bullets, ai_phrase, resume_invalid, rejected_edit_note,
   no_company_fact, paragraph_count, familiar_absent_term, keen_to_grow, keen_not_must,
   course_grade (letter)
 Flag codes (source "jev"): jev_unsupported, jev_citation_gap
@@ -364,9 +364,11 @@ def check_resume(
             if not 1 <= len(bl) <= 6:
                 w("bullet_count", f"{len(bl)} bullets (want 1-6)", f"{section}/{e.get('id')}")
             for i, b in enumerate(bl):
-                # Base bullets are already approved; only judge the length of rewritten ones.
+                # Base bullets are already approved; only judge the length of rewritten ones. A long
+                # rewrite is a critical, so the repair round shortens it instead of the page fit
+                # dropping other bullets to make room.
                 if len(str(b.get("text", ""))) > 200 and b.get("text") != base_bullets.get(f"{section}/{e.get('id')}/{b.get('id')}"):
-                    w("bullet_long", f"{len(b['text'])} characters (limit 200)", f"{section}/{e.get('id')}/{b.get('id')}")
+                    c("bullet_long", f"{len(b['text'])} characters (limit 200)", f"{section}/{e.get('id')}/{b.get('id')}")
                 for b2 in bl[i + 1 :]:
                     if _jaccard(b["text"], b2["text"]) >= 0.8:
                         w("duplicate_bullets", f"{b.get('id')} and {b2.get('id')} are near-duplicates", f"{section}/{e.get('id')}/{b.get('id')}")
