@@ -30,7 +30,8 @@ still pushed and the log gives the compare link.
 4. If code changed: runs the full test suite. If it passes, commits, pushes
    and opens the PR with the body Claude wrote. If it fails, pushes nothing
    and leaves the worktree for a look.
-5. Copies Claude's notes to `materials\tailor\run-reviews\<date>_<time>.md`,
+5. Saves the session's transcript to `logs\tailoring\review_<date>_<time>.jsonl`,
+   copies Claude's notes to `materials\tailor\run-reviews\<date>_<time>.md`,
    removes the worktree and logs to `logs\tailoring_review.log`.
 
 Run it by hand on any past run:
@@ -87,6 +88,8 @@ checkout, with my personal files and the run's output, is at {MAIN} (read only).
   put them in the notes as a question, don't change them.
 - Don't edit anything under `{MAIN}`. Don't redo or change the applications.
 - Run `uv run pytest -q` before you finish and fix anything you broke.
+- Don't run git in any form, including from Python: leave your changes uncommitted.
+  The wrapper runs the tests, commits, pushes and opens the PR.
 
 **The repo is public.** Commit content, tests, code comments and the PR body
 must not contain my resume or letter text, vault passages, contact details or
