@@ -22,6 +22,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from src.experience import parse_min_years_experience
 from src.tailor import appdir, rejects, taxonomy
 from src.tailor.jev import Question
 from src.tailor.sources import base_text, claim_passages, load_bases, load_index
@@ -375,6 +376,8 @@ def _remember_and_suggest(req_out: list[dict], answers: dict[str, dict[str, floa
             continue
         if o["status"] == "covered" and o["strength"] >= 2:
             continue
+        if not _req_term_names(r) and any(parse_min_years_experience(str(r.get(k) or "")) for k in ("quote", "text")):
+            continue  # years come from the dates; no passage can confirm them
         keys = rejects.req_keys(r)
         missing = [n for n in _req_term_names(r) if n in by_name and not by_name[n]["passages"]]
         key = (rejects.key(missing[0]) if len(missing) == 1 else keys[0] if len(keys) == 1

@@ -665,3 +665,11 @@ def test_positional_embeddings_are_not_embeddings():
     assert "embeddings" in tx.find("document loading, chunking, embeddings and search")
     assert tx.canonical("RAG") == "RAG (retrieval-augmented generation)"
     assert "RAG (retrieval-augmented generation)" not in tx.find("dragging the rag doll")
+
+
+def test_years_requirement_gets_no_this_shows_it(env, tmp_path):
+    cfg, app = _soft_env(env, tmp_path, [
+        {"id": "s1", "text": "About 2+ years of software development", "kind": "must", "terms": [], "weight": "role",
+         "quote": "2+ years of professional software development experience"}])
+    s1 = run_evidence(app, cfg, FakeJev(lambda s, q: 0.35))["requirements"][0]
+    assert "candidates" not in s1
