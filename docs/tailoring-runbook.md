@@ -40,6 +40,10 @@ schtasks /Create /TN "JobSearch-Tailoring" /SC DAILY /ST 09:00 /F `
   /TR "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PWD\scripts\run_tailoring.ps1`""
 ```
 
+After every run that tailored something, the wrapper starts the post-run review
+(`docs/run-review-task.md`): a second session reads this run's log, fixes clear pipeline bugs with
+tests and opens a PR into `jake` for you to merge. `-NoReview` skips it.
+
 The `claude` CLI must be signed in (`claude` once, interactively), and `.env` must hold
 `AI_GATEWAY_API_KEY` for Jev.
 

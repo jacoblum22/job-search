@@ -5,11 +5,14 @@
 #
 # Test on one job:   .\scripts\run_tailoring.ps1 -Limit 1   (or -JobId 812)
 # Normal daily run:  .\scripts\run_tailoring.ps1            (tailor.daily_cap jobs)
+# Afterwards run_tailoring_review.ps1 reviews the log and opens a PR for any pipeline
+# fixes (docs/run-review-task.md); -NoReview skips that.
 
 param(
     [int]$JobId = 0,
     [int]$Limit = 0,
-    [double]$MaxBudgetUsd = 0
+    [double]$MaxBudgetUsd = 0,
+    [switch]$NoReview
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -82,3 +85,8 @@ if ($result) {
 $tracked = git status --porcelain --untracked-files=no -- src tests prompts docs config scripts
 if ($tracked) { Log "WARNING: tracked files changed during the run:"; $tracked | Add-Content $logFile -Encoding UTF8 }
 Log "Done"
+
+# Review the run and fix the pipeline where it went wrong, unless there was nothing to tailor.
+if (-not $NoReview -and -not ($result -and $result.result -match "Nothing new to tailor")) {
+    & (Join-Path $PSScriptRoot "run_tailoring_review.ps1") -Transcript $transcript
+}
