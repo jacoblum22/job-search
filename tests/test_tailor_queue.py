@@ -276,3 +276,18 @@ def test_gate_judges_against_the_closest_base(cfg):
     assert "React" in seen["Software Engineer I at Contoso Retail"]
     assert "pandas" in seen["Data Scientist at Contoso Retail"]
     assert {appdir.load_app(p)["gate"]["resume_base"] for p in out} == {"junior-swe", "data-scientist"}
+
+
+def test_packet_lists_bullets_cut_to_fit(cfg):
+    _, d = _packet_app(cfg)
+    (d / "drafts" / "r1" / "resume.yaml").write_text(
+        "id: data-analyst\nsummary: {text: new}\nexperience:\n- id: acme\n  company: Acme\n  bullets:\n"
+        "  - {id: a1, text: Kept bullet}\n  - {id: a2, text: Wrote weekly sales reports}\n")
+    appdir.write_json(d / "final" / "parse.json", {"ok": True, "dropped": ["experience/acme/a2"]})
+    run_packet(d, cfg)
+    check = (d / "check.md").read_text()
+    assert "## Bullets cut to fit one page" in check
+    line = next(x for x in check.splitlines() if "Wrote weekly sales reports" in x)
+    assert line.startswith("- [ ] Reviewed  ") and "Acme" in line
+    from src.tailor.packet import unresolved_lines
+    assert line in unresolved_lines(check)  # the cut needs a look before approving

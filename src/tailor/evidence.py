@@ -356,7 +356,7 @@ def _remember_and_suggest(req_out: list[dict], answers: dict[str, dict[str, floa
     (`candidates`), with the skill key a "This shows it" pick would confirm (`confirm_key`)."""
     ev_cfg = cfg.get("evidence") or {}
     remember_min = float(ev_cfg.get("jev_remember", 0.8))
-    cand_min = float(ev_cfg.get("review_candidate_min", 0.2))
+    cand_min = float(ev_cfg.get("review_candidate_min", 0.35))
     n_cand = int(ev_cfg.get("review_candidates", 2))
     memory = []
     for rid, got in answers.items():

@@ -354,8 +354,9 @@ def test_warnings(tmp_path):
             b["text"] = b["text"].replace("Tableau", "reports")  # drop a requirement term from the draft
     res, *_ = checked(tmp_path, m)
     ws = set(codes(res["warnings"]))
+    assert "bullet_long" in codes(res["criticals"]) and "bullet_long" not in ws
     for code in ("years_inflation", "title_drift", "keyword_coverage_dropped", "term_stuffing", "duplicate_bullets",
-                 "bullet_long", "verbatim_posting_copy", "ai_phrase", "too_many_skills", "bullet_count"):
+                 "verbatim_posting_copy", "ai_phrase", "too_many_skills", "bullet_count"):
         assert code in ws, (code, ws)
 
 

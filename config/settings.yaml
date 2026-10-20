@@ -607,7 +607,7 @@ tailor:
     max_passages: 8      # strongest exact-match passages kept per term or requirement
     jev_remember: 0.8    # a soft-skill "yes" this confident is saved by skill and not asked again
     review_candidates: 2 # passages per weak requirement offered on the review page ("This shows it")
-    review_candidate_min: 0.2  # Jev answers below this aren't offered (the passage is plainly off topic)
+    review_candidate_min: 0.35  # Jev answers below this aren't offered (the passage is plainly off topic)
   ats_weights: {keyword: 40, skills: 20, title: 15, sections: 15, dates: 10}
   synonym_credit: 0.5
   target_score: 80
