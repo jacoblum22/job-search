@@ -323,6 +323,19 @@ def _is_degree(r: dict[str, Any]) -> bool:
     return degree_level(f"{r.get('text', '')} {r.get('quote', '')}") is not None
 
 
+# "Computer Science or a related field", "or equivalent", "a quantitative discipline"...
+_OPEN_FIELD = re.compile(r"\brelated\b|\bequivalent\b|\bsimilar\b|\bquantitative\b|\btechnical (?:field|discipline)", re.I)
+
+
+def _degree_by_rule(r: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any]) -> bool:
+    """A degree must-have the held degree meets by Jake's rule: the level is met (evidence's degree
+    check) and the posting accepts a related field, which his degree counts as (`degree_counts_as_related`)."""
+    if not cfg.get("degree_counts_as_related") or not _OPEN_FIELD.search(f"{r.get('text', '')} {r.get('quote', '')}"):
+        return False
+    return any(e.get("id") == r.get("id") and e.get("method") == "degree" and e.get("status") == "covered"
+               for e in evidence.get("requirements") or [])
+
+
 def _req_passage(rid: str, r: dict[str, Any], evidence: dict[str, Any]) -> str | None:
     for e in evidence.get("requirements") or []:
         if e.get("id") == rid and e.get("passages"):
@@ -441,6 +454,10 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     qs, meta = _build_questions(app_dir, rnd, data, req, company, letter)
     state = strip_identity(text + ("\n\n--- LETTER ---\n" + letter_text(letter) if letter else ""), data.get("contact"))
     items = _run_checklist(jev, state, qs, meta)
+    for it in items:
+        r = must_reqs.get(meta[it["id"]].get("req_id", ""), {})
+        if it["id"].startswith("must.") and _is_degree(r) and _degree_by_rule(r, evidence, cfg):
+            it.update(passed=True, confidence=None, source="rule")
     for it in items:
         if it["id"].startswith("must."):
             r = must_reqs[meta[it["id"]]["req_id"]]

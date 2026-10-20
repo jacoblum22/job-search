@@ -234,3 +234,5 @@ def test_triple_needs_a_real_list_of_three():
     # An opening clause, then "I" and two verbs, is one comma and one "and" but not a list.
     assert triples("After hours, I built and tested a scheduling app.") == []
     assert triples("At the clinic, we planned and ran the survey.") == []
+    # Naming real tools is content, not rhythm.
+    assert triples("I checked data from Shopify, Yotpo and Braze.") == []
