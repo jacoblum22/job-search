@@ -198,6 +198,23 @@ def test_fetch_page_saves_next_page(tmp_path, monkeypatch):
     assert saved.startswith("URL: https://example.com/about\n") and "Healthy lives in healthy communities." in saved
 
 
+def test_fetch_page_rejects_a_page_of_loading_placeholders(tmp_path, monkeypatch):
+    import httpx
+
+    from src.tailor import TailorError
+    from src.tailor.company import fetch_page
+
+    html = {"/careers": "<main><h1>Careers</h1>" + "<div>Loading component...</div>" * 4 + "</main>",
+            "/about": "<main><h1>About us</h1><p>We sell garden tools in Ottawa.</p><div>Loading...</div></main>"}
+    monkeypatch.setattr(httpx, "get", lambda url, **kw: httpx.Response(
+        200, headers={"content-type": "text/html"}, text=html[url[len("https://example.com"):]],
+        request=httpx.Request("GET", url)))
+    with pytest.raises(TailorError, match="no readable text"):
+        fetch_page(tmp_path, "https://example.com/careers")
+    assert not (tmp_path / "pages").exists()
+    assert fetch_page(tmp_path, "https://example.com/about")["page"] == 1  # real text with one placeholder is kept
+
+
 def test_fetch_page_rejects_pdf(tmp_path, monkeypatch):
     import httpx
 

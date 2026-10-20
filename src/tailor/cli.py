@@ -80,7 +80,14 @@ def evidence(app_dir):
     """Step 2: evidence map, three buckets, PRESENT/ABSENT lists."""
     from src.tailor.evidence import run_evidence
 
-    _out(run_evidence(app_dir, load_config(), _jev()))
+    ev = run_evidence(app_dir, load_config(), _jev())
+    # The whole map (30 KB and more) is in evidence.json; printing it all buries the lists the run reads.
+    reqs = ev.get("requirements") or []
+    _out({"file": str(app_dir / "evidence.json"),
+          "covered": f"{sum(r.get('status') == 'covered' for r in reqs)}/{len(reqs)}",
+          "requirements": [{k: r.get(k) for k in ("id", "status", "strength", "method")} for r in reqs],
+          "present": ev.get("present") or [], "absent": ev.get("absent") or [],
+          "jev_said_no": len(ev.get("jev_said_no") or [])})
 
 
 @main.command()

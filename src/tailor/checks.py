@@ -128,8 +128,15 @@ def _bullet_map(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def _wording_in(words: str, text: str) -> bool:
     """`words` appears in `text` as a phrase, ignoring a plural s/es on the last word."""
-    stem = re.sub(r"(?:es|s)$", "", words.strip(), flags=re.I) if len(words.strip()) > 3 else words.strip()
-    return bool(re.search(rf"(?<![\w+#]){re.escape(stem)}(?:s|es)?(?![\w+#])", text, re.I))
+    words = words.strip()
+    # Try each way the plural could end: "pipelines" is "pipeline" + s, "boxes" is "box" + es.
+    stems = [words]
+    if len(words) > 3 and words[-1:].lower() == "s":
+        stems.append(words[:-1])
+        if words[-2:].lower() == "es":
+            stems.append(words[:-2])
+    alt = "|".join(re.escape(s) for s in stems)
+    return bool(re.search(rf"(?<![\w+#])(?:{alt})(?:s|es)?(?![\w+#])", text, re.I))
 
 
 def _norm_dash(s: str) -> str:

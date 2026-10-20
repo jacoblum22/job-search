@@ -533,7 +533,15 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         # Power BI or Power Automate" a yes shows one of them, not each, so no term is backed.
         names = [n for n in dict.fromkeys(_req_term_names(text_by_id[rid])) if n in by_name]
         if len(names) == 1 and not by_name[names[0]]["passages"]:
-            by_name[names[0]]["passages"] = [i for i in merged if i in yes]
+            e = by_name[names[0]]
+            shown = [i for i in merged if i in yes]
+            if e.get("canonical") and taxonomy.is_hard(e["canonical"]):
+                # The check accepts a hard skill's name only where the vault says it (or a confirmed
+                # pair backs it), so a yes from passages that never name it shows the work, not the
+                # word: like a synonym match, it is `related` and the skill isn't present.
+                e["related"] = list(dict.fromkeys(e["related"] + shown))[:3]
+            else:
+                e["passages"] = shown
 
     _remember_and_suggest(req_out, all_answers, text_by_id, by_name, claims, folders, remembered, app_dir, cfg, gaps)
 

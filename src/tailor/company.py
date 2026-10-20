@@ -85,6 +85,7 @@ def _notes(name: str, facts: list[dict[str, Any]]) -> str:
 
 
 _DROP_TAGS = ("script", "style", "noscript", "nav", "header", "footer", "form", "svg", "iframe")
+_PLACEHOLDER = re.compile(r"loading\b.{0,40}$", re.I)
 
 
 def page_text(html: str) -> str:
@@ -117,7 +118,10 @@ def fetch_page(directory: Path, url: str, timeout: float = 30.0) -> dict[str, An
         text = resp.text
     else:
         raise TailorError(f"{url} is {ctype or 'an unknown type'}, not a web page; skip it")
-    if not text.strip():
+    # A page built by JavaScript comes back as its placeholders ("Loading component..."), not as empty.
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    waiting = sum(bool(_PLACEHOLDER.match(ln.strip())) for ln in lines)
+    if not lines or waiting >= len(lines) - waiting:
         raise TailorError(f"{url} has no readable text (it may need JavaScript); skip it")
     pages = directory / "pages"
     pages.mkdir(parents=True, exist_ok=True)
