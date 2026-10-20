@@ -35,6 +35,7 @@ test-results/
 
 # Misc
 *.log
+logs/
 .cache/
 
 # Aggregator — generated output, regenerated on every run
