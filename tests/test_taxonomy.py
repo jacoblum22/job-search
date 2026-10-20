@@ -44,6 +44,11 @@ from src.tailor import taxonomy
     ("Create and populate data structures using one or more schema definition languages",
      "data structures / algorithms"),
     ("Experience with Azure DevOps pipelines", "DevOps"),
+    # Daily review, Oct 20 2026.
+    ("Familiarity with marketing funnel metrics (MQLs, opportunities, pipeline)",
+     "product analytics (funnels / cohorts / LTV)"),
+    ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
+    ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -180,6 +185,18 @@ def test_real_matches_still_work(text, right):
     ("Business Analysis Body of Knowledge (BABOK)", "CBAP / IIBA"),
     ("Google Cloud Professional Data Engineer Certification", "cloud certification"),
     ("Microsoft Azure Data Engineer Associate", "cloud certification"),
+    # Daily review, Oct 20 2026: real posting wording.
+    ("Familiarity with Acumatica customization is considered an asset", "Acumatica"),
+    ("Experience working in an ERP system, particularly Acumatica or Sage Intacct", "Acumatica"),
+    ("Hands-on exposure to Salesforce (SOQL, reports, campaign objects, admin concepts)", "SOQL"),
+    ("Familiarity with marketing funnel metrics (MQLs, opportunities, pipeline) or B2B demand generation",
+     "demand generation / lead funnel (MQLs)"),
+    ("partners closely with Marketing Analytics, Demand Generation, and Marketing Operations",
+     "demand generation / lead funnel (MQLs)"),
+    ("with a strong bias toward automating repetitive work", "report / process automation"),
+    ("Identify opportunities to automate repetitive reporting", "report / process automation"),
+    ("automate manual processes where possible", "report / process automation"),
+    ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -204,6 +221,15 @@ def test_daily_review_concepts_and_products():
         assert name in taxonomy.TOOL_TYPES, name
     for product, platform in [("Delta Lake", "Databricks"), ("Snowflake Cortex", "Snowflake"),
                               ("Amazon ECS", "AWS"), ("Agentforce", "Salesforce/CRM")]:
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+
+
+def test_oct_20_review_products_and_concepts():
+    assert not _is_tool("demand generation / lead funnel (MQLs)")
+    for product, platform in [("SOQL", "Salesforce/CRM"), ("Acumatica", "ERP (SAP/Oracle/Workday)")]:
+        assert _is_tool(product), product
+        assert product in taxonomy.TOOL_TYPES, product
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
 
