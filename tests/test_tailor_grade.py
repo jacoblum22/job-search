@@ -190,6 +190,22 @@ def test_failed_items_become_feedback_without_question_text(tmp_path):
     assert "Rivera" not in jev.calls[0][0]
 
 
+def test_failed_must_with_only_unbacked_terms_missing_is_a_fit_gap(tmp_path):
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][0] = {**r["requirements"][0], "text": "SQL and Looker", "terms": ["SQL", "Looker"]}
+    r["requirements"][1] = {**r["requirements"][1], "text": "SQL and dbt", "terms": ["SQL", "dbt"]}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id.startswith("must.") else 0.8))
+    by_id = {it["id"]: it for it in out["checklist"]}
+    # SQL is on the resume and Looker isn't in the vault: nothing to repair
+    assert by_id["must.r1"]["passed"] is False and by_id["must.r1"]["fit_gap"] == ["Looker"]
+    assert not any("Looker" in f or f.startswith("Must-have SQL needs") for f in out["feedback"])
+    # dbt is backed but not shown: still repair feedback, naming the backed terms
+    assert "fit_gap" not in by_id["must.r2"]
+    assert any("dbt" in f for f in out["feedback"])
+
+
 def test_portability_only_counts_changed_bullets(tmp_path):
     app = make_app(tmp_path)
     write_json(
@@ -251,3 +267,17 @@ def test_ats_gap_lists_unused_and_unbacked_terms(tmp_path):
     if out["unused_terms"]:
         assert any(s.startswith("Use the posting's own words") for s in out["feedback"])
         assert any(g["id"] == "ats.unused" for g in out["gaps"])
+
+
+def test_soft_must_that_jev_passes_needs_no_word(tmp_path):
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "Strong communication", "terms": ["communication"]}
+    write_json(app / "requirements.json", r)
+    e = json.loads((app / "evidence.json").read_text())
+    e["present"] = list(e.get("present") or []) + ["communication"]
+    write_json(app / "evidence.json", e)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.8))
+    assert not any("communication" in f for f in out["feedback"])
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r2" else 0.8))
+    assert any("communication" in f for f in out["feedback"])

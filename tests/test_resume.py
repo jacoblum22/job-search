@@ -71,6 +71,7 @@ def test_iter_bullets_gives_paths():
         (lambda b: b["experience"][0].pop("dates"), "missing dates"),
         (lambda b: b["experience"][0]["bullets"][0].update(text=" "), "empty text"),
         (lambda b: b.update(order=["summary", "hobbies"]), "unknown section"),
+        (lambda b: b["skills"][0].update(items=["Git (GitHub", "Bitbucket)"]), "unbalanced brackets"),
     ],
 )
 def test_validate_catches_problems(mutate, expected):

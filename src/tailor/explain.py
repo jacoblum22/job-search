@@ -220,6 +220,9 @@ def jev_item(item: dict[str, Any], reqs: dict[str, dict], data: dict[str, Any] |
         head = f"Must-have not clearly shown: \"{need}\". Jev said no bullet shows it with a named tool and scope{sure}."
         if r.get("quote") and r["quote"] != need:
             details.append(f"The posting says: \"{r['quote']}\"")
+        if item.get("fit_gap"):
+            details.append(f"Not in your vault: {', '.join(item['fit_gap'])}. The rest is already on the resume, so "
+                           "no repair round tried to fix this; it is part of the weaker fit.")
         details.append("Judge: does any bullet show this? If not, it's a gap to own in the cover letter or interview.")
     elif qid == "top_third":
         head = f"The top of the resume may not read like a {title or 'this'} resume{sure}."

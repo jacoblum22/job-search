@@ -29,7 +29,8 @@ def _round_numbers(app_dir: Path) -> list[int]:
 
 
 def _failed(grade: dict[str, Any]) -> list[dict[str, Any]]:
-    return [it for it in grade.get("checklist") or [] if it.get("passed") is False]
+    # A fit gap (the missing part isn't in the vault) can't be repaired, so it doesn't keep the loop going.
+    return [it for it in grade.get("checklist") or [] if it.get("passed") is False and not it.get("fit_gap")]
 
 
 def _load(app_dir: Path, n: int) -> dict[str, Any]:
