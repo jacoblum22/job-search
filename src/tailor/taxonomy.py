@@ -212,8 +212,11 @@ T = [
 ("ML & statistics","clustering/segmentation",r"clustering(?! (?:and|or) (?:high availability|replication|failover))|cluster analysis|k.means|segmentation"),
 ("ML & statistics","deep learning / neural nets",r"deep learning|neural net|\bcnns?\b|convolutional|autoencoders?|transformer(?: |-based )(?:models?|architectures?)|transformer-based|vision transformers?|\brnns?\b|\blstms?\b"),
 ("ML & statistics","NLP",r"\bnlp\b|natural language"),
-("ML & statistics","embeddings",r"\bembeddings?\b"),
-("ML & statistics","LLMs / generative AI",r"llm apis?|\bllms?\b|large language|generative ai|\bgenai\b|\bgpt\b|prompt engineering|\brag\b|retrieval.augmented"),
+# Positional embeddings (RoPE) are a transformer part, not vector embeddings for search or RAG.
+("ML & statistics","embeddings",r"(?<!position )(?<!positional )\bembeddings?\b"),
+("ML & statistics","LLMs / generative AI",r"llm apis?|\bllms?\b|large language|generative ai|\bgenai\b|\bgpt\b|prompt engineering"),
+# RAG is its own technique: other LLM work doesn't show it. RELATED links it to LLMs.
+("ML & statistics","RAG (retrieval-augmented generation)",r"(?-i:\bRAG\b)|retrieval.augmented"),
 ("ML & statistics","computer vision",r"computer vision|image processing"),
 ("ML & statistics","time series",r"time.series"),
 ("ML & statistics","hypothesis testing / inference",r"hypothesis|statistical inference|significance test|causal|\bt-tests?\b|chi.squared?|\banova\b"
@@ -423,7 +426,7 @@ RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Ama
            "Amazon EMR": "AWS", "Amazon EC2": "AWS", "AWS CloudFormation": "AWS", "AWS API Gateway": "AWS",
            "Amazon CloudWatch": "AWS", "Amazon RDS": "AWS", "Azure OpenAI": "Azure", "Node.js": "JavaScript", "Google Cloud Composer": "GCP", "MongoDB": "NoSQL", "DynamoDB": "NoSQL",
            "Cassandra": "NoSQL", "Cosmos DB": "NoSQL", "Redis": "NoSQL", "Confluent": "Kafka",
-           "Claude / Claude Code": "LLMs / generative AI", "OpenAI API": "LLMs / generative AI", "Azure Machine Learning": "Azure", "Vertex AI": "GCP", "MLflow": "MLOps",
+           "Claude / Claude Code": "LLMs / generative AI", "RAG (retrieval-augmented generation)": "LLMs / generative AI", "OpenAI API": "LLMs / generative AI", "Azure Machine Learning": "Azure", "Vertex AI": "GCP", "MLflow": "MLOps",
            "Power Query": "Microsoft Power Platform", "Power Automate": "Microsoft Power Platform",
            "Power Apps": "Microsoft Power Platform", "Dataverse": "Microsoft Power Platform",
            "Looker Studio": "Looker", "Google Cloud Storage": "GCP",
