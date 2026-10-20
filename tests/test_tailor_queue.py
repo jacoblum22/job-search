@@ -21,7 +21,7 @@ def cfg(tmp_path):
         "db": str(tmp_path / "jobs.db"),
         "applications": str(tmp_path / "apps"),
         "bases": str(tmp_path / "bases"),
-    }})
+    }, "tiers": ["A", "B"]})
 
 
 def add(cfg, ext, title, tier, score, desc=DESC, group=None, company="Contoso Retail"):
