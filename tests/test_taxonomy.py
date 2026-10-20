@@ -231,6 +231,7 @@ def test_exact_matches_singular_and_plural_wording():
     assert tx.exact("dashboard", "maintained dashboards")
     assert tx.exact("API", "built REST APIs")
     assert not tx.exact("SQL", "SQLite")
+    assert "relational databases / database design" in tx.find("joined tables on primary and foreign keys")
 
 
 def test_bare_ownership_is_the_soft_skill_but_home_ownership_isnt():
