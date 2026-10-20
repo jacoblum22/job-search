@@ -16,6 +16,7 @@ from typing import Any
 
 from src.experience import parse_min_years_experience
 from src.location_filter import classify_location
+from src.posting_status import closed_reason, seen_date
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -276,6 +277,8 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
                 (m["years_experience"] for m in members if m["years_experience"] is not None),
                 None,
             )
+        closed = next((c for m in members if (c := closed_reason(
+            m["description"] or "", seen=seen_date(m["first_seen"])))), None)
         result.append(
             {
                 "dedup_group_id": group_id,
@@ -289,6 +292,7 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
                 "sources": sorted({m["source"] for m in members}),
                 "urls": sorted({(m["source"], m["url"]) for m in members if m["url"]}),
                 "status": status,
+                "closed": closed,
                 "years_experience": years_experience,
                 "tier": primary["tier"],
                 "score": primary["score"],

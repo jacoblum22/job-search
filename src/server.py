@@ -21,6 +21,7 @@ from typing import Any
 
 from src.dashboard import app_summary, generate_dashboard, render_dashboard
 from src.db import JOB_STATUSES, connect, set_job_status
+from src.posting_status import closed_reason, seen_date
 from src.tailor import TailorError, review, store
 from src.tailor.packet import OUTCOMES, approve, record_outcome
 
@@ -122,13 +123,17 @@ class DashboardApp:
         conn = self._conn()
         try:
             job, app = self._app_for(conn, job_id)
+            group = conn.execute("SELECT description, first_seen FROM jobs WHERE dedup_group_id = "
+                                 "(SELECT dedup_group_id FROM jobs WHERE id = ?)", (job_id,)).fetchall()
         finally:
             conn.close()
         if job is None:
             return self._error("no such job", 404)
+        closed = next((c for d, seen in group if (c := closed_reason(d or "", seen=seen_date(seen)))), None)
         out: dict[str, Any] = {
             "job": {k: job[k] for k in ("id", "title", "company", "location", "url", "status", "tier", "score",
                                         "score_reasons", "posted_date", "first_seen", "description", "source")},
+            "closed": closed,
             "job_statuses": list(JOB_STATUSES),
             "outcomes": list(OUTCOMES),
             "app": None,
@@ -464,11 +469,12 @@ function checkHtml(blocks) {
 }
 
 function render() {
-  const {job, app} = data;
+  const {job, app, closed} = data;
   document.title = `${job.title} · ${job.company}`;
   let h = `<h1>${esc(job.title)}</h1>
     <div class="meta">${esc(job.company)} · ${esc(job.location)} · Tier ${esc(job.tier)} ${job.score ?? ''}
     · posted ${esc(job.posted_date || job.first_seen || '')}</div>
+    ${closed ? `<div class="meta" style="color:#e07070;margin-top:6px">${esc(closed)}: this posting no longer takes applications.</div>` : ''}
     <div class="row" style="margin-top:8px">`;
   if (/^https?:\/\//i.test(job.url || '')) h += `<a href="${esc(job.url)}" target="_blank" rel="noopener noreferrer">Open the posting</a>`;
   h += `</div>`;

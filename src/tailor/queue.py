@@ -11,6 +11,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from src.posting_status import closed_reason, seen_date
 from src.tailor import TailorError, appdir, store
 from src.tailor.jev import Answer, Question, strip_identity
 from src.tailor.paths import resolve
@@ -112,8 +113,15 @@ def _eligible(conn, cfg: dict[str, Any], job_ids: list[int] | None) -> list[Any]
         "JOIN applications a ON a.job_id = j.id)",
         [*tiers, int(cfg.get("min_description_chars", 1000))],
     ).fetchall()
+    # A posting that says it's filled internally or whose deadline has passed is
+    # never drafted; one closed copy closes the whole group.
+    closed = {g for g, desc, seen in conn.execute(
+        "SELECT dedup_group_id, description, first_seen FROM jobs")
+        if closed_reason(desc or "", seen=seen_date(seen))}
     best: dict[str, Any] = {}
     for r in rows:
+        if r["dedup_group_id"] in closed:
+            continue
         cur = best.get(r["dedup_group_id"])
         if cur is None or len(r["description"]) > len(cur["description"]):
             best[r["dedup_group_id"]] = r

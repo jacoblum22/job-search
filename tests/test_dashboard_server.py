@@ -124,6 +124,21 @@ def test_dashboard_shows_application_status_and_flags(env):
     assert "const SERVER = false;" in html and "description" not in rows[0]
 
 
+def test_closed_postings_are_marked_and_not_pinned(env):
+    conn = connect(env["cfg"]["paths"]["db"])
+    conn.execute("UPDATE jobs SET description = description || ? WHERE id = ?",
+                 ("\nThis position will be filled internally.", env["jid"]))
+    conn.commit()
+    rows = json.loads(render_dashboard(conn).split('type="application/json">')[1].split("</script>")[0])
+    conn.close()
+    by_title = {r["title"]: r for r in rows}
+    assert by_title["Junior Analyst"]["closed"] == "Filled internally"
+    assert by_title["Junior Analyst"]["pin"] == 99  # ready for review, but it can't be sent
+    assert by_title["Data Analyst"]["closed"] is None
+    assert get(env, f"/api/job/{env['jid']}")[1]["closed"] == "Filled internally"
+    assert get(env, f"/api/job/{env['other']}")[1]["closed"] is None
+
+
 # --- retention ------------------------------------------------------------
 
 
