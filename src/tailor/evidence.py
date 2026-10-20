@@ -349,7 +349,8 @@ def _soft_key(keys: list[str]) -> str | None:
 
 def _remember_and_suggest(req_out: list[dict], answers: dict[str, dict[str, float]], reqs: dict[str, dict],
                           by_name: dict[str, dict], claims: dict[str, dict], folders: dict[str, str],
-                          remembered: dict[str, dict[str, float]], app_dir: Path, cfg: dict) -> None:
+                          remembered: dict[str, dict[str, float]], app_dir: Path, cfg: dict,
+                          gaps: set[str] = frozenset()) -> None:
     """Remember Jev's confident yes answers on soft skills, by skill, so later jobs don't ask again; and
     give each requirement that's still missing or weak the passages Jev came closest to accepting
     (`candidates`), with the skill key a "This shows it" pick would confirm (`confirm_key`)."""
@@ -382,6 +383,8 @@ def _remember_and_suggest(req_out: list[dict], answers: dict[str, dict[str, floa
         missing = [n for n in _req_term_names(r) if n in by_name and not by_name[n]["passages"]]
         key = (rejects.key(missing[0]) if len(missing) == 1 else keys[0] if len(keys) == 1
                else _soft_key(keys) if _is_soft(r) else None)
+        if key in gaps:
+            continue  # the candidate said they don't have it
         got = answers.get(o["id"], {})
         pids = sorted((pid for pid, v in got.items() if pid not in o["passages"] and v >= cand_min
                        and passage_strength(claims[pid]) >= 2),
@@ -406,6 +409,7 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     folders = _folders(claims)
     ranked = sorted(claims.values(), key=lambda p: _rank_key(p, folders))
     active = rejects.pairs(cfg)
+    gaps = rejects.gap_keys(cfg)
     # Confirmed pairs by skill key: the candidate's and the plan's always count and rank first;
     # Jev's remembered yes answers stand in for asking again.
     strong: dict[str, list[str]] = {}
@@ -425,9 +429,13 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
             e["confirmed"] + [p["id"] for p in hits if term_exact(e, p["text"])]))[:cap]
         e["related"] = [p["id"] for p in hits if not term_exact(e, p["text"])][:3]
         e["base_rejected"] = rejects.rejected(names, rejects.BASE, active)
+        if any(rejects.key(n) in gaps for n in names if n):
+            # A skill the candidate said they don't have: no mention or plan/Jev confirm is evidence of it.
+            e.update(passages=[], related=[], confirmed=[], base_rejected=True, known_gap=True)
     cache = rejects.JevCache(cfg)
     said_no: list[dict] = []
-    confirmed_bases = _confirm_unknown(entries, claims, base_texts, cfg, jev, cache, said_no)
+    confirmed_bases = _confirm_unknown([e for e in entries if not e.get("known_gap")],
+                                       claims, base_texts, cfg, jev, cache, said_no)
     cache.save()
 
     def in_base(e: dict, bid: str) -> bool:
@@ -491,6 +499,9 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         if o["method"] == "degree":
             return False
         r = text_by_id[o["id"]]
+        names = [n for n in _req_term_names(r) if n in by_name]
+        if names and all(by_name[n].get("known_gap") for n in names):
+            return False  # only known gaps: no passage can show it
         if o["status"] == "missing" or o["method"] == "related":  # related: only a synonym matched
             return True
         if r.get("weight") == "boilerplate":
@@ -524,7 +535,7 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         if len(names) == 1 and not by_name[names[0]]["passages"]:
             by_name[names[0]]["passages"] = [i for i in merged if i in yes]
 
-    _remember_and_suggest(req_out, all_answers, text_by_id, by_name, claims, folders, remembered, app_dir, cfg)
+    _remember_and_suggest(req_out, all_answers, text_by_id, by_name, claims, folders, remembered, app_dir, cfg, gaps)
 
     buckets: dict[str, dict] = {}
     for bid in base_texts:

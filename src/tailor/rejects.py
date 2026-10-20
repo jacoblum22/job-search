@@ -16,6 +16,11 @@ confirmed for "collaborate across departments" also counts for "strong team play
 The candidate's own confirms win over any reject; a reject wins over a plan or Jev
 confirm. Jev's remembered answers aren't asked again.
 
+A third list, `known-gaps.json`, holds skills the candidate has said they don't have
+("Node.js", "Power BI"). The evidence step matches nothing to them, doesn't ask Jev about
+them and offers no "This shows it" candidates, so a known gap is reported as a fit gap
+straight away instead of costing questions on every job.
+
 The same folder holds a small cache of Jev's yes/no answers for terms the
 taxonomy doesn't know, so a "no" sticks and the same question isn't paid twice.
 """
@@ -254,6 +259,22 @@ def add_confirms(cfg: dict[str, Any], items: Iterable[dict[str, Any]], job_id: A
     if out:
         appdir.write_json(path, data)
     return out
+
+
+# --- Known gaps ----------------------------------------------------------------
+
+def load_gaps(cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every known-gap entry ({skill, note?, added})."""
+    path = _path(cfg, "known_gaps")
+    if not path.exists():
+        return []
+    return (json.loads(path.read_text(encoding="utf-8") or "{}")).get("gaps") or []
+
+
+def gap_keys(cfg: dict[str, Any]) -> set[str]:
+    """Skill keys the candidate doesn't have; a candidate's own confirm for the skill wins."""
+    mine = {k for (k, _), c in _confirm_map(cfg).items() if c.get("source") in STRONG}
+    return {_key(g["skill"]) for g in load_gaps(cfg) if g.get("skill")} - mine
 
 
 def sync_plan_adds(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:

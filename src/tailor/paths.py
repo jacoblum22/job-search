@@ -23,6 +23,7 @@ DEFAULT_PATHS = {
     "unknown_terms": "materials/tailor/unknown-terms.csv",
     "evidence_rejects": "materials/tailor/evidence-rejects.json",
     "evidence_confirms": "materials/tailor/evidence-confirms.json",
+    "known_gaps": "materials/tailor/known-gaps.json",
     "jev_cache": "materials/tailor/jev-cache.json",
 }
 

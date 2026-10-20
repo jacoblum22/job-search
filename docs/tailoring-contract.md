@@ -38,6 +38,7 @@ All personal data lives under the git-ignored `materials/`. Defaults, overridabl
 | `unknown_terms` | `materials/tailor/unknown-terms.csv` |
 | `evidence_rejects` | `materials/tailor/evidence-rejects.json` |
 | `evidence_confirms` | `materials/tailor/evidence-confirms.json` |
+| `known_gaps` | `materials/tailor/known-gaps.json` |
 | `jev_cache` | `materials/tailor/jev-cache.json` |
 
 ## Application folder
@@ -212,6 +213,15 @@ under "Evidence the plan added", each as `- [ ] Doesn't show it  - [ ] This show
 <!-- confirm: key | passage -->`, an exclusive pair. On `approve`, "This shows it" adds a `jake`
 confirm (and undoes a reject of the pair); "Doesn't show it" marks the pair's confirms `undone` and
 adds a reject, so it isn't suggested again. Pairs already decided aren't listed.
+
+### Known gaps: `known-gaps.json`
+
+`{"gaps": [{"skill", "note"?, "added"}]}`: skills the candidate has said they don't have, keyed like
+confirms (`rejects.key`, so "node.js" and "Node.js" are one skill). In the evidence step a known
+gap's term gets no passages, related passages or base match (a skills-list mention or a plan or
+Jev confirm isn't evidence of it), Jev isn't asked about it, and a requirement made only of known
+gaps gets no "Could these show it?" candidates. Grade then treats a must made only of known gaps
+as a fit gap. A `jake` confirm for the same skill takes it off the list.
 
 ### `edits.json` (Claude writes)
 

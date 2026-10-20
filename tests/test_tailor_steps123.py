@@ -673,3 +673,20 @@ def test_years_requirement_gets_no_this_shows_it(env, tmp_path):
          "quote": "2+ years of professional software development experience"}])
     s1 = run_evidence(app, cfg, FakeJev(lambda s, q: 0.35))["requirements"][0]
     assert "candidates" not in s1
+
+
+def test_known_gap_matches_nothing_and_asks_jev_nothing(env):
+    cfg, app = env
+    _with_reqs(app, [{"id": "a", "text": "Tableau", "kind": "must", "terms": ["Tableau"],
+                      "weight": "role", "quote": "Tableau"}])
+    assert run_evidence(app, cfg, FakeJev(lambda s, q: 0.1))["requirements"][0]["status"] == "covered"
+    appdir.write_json(Path(cfg["paths"]["known_gaps"]), {"gaps": [{"skill": "tableau", "added": "2026-10-20"}]})
+    jev = FakeJev(lambda s, q: 0.35)
+    ev = run_evidence(app, cfg, jev)
+    r = ev["requirements"][0]
+    assert r["status"] == "missing" and r["passages"] == [] and "candidates" not in r
+    assert ev["terms"][0]["passages"] == [] and "Tableau" in ev["absent"]
+    assert not jev.calls
+    # The candidate's own "This shows it" for the skill wins over the gap list.
+    rejects.add_confirms(cfg, [{"term": "Tableau", "passage": "northwind.dashboards", "source": "jake"}])
+    assert rejects.gap_keys(cfg) == set()

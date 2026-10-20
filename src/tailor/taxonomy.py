@@ -293,7 +293,8 @@ T = [
 ("Data platforms","data transformation / preparation",r"data (?:transformations?|preparation|prep|wrangling|manipulation|munging)|transform(?:s|ed|ing)? (?!(?:the way|how) )(?:[\w-]+ ){0,2}data\b|prepar(?:e|ing) data|\bwrangl"),
 # Combining sources is integration work ("multi-source data", "combining data from several sources").
 ("Data platforms","data integration",r"data integration|system integrations?|integrat(?:e|ing) data|integrations? (?:between|across) (?:systems|platforms|tools)|(?:third.party|enterprise|platform) integrations?|multi.source|combin(?:e|ed|ing) (?:data from )?(?:multiple|several|different|many) (?:data )?sources"),
-("Data platforms","data privacy / security",r"data privacy|privacy (?:laws|legislation|regulations|requirements|by design)|\bpii\b|personally identifiable|\bgdpr\b|\bccpa\b|\bpipeda\b|\bfoippa\b|\bhipaa\b|data security|data protection|\bencryption\b|access controls?|role.based access|row.level security|secure coding|\bowasp\b|information security|cyber.?security|secrets? management"),
+("Data platforms","secure coding / OWASP",r"secure coding|secure (?:software|code) (?:development|practices)|\bowasp\b"),
+("Data platforms","data privacy / security",r"data privacy|privacy (?:laws|legislation|regulations|requirements|by design)|\bpii\b|personally identifiable|\bgdpr\b|\bccpa\b|\bpipeda\b|\bfoippa\b|\bhipaa\b|data security|data protection|\bencryption\b|access controls?|role.based access|row.level security|information security|cyber.?security|secrets? management"),
 ("Data platforms","query / performance tuning",r"query (?:optimi[sz]ation|performance|tuning)|optimi[sz](?:e|ing) (?:sql|queries|query)|performance (?:tuning|optimi[sz]ation)|(?:sql|query|database) tuning|tun(?:e|ing) (?:sql|queries)|(?:efficient|cost.effective) (?:sql|queries)|(?:sql|queries|query) (?:\w+ )?efficient|query costs?"),
 ("Data platforms","data lineage / catalog",r"data lineage|\blineage\b|data catalog(?:ue)?s?|data dictionar|metadata management"),
 ("Data platforms","semantic layer / metrics layer",r"semantic (?:layers?|models?|views)|governed metrics|metrics? (?:layer|store|registry)|metric (?:definitions|governance)"),
@@ -385,7 +386,7 @@ T = [
 ("Soft skills","business acumen",r"business acumen|business needs|business problems"),
 ("Soft skills","documentation",r"document(?:ation|ing)"),
 ("Soft skills","adaptability",r"adaptab|fast.paced|ambiguity"),
-("Soft skills","ownership / accountability",r"tak(?:e|es|ing) ownership|sense of ownership|ownership (?:of|over|mindset)|end.to.end ownership|accountab|own (?:the|your) (?:work|outcomes?|projects?|results|deliverables)"),
+("Soft skills","ownership / accountability",r"(?<!home )(?<!employee )(?<!share)\bownership\b|accountab|own (?:the|your) (?:work|outcomes?|projects?|results|deliverables)"),
 ("Soft skills","customer / client focus",r"(?:customer|client|user|patient).(?:first|centric|centred|centered|focused|facing|obsessed)|customer (?:service|satisfaction)|client service|service (?:mentality|orientation)"),
 ("Soft skills","teaching / knowledge sharing",r"knowledge (?:sharing|transfer)|shar(?:e|es|ing) (?:your |their |our )?knowledge|(?:provide|deliver|conduct)\w* training|train(?:ing)? (?:users|staff|colleagues|others|team members|end users)|training (?:materials|sessions)|educat(?:e|ing) (?:users|stakeholders|teams|others)|\bteach|\bcoach"),
 ("Soft skills","judgment",r"\bjudge?ments?\b|critically (?:evaluate|assess|review)|challenge assumptions|discernment"),
@@ -556,5 +557,12 @@ def exact(term: str, text: str) -> bool:
     ATSs like Taleo and Lever search exact wording, so exact matches get full
     credit and taxonomy synonyms only partial credit.
     """
-    t = re.escape(term.strip())
+    term = term.strip()
+    t = re.escape(term)
+    if len(term) > 3 and term[-1:].isalpha():
+        # A plural or singular of the same phrase is the same wording ("dashboard" / "dashboards").
+        stem = re.escape(term[:-1]) if term[-1] in "sS" and term[-2:-1].isalpha() else t
+        t = rf"(?:{t}|{stem})(?:e?s)?" if stem != t else rf"{t}(?:e?s)?"
+    elif len(term) >= 2 and term.isalpha() and term.isupper():
+        t = rf"{t}s?"  # "API" / "APIs", "LLM" / "LLMs"
     return bool(re.search(rf"(?<![\w+#]){t}(?![\w+#])", text, re.I))
