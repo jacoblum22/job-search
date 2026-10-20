@@ -126,6 +126,10 @@ def validate(data: dict[str, Any], *, require_sources: bool = False) -> list[str
         check_id(group.get("id"), where)
         if not group.get("label") or not group.get("items"):
             problems.append(f"{where}: needs label and items")
+        for item in group.get("items") or []:
+            # An unquoted "Git (GitHub, Bitbucket)" in a YAML [flow list] splits at the comma.
+            if str(item).count("(") != str(item).count(")"):
+                problems.append(f"{where}: item {item!r} has unbalanced brackets; quote items that contain commas")
 
     required = {
         "experience": ("title", "company", "dates"),

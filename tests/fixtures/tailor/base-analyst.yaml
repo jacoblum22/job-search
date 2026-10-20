@@ -13,7 +13,7 @@ summary:
 skills:
   - id: skills.languages
     label: Languages
-    items: [SQL (PostgreSQL), Python (pandas, scikit-learn), R]
+    items: [SQL (PostgreSQL), "Python (pandas, scikit-learn)", R]
   - id: skills.tools
     label: Tools
     items: [Tableau, Excel, Git]
