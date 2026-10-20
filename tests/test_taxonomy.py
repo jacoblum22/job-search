@@ -206,3 +206,18 @@ def test_daily_review_concepts_and_products():
                               ("Amazon ECS", "AWS"), ("Agentforce", "Salesforce/CRM")]:
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
+
+
+def test_named_api_products_and_node_get_their_own_skills():
+    from src.tailor import taxonomy as tx
+
+    assert tx.canonical("LLM APIs") == "LLMs / generative AI"
+    assert tx.canonical("API Gateway") == "AWS API Gateway"
+    assert tx.canonical("Microsoft Graph API") == "Microsoft Graph API"
+    assert tx.canonical("Azure OpenAI") == "Azure OpenAI"
+    assert tx.canonical("REST APIs") == "APIs / REST"
+    assert tx.canonical("Node.js") == "Node.js"
+    # Front-end JavaScript doesn't show the Node.js runtime, but Node.js work is JavaScript.
+    assert "Node.js" not in tx.find("Vanilla JavaScript dashboard frontend")
+    assert "JavaScript" not in tx.find("REST APIs in Node.js")
+    assert tx.RELATED["Node.js"] == "JavaScript"

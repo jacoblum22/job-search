@@ -53,21 +53,37 @@ def resume_text(data: Any) -> str:
     return "\n".join(lines)
 
 
-def _master_resume(cfg: dict[str, Any]) -> str:
+def _base_resumes(cfg: dict[str, Any]) -> dict[str, str]:
+    """Every base resume as identity-stripped plain text, keyed by base id."""
     import yaml
 
-    base = (cfg.get("gate") or {}).get("resume_base", "data-scientist")
-    path = resolve(cfg, "bases") / f"{base}.yaml"
-    if not path.exists():
-        return ""
-    text = resume_text(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
     try:
         from src.resume import load_contact
 
         contact = load_contact()
     except Exception:
         contact = None
-    return strip_identity(text, contact)
+    out = {}
+    for path in sorted(resolve(cfg, "bases").glob("*.yaml")):
+        text = resume_text(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+        out[path.stem] = strip_identity(text, contact)
+    return out
+
+
+def _gate_resume(bases: dict[str, str], posting: str, default: str) -> tuple[str, str]:
+    """The base closest to this posting (most shared skills), so the gate judges a
+    software job against the Software Developer base, not the Data Scientist one."""
+    if not bases:
+        return "", ""
+    from src.tailor import taxonomy
+
+    wanted = taxonomy.find(posting)
+
+    def overlap(base_id: str) -> tuple[int, bool]:
+        return len(wanted & taxonomy.find(bases[base_id])), base_id == default
+
+    best = max(bases, key=overlap)
+    return best, bases[best]
 
 
 def _to_markdown(description: str) -> str:
@@ -150,16 +166,19 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
         # Without a Jev key the gate is skipped (no flags); "unchecked" is kept for
         # answers that fail when Jev is configured, since those deserve a look.
         use_jev = jev is not None and getattr(jev, "available", True)
-        resume = _master_resume(cfg) if use_jev else ""
+        bases = _base_resumes(cfg) if use_jev else {}
+        default_base = gate.get("resume_base", "data-scientist")
         entries = []
         for r in rows:
             if not use_jev:
-                entries.append((r, []))
+                entries.append((r, [], None))
                 continue
+            posting = _to_markdown(r["description"])
+            base_id, resume = _gate_resume(bases, f"{r['title']}\n{posting}", default_base)
             state = (f"JOB POSTING\n{r['title']} at {r['company']}\n\n"
-                     f"{_to_markdown(r['description'])}\n\nRESUME\n{resume}")
+                     f"{posting}\n\nRESUME\n{resume}")
             answers = jev.ask(state, [q for q, _ in GATE_QUESTIONS])
-            entries.append((r, _flags(answers, gate)))
+            entries.append((r, _flags(answers, gate), base_id or None))
         entries.sort(key=lambda e: (tier_pos.get(e[0]["tier"], len(tiers)), bool(e[1]),
                                     -(e[0]["score"] or 0), e[0]["id"]))
         if not job_ids:
@@ -167,7 +186,7 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
         apps_root = resolve(cfg, "applications")
         today = date.today().isoformat()
         out: list[Path] = []
-        for rank, (r, flags) in enumerate(entries, 1):
+        for rank, (r, flags, gate_base) in enumerate(entries, 1):
             folder = apps_root / appdir.folder_name(today, r["company"], r["title"])
             folder.mkdir(parents=True, exist_ok=True)
             (folder / "posting.md").write_text(_posting_md(r), encoding="utf-8")
@@ -175,7 +194,7 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
                 "job_id": r["id"], "company": r["company"], "title": r["title"], "url": r["url"],
                 "tier": r["tier"], "score": r["score"], "created": today, "status": "shortlisted",
                 "gate": {"flags": flags, "flagged": bool(flags), "queue_rank": rank,
-                         "checked": use_jev},
+                         "checked": use_jev, "resume_base": gate_base},
                 "base_id": None, "rounds": [], "best_round": None, "history": [],
             })
             note = f"rank {rank}, " + (f"{len(flags)} gate flag(s)" if flags else "no gate flags")
