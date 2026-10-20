@@ -293,3 +293,36 @@ def test_failed_years_requirement_is_a_fit_gap(tmp_path):
     item = next(it for it in out["checklist"] if it["id"] == "must.r2")
     assert item["fit_gap"] == ["years of experience"]
     assert not any("software development" in f for f in out["feedback"])
+
+
+def test_degree_requirement_is_asked_about_education_and_never_repaired(tmp_path):
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "Bachelor's degree in Statistics or a related field",
+                            "terms": [], "quote": "Bachelor's degree in Statistics, Economics or a related field."}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r2" else 0.8))
+    item = next(it for it in out["checklist"] if it["id"] == "must.r2")
+    # A degree isn't a bullet with a tool and a scope, and no rewrite can change the degree held.
+    assert "names a tool" not in item["question"] and "education" in item["question"]
+    assert item["passed"] is False and item["fit_gap"] == ["degree"]
+    assert not any("Statistics" in f for f in out["feedback"])
+
+
+def test_degree_meeting_the_level_passes_a_related_field_requirement_by_rule(tmp_path):
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "Bachelor's degree in Statistics or a related field",
+                            "terms": [], "quote": "Bachelor's degree in Statistics, Economics or a related field."}
+    write_json(app / "requirements.json", r)
+    ev = json.loads((app / "evidence.json").read_text())
+    ev["requirements"] = [e for e in ev.get("requirements") or [] if e.get("id") != "r2"] + [
+        {"id": "r2", "status": "covered", "strength": 2, "passages": [], "method": "degree"}]
+    write_json(app / "evidence.json", ev)
+    jev = FakeJev(lambda state, q: 0.2 if q.id == "must.r2" else 0.8)
+    item = next(it for it in run_grade(app, 1, {**CFG, "degree_counts_as_related": True}, jev)["checklist"]
+                if it["id"] == "must.r2")
+    assert item["passed"] is True and item["source"] == "rule"
+    # Without Jake's rule, or for a strict field, Jev still decides.
+    item = next(it for it in run_grade(app, 1, CFG, jev)["checklist"] if it["id"] == "must.r2")
+    assert item["passed"] is False

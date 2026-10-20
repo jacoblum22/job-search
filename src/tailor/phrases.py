@@ -18,6 +18,8 @@ import re
 from dataclasses import dataclass
 from typing import Iterable
 
+from src.tailor import taxonomy
+
 BANNED_WORDS = [
     "delve", "leverage", "leveraged", "leveraging", "robust", "seamless", "seamlessly", "cutting-edge",
     "tapestry", "testament", "realm", "underscore", "underscores", "showcase", "showcasing", "foster",
@@ -62,7 +64,18 @@ _PATTERNS = {code: re.compile(rx, re.IGNORECASE) for code, rx in PATTERNS.items(
 _DASH = re.compile(r"\s[—–]\s|—")
 _NOT_JUST = re.compile(r"\bnot (?:just|only)\b[^.]{1,80}\bbut\b", re.I)
 _ING_TAIL = re.compile(r",\s+(?:showcasing|highlighting|demonstrating|underscoring|reflecting|ensuring)\b", re.I)
-_TRIPLE = re.compile(r"\b\w+(?:\s\w+)?,\s\w+(?:\s\w+)?,?\s(?:and|or)\s\w+", re.I)
+# A list item never starts with a subject pronoun: "After hours, I built and tested" is an
+# opening clause plus two verbs, not three items.
+_TRIPLE = re.compile(r"\b\w+(?:\s\w+)?,\s(?!(?:i|we|you|he|she|they)\b)\w+(?:\s\w+)?,?\s(?:and|or)\s\w+", re.I)
+
+
+def _names_tools(phrase: str) -> bool:
+    """True when a list names products or tools: known skills, or every item a capitalised name."""
+    if len(taxonomy.find(phrase)) >= 2:
+        return True
+    items = re.split(r",\s|,?\s(?:and|or)\s", phrase)
+    return len(items) >= 3 and all(i.split()[-1][:1].isupper() for i in items[:1]) and all(
+        i[:1].isupper() for i in items[1:])
 
 
 @dataclass
@@ -106,7 +119,9 @@ def scan(text: str, posting: str = "", own_texts: Iterable[str] = (), *, letter:
                 if i >= 0:
                     hits.append(Hit(code, w, i))
         for m in _TRIPLE.finditer(text):
-            hits.append(Hit("triple", m.group(0), m.start()))
+            # Naming real tools ("Shopify, Yotpo and Braze") is content, not rhythm (Jake, Oct 20 2026).
+            if not _names_tools(m.group(0)):
+                hits.append(Hit("triple", m.group(0), m.start()))
     for code, rx in _PATTERNS.items():
         for m in rx.finditer(low):
             phrase = m.group(0).strip(" .!?")

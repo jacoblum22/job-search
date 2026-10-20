@@ -469,6 +469,23 @@ def test_letter_numbers_skills_sources(tmp_path):
     assert {"unknown_source", "non_claim_source"} <= set(codes(cs))
 
 
+def test_letter_numbers_come_from_the_verified_quote_not_the_fact_paraphrase(tmp_path):
+    # Only a fact's quote was checked against the page; the "fact" sentence is the researcher's paraphrase.
+    paras = copy.deepcopy(LETTER["paragraphs"])
+    paras[0]["text"] = "Contoso opened 140 stores and now works with 900 suppliers."
+    paras[0]["company_facts"] = ["f1"]
+    app, cfg = make_app(tmp_path)
+    facts_path = tmp_path / "companies" / "contoso-retail" / "facts.json"
+    facts = json.loads(facts_path.read_text(encoding="utf-8"))
+    facts[0]["fact"] += " and works with 900 suppliers"
+    facts_path.write_text(json.dumps(facts), encoding="utf-8")
+    put_draft(app, base_data(cfg))
+    write_letter(app, with_(paragraphs=paras))
+    res = run_check(app, 1, cfg)
+    invented = [c["message"] for c in res["criticals"] if c["code"] == "invented_number"]
+    assert len(invented) == 1 and "900" in invented[0]
+
+
 def test_letter_keen_only_for_a_missing_must_and_no_grades(tmp_path):
     paras = [dict(p) for p in LETTER["paragraphs"]]
     paras[1] = {**paras[1], "text": paras[1]["text"] + " I earned 88% in STAT 301 and am keen to grow into dbt."}

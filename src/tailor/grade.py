@@ -22,6 +22,7 @@ from src.experience import parse_min_years_experience
 from src.resume import iter_bullets, load_resume
 from src.tailor import TailorError, rejects, taxonomy
 from src.tailor.appdir import log, read_json, round_dir, write_json
+from src.tailor.evidence import degree_level
 from src.tailor.jev import Question, strip_identity
 
 DEFAULT_WEIGHTS = {"keyword": 40, "skills": 20, "title": 15, "sections": 15, "dates": 10}
@@ -318,6 +319,23 @@ def _req_label(r: dict[str, Any]) -> str:
     return terms[0] if terms else str(r.get("text") or r.get("id"))
 
 
+def _is_degree(r: dict[str, Any]) -> bool:
+    return degree_level(f"{r.get('text', '')} {r.get('quote', '')}") is not None
+
+
+# "Computer Science or a related field", "or equivalent", "a quantitative discipline"...
+_OPEN_FIELD = re.compile(r"\brelated\b|\bequivalent\b|\bsimilar\b|\bquantitative\b|\btechnical (?:field|discipline)", re.I)
+
+
+def _degree_by_rule(r: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any]) -> bool:
+    """A degree must-have the held degree meets by Jake's rule: the level is met (evidence's degree
+    check) and the posting accepts a related field, which his degree counts as (`degree_counts_as_related`)."""
+    if not cfg.get("degree_counts_as_related") or not _OPEN_FIELD.search(f"{r.get('text', '')} {r.get('quote', '')}"):
+        return False
+    return any(e.get("id") == r.get("id") and e.get("method") == "degree" and e.get("status") == "covered"
+               for e in evidence.get("requirements") or [])
+
+
 def _req_passage(rid: str, r: dict[str, Any], evidence: dict[str, Any]) -> str | None:
     for e in evidence.get("requirements") or []:
         if e.get("id") == rid and e.get("passages"):
@@ -360,7 +378,10 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
         meta[qid] = {"fail_on_yes": fail_on_yes, **extra}
 
     for r in req.get("requirements") or []:
-        if r.get("kind") == "must":
+        if r.get("kind") == "must" and _is_degree(r):
+            # A degree is shown by the education section, not by a bullet that names a tool.
+            add(f"must.{r['id']}", f"Does the resume's education meet this requirement: {r.get('text') or _req_label(r)}?", req_id=r["id"])
+        elif r.get("kind") == "must":
             add(f"must.{r['id']}", f"Is {r.get('text') or _req_label(r)} backed by a resume bullet that names a tool and a scope?", req_id=r["id"])
     title = str(req.get("title") or "").strip()
     if title:
@@ -434,6 +455,10 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     state = strip_identity(text + ("\n\n--- LETTER ---\n" + letter_text(letter) if letter else ""), data.get("contact"))
     items = _run_checklist(jev, state, qs, meta)
     for it in items:
+        r = must_reqs.get(meta[it["id"]].get("req_id", ""), {})
+        if it["id"].startswith("must.") and _is_degree(r) and _degree_by_rule(r, evidence, cfg):
+            it.update(passed=True, confidence=None, source="rule")
+    for it in items:
         if it["id"].startswith("must."):
             r = must_reqs[meta[it["id"]]["req_id"]]
             it["sections"] = _must_sections(data, {p for e in evidence.get("requirements") or [] if e.get("id") == r["id"] for p in e.get("passages") or []})
@@ -489,6 +514,10 @@ def _mark_fit_gaps(items, must_reqs, evidence, text, cfg) -> None:
             continue
         r = must_reqs.get(it["id"][5:], {})
         terms = r.get("terms") or []
+        if _is_degree(r):
+            # The degree comes from the locked education entry, which no rewrite can change.
+            it["fit_gap"] = ["degree"]
+            continue
         if not terms and any(parse_min_years_experience(str(r.get(k) or "")) for k in ("quote", "text")):
             # Years of experience come from the dates, which no rewrite can change.
             it["fit_gap"] = ["years of experience"]

@@ -47,7 +47,8 @@ phrased as a hedged reading, never as inside knowledge:
    **At least one fact must show real research:** a number, a named product, project, launch or
    event, or anything else that could only be true of this employer. "Values high-quality care" or
    "a leader in innovation" could be said of anyone and does not count. Prefer a verified
-   `facts.json` fact over the posting's own boilerplate.
+   `facts.json` fact over the posting's own boilerplate. Take the fact's details from its `quote`
+   (the only part checked against the source); a number or name only in its `fact` sentence fails.
    **Introduce the researched fact as research** ("Researching your company, I found...", "One thing
    I noticed...") instead of dropping it in unannounced. Keep it short: name the thing and what it
    does, without dates or detail the point doesn't need. Don't force a clever link between the fact

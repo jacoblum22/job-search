@@ -64,6 +64,12 @@ def test_jev_items_say_what_was_judged():
                                       "question": 'Could this opening sentence start ...: "I love data."?'},
                                      reqs, RESUME, "Analyst", "VCH")
     assert "opening sentence may be generic" in head and details[0] == 'The sentence: "I love data."'
+    reqs = {"r3": {"text": "Bachelor's degree in Statistics or a related field"}}
+    head, details = explain.jev_item({"id": "must.r3", "question": "Does the resume's education meet ...?",
+                                      "passed": False, "confidence": 0.6, "fit_gap": ["degree"]},
+                                     reqs, RESUME, "Analyst", "VCH")
+    assert "degree" in head and "named tool" not in head
+    assert not any("Not in your vault" in d for d in details)
 
 
 def test_drops_show_the_passage_and_old_undo_lines_still_work():

@@ -47,18 +47,23 @@ $tools = @(
     "Edit(.run-review-pr.md)", "Edit(.run-review-notes.md)",
     "Bash(uv run pytest:*)", "Bash(uv run python -c:*)"
 )
-$claudeArgs = @("-p", "--strict-mcp-config", "--add-dir", $projectRoot,
-                "--permission-mode", "dontAsk", "--allowedTools") + $tools
+$claudeArgs = @("-p", "--output-format", "stream-json", "--verbose", "--strict-mcp-config",
+                "--add-dir", $projectRoot, "--permission-mode", "dontAsk", "--allowedTools") + $tools
 $out = $prompt | claude @claudeArgs 2>&1
-$out | ForEach-Object { "$_" } | Add-Content $logFile -Encoding UTF8
+$out | ForEach-Object { "$_" } | Set-Content (Join-Path $projectRoot "logs\tailoring\review_$stamp.jsonl") -Encoding UTF8
+foreach ($line in ($out | ForEach-Object { "$_" } | Select-Object -Last 5)) {
+    try { $obj = $line | ConvertFrom-Json; if ($obj.type -eq "result") { $obj.result | Add-Content $logFile -Encoding UTF8 } } catch {}
+}
 
 $notes = Join-Path $worktree ".run-review-notes.md"
 if (Test-Path $notes) { Copy-Item $notes (Join-Path $notesDir "$stamp.md") -Force }
 
 $bodyFile = Join-Path $worktree ".run-review-pr.md"
+# Claude is told not to commit, but count its commits too, so a fix is never thrown away.
 $changed = git status --porcelain -- src tests prompts docs config
+$commits = [int](git rev-list --count origin/jake..HEAD)
 $pushed = $false
-if (-not $changed) {
+if (-not $changed -and $commits -eq 0) {
     Log "No code changes"
 } else {
     uv run pytest -q 2>&1 | Tee-Object -Variable testOut | Out-Null
@@ -69,8 +74,10 @@ if (-not $changed) {
         exit 1
     }
     $body = if (Test-Path $bodyFile) { Get-Content $bodyFile -Raw -Encoding UTF8 } else { "Post-run review $stamp." }
-    git add src tests prompts docs config
-    git commit -q -m "Run review ${stamp}: fix problems from the tailoring run" 2>&1 | Add-Content $logFile -Encoding UTF8
+    if ($changed) {
+        git add src tests prompts docs config
+        git commit -q -m "Run review ${stamp}: fix problems from the tailoring run" 2>&1 | Add-Content $logFile -Encoding UTF8
+    }
     git push -q -u origin $branch 2>&1 | Add-Content $logFile -Encoding UTF8
     $pushed = $true
     $bodyTmp = Join-Path $env:TEMP "run-review-pr.md"
