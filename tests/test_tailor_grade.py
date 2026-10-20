@@ -281,3 +281,15 @@ def test_soft_must_that_jev_passes_needs_no_word(tmp_path):
     assert not any("communication" in f for f in out["feedback"])
     out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r2" else 0.8))
     assert any("communication" in f for f in out["feedback"])
+
+
+def test_failed_years_requirement_is_a_fit_gap(tmp_path):
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "About 2+ years of software development", "terms": [],
+                            "quote": "2+ years of professional software development experience."}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r2" else 0.8))
+    item = next(it for it in out["checklist"] if it["id"] == "must.r2")
+    assert item["fit_gap"] == ["years of experience"]
+    assert not any("software development" in f for f in out["feedback"])
