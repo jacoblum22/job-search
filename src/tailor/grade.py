@@ -22,6 +22,7 @@ from src.experience import parse_min_years_experience
 from src.resume import iter_bullets, load_resume
 from src.tailor import TailorError, rejects, taxonomy
 from src.tailor.appdir import log, read_json, round_dir, write_json
+from src.tailor.evidence import degree_level
 from src.tailor.jev import Question, strip_identity
 
 DEFAULT_WEIGHTS = {"keyword": 40, "skills": 20, "title": 15, "sections": 15, "dates": 10}
@@ -318,6 +319,10 @@ def _req_label(r: dict[str, Any]) -> str:
     return terms[0] if terms else str(r.get("text") or r.get("id"))
 
 
+def _is_degree(r: dict[str, Any]) -> bool:
+    return degree_level(f"{r.get('text', '')} {r.get('quote', '')}") is not None
+
+
 def _req_passage(rid: str, r: dict[str, Any], evidence: dict[str, Any]) -> str | None:
     for e in evidence.get("requirements") or []:
         if e.get("id") == rid and e.get("passages"):
@@ -360,7 +365,10 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
         meta[qid] = {"fail_on_yes": fail_on_yes, **extra}
 
     for r in req.get("requirements") or []:
-        if r.get("kind") == "must":
+        if r.get("kind") == "must" and _is_degree(r):
+            # A degree is shown by the education section, not by a bullet that names a tool.
+            add(f"must.{r['id']}", f"Does the resume's education meet this requirement: {r.get('text') or _req_label(r)}?", req_id=r["id"])
+        elif r.get("kind") == "must":
             add(f"must.{r['id']}", f"Is {r.get('text') or _req_label(r)} backed by a resume bullet that names a tool and a scope?", req_id=r["id"])
     title = str(req.get("title") or "").strip()
     if title:
@@ -489,6 +497,10 @@ def _mark_fit_gaps(items, must_reqs, evidence, text, cfg) -> None:
             continue
         r = must_reqs.get(it["id"][5:], {})
         terms = r.get("terms") or []
+        if _is_degree(r):
+            # The degree comes from the locked education entry, which no rewrite can change.
+            it["fit_gap"] = ["degree"]
+            continue
         if not terms and any(parse_min_years_experience(str(r.get(k) or "")) for k in ("quote", "text")):
             # Years of experience come from the dates, which no rewrite can change.
             it["fit_gap"] = ["years of experience"]

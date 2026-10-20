@@ -222,3 +222,15 @@ def test_phrase_patterns_flag_dressed_up_lines():
     assert codes("I wrote SQL for the marketing team.") == set()
     # protection rule: an exact posting phrase is allowed
     assert "inflated" not in codes("Data plays a key role here.", posting="Data plays a key role at VCH")
+
+
+def test_triple_needs_a_real_list_of_three():
+    from src.tailor import phrases
+
+    def triples(t):
+        return [h.phrase for h in phrases.scan(t, letter=True) if h.code == "triple"]
+
+    assert triples("Our team is fast, careful and kind.") == ["is fast, careful and kind"]
+    # An opening clause, then "I" and two verbs, is one comma and one "and" but not a list.
+    assert triples("After hours, I built and tested a scheduling app.") == []
+    assert triples("At the clinic, we planned and ran the survey.") == []

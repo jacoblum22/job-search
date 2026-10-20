@@ -62,7 +62,9 @@ _PATTERNS = {code: re.compile(rx, re.IGNORECASE) for code, rx in PATTERNS.items(
 _DASH = re.compile(r"\s[—–]\s|—")
 _NOT_JUST = re.compile(r"\bnot (?:just|only)\b[^.]{1,80}\bbut\b", re.I)
 _ING_TAIL = re.compile(r",\s+(?:showcasing|highlighting|demonstrating|underscoring|reflecting|ensuring)\b", re.I)
-_TRIPLE = re.compile(r"\b\w+(?:\s\w+)?,\s\w+(?:\s\w+)?,?\s(?:and|or)\s\w+", re.I)
+# A list item never starts with a subject pronoun: "Outside work, I designed and built" is an
+# opening clause plus two verbs, not three items.
+_TRIPLE = re.compile(r"\b\w+(?:\s\w+)?,\s(?!(?:i|we|you|he|she|they)\b)\w+(?:\s\w+)?,?\s(?:and|or)\s\w+", re.I)
 
 
 @dataclass

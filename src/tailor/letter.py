@@ -71,7 +71,8 @@ def load_company_facts(cfg: dict[str, Any], company: str) -> dict[str, dict[str,
 
 
 def _fact_text(f: dict[str, Any]) -> str:
-    return " ".join(str(v) for v in f.values() if isinstance(v, (str, int, float)))
+    # Only the quote was checked against its source; the "fact" sentence is the writer's own paraphrase.
+    return str(f.get("quote") or "")
 
 
 def _contact_ok(greeting_name: str, contact_name: str | None) -> bool:
@@ -134,7 +135,7 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     facts = load_company_facts(cfg, req.get("company") or ctx.get("company", ""))
     posting_facts = req.get("company_facts") or []
     allowed_text = [ctx["base_text"], *ctx["claim_texts"]]
-    allowed_text += [f"{f.get('fact', '')} {f.get('quote', '')}" for f in posting_facts if isinstance(f, dict)]
+    allowed_text += [_fact_text(f) for f in posting_facts if isinstance(f, dict)]
     allowed_text += [_fact_text(f) for f in facts.values()]
     allowed_nums = set().union(*(number_keys(t) for t in allowed_text)) if allowed_text else set()
     vault_skills = taxonomy.find(ctx["base_text"] + "\n" + "\n".join(ctx["claim_texts"]))
@@ -159,7 +160,7 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
                     if n < 1:
                         raise IndexError(n)
                     f = posting_facts[n - 1]
-                    ftext = f"{f.get('fact', '')} {f.get('quote', '')}"
+                    ftext = _fact_text(f)
                 except (ValueError, IndexError, TypeError, AttributeError):
                     ftext = None
             elif fid in facts:
