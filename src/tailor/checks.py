@@ -33,7 +33,7 @@ import yaml
 from rapidfuzz import fuzz
 
 from src.resume import iter_bullets, load_resume, validate
-from src.tailor import metrics, phrases, taxonomy
+from src.tailor import metrics, phrases, rejects, taxonomy
 from src.tailor.appdir import log, read_json, round_dir, write_json
 from src.tailor.edits import LOCKED_FIELDS, load_base, load_index, norm
 from src.tailor.jev import Question
@@ -235,6 +235,19 @@ def check_resume(
     allowed_nums = number_keys(allowed_text)
     allowed_years = years_in(allowed_text)
     allowed_skills = taxonomy.find(allowed_text)
+    # Confirmed pairs (skill key, passage): a passage that shows a skill in other words
+    # ("loads an emailed CSV into BigQuery" is a simple ETL job) backs the skill's name.
+    confirmed = ctx.get("confirmed") or set()
+    confirmed_keys = {k for k, _ in confirmed}
+    srcs_by_path = {"summary": (draft.get("summary") or {}).get("sources") or []}
+    srcs_by_path.update({p: b.get("sources") or [] for p, b in iter_bullets(draft)})
+
+    def confirmed_for(skill: str, path: str) -> bool:
+        k = rejects.key(skill)
+        if path.startswith("skills/"):
+            return k in confirmed_keys
+        return any((k, sid) in confirmed for sid in srcs_by_path.get(path, []))
+
     d_units = units(draft)
     base_bullets = {k: v.get("text") for k, v in _bullet_map(base).items()}
 
@@ -297,7 +310,7 @@ def check_resume(
         # A skill counts as backed only when the draft's own wording for it is in the
         # vault or base: "experimentation" in a passage doesn't back "A/B testing".
         for skill, words in sorted(taxonomy.find_wordings(text).items()):
-            if taxonomy.is_hard(skill) and (
+            if taxonomy.is_hard(skill) and not confirmed_for(skill, path) and (
                     skill not in allowed_skills or not any(_wording_in(w, allowed_text) for w in words)):
                 c("invented_skill", f"{skill} appears in no vault passage or the base", path, term=skill)
 
@@ -552,6 +565,7 @@ def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> 
     ctx = {
         "index": index, "req": req, "posting": posting, "base_text": base_text,
         "claim_texts": claim_texts, "own_texts": [base_text, *claim_texts], "company": req.get("company", ""),
+        "confirmed": set(rejects.confirmed(cfg, app_dir)),
     }
     criticals, warnings, _ = check_resume(draft, base, ctx)
     # Re-add source criticals for reverted paths (bad ids on a reverted line still go on record).

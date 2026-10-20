@@ -19,6 +19,7 @@ _GENERIC = re.compile(
     re.I,
 )
 _HONORIFIC = re.compile(r"\b(?:mr|mrs|ms|miss|mx|dr|prof)\b\.?", re.I)
+_SENTENCE = re.compile(r"(?<=[.!?])\s+")
 _FAMILIAR = re.compile(r"\bfamiliar(?:ity)? with\s+([^.;:\n]{1,80})", re.I)
 _KEEN = re.compile(
     r"\b(?:keen|eager|excited|looking|hoping|hope|want|wanting|ready)\s+to\s+(?:grow|learn|develop|build)\b"
@@ -137,6 +138,8 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     allowed_text += [_fact_text(f) for f in facts.values()]
     allowed_nums = set().union(*(number_keys(t) for t in allowed_text)) if allowed_text else set()
     vault_skills = taxonomy.find(ctx["base_text"] + "\n" + "\n".join(ctx["claim_texts"]))
+    must_terms = {taxonomy.canonical(t) or t for r in req.get("requirements") or []
+                  if isinstance(r, dict) and r.get("kind") == "must" for t in r.get("terms") or []}
 
     cited_fact = False
     for i, p in enumerate(paras):
@@ -169,7 +172,10 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
         for raw in extract_numbers(text, allowed_nums):
             crit("invented_number", f"{where}: {raw!r} appears in no vault passage or company fact", where, term=raw)
         fact_skills = taxonomy.find("\n".join(para_fact_text))
-        for skill in sorted(taxonomy.find(text) - vault_skills - fact_skills):
+        # The one "keen to grow into" sentence may name the missing must-haves it is about.
+        keen_ok = {s for sent in _SENTENCE.split(text) if _KEEN.search(sent)
+                   for s in taxonomy.find(sent) & must_terms}
+        for skill in sorted(taxonomy.find(text) - vault_skills - fact_skills - keen_ok):
             if taxonomy.is_hard(skill):
                 crit("invented_skill", f"{where}: mentions {skill}, which is not in the vault or base", where, term=skill)
         for m in _FAMILIAR.finditer(text):

@@ -42,7 +42,7 @@ def make_app(tmp_path: Path, rnd: int = 1):
         "vault_index": str(tmp_path / "vault-index.json"),
         "companies": str(tmp_path / "companies"),
     }})
-    (tmp_path / "bases").mkdir()
+    (tmp_path / "bases").mkdir(parents=True)
     shutil.copy(FX / "base-analyst.yaml", tmp_path / "bases" / "data-analyst.yaml")
     shutil.copy(FX / "vault-index.json", tmp_path / "vault-index.json")
     facts = tmp_path / "companies" / "contoso-retail"
@@ -242,6 +242,27 @@ def test_invented_skill(tmp_path):
     assert [c["message"] for c in res["criticals"] if c["code"] == "invented_skill"] == [
         c["message"] for c in res["criticals"] if "Looker" in c["message"]]
     assert any("Looker" in c["message"] for c in res["criticals"])
+
+
+def test_plan_add_backs_a_skill_on_the_line_that_cites_it(tmp_path):
+    def m(d):
+        bullet(d, "northwind.dashboards")["text"] += " Also built Looker explores."
+    app, cfg = make_app(tmp_path)
+    cfg["paths"]["evidence_confirms"] = str(tmp_path / "confirms.json")
+    cfg["paths"]["evidence_rejects"] = str(tmp_path / "rejects.json")
+    plan = read_json(app / "plan.json")
+    plan["evidence_adds"] = [{"term": "Looker", "passage": "northwind.dashboards", "reason": "test"}]
+    write_json(app / "plan.json", plan)
+    data = base_data(cfg)
+    m(data)
+    put_draft(app, data)
+    assert not any("Looker" in c["message"] for c in run_check(app, 1, cfg, None)["criticals"])
+    # the same wording on a line that doesn't cite the confirmed passage is still invented
+    data = base_data(cfg)
+    bullet(data, "northwind.sql-daily")["text"] += " Also built Looker explores."
+    put_draft(app, data)
+    assert any(c["code"] == "invented_skill" and "Looker" in c["message"]
+               for c in run_check(app, 1, cfg, None)["criticals"])
 
 
 def test_skill_in_other_vault_passage_is_fine(tmp_path):
@@ -461,6 +482,18 @@ def test_letter_keen_only_for_a_missing_must_and_no_grades(tmp_path):
     assert "keen_not_must" in ws and "course_grade" in ws
     write_json(app / "evidence.json", {"requirements": [{"id": must, "status": "missing"}]})
     assert "keen_not_must" not in codes(run_check(app, 1, cfg, None)["warnings"])
+
+
+def test_letter_keen_sentence_may_name_a_missing_must(tmp_path):
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "text": paras[1]["text"] + " I have not used Power BI yet and would be keen to grow into it."}
+    res, _ = letter_check(tmp_path / "a", with_(paragraphs=paras))
+    assert not any(c["code"] == "invented_skill" for c in res["criticals"])
+    # a missing must named outside the keen sentence is still invented
+    paras[1] = {**paras[1], "text": "I would be keen to grow into Looker. I also use Power BI."}
+    res, _ = letter_check(tmp_path / "b", with_(paragraphs=paras))
+    msgs = [c["message"] for c in res["criticals"] if c["code"] == "invented_skill"]
+    assert any("Looker" in m for m in msgs) and any("Power BI" in m for m in msgs)
 
 
 def test_letter_warnings(tmp_path):
