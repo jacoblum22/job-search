@@ -291,3 +291,13 @@ def test_packet_lists_bullets_cut_to_fit(cfg):
     assert line.startswith("- [ ] Reviewed  ") and "Acme" in line
     from src.tailor.packet import unresolved_lines
     assert line in unresolved_lines(check)  # the cut needs a look before approving
+
+
+def test_closed_and_internal_postings_are_never_queued(cfg):
+    add(cfg, "o1", "Open", "A", 70)
+    add(cfg, "c1", "Closed", "A", 99, desc=DESC + "\n\nPosting End Date: October 1, 2020")
+    add(cfg, "i1", "Internal", "A", 98, desc=DESC + "\n\nThis position will be filled internally.")
+    # A closed copy from another source closes the whole group.
+    add(cfg, "g1", "Copy", "A", 97, desc=DESC + " more detail", group="g")
+    add(cfg, "g2", "Copy", "D", 10, desc="Posting End Date: October 1, 2020", group="g")
+    assert titles(run_queue(cfg, limit=5, jev=FakeJev(GOOD))) == ["Open"]

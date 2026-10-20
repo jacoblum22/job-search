@@ -67,6 +67,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .status-applied { background: var(--applied); }
   .status-dismissed { background: var(--dismissed); }
   .status-expired { background: var(--dismissed); }
+  .closed { background: none; border: 1px solid #b23b3b; color: #e07070; }
   .app-shortlisted, .app-ready_for_review { background: var(--accent); }
   .app-needs_fixes { background: #b23b3b; }
   .app-approved { background: var(--new); }
@@ -164,6 +165,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <option value="applied">Applied</option>
     <option value="dismissed">Dismissed</option>
     <option value="expired">Expired</option>
+    <option value="closed">Closed</option>
+    <option value="open">Still open</option>
   </select>
   <select id="appFilter">
     <option value="">All jobs</option>
@@ -429,7 +432,7 @@ function render() {
   if (activeTab === 'stats') { renderStats(); return; }
   let filtered = jobs.filter(j => {
     if (j.job_type !== activeTab) return false;
-    if (status && j.status !== status) return false;
+    if (status === 'closed' ? !j.closed : status === 'open' ? j.closed : status && j.status !== status) return false;
     if (appStatus && !(j.app && (appStatus === 'any' || j.app.status === appStatus))) return false;
     if (source && !j.sources.includes(source)) return false;
     if (locationCat && j.location_category !== locationCat) return false;
@@ -482,11 +485,12 @@ function render() {
       ? `<a href="/job/${encodeURIComponent(j.id)}">${escapeHtml(j.title)}</a>`
         + (postingLink ? `<div class="applinks">${postingLink}</div>` : '')
       : (postingLink || escapeHtml(j.title));
+    const closedBadge = j.closed ? ` <span class="badge closed" title="Can't apply: ${escapeHtml(j.closed)}">${escapeHtml(j.closed)}</span>` : '';
     const srcBadges = j.sources.map(s => `<span class="badge src">${escapeHtml(s)}</span>`).join('');
     const scoreText = j.tier === 'skip' ? 'skip' : (j.score ?? '');
     return `<tr${j.pin < 99 ? ' class="pinned"' : ''}>
       <td class="score" title="${escapeHtml(j.score_reasons)}"><span class="badge tier-${escapeHtml(j.tier)}">${escapeHtml(j.tier)}</span> ${escapeHtml(String(scoreText))}</td>
-      <td>${titleCell}</td>
+      <td>${titleCell}${closedBadge}</td>
       <td>${escapeHtml(j.company)}</td>
       <td>${escapeHtml(j.location)}</td>
       <td><span class="badge cat-${escapeHtml(j.location_category)}">${escapeHtml(j.location_category)}</span></td>
@@ -601,7 +605,8 @@ def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
             r["id"] = app_id  # the details page looks the application up by its job id
         status = r["app"]["status"] if r["app"] else None
         r["app_sort"] = _APP_ORDER.index(status) if status in _APP_ORDER else 99
-        r["pin"] = _NEEDS_YOU.index(status) if status in _NEEDS_YOU else 99
+        # A closed posting's application can't be sent, so it isn't pinned as waiting on you.
+        r["pin"] = _NEEDS_YOU.index(status) if status in _NEEDS_YOU and not r["closed"] else 99
         r["posted_sort"] = _sort_date(r.get("posted_date"), r.get("first_seen"))
         r["job_type"] = "internship" if _INTERNSHIP_RE.search(r["title"]) else "fulltime"
         # Skipped / never-scored rows sort below every real score.

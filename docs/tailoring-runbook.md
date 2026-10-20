@@ -182,7 +182,9 @@ Use this to tailor a single job, debug a run, or redo a step. Each code command 
 summary; read it before continuing.
 
 1. **Queue a specific job:** `uv run python -m src.tailor queue --job-id 123`. (Plain `queue` picks
-   today's eligible jobs, up to `--limit`.) Note the folder it prints and set `APP` to it.
+   today's eligible jobs, up to `--limit`, and never one that says it's filled internally or whose
+   deadline has passed (`src/posting_status.py`; the dashboard marks those "Closed").) Note the folder
+   it prints and set `APP` to it.
 2. **Read the posting:** open `APP/posting.md`. Run Claude with `prompts/tailor/requirements.md` and have it
    write `APP/requirements.json`. Then:
    `uv run python -m src.tailor requirements "$APP"`. Check `"_normalized"` for dropped items.
