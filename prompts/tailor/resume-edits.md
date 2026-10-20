@@ -14,7 +14,7 @@ list is also the before/after diff the candidate reviews.
 
 - `plan.json` (base id, plan fields, `protected_paths`, `bullet_relevance`)
 - The base: `materials/resumes/bases/<base_id>.yaml` (every section, entry and bullet has an id)
-- `requirements.json`, `evidence.json` (use its `present` and `absent` lists); a term in `plan.json` `evidence_adds` counts as present, backed by the passage listed there
+- `requirements.json`, `evidence.json` (use its `present` and `absent` lists); a term in `plan.json` `evidence_adds` counts as present, backed by the passage listed there, so a bullet (or letter paragraph) naming it must cite that passage
 - `materials/profile/vault-index.json` (passage ids and texts)
 - The rules file (`materials/docs/tailoring-rules.md`)
 - `posting.md` for exact wording

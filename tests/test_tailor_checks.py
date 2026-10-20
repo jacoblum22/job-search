@@ -369,6 +369,18 @@ def test_skill_only_in_list_warning(tmp_path):
     assert any(w["code"] == "skill_only_in_list" and "dbt" in w["message"] for w in res["warnings"])
 
 
+def test_skill_only_in_list_once_per_skill_named_as_listed(tmp_path):
+    # "dbt Cloud" in the posting is the same skill as the listed "dbt": one warning, naming what the list says.
+    app, cfg = make_app(tmp_path)
+    req = read_json(app / "requirements.json")
+    req["keywords"].append({"term": "dbt Cloud", "weight": "role", "quote": "dbt Cloud"})
+    write_json(app / "requirements.json", req)
+    write_edits(app, [{"path": "skills/skills.tools", "action": "add_skill", "value": "dbt", "sources": ["northwind.dbt"]}])
+    apply_edits(app, 1, cfg)
+    res = run_check(app, 1, cfg, None)
+    assert [w["data"]["term"] for w in res["warnings"] if w["code"] == "skill_only_in_list"] == ["dbt"]
+
+
 def test_jev_flag_and_unavailable(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [sql_edit()])
@@ -499,6 +511,37 @@ def test_letter_keen_only_for_a_missing_must_and_no_grades(tmp_path):
     assert "keen_not_must" in ws and "course_grade" in ws
     write_json(app / "evidence.json", {"requirements": [{"id": must, "status": "missing"}]})
     assert "keen_not_must" not in codes(run_check(app, 1, cfg, None)["warnings"])
+
+
+def test_letter_keen_fits_a_partial_must_with_an_absent_term(tmp_path):
+    # "Power BI or Tableau" is partial when Tableau is backed, but Power BI is still missing.
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "text": paras[1]["text"] + " I would be keen to grow into Power BI."}
+    app, cfg = make_app(tmp_path)
+    put_draft(app, base_data(cfg))
+    write_letter(app, with_(paragraphs=paras))
+    write_json(app / "evidence.json", {"requirements": [{"id": "r1", "status": "covered"}, {"id": "r3", "status": "partial"}],
+                                       "absent": ["Power BI"]})
+    assert "keen_not_must" not in codes(run_check(app, 1, cfg, None)["warnings"])
+    write_json(app / "evidence.json", {"requirements": [{"id": "r1", "status": "covered"}, {"id": "r3", "status": "covered"}],
+                                       "absent": ["dbt"]})  # only a nice-to-have is absent
+    assert "keen_not_must" in codes(run_check(app, 1, cfg, None)["warnings"])
+
+
+def test_letter_skill_backed_by_a_plan_add_where_its_passage_is_cited(tmp_path):
+    # Same rule as the resume: a plan's evidence_adds pair backs the skill on lines citing that passage.
+    paras = copy.deepcopy(LETTER["paragraphs"])
+    paras[1] = {"text": "At Northwind I built Looker dashboards for the operations team.",
+                "sources": ["northwind.dashboards"], "company_facts": []}
+    paras[2] = {"text": "I would bring the same Looker work to Contoso.", "sources": [], "company_facts": []}
+    app, cfg = make_app(tmp_path)
+    plan = read_json(app / "plan.json")
+    plan["evidence_adds"] = [{"term": "Looker", "passage": "northwind.dashboards", "reason": "x"}]
+    write_json(app / "plan.json", plan)
+    put_draft(app, base_data(cfg))
+    write_letter(app, with_(paragraphs=paras))
+    invented = [c["path"] for c in run_check(app, 1, cfg, None)["criticals"] if c["code"] == "invented_skill"]
+    assert invented == ["paragraphs[2]"]
 
 
 def test_letter_keen_sentence_may_name_a_missing_must(tmp_path):
