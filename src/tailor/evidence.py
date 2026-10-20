@@ -10,7 +10,7 @@ words, which misfires ("Access" in "access tokens"), so those matches count
 only once Jev confirms them; with no Jev key they don't count at all. Degree
 requirements are checked against the vault's degree passages, not by words.
 Term and passage pairs rejected on earlier jobs (`rejects.py`) are never matched;
-confirmed pairs (`evidence-confirms.json`) always count, rank first and aren't asked
+confirmed pairs (`skill-record.json` `has`) always count, rank first and aren't asked
 about again. Requirements still missing or weak afterwards keep the passages Jev
 came closest to saying yes to (`candidates`), so the review page can ask the
 candidate whether one of them shows the skill after all.

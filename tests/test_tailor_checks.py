@@ -248,8 +248,7 @@ def test_plan_add_backs_a_skill_on_the_line_that_cites_it(tmp_path):
     def m(d):
         bullet(d, "northwind.dashboards")["text"] += " Also built Looker explores."
     app, cfg = make_app(tmp_path)
-    cfg["paths"]["evidence_confirms"] = str(tmp_path / "confirms.json")
-    cfg["paths"]["evidence_rejects"] = str(tmp_path / "rejects.json")
+    cfg["paths"]["skill_record"] = str(tmp_path / "skill-record.json")
     plan = read_json(app / "plan.json")
     plan["evidence_adds"] = [{"term": "Looker", "passage": "northwind.dashboards", "reason": "test"}]
     write_json(app / "plan.json", plan)

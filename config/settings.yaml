@@ -551,6 +551,8 @@ score:
   # means a different stack, so it costs more (Jake's rule, PR #12).
   vault_gaps:
     index: materials/profile/vault-index.json
+    # What applications learned: confirmed tools count, tools Jake lacks don't (src/vault_gaps.py).
+    record: materials/tailor/skill-record.json
     points: -2
     preferred_factor: 0.5
     cap: 25

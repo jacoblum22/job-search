@@ -95,3 +95,27 @@ def test_score_uses_the_vault_and_skips_the_old_gap_list(vault):
 ])
 def test_sections(text, word, kind):
     assert Sections(text).kind(text.index(word)) == kind
+
+
+def test_skill_record_corrects_the_vault(tmp_path):
+    passages = [
+        {"id": "a", "text": "Wrote SQL in BigQuery daily"},
+        {"id": "b", "text": "Raw tables collected by the Dev team via Dataform"},
+        {"id": "c", "text": "Skills: Node.js, Python"},
+    ]
+    index = tmp_path / "vault-index.json"
+    index.write_text(json.dumps({"passages": passages}), encoding="utf-8")
+    assert {"Dataform", "Node.js"} <= load_vault(index).tools
+    record = tmp_path / "skill-record.json"
+    record.write_text(json.dumps({
+        "has": [{"term": "tableau", "passage": "a", "source": "jake"},
+                {"term": "Power BI", "passage": "a", "source": "jev"},  # Jev answers don't add tools
+                {"term": "Looker", "passage": "a", "source": "jake", "undone": True}],
+        "lacks": [{"skill": "Node.js"}],
+        "not_shown": [{"term": "Dataform", "passage": "b"}],
+    }), encoding="utf-8")
+    v = load_vault(index, record)
+    assert "Tableau" in v.tools and "BI / visualization tool" in v.types
+    assert not {"Power BI", "Looker", "Node.js", "Dataform"} & v.tools
+    assert {"SQL", "BigQuery", "Python"} <= v.tools
+    assert labels("Experience with Tableau and Node.js", v) == [("Node.js", False)]

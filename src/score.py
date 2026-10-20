@@ -308,7 +308,8 @@ def rescore_all(
         if cache is not None and "_vault" in cache:
             vault = cache["_vault"]
         else:
-            vault = load_vault(vault_cfg.get("index", "materials/profile/vault-index.json"))
+            vault = load_vault(vault_cfg.get("index", "materials/profile/vault-index.json"),
+                               vault_cfg.get("record", "materials/tailor/skill-record.json"))
             if cache is not None:
                 cache["_vault"] = vault
     for row in rows:
