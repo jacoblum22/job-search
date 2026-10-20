@@ -21,7 +21,7 @@ $transcript = Join-Path $logDir "$stamp.jsonl"
 $digestDir = Join-Path $projectRoot "materials\tailor\digests"
 New-Item -ItemType Directory -Force -Path $logDir, $digestDir | Out-Null
 
-function Log($msg) { "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $msg" | Add-Content $logFile }
+function Log($msg) { "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $msg" | Add-Content $logFile -Encoding UTF8 }
 
 # PowerShell 5.1 pipes text to native programs as ASCII unless told otherwise.
 $utf8 = New-Object System.Text.UTF8Encoding $false
@@ -54,7 +54,8 @@ $tools = @(
     "Edit(materials/applications/**)", "Edit(materials/companies/**)",
     "Bash(uv run python -m src.tailor:*)"
 )
-$claudeArgs = @("-p", "--output-format", "stream-json", "--verbose",
+# --strict-mcp-config with no --mcp-config: no connectors (Gmail, Calendar...) are loaded.
+$claudeArgs = @("-p", "--output-format", "stream-json", "--verbose", "--strict-mcp-config",
                 "--permission-mode", "dontAsk", "--allowedTools") + $tools
 if ($MaxBudgetUsd -gt 0) { $claudeArgs += @("--max-budget-usd", "$MaxBudgetUsd") }
 
@@ -71,13 +72,13 @@ if ($result) {
     Add-Content $digest ("`n<!-- $stamp -->`n" + $result.result) -Encoding UTF8
     Log ("Finished: {0}, {1} turns, `${2:N2}, {3:N0} min" -f $result.subtype, $result.num_turns,
          $result.total_cost_usd, ($result.duration_ms / 60000))
-    $result.result | Add-Content $logFile
+    $result.result | Add-Content $logFile -Encoding UTF8
 } else {
     Log "Claude did not finish normally; see the transcript"
-    $out | Select-Object -Last 10 | ForEach-Object { "$_" } | Add-Content $logFile
+    $out | Select-Object -Last 10 | ForEach-Object { "$_" } | Add-Content $logFile -Encoding UTF8
 }
 
 # Nothing tracked should change during a run.
 $tracked = git status --porcelain --untracked-files=no -- src tests prompts docs config scripts
-if ($tracked) { Log "WARNING: tracked files changed during the run:"; $tracked | Add-Content $logFile }
+if ($tracked) { Log "WARNING: tracked files changed during the run:"; $tracked | Add-Content $logFile -Encoding UTF8 }
 Log "Done"

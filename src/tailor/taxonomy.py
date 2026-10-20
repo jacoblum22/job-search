@@ -525,11 +525,18 @@ def find(text: str) -> set[str]:
 
 
 def find_wordings(text: str) -> dict[str, set[str]]:
-    """Each taxonomy skill mentioned in `text`, with the exact words that matched it."""
+    """Each taxonomy skill mentioned in `text`, with the exact words that matched it.
+
+    A pattern may stop inside a word ("data warehous", "visualiz"), so the match is
+    extended to the end of that word: callers look the wording up as a whole phrase.
+    """
     out: dict[str, set[str]] = {}
     for _, name, rx in compiled():
         for m in rx.finditer(text):
-            out.setdefault(name, set()).add(m.group(0))
+            end = m.end()
+            while end < len(text) and text[end].isalnum():
+                end += 1
+            out.setdefault(name, set()).add(text[m.start():end])
     return out
 
 

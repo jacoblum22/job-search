@@ -55,7 +55,8 @@ apply to anything, never send anything, and never edit files outside `materials/
 `materials/companies/`. Personal details live only under the git-ignored `materials/`; do not copy
 them into the digest beyond company and job titles.
 
-**How to run commands.** Your only shell access is `uv run python -m src.tailor <command> ...`.
+**How to run commands.** Your only shell access is `uv run python -m src.tailor <command> ...`
+through the Bash tool (the PowerShell tool is denied).
 Run each command on its own: no `cd`, no `&&` or `;`, no variables like `$APP`, no pipes. Always
 pass the full application folder path in double quotes, for example
 `uv run python -m src.tailor check "materials/applications/2026-10-20 Acme - Data Analyst" --round 1`.
