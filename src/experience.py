@@ -55,9 +55,26 @@ _EXPERIENCE_CONTEXT = re.compile(r"experience", re.IGNORECASE)
 _CONTEXT_WINDOW = 80  # characters
 
 
+# A requirement line that never says "experience": "- 5+ years in P&C insurance analytics",
+# "3+ years working with SQL". It must open a list item, or carry a "+", and be followed by
+# what the years were spent on; company history ("35 years in business") isn't.
+_LINE_START = re.compile(r"(?:^|\n)[ \t]*(?:[-*•+▪◦·]|\d+[.)])?[ \t]*(?:minimum\s+|at\s+least\s+)?$", re.IGNORECASE)
+_SPENT_ON = re.compile(
+    r"\s+(?:of|in|as|working|doing|building|developing|leading|with|using|hands-on|professional|relevant)\b"
+    r"(?!\s+(?:business|operation|history|the\s+(?:industry|market|community)|service"
+    r"|post-?secondary|university|college|school|study|studies|education|age\b))",
+    re.IGNORECASE,
+)
+
+
 def _has_experience_context(haystack: str, start: int, end: int) -> bool:
     window = haystack[max(0, start - _CONTEXT_WINDOW) : end + _CONTEXT_WINDOW]
-    return bool(_EXPERIENCE_CONTEXT.search(window))
+    if _EXPERIENCE_CONTEXT.search(window):
+        return True
+    if not _SPENT_ON.match(haystack, end):
+        return False
+    lead = haystack[max(0, start - 40):start]
+    return "+" in haystack[start:end] or bool(_LINE_START.search(lead))
 
 
 def parse_min_years_experience(text: str) -> int | None:
