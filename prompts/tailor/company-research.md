@@ -48,7 +48,10 @@ old, **do nothing and report "fresh, skipped"**.
    and saves its own text as the next `pages/<n>.txt` (first line `URL: <url>`), and prints the
    page number. Web-fetch tools may hand you a model's summary of a page, and a quote copied from a
    summary is not the company's wording. If the command says a page has no readable text or is not
-   a web page, skip that page. Read the saved file to find your quotes.
+   a web page, skip that page. Read the saved file to find your quotes. The command enforces the
+   budget and source rules: it refuses job boards, profile and social sites, and stops after 6
+   pages. `company-verify` drops a fact from a page dated more than 12 months ago (old news), so
+   take news facts from recent articles.
 4. **Each fact needs a short exact quote** copied character for character from the saved page text
    (a clause, roughly 5-25 words). A fact whose quote is not found in the page is dropped, so do not
    paraphrase inside `quote`. The `fact` field is your short plain-English restatement.

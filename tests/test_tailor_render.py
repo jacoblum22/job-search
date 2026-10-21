@@ -278,3 +278,56 @@ def test_triple_needs_a_real_list_of_three():
     assert triples("At the clinic, we planned and ran the survey.") == []
     # Naming real tools is content, not rhythm.
     assert triples("I checked data from Shopify, Yotpo and Braze.") == []
+
+
+def test_fetch_page_refuses_job_boards_and_profile_sites(tmp_path, monkeypatch):
+    import httpx
+
+    from src.tailor import TailorError
+    from src.tailor.company import fetch_page
+
+    def fail(url, **kw):
+        raise AssertionError("should not download")
+
+    monkeypatch.setattr(httpx, "get", fail)
+    for url in ("https://ca.indeed.com/cmp/acme", "https://www.crunchbase.com/organization/acme",
+                "https://www.linkedin.com/company/acme"):
+        with pytest.raises(TailorError, match="job board, profile or social site"):
+            fetch_page(tmp_path, url)
+
+
+def test_fetch_page_stops_at_the_page_budget(tmp_path, monkeypatch):
+    import httpx
+
+    from src.tailor import TailorError
+    from src.tailor.company import PAGE_BUDGET, fetch_page
+
+    monkeypatch.setattr(httpx, "get", lambda url, **kw: httpx.Response(
+        200, headers={"content-type": "text/html"}, text="<main><p>We sell garden tools.</p></main>",
+        request=httpx.Request("GET", url)))
+    for _ in range(PAGE_BUDGET):
+        fetch_page(tmp_path, "https://example.com/about")
+    with pytest.raises(TailorError, match="page budget used"):
+        fetch_page(tmp_path, "https://example.com/news")
+
+
+def test_old_news_is_not_a_verified_fact(tmp_path, monkeypatch):
+    import httpx
+
+    from src.tailor.company import fetch_page
+
+    html = ('<head><meta property="article:published_time" content="2020-05-01T09:00:00Z"></head>'
+            "<main><p>Acme acquired Widgetco to grow its analytics practice.</p></main>")
+    monkeypatch.setattr(httpx, "get", lambda url, **kw: httpx.Response(
+        200, headers={"content-type": "text/html"}, text=html, request=httpx.Request("GET", url)))
+    out = fetch_page(tmp_path, "https://news.example.com/acme")
+    assert out["published"] == "2020-05-01"
+    (tmp_path / "pages" / "2.txt").write_text("URL: https://acme.example/about\n\nAcme sells tools.\n",
+                                              encoding="utf-8")
+    (tmp_path / "facts.json").write_text(json.dumps([
+        {"id": "f1", "fact": "Bought Widgetco", "quote": "Acme acquired Widgetco", "page": 1, "read": "2026-10-21"},
+        {"id": "f2", "fact": "Sells tools", "quote": "Acme sells tools", "page": 2, "read": "2026-10-21"},
+    ]), encoding="utf-8")
+    by_id = {f["id"]: f for f in verify_company(tmp_path)["facts"]}
+    assert not by_id["f1"]["verified"] and "old news" in by_id["f1"]["reason"]
+    assert by_id["f2"]["verified"]  # an undated page (the company's own) is fine
