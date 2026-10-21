@@ -171,6 +171,10 @@ def test_real_matches_still_work(text, right):
     ("performance, attribution, risk, exposure, modeling", "investment performance / attribution"),
     ("Basic accounting working knowledge", "accounting (GAAP / IFRS)"),
     ("GAAP accounting, revenue recognition", "accounting (GAAP / IFRS)"),
+    # A vault line lists it: the check must see the skill there too, or it calls the draft's
+    # "basic accounting" invented instead of asking for the vault's wording.
+    ("Some knowledge of economics, accounting, and statistics from classes", "accounting (GAAP / IFRS)"),
+    ("knowledge of payroll and accounting", "accounting (GAAP / IFRS)"),
     ("Risk and compliance focus, regulatory requirements", "risk management / regulatory compliance"),
     ("Background in biostatistics or epidemiology", "epidemiology / biostatistics"),
     ("industrial IoT, facilities, building systems", "IoT / sensor data"),

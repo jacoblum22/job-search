@@ -147,8 +147,10 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     allowed_text += [_fact_text(f) for f in facts.values()]
     allowed_nums = set().union(*(number_keys(t) for t in allowed_text)) if allowed_text else set()
     vault_skills = taxonomy.find(ctx["base_text"] + "\n" + "\n".join(ctx["claim_texts"]))
-    must_terms = {taxonomy.canonical(t) or t for r in req.get("requirements") or []
-                  if isinstance(r, dict) and r.get("kind") == "must" for t in r.get("terms") or []}
+    # Every skill a must term names: "Databricks SQL" is SQL and Databricks, though canonical() gives one.
+    must_terms = {s for r in req.get("requirements") or [] if isinstance(r, dict) and r.get("kind") == "must"
+                  for t in r.get("terms") or [] if isinstance(t, str)
+                  for s in taxonomy.find(t) | {taxonomy.canonical(t) or t}}
     confirmed = ctx.get("confirmed") or set()
 
     cited_fact = False

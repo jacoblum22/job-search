@@ -96,6 +96,17 @@ def test_drop_order_rules():
     # lab and projects have one bullet each: never dropped
 
 
+def test_drop_order_rates_an_added_bullet_by_its_sources():
+    # A bullet a repair round appended isn't in the plan's ratings; it takes its cited passage's
+    # rating instead of 0, so it isn't cut ahead of weaker base bullets.
+    data = _long()
+    n = "experience/northwind/northwind."
+    data["experience"][0]["bullets"].append({"id": "northwind.new-1", "text": "Added", "sources": ["nw.talk"]})
+    rel = {f"{n}b{i}": 1 for i in range(5)}
+    rel["nw.talk"] = 2
+    assert drop_order(data, rel, []) == [n + f"b{i}" for i in (4, 3, 2, 1, 0)]
+
+
 def test_fit_to_page_binary_search():
     data = _long()
 
@@ -204,6 +215,18 @@ def test_company_research_prompt_names_its_search_tool():
     assert "WebSearch tool (no skills)" in (root / "docs" / "tailoring-runbook.md").read_text(encoding="utf-8")
 
 
+def test_runbook_says_to_shorten_a_long_bullet_and_reapply():
+    # apply-edits refuses a bullet over the limit so the run shortens it in the same round; a
+    # runbook saying every rejection is "normal, continue" lost the bullet for that round instead.
+    from src.tailor.edits import BULLET_MAX
+
+    root = Path(__file__).parent.parent
+    runbook = (root / "docs" / "tailoring-runbook.md").read_text(encoding="utf-8")
+    assert '"shorten it"' in runbook and f"over {BULLET_MAX} characters" in runbook
+    edits = (root / "prompts" / "tailor" / "resume-edits.md").read_text(encoding="utf-8")
+    assert "sent back for repair" not in edits and "rerun\n   `apply-edits` for the same round" in edits
+
+
 def test_fetch_page_saves_next_page(tmp_path, monkeypatch):
     import httpx
 
@@ -278,6 +301,12 @@ def test_triple_needs_a_real_list_of_three():
     assert triples("At the clinic, we planned and ran the survey.") == []
     # Naming real tools is content, not rhythm.
     assert triples("I checked data from Shopify, Yotpo and Braze.") == []
+    assert triples("Data from Contoso, Fabrikam and others landed in the warehouse.") == []
+    assert triples("Data from Contoso, Fabrikam and other vendors landed there.") == []
+    # A clause, then a phrase starting with a preposition, is not a list of three.
+    assert triples("It loads orders into SQLite, with retries and 40 tests.") == []
+    assert triples("I want to keep the system running, by testing and fixing its jobs.") == []
+    assert triples("We are quick, careful and others notice.") == ["are quick, careful and others"]
     # A list quoted from the posting is protected, with or without its Oxford comma.
     posting = "Our work on seat belts, air bags, and graduated driving laws saved lives."
     hits = [h for h in phrases.scan("I admire your work on seat belts, air bags and graduated driving laws.",

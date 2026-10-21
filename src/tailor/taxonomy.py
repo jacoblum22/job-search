@@ -367,7 +367,7 @@ T = [
 ("Domain knowledge","healthcare knowledge",r"health ?care (?:data|systems?|terminology|environment|sector|settings?|experience|industry|operations)|clinical (?:data|terminology|systems?|workflows?)|health (?:information|records|data)|electronic (?:health|medical) records?|(?-i:\b(?:HL7|EHR|CIHI)\b)|\bcerner\b|medical terminology|healthcare analytics"),
 ("Domain knowledge","financial analysis / FP&A",r"financial (?:analysis|modell?ing|planning|statements)|fp&a|variance analysis|unit economics|budget(?:ing)? and forecast"),
 ("Domain knowledge","investment performance / attribution",r"performance attribution|return attribution|attribution, risk|risk (?:and|&) exposure|investment (?:performance|analytics)|portfolio management theory"),
-("Domain knowledge","accounting (GAAP / IFRS)",r"\bgaap\b|\bifrs\b|revenue recognition|accounting (?:knowledge|principles|standards|concepts|working knowledge)|knowledge of accounting|(?:basic|sound) accounting"),
+("Domain knowledge","accounting (GAAP / IFRS)",r"\bgaap\b|\bifrs\b|revenue recognition|accounting (?:knowledge|principles|standards|concepts|working knowledge)|knowledge of (?:[a-z]+(?:,\s*(?:and\s+)?|\s+and\s+))*accounting|(?:basic|sound) accounting"),
 ("Domain knowledge","risk management / regulatory compliance",r"risk management|regulatory (?:compliance|requirements|reporting|frameworks)"),
 ("Domain knowledge","epidemiology / biostatistics",r"epidemiolog|biostatistic"),
 # Uppercase IoT: "NYSE: IOT" is a ticker.
