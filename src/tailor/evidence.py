@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from src.experience import parse_min_years_experience
-from src.tailor import appdir, rejects, taxonomy
+from src.tailor import appdir, rejects, taxonomy, wording
 from src.tailor.jev import Question
 from src.tailor.sources import base_text, claim_passages, load_bases, load_index
 
@@ -59,9 +59,8 @@ def term_exact(entry: dict, text: str) -> bool:
     injected keyword, so those passages are kept apart as `related`.
     """
     names = list(entry.get("raw") or []) + [entry["term"]]
-    # Spelling doesn't change the wording: the vault's "modelling" backs the posting's "modeling".
-    text = taxonomy.us_spelling(text)
-    return any(taxonomy.exact(taxonomy.us_spelling(n), text) for n in names if n)
+    # Plural, hyphen and spelling don't change the wording: "modelling" backs "modeling".
+    return any(wording.same(n, text) for n in names if n)
 
 
 def collect_terms(reqs: dict) -> list[dict]:

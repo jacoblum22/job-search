@@ -20,7 +20,7 @@ from typing import Any
 
 from src.experience import parse_min_years_experience
 from src.resume import iter_bullets, load_resume
-from src.tailor import TailorError, rejects, taxonomy
+from src.tailor import TailorError, rejects, taxonomy, wording
 from src.tailor.appdir import log, read_json, round_dir, write_json
 from src.tailor.evidence import degree_level
 from src.tailor.jev import Question, strip_identity
@@ -148,8 +148,7 @@ def _credit(term: str, text: str, synonym_credit: float) -> float:
 
 
 def _count(term: str, text: str) -> int:
-    t = re.escape(term.strip())
-    return len(re.findall(rf"(?<![\w+#]){t}(?![\w+#])", text, re.I))
+    return wording.count(term, text)
 
 
 def _term_weight(t: dict[str, Any], soft_factor: float = SOFT_FACTOR) -> float:

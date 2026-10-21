@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
+from src.tailor import wording
+
 # Business systems that, listed next to a bare "Oracle", mean Oracle's ERP or project software.
 _BUSINESS_SYSTEMS = r"\b(?:sap|erp|workday|primavera|peoplesoft|netsuite|jd edwards|ecosys)\b"
 
@@ -558,39 +560,16 @@ def mentions(name: str, text: str) -> bool:
     return False
 
 
-# British/Canadian -> US spellings. The vault and the posting may spell a term
-# differently ("data modelling" / "data modeling"); that's the same skill, so
-# evidence and the check compare both sides through us_spelling. The ATS score
-# keeps exact wording, as a real ATS does.
-_US_SPELLING = [
-    (re.compile(r"(?<=e)ll(?=ing|ed|ers?\b)", re.I), "l"),            # modelling, labelled
-    (re.compile(r"(?<=[a-z]{2})our(?=s?\b|ed\b|ing\b|al\b|ite\b|able\b)", re.I), "or"),  # colour, behaviour
-    (re.compile(r"(?<=[a-z]{2})tre(?=s?\b)", re.I), "ter"),            # centre, metre
-    (re.compile(r"(?<=ly)s(?=e|es|ed|ing|ers?\b)", re.I), "z"),         # analyse
-    (re.compile(r"(?<=[a-z]{3})is(?=e\b|es\b|ed\b|ing\b|ations?\b|ers?\b)", re.I), "iz"),  # optimise, visualisation
-    (re.compile(r"(?<=program)me(?=s?\b)", re.I), ""),                 # programme
-]
-
-
 def us_spelling(text: str) -> str:
-    """`text` with British/Canadian spellings turned into US ones, for spelling-blind matching."""
-    for rx, repl in _US_SPELLING:
-        text = rx.sub(repl, text)
-    return text
+    """`text` with British/Canadian spellings turned into US ones (see src/tailor/wording.py)."""
+    return wording.us_spelling(text)
 
 
 def exact(term: str, text: str) -> bool:
-    """True when `text` contains `term` itself as a whole phrase (case-insensitive).
+    """True when `text` contains `term` itself as a whole phrase, the way an ATS keyword
+    search finds it (plural and hyphen/space ignored, spelling exact; src/tailor/wording.py).
 
     ATSs like Taleo and Lever search exact wording, so exact matches get full
     credit and taxonomy synonyms only partial credit.
     """
-    term = term.strip()
-    t = re.escape(term)
-    if len(term) > 3 and term[-1:].isalpha():
-        # A plural or singular of the same phrase is the same wording ("dashboard" / "dashboards").
-        stem = re.escape(term[:-1]) if term[-1] in "sS" and term[-2:-1].isalpha() else t
-        t = rf"(?:{t}|{stem})(?:e?s)?" if stem != t else rf"{t}(?:e?s)?"
-    elif len(term) >= 2 and term.isalpha() and term.isupper():
-        t = rf"{t}s?"  # "API" / "APIs", "LLM" / "LLMs"
-    return bool(re.search(rf"(?<![\w+#]){t}(?![\w+#])", text, re.I))
+    return wording.ats(term, text)

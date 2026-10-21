@@ -33,7 +33,7 @@ import yaml
 from rapidfuzz import fuzz
 
 from src.resume import iter_bullets, load_resume, validate
-from src.tailor import metrics, phrases, rejects, taxonomy
+from src.tailor import metrics, phrases, rejects, taxonomy, wording
 from src.tailor.appdir import log, read_json, round_dir, write_json
 from src.tailor.edits import LOCKED_FIELDS, load_base, load_index, norm
 from src.tailor.jev import Question
@@ -127,17 +127,9 @@ def _bullet_map(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def _wording_in(words: str, text: str) -> bool:
-    """`words` appears in `text` as a phrase, ignoring a plural s/es on the last word
-    and US/Canadian spelling ("modeling" is backed by "modelling")."""
-    words, text = taxonomy.us_spelling(words.strip()), taxonomy.us_spelling(text)
-    # Try each way the plural could end: "pipelines" is "pipeline" + s, "boxes" is "box" + es.
-    stems = [words]
-    if len(words) > 3 and words[-1:].lower() == "s":
-        stems.append(words[:-1])
-        if words[-2:].lower() == "es":
-            stems.append(words[:-2])
-    alt = "|".join(re.escape(s) for s in stems)
-    return bool(re.search(rf"(?<![\w+#])(?:{alt})(?:s|es)?(?![\w+#])", text, re.I))
+    """`words` appears in `text` as the same wording (src/tailor/wording.py: plural,
+    hyphen/space and US/Canadian spelling don't matter)."""
+    return wording.same(words, text)
 
 
 def _norm_dash(s: str) -> str:
@@ -203,7 +195,7 @@ def _covered(term: str, text: str) -> bool:
 
 
 def _count(term: str, text: str) -> int:
-    return len(re.findall(rf"(?<![\w+#]){re.escape(term)}(?![\w+#])", text, re.I))
+    return wording.count(term, text)
 
 
 def _similarity(text: str, passages: list[str]) -> float:
