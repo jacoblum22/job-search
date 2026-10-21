@@ -59,7 +59,9 @@ def term_exact(entry: dict, text: str) -> bool:
     injected keyword, so those passages are kept apart as `related`.
     """
     names = list(entry.get("raw") or []) + [entry["term"]]
-    return any(taxonomy.exact(n, text) for n in names if n)
+    # Spelling doesn't change the wording: the vault's "modelling" backs the posting's "modeling".
+    text = taxonomy.us_spelling(text)
+    return any(taxonomy.exact(taxonomy.us_spelling(n), text) for n in names if n)
 
 
 def collect_terms(reqs: dict) -> list[dict]:

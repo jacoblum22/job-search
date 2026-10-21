@@ -601,3 +601,18 @@ def test_skills_item_backed_by_singular_vault_wording_is_not_invented(tmp_path):
     m(data)
     put_draft(app, data)
     assert not any(c["code"] == "invented_skill" for c in run_check(app, 1, cfg, None)["criticals"])
+
+
+def test_us_and_canadian_spellings_are_the_same_wording():
+    # The posting says "modeling", the vault "modelling": matching the posting's spelling
+    # must not make a backed skill look invented, or the reverse.
+    from src.tailor.checks import _wording_in
+    from src.tailor.evidence import term_exact
+
+    assert _wording_in("data modeling", "Drafted data modelling diagrams for each unit")
+    assert _wording_in("data visualisation", "Built data visualization dashboards")
+    assert not _wording_in("data modeling", "Drafted ER diagrams for each unit")
+    assert term_exact({"term": "data modeling", "raw": ["data modeling"]}, "data modelling in BigQuery")
+    # The ATS score still counts exact wording, as a real ATS does.
+    from src.tailor.taxonomy import exact
+    assert not exact("data modeling", "data modelling in BigQuery")

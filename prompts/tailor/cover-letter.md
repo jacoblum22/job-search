@@ -98,7 +98,8 @@ role. If the vault has no `motivation.*` passages, keep movement 3 to one senten
    - Banned openers: "I am writing to apply", "I am excited to apply", "As a passionate", "Please
      accept this letter".
    - Bold nothing (the letter is rendered plain).
-   - Spelling and the candidate's guardrails come from the rules file.
+   - The candidate's guardrails come from the rules file. Spell a posting term the way the posting
+     does (US or Canadian).
 6. **Clear, not crammed** (from Jake's June guidelines):
    - **Explain every project name the first time it appears.** The employer doesn't know what
      "Firmament" or "The Game" is: "Firmament, my AI study tool", "an AI Dungeon Master I designed

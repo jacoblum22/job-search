@@ -40,6 +40,16 @@ schtasks /Create /TN "JobSearch-Tailoring" /SC DAILY /ST 09:00 /F `
   /TR "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PWD\scripts\run_tailoring.ps1`""
 ```
 
+`schtasks` can't set two options the run needs, so set them once afterwards. With them, a run
+missed because the PC was off starts as soon as it's back on, and a sleeping PC wakes for it:
+
+```powershell
+$s = (Get-ScheduledTask -TaskName "JobSearch-Tailoring").Settings
+$s.StartWhenAvailable = $true
+$s.WakeToRun = $true
+Set-ScheduledTask -TaskName "JobSearch-Tailoring" -Settings $s
+```
+
 After every run that tailored something, the wrapper starts the post-run review
 (`docs/run-review-task.md`): a second session reads this run's log, fixes clear pipeline bugs with
 tests and opens a PR into `jake` for you to merge. `-NoReview` skips it.

@@ -127,8 +127,9 @@ def _bullet_map(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def _wording_in(words: str, text: str) -> bool:
-    """`words` appears in `text` as a phrase, ignoring a plural s/es on the last word."""
-    words = words.strip()
+    """`words` appears in `text` as a phrase, ignoring a plural s/es on the last word
+    and US/Canadian spelling ("modeling" is backed by "modelling")."""
+    words, text = taxonomy.us_spelling(words.strip()), taxonomy.us_spelling(text)
     # Try each way the plural could end: "pipelines" is "pipeline" + s, "boxes" is "box" + es.
     stems = [words]
     if len(words) > 3 and words[-1:].lower() == "s":
