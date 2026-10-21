@@ -417,6 +417,12 @@ score:
     required_skip: true
     optional_points: -10
 
+  # A posting that requires a language Jake doesn't speak is skipped
+  # ("Fluency in Spanish"); one that calls it an asset or preferred isn't.
+  languages:
+    required_skip: true
+    known: [English]
+
   # Title family: only the best-matching family counts
   title_families:
     - name: "data science"

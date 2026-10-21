@@ -84,6 +84,56 @@ def _notes(name: str, facts: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+# Research rules the prompt states, enforced here so a run can't drift from them
+# (prompts/tailor/company-research.md). Job boards, profile/summary sites and
+# social media restate other pages and can get them wrong.
+_SKIP_HOSTS = (
+    "indeed.", "glassdoor.", "linkedin.com", "ziprecruiter.", "monster.", "workopolis.",
+    "simplyhired.", "talent.com", "jobbank.gc.ca", "careerbeacon.", "eluta.ca", "adzuna.",
+    "jooble.", "careerjet.", "wellfound.com", "builtin.com", "dice.com", "jobillico.",
+    "crunchbase.", "zoominfo.", "briefglance.", "rocketreach.", "owler.", "dnb.com", "craft.co",
+    "pitchbook.", "cbinsights.", "comparably.", "signalhire.", "apollo.io", "lusha.", "village.ai",
+    "publicsectornetwork.", "facebook.com", "instagram.com", "twitter.com", "x.com", "tiktok.com",
+    "reddit.com", "youtube.com", "medium.com", "trustpilot.", "yelp.",
+)
+PAGE_BUDGET = 6  # pages one research pass may save
+_BUDGET_WINDOW_S = 12 * 3600  # pages saved within this window count as the same pass
+NEWS_MAX_AGE_DAYS = 365  # a dated page older than this is old news, not a current fact
+_PUBLISHED_META = re.compile(
+    r"""<meta[^>]+(?:property|name|itemprop)=["'](?:article:published_time|og:published_time|"""
+    r"""datePublished|date|pubdate|publish[-_]date|dc\.date)["'][^>]*content=["']([^"']+)["']"""
+    r'|"datePublished"\s*:\s*"([^"]+)"',
+    re.IGNORECASE,
+)
+_ISO_DATE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+
+
+def _skipped_host(url: str) -> str | None:
+    from urllib.parse import urlparse
+
+    host = (urlparse(url).hostname or "").lower()
+    for h in _SKIP_HOSTS:
+        # "indeed." is a brand on any country domain (ca.indeed.com, indeed.ca); "x.com" is one domain.
+        hit = f".{h}" in f".{host}" if h.endswith(".") else (host == h or host.endswith(f".{h}"))
+        if hit:
+            return h
+    return None
+
+
+def published_date(html: str) -> str | None:
+    """The page's own publication date (YYYY-MM-DD) from its meta tags or JSON-LD, if it has one."""
+    for m in _PUBLISHED_META.finditer(html or ""):
+        d = _ISO_DATE.search(m.group(1) or m.group(2) or "")
+        if d:
+            return d.group(0)
+    return None
+
+
+def _page_published(text: str) -> str | None:
+    m = re.search(r"^Published: (\d{4}-\d{2}-\d{2})$", text[:300], re.MULTILINE)
+    return m.group(1) if m else None
+
+
 _DROP_TAGS = ("script", "style", "noscript", "nav", "header", "footer", "form", "svg", "iframe")
 _BLOCK_TAGS = ("address", "article", "aside", "blockquote", "br", "dd", "div", "dl", "dt", "figcaption",
                "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "li", "main", "ol", "p", "pre",
@@ -112,10 +162,21 @@ def page_text(html: str) -> str:
 
 
 def fetch_page(directory: Path, url: str, timeout: float = 30.0) -> dict[str, Any]:
-    """Download `url` and save its text as the next ``pages/<n>.txt`` (first line ``URL: <url>``)."""
+    """Download `url` and save its text as the next ``pages/<n>.txt`` (first line ``URL: <url>``,
+    then ``Published: <date>`` when the page states one)."""
     import httpx
 
     directory = Path(directory)
+    skipped = _skipped_host(url)
+    if skipped:
+        raise TailorError(f"{url} is a job board, profile or social site ({skipped.strip('.')}); "
+                          "use the company's own site or a news outlet instead")
+    pages = directory / "pages"
+    recent = [f for f in pages.glob("*.txt") if time.time() - f.stat().st_mtime < _BUDGET_WINDOW_S] \
+        if pages.is_dir() else []
+    if len(recent) >= PAGE_BUDGET:
+        raise TailorError(f"page budget used ({PAGE_BUDGET} pages saved); stop fetching and write "
+                          "facts.json from the saved pages")
     try:
         resp = httpx.get(url, follow_redirects=True, timeout=timeout,
                          headers={"User-Agent": "Mozilla/5.0 (job-search company research)"})
@@ -123,8 +184,10 @@ def fetch_page(directory: Path, url: str, timeout: float = 30.0) -> dict[str, An
     except httpx.HTTPError as e:
         raise TailorError(f"could not fetch {url}: {e}") from e
     ctype = resp.headers.get("content-type", "")
+    published = None
     if "html" in ctype:
         text = page_text(resp.text)
+        published = published_date(resp.text)
     elif ctype.startswith("text/"):
         text = resp.text
     else:
@@ -134,12 +197,22 @@ def fetch_page(directory: Path, url: str, timeout: float = 30.0) -> dict[str, An
     waiting = sum(bool(_PLACEHOLDER.match(ln.strip())) for ln in lines)
     if not lines or waiting >= len(lines) - waiting:
         raise TailorError(f"{url} has no readable text (it may need JavaScript); skip it")
-    pages = directory / "pages"
     pages.mkdir(parents=True, exist_ok=True)
     n = 1 + max((int(f.stem) for f in pages.glob("*.txt") if f.stem.isdigit()), default=0)
     path = pages / f"{n}.txt"
-    path.write_text(f"URL: {resp.url}\n\n{text}\n", encoding="utf-8")
-    return {"page": n, "path": str(path), "url": str(resp.url), "chars": len(text)}
+    head = f"URL: {resp.url}\n" + (f"Published: {published}\n" if published else "")
+    path.write_text(f"{head}\n{text}\n", encoding="utf-8")
+    return {"page": n, "path": str(path), "url": str(resp.url), "chars": len(text), "published": published}
+
+
+def _age_days(published: str, read: str | None) -> int:
+    from datetime import date
+
+    try:
+        when = date.fromisoformat(str(read)[:10]) if read else date.today()
+        return (when - date.fromisoformat(published)).days
+    except ValueError:
+        return 0
 
 
 def verify_company(directory: Path) -> dict[str, Any]:
@@ -165,11 +238,13 @@ def verify_company(directory: Path) -> dict[str, Any]:
 
     pages_dir = directory / "pages"
     cache: dict[str, str | None] = {}
+    dated: dict[str, str | None] = {}
     for f in facts:
         page = str(f["page"])
         if page not in cache:
             raw = _page_text(pages_dir, page) if page.strip() else None
             cache[page] = None if raw is None else _normalize(raw)
+            dated[page] = None if raw is None else _page_published(raw)
         text = cache[page]
         quote = _normalize(f["quote"])
         f.pop("reason", None)
@@ -177,10 +252,13 @@ def verify_company(directory: Path) -> dict[str, Any]:
             f["verified"], f["reason"] = False, "empty quote"
         elif text is None:
             f["verified"], f["reason"] = False, f"page {page!r} not found under pages/"
-        elif quote in text:
-            f["verified"] = True
-        else:
+        elif quote not in text:
             f["verified"], f["reason"] = False, "quote not found in page text"
+        elif dated[page] and _age_days(dated[page], f.get("read")) > NEWS_MAX_AGE_DAYS:
+            f["verified"], f["reason"] = False, (f"page published {dated[page]}, more than "
+                                                 f"{NEWS_MAX_AGE_DAYS // 365} year before research: old news")
+        else:
+            f["verified"] = True
     write_json(facts_path, facts)
     (directory / "verified.md").write_text(_notes(directory.name, facts), encoding="utf-8")
     n_ok = sum(1 for f in facts if f["verified"])

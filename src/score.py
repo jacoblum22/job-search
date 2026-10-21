@@ -14,7 +14,8 @@ A points system, tuned by the `score:` section of config/settings.yaml:
 
 Some things are hard skips rather than penalties (more than 5 years
 required, wrong-field title, US residence required, a PhD or
-Master's required; an optional Master's is a penalty). A skipped job gets
+Master's required, a language other than Jake's required; an optional
+Master's is a penalty). A skipped job gets
 tier "skip" and no score.
 
 Every point comes with a reason string, so the dashboard can show why a job
@@ -32,6 +33,7 @@ from functools import lru_cache
 from typing import Any
 
 from src.experience import parse_min_years_experience
+from src.location_filter import classify_location
 from src.vault_gaps import Vault, find_gaps, load_vault
 
 _YEARS_IN_TITLE_RE = re.compile(r"\d+\s*(?:[-–]\s*\d+\s*)?\+?\s*(?:years?|yrs?)\b", re.IGNORECASE)
@@ -60,6 +62,40 @@ _ESCAPE_RE = re.compile(
     r"|equivalent (?:work |practical |professional )?experience|\band/or\b",
     re.IGNORECASE,
 )
+
+
+_LANGUAGES = (
+    "french", "spanish", "mandarin", "cantonese", "chinese", "punjabi", "hindi", "tagalog", "korean",
+    "japanese", "german", "portuguese", "italian", "arabic", "vietnamese", "russian", "farsi", "dutch",
+    "polish", "urdu",
+)
+_LANGUAGE_RE = re.compile(r"\b(" + "|".join(_LANGUAGES) + r")\b", re.IGNORECASE)
+# The line asks the candidate to speak or write it, not just mentions it.
+_LANGUAGE_ASK_RE = re.compile(
+    r"fluen|bilingual|proficien|\bnative\b|\b[BC][12] level|(?:spoken|oral) and written|written and (?:spoken|oral)"
+    r"|communicate (?:\w+ ){0,2}in\b|-speaking\b.*\b(?:required|mandatory)|\b(?:required|mandatory|must)\b",
+    re.IGNORECASE,
+)
+# Wanted but not needed, needed only somewhere else, or a test the employer may give.
+_LANGUAGE_OPTIONAL_RE = re.compile(
+    r"\basset\b|prefer|\ba plus\b|advantage|bonus|nice to have|desir|\bideal|welcome|\bconsidered\b"
+    r"|quebec only|for quebec|assessment|skills? tests?|\binform us\b",
+    re.IGNORECASE,
+)
+
+
+def _language_ask(description: str, known: set[str]) -> str | None:
+    """The line requiring a language Jake doesn't speak, else None.
+
+    "Fluency in Spanish", "Fully bilingual (English/French)" and "Spanish-speaking
+    candidates mandatory" require one; "French is an asset", "Bilingual strongly
+    preferred" and a skills-test list naming "French proficiency" don't.
+    """
+    for line in re.split(r"\n|(?<=[.!?])\s+", description):
+        langs = {m.lower() for m in _LANGUAGE_RE.findall(line)} - known
+        if langs and _LANGUAGE_ASK_RE.search(line) and not _LANGUAGE_OPTIONAL_RE.search(line):
+            return line.strip(" *-•+#\t")
+    return None
 
 
 def _masters_ask(description: str) -> tuple[str, str] | None:
@@ -164,6 +200,13 @@ def score_job(
     masters = _masters_ask(description) if masters_cfg else None
     if masters and masters[0] == "required" and masters_cfg.get("required_skip", True):
         return ScoreResult(None, "skip", [f"Master's required: \"{masters[1][:120]}\""])
+
+    lang_cfg = cfg.get("languages") or {}
+    if lang_cfg.get("required_skip"):
+        known = {str(x).lower() for x in lang_cfg.get("known") or ["english"]}
+        line = _language_ask(description, known)
+        if line:
+            return ScoreResult(None, "skip", [f"language required: \"{line[:120]}\""])
 
     # ── Points ────────────────────────────────────────────────────────
     score = 0
@@ -299,7 +342,7 @@ def rescore_all(
     """
     counts: dict[str, int] = {}
     rows = conn.execute(
-        "SELECT id, title, description, location_category, years_experience FROM jobs"
+        "SELECT id, title, description, location_category, years_experience, location, company FROM jobs"
     ).fetchall()
     updates = []
     vault_cfg = cfg.get("vault_gaps") or {}
@@ -313,7 +356,7 @@ def rescore_all(
             if cache is not None:
                 cache["_vault"] = vault
     for row in rows:
-        key = (row[1], row[2], row[3], row[4])
+        key = (row[1], row[2], row[3], row[4], row[5], row[6])
         if cache is not None and cache.get(row[0], (None,))[0] == key:
             counts[cache[row[0]][1]] = counts.get(cache[row[0]][1], 0) + 1
             continue
@@ -321,20 +364,22 @@ def rescore_all(
         # Re-parse: years_experience is stored from the description at insert
         # time and goes stale once enrichment fills in the full posting.
         years = parse_min_years_experience(desc) if desc else row[4]
+        # Same for a location that names only the country: the full description says where.
+        category = classify_location(row[5] or "", row[6] or "", desc)
         result = score_job(
             title=row[1],
             description=desc,
-            location_category=row[3],
+            location_category=category,
             years_experience=years,
             cfg=cfg,
             vault=vault,
         )
         counts[result.tier] = counts.get(result.tier, 0) + 1
-        updates.append((result.score, result.tier, result.reasons_text, row[0]))
+        updates.append((result.score, result.tier, result.reasons_text, category, row[0]))
         if cache is not None:
             cache[row[0]] = (key, result.tier)
     conn.executemany(
-        "UPDATE jobs SET score = ?, tier = ?, score_reasons = ? WHERE id = ?", updates
+        "UPDATE jobs SET score = ?, tier = ?, score_reasons = ?, location_category = ? WHERE id = ?", updates
     )
     conn.commit()
     return counts

@@ -118,8 +118,53 @@ def is_remote(location: str) -> bool:
     return not any(marker in f" {loc} " for marker in _NON_CANADA_MARKERS)
 
 
-def classify_location(location: str, company: str = "") -> str:
-    """Return "vancouver", "remote", or "other".
+# Some APIs (Adzuna) give only "Canada" when the posting names no city in its
+# location field. That used to count as remote, so an on-site Toronto job came
+# out tier A. For a bare country, the description decides when it says where
+# the work is; when it says nothing, the old reading (remote) stands.
+_BARE_COUNTRY = {"canada"}
+_DESC_REMOTE = re.compile(
+    r"\b(?:fully remote|100% remote|remote[- ]first|remote (?:position|role|opportunity|job)\b"
+    r"|work(?:ing)?[- ](?:from|at)[- ]home|remote[- ]friendly|work remotely|(?:role|position|job) is remote"
+    r"|role designation:?\W*remote|location:?\W*(?:canada\W*)?(?:fully )?remote"
+    r"|remote\W{0,3}canada|remote in canada|canada\W{0,3}remote)\b|#LI-Remote",
+    re.IGNORECASE,
+)
+# Word-bounded, without names that mean something else in a posting ("Delta Lake",
+# "Richmond, VA", "Surrey, UK").
+_DESC_VANCOUVER = re.compile(
+    r"\b(?:vancouver|burnaby|coquitlam|port moody|new westminster|tsawwassen|lower mainland"
+    r"|metro vancouver|greater vancouver)\b(?!,?\s*(?:WA|Washington)\b)",
+    re.IGNORECASE,
+)
+_DESC_NOT_REMOTE = re.compile(r"\b(?:not (?:a )?remote|no remote|non-remote)\b", re.IGNORECASE)
+_DESC_ELSEWHERE = re.compile(
+    r"\b(?:toronto|ottawa|montr[eé]al|calgary|edmonton|winnipeg|halifax|mississauga|waterloo"
+    r"|kitchener|hamilton|quebec city|regina|saskatoon|victoria|kelowna|markham|brampton"
+    r"|oakville|brockville|gta)\b"
+    r"|,\s*(?:ON|AB|QC|MB|SK|NS|NB|NL|PE)\b"
+    r"|\bapplicants from the provinces? of (?!british columbia)"
+    r"|\b(?:hybrid|on-?site|in[- ]office|in the office|office-based)\b",
+    re.IGNORECASE,
+)
+
+
+def location_from_description(description: str) -> str | None:
+    """Where a posting with no city in its location field is based, from its text:
+    "vancouver", "remote", "other", or None when the text doesn't say."""
+    text = description or ""
+    if _DESC_VANCOUVER.search(text):
+        return "vancouver"
+    if _DESC_REMOTE.search(text) and not _DESC_NOT_REMOTE.search(text):
+        return "remote"
+    if _DESC_ELSEWHERE.search(text):
+        return "other"
+    return None
+
+
+def classify_location(location: str, company: str = "", description: str = "") -> str:
+    """Return "vancouver", "remote", or "other". `description` is read only when the
+    location is a bare country (see location_from_description).
 
     Some employers (e.g. Workday boards for municipal/regional orgs) list an
     internal facility code as the location — "LOC0049 Brookside Utilities
@@ -130,6 +175,10 @@ def classify_location(location: str, company: str = "") -> str:
     """
     if is_vancouver_area(location) or is_vancouver_area(company):
         return "vancouver"
+    if (location or "").strip().strip(".").lower() in _BARE_COUNTRY and description:
+        found = location_from_description(description)
+        if found:
+            return found
     if is_remote(location):
         return "remote"
     return "other"

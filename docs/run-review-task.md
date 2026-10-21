@@ -30,7 +30,10 @@ still pushed and the log gives the compare link.
 4. If code changed: runs the full test suite. If it passes, commits, pushes
    and opens the PR with the body Claude wrote. If it fails, pushes nothing
    and leaves the worktree for a look.
-5. Saves the session's transcript to `logs\tailoring\review_<date>_<time>.jsonl`,
+5. Appends the review's problems, by area, to `materials\tailor\run-reviews\tally.csv`
+   (`scripts/review_tally.py`; `show` prints the trend), and gives the next review
+   the trend so it can tell a recurring area from a new one.
+6. Saves the session's transcript to `logs\tailoring\review_<date>_<time>.jsonl`,
    copies Claude's notes to `materials\tailor\run-reviews\<date>_<time>.md`,
    removes the worktree and logs to `logs\tailoring_review.log`.
 
@@ -55,11 +58,13 @@ checkout, with my personal files and the run's output, is at {MAIN} (read only).
    (cut short), errors and denied commands marked, and the final digest.
 2. `docs/tailoring-runbook.md` (the prompt the run followed) and
    `{MAIN}\materials\docs\tailoring-rules.md` (my binding writing rules).
-3. For each application folder the digest names, under
+3. `{TALLY}`: what earlier reviews found, counted by area. An area that keeps coming back
+   means the earlier fixes were patches.
+4. For each application folder the digest names, under
    `{MAIN}\materials\applications\`: `check.md`, the best round's
    `drafts\r<N>\check.json`, `grade.json` and `applied.json`, `fit-notes.md`,
    and the final resume and letter text.
-4. The code, prompts and tests behind anything that looks wrong.
+5. The code, prompts and tests behind anything that looks wrong.
 
 **What counts as a problem**
 
@@ -77,6 +82,13 @@ checkout, with my personal files and the run's output, is at {MAIN} (read only).
 - Fix the root cause, not the instance: ask why it happened and whether it
   would happen on other jobs, then fix the code, check or prompt so it can't.
   Don't special-case one job, company or wording.
+- Fix it once, where every step shares it. Wording comparisons go through
+  `src/tailor/wording.py` (evidence, the check and the grade all use it); a
+  new variant (plural, spelling, hyphen) is fixed there, never with another
+  matcher in one step. If the tally shows the area before, say in the notes
+  why the earlier fix didn't hold and fix the shared cause.
+- Prefer code over prompt wording for rules the run must follow: a prompt can
+  be ignored, a check can't.
 - Fix only clear bugs, each with a test that fails without the fix. Keep each
   diff small and match the surrounding code's style. At most 5 fixes per run;
   list the rest in the notes.
@@ -103,6 +115,10 @@ invented examples like the existing fixtures do.
   short section per fix: what went wrong in the run (the command or check),
   the root cause, the fix and its test. End with problems found but not
   fixed, one line each.
+- `.run-review-tally.json`, always: a JSON list with one entry per problem,
+  `{"area": ..., "status": "fixed" | "left" | "question", "problem": "<one line>"}`.
+  Areas: wording-match, job-selection, company-research, resume-check, letter,
+  ats-grade, repair-loop, review-file, runbook-prompt, tooling, other.
 - `.run-review-notes.md`, always: what you checked, each problem found
   (fixed, left for later, or a question for me), and anything in the drafts I
   should look at before sending. Personal details are fine here; this file

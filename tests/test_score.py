@@ -217,3 +217,40 @@ def test_two_years_is_neutral():
     none = _score("Data Analyst", desc, years=None)
     assert _score("Data Analyst", desc, years=2).score == none.score
     assert _score("Data Analyst", desc, years=1).score == none.score + 5
+
+
+def test_rescore_reads_where_a_country_only_job_is(tmp_path):
+    # Enrichment fills the description after insert; the rescore then places the job.
+    conn = connect(tmp_path / "jobs.db")
+    upsert_job(conn, Job("adzuna", "1", "Junior Data Analyst", "Acme", "Canada", "SQL"))
+    conn.execute("UPDATE jobs SET description = ? WHERE external_id = '1'",
+                 ("SQL and BigQuery daily. **Work Location:** Toronto, Ontario, Canada. " * 5,))
+    rescore_all(conn, CFG)
+    row = conn.execute("SELECT location_category, tier FROM jobs").fetchone()
+    assert row["location_category"] == "other" and row["tier"] == "skip"
+
+
+def test_required_language_skipped():
+    desc = "python sql " * 40
+    for line in [
+        "* Fluency in Spanish.",
+        "* Fully bilingual (English/French)",
+        "• Spanish-speaking candidates mandatory",
+        "* Ability to communicate effectively in French in a bilingual environment.",
+    ]:
+        r = _score("Data Analyst", line + "\n" + desc)
+        assert r.tier == "skip", line
+        assert "language required" in r.reasons[0]
+
+
+def test_optional_language_not_skipped():
+    desc = "python sql " * 40
+    for line in [
+        "* Bilingual in English and French is an asset",
+        "* Bilingual (English and French) strongly preferred",
+        "* Fluency in French will be considered an asset",
+        "complete an attribute-based assessment and other skills test (such as simulation, coding, French proficiency)",
+        "bilingualism (French, English, both oral and written) is required **for Quebec only**",
+        "* Excellent written and verbal communication skills in English.",
+    ]:
+        assert _score("Data Analyst", line + "\n" + desc).tier != "skip", line
