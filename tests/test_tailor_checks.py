@@ -360,6 +360,18 @@ def test_warnings(tmp_path):
         assert code in ws, (code, ws)
 
 
+def test_coverage_dropped_ignores_words_in_source_ids(tmp_path):
+    # The base cites "course.degree" but never says "degree", so the draft has lost nothing.
+    app, cfg = make_app(tmp_path)
+    req = read_json(app / "requirements.json")
+    req["keywords"].append({"term": "degree", "weight": "role", "quote": "degree"})
+    write_json(app / "requirements.json", req)
+    write_edits(app, [sql_edit()])
+    apply_edits(app, 1, cfg)
+    res = run_check(app, 1, cfg, None)
+    assert not any(w["code"] == "keyword_coverage_dropped" and "degree" in w["message"] for w in res["warnings"])
+
+
 def test_skill_only_in_list_warning(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [{"path": "skills/skills.tools", "action": "add_skill", "value": "dbt", "sources": ["northwind.dbt"]}])

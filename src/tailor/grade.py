@@ -561,7 +561,9 @@ def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeate
         if rid in jev_yes and not any(taxonomy.is_hard(t) for t in terms):
             continue
         if terms and any(_is_backed(t, backed) for t in terms) and not any(_credit(t, text, syn) for t in terms):
-            sentence = f"Must-have {_req_label(r)} isn't shown; {passage_clause(rid, r)}."
+            # Name only the backed terms: the first term may be one the vault can't back.
+            label = ", ".join(t for t in terms if _is_backed(t, backed))
+            sentence = f"Must-have {label} isn't shown; {passage_clause(rid, r)}."
             pids = {p for e in evidence.get("requirements") or [] if e.get("id") == rid for p in e.get("passages") or []}
             gaps.append({"id": f"must.{rid}", "sentence": sentence, "sections": _must_sections(data, pids)})
             sentences.append(sentence)

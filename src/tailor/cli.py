@@ -53,10 +53,11 @@ def requirements(app_dir):
     from src.tailor.requirements import normalize
 
     data = normalize(app_dir, load_config())
-    # The full file is in requirements.json; print what the run needs to go on.
+    # The full file is in requirements.json; print what the run needs to go on, including what was dropped.
     _out({"file": str(app_dir / "requirements.json"), "title": data.get("title"), "company": data.get("company"),
           "requirements": [{k: r.get(k) for k in ("id", "kind", "terms")}
-                           for r in data.get("requirements") or [] if isinstance(r, dict)]})
+                           for r in data.get("requirements") or [] if isinstance(r, dict)],
+          **(data.get("_normalized") or {})})
 
 
 @main.command("company-fetch")
@@ -233,6 +234,11 @@ def _refresh_dashboard(cfg) -> None:
 
 
 def run() -> None:
+    # Output goes through a pipe, which Windows encodes in the ANSI code page: an arrow or an
+    # em dash in a vault passage would crash the command or print as "?". The run reads UTF-8.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     try:
         main(standalone_mode=True)
     except TailorError as e:

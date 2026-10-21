@@ -335,7 +335,9 @@ def check_resume(
             w("title_drift", f"'{m.group(0)}' is not in the vault or base (title drift)")
 
     terms = _terms(req)
-    lost = [t for t in terms if _covered(t, base_text) and not _covered(t, full)]
+    # Text against text: base_text also holds source ids, and "wids.data-visualization" covers nothing.
+    base_full = "\n".join(t for _, t in units(base))
+    lost = [t for t in terms if _covered(t, base_full) and not _covered(t, full)]
     if lost:
         w("keyword_coverage_dropped", "terms covered by the base but not the draft: " + ", ".join(lost))
 

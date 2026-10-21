@@ -87,10 +87,28 @@ def test_stops_on_small_gain_and_keeps_best(tmp_path):
 
 def test_continues_on_real_gain(tmp_path):
     app = new_app(tmp_path)
-    add_round(app, 1, 60, items=[item("a", False)], feedback=["fix a"])
-    add_round(app, 2, 66, items=[item("a", False)], feedback=["fix a"])
+    add_round(app, 1, 60, items=[item("a", False)], feedback=["fix a"], ats=60)
+    add_round(app, 2, 66, items=[item("a", False)], feedback=["fix a"], ats=70)
     out = next_round(app, CFG)
     assert out["action"] == "repair" and out["next_round"] == 3
+
+
+def test_gain_from_extra_questions_alone_is_no_gain(tmp_path):
+    # Round 2 changed more bullets, so it was asked more (easy) questions; nothing it was asked
+    # both times changed and the ATS didn't move, so the higher score isn't progress.
+    app = new_app(tmp_path)
+    shared = [item("top_third", False), item("must.r1", True), item("letter.specific", True)]
+    add_round(app, 1, 58.2, items=shared + [item("portable.p1", True)], feedback=["fix top"], ats=50.9)
+    extra = [item(f"portable.p{i}", True) for i in range(1, 5)]
+    add_round(app, 2, 60.5, items=shared + extra, feedback=["fix top"], ats=50.9)
+    for n in (1, 2):  # a fit gap: the ATS can't reach the floor, so it earns no rounds itself
+        gp = app / "drafts" / f"r{n}" / "grade.json"
+        g = json.loads(gp.read_text())
+        g.update(needs_ats_repair=False, fit_gap=True)
+        gp.write_text(json.dumps(g))
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and "gain" in out["reason"]
+    assert out["best_round"] == 2
 
 
 def test_more_criticals_is_a_regression_and_never_best(tmp_path):
@@ -114,7 +132,7 @@ def test_item_that_passed_before_and_fails_now_is_a_regression(tmp_path):
 def test_round_limit(tmp_path):
     app = new_app(tmp_path)
     for n, s in ((1, 50), (2, 60), (3, 70)):
-        add_round(app, n, s, items=[item("a", False)], feedback=["fix a"])
+        add_round(app, n, s, items=[item("a", False)], feedback=["fix a"], ats=s)
     out = next_round(app, CFG)
     assert out["action"] == "stop" and "limit" in out["reason"] and out["best_round"] == 3
 
