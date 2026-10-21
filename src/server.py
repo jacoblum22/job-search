@@ -22,7 +22,7 @@ from typing import Any
 from src.dashboard import app_summary, generate_dashboard, render_dashboard
 from src.db import JOB_STATUSES, connect, set_job_status
 from src.posting_status import closed_reason, seen_date
-from src.tailor import TailorError, review, store
+from src.tailor import TailorError, rejects, review, store
 from src.tailor.packet import OUTCOMES, approve, record_outcome
 
 Response = tuple[int, str, bytes]
@@ -213,7 +213,11 @@ class DashboardApp:
             line, raw, option, checked = int(data["line"]), str(data["raw"]), str(data["option"]), bool(data["checked"])
         except (KeyError, TypeError, ValueError):
             raise TailorError("send line, raw, option and checked") from None
-        blocks = review.tick(self._folder(app), line, raw, option, checked)
+        folder = self._folder(app)
+        blocks = review.tick(folder, line, raw, option, checked)
+        # Evidence picks teach every later application, so they're saved now, not only on Approve.
+        lines = (folder / "check.md").read_text(encoding="utf-8").splitlines()
+        rejects.apply_pick(lines[line], self.cfg, app.get("job_id") or job_id)
         return {"check": blocks}
 
     def _approve(self, conn, job_id, app, data) -> Any:
@@ -501,13 +505,15 @@ function render() {
         .map(o => `<button data-act="outcome" data-val="${o}" ${app.outcome === o ? 'disabled' : ''}>${esc(o.replace('_', ' '))}</button>`).join('');
     }
     h += `</div></div>`;
-    if (app.check) h += `<h2>Checklist</h2><div class="panel" id="check">${checkHtml(app.check)}</div>`;
-  } else {
-    h += `<h2>Status</h2><div class="panel"><div class="row"><span class="badge">${esc(job.status)}</span>`
-      + data.job_statuses.filter(s => s !== job.status && s !== 'expired')
-        .map(s => `<button data-act="status" data-val="${s}">Mark ${esc(s)}</button>`).join('')
-      + `</div><div class="meta" style="margin-top:6px">No tailored resume or cover letter yet.</div></div>`;
   }
+  // Dismissing works with or without an application: a draft you won't send leaves the pinned list.
+  h += `<h2>Status</h2><div class="panel"><div class="row"><span class="badge">${esc(job.status)}</span>`
+    + data.job_statuses.filter(s => s !== job.status && s !== 'expired' && !(app && s === 'applied'))
+      .map(s => `<button data-act="status" data-val="${s}">Mark ${esc(s)}</button>`).join('')
+    + `</div><div class="meta" style="margin-top:6px">${app
+      ? 'Mark dismissed if you won\'t apply: it stops showing as waiting on you. Evidence picks you made are already saved.'
+      : 'No tailored resume or cover letter yet.'}</div></div>`;
+  if (app && app.check) h += `<h2>Checklist</h2><div class="panel" id="check">${checkHtml(app.check)}</div>`;
   if (job.score_reasons) h += `<details style="margin-top:20px"><summary>Why it scored ${job.score ?? ''}</summary><pre class="meta">${esc(job.score_reasons)}</pre></details>`;
   h += `<h2>Posting</h2><div class="panel posting">${markdown(job.description)}</div>`;
   root.innerHTML = h;

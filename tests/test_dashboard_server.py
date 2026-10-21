@@ -205,3 +205,54 @@ def test_other_sites_cannot_change_anything(env):
     assert post(env, url, {"status": "dismissed"}, {**POST, "Host": "evil.example:8765"})[0] == 403
     no_origin = {k: v for k, v in POST.items() if k != "Origin"}
     assert post(env, url, {"status": "dismissed"}, no_origin)[0] == 403
+
+
+PICKS = """# Check
+
+## Evidence set aside
+
+- [x] Set aside  - [ ] Undo  Excel: not counted from Job Application System. <!-- undo: Excel | job-search.outputs -->
+
+## Evidence the plan added
+
+- [ ] Doesn't show it  - [ ] This shows it  ETL/ELT: counted from AlgaeCal. <!-- confirm: etl/elt | algaecal.apps-script -->
+"""
+
+
+def test_evidence_picks_are_saved_when_pressed_not_only_on_approve(env):
+    from src.tailor import rejects
+    cfg, jid = env["cfg"], env["jid"]
+    path = env["tmp"] / "skill-record.json"
+    path.write_text(json.dumps({"has": [], "lacks": [], "not_shown": [
+        {"term": "Excel", "passage": "job-search.outputs", "reason": "names the tool only"}]}), encoding="utf-8")
+    (env["dir"] / "check.md").write_text(PICKS, encoding="utf-8")
+
+    def press(kind, option):
+        b = next(b for b in review.parse((env["dir"] / "check.md").read_text(encoding="utf-8"))
+                 if b["type"] == "item" and b["kind"] == kind)
+        assert post(env, f"/api/job/{jid}/check", {"line": b["line"], "raw": b["raw"], "option": option,
+                                                   "checked": True})[0] == 200
+
+    def record():
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    press("drop", "Undo")
+    assert record()["not_shown"][0].get("undone") is True
+    assert ("excel", "job-search.outputs") in rejects.confirmed(cfg)
+    press("drop", "Set aside")  # changed my mind: the reject is back, the confirm gone
+    assert not record()["not_shown"][0].get("undone")
+    assert ("excel", "job-search.outputs") not in rejects.confirmed(cfg)
+
+    press("confirm", "This shows it")
+    assert ("etl/elt", "algaecal.apps-script") in rejects.confirmed(cfg)
+    press("confirm", "Doesn't show it")
+    assert ("etl/elt", "algaecal.apps-script") not in rejects.confirmed(cfg)
+    assert ("etl/elt", "algaecal.apps-script") in rejects.pairs(cfg)
+
+
+def test_a_dismissed_application_is_not_pinned(env):
+    assert post(env, f"/api/job/{env['jid']}/status", {"status": "dismissed"})[0] == 200
+    conn = connect(env["cfg"]["paths"]["db"])
+    rows = json.loads(render_dashboard(conn).split('type="application/json">')[1].split("</script>")[0])
+    conn.close()
+    assert {r["title"]: r for r in rows}["Junior Analyst"]["pin"] == 99
