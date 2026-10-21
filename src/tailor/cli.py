@@ -52,7 +52,11 @@ def requirements(app_dir):
     """Step 1: validate and normalize the requirements.json Claude wrote."""
     from src.tailor.requirements import normalize
 
-    _out(normalize(app_dir, load_config()))
+    data = normalize(app_dir, load_config())
+    # The full file is in requirements.json; print what the run needs to go on.
+    _out({"file": str(app_dir / "requirements.json"), "title": data.get("title"), "company": data.get("company"),
+          "requirements": [{k: r.get(k) for k in ("id", "kind", "terms")}
+                           for r in data.get("requirements") or [] if isinstance(r, dict)]})
 
 
 @main.command("company-fetch")
@@ -91,6 +95,16 @@ def evidence(app_dir):
 
 
 @main.command()
+@click.argument("ids", nargs=-1, required=True)
+def passages(ids):
+    """Print vault passages by id (instead of searching vault-index.json)."""
+    from src.tailor.sources import load_index
+
+    index = load_index(load_config())
+    _out({i: (index[i].get("text") if i in index else None) for i in ids})
+
+
+@main.command()
 @APP
 def base(app_dir):
     """Step 3 (code part): pick the base resume and score candidate bullets."""
@@ -106,7 +120,11 @@ def apply_edits_cmd(app_dir, rnd):
     """Step 4: apply Claude's edits to the base through the gates."""
     from src.tailor.edits import apply_edits
 
-    _out(apply_edits(app_dir, rnd, load_config()))
+    res = apply_edits(app_dir, rnd, load_config())
+    # Before/after text of every edit is in applied.json; print only what needs attention.
+    res["applied"] = [(a.get("edit") or {}).get("path") for a in res.get("applied") or []]
+    res["file"] = str(app_dir / "drafts" / f"r{rnd}" / "applied.json")
+    _out(res)
 
 
 @main.command()

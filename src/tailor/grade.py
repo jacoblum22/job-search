@@ -138,6 +138,16 @@ def _is_backed(term: str, backed: set[str]) -> bool:
     return bool(canon and canon.lower() in backed)
 
 
+def _wording_backed(term: str, backed: set[str]) -> bool:
+    """Backed in the posting's own words: the term itself, or a full synonym of a backed skill. A
+    narrower phrase backed only through its skill ("reporting pipelines" via "reporting") is not, so
+    repair is never told to use words the vault doesn't say."""
+    if term.lower() in backed:
+        return True
+    canon = taxonomy.canonical(term)
+    return bool(canon and canon.lower() in backed and taxonomy.is_synonym(term))
+
+
 def _credit(term: str, text: str, synonym_credit: float) -> float:
     if taxonomy.exact(term, text):
         return 1.0
@@ -253,7 +263,7 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
         return _term_weight(t, soft)
 
     ranked = sorted(terms.values(), key=lambda t: -weight(t))
-    missing = [t for t in ranked if _is_backed(t["term"], backed) and _credit(t["term"], text, 1.0) < 1.0]
+    missing = [t for t in ranked if _wording_backed(t["term"], backed) and _credit(t["term"], text, 1.0) < 1.0]
     unused = [t["term"] for t in missing if not t["soft"]]
     unused_soft = [t["term"] for t in missing if t["soft"]]
     unbacked = [t["term"] for t in ranked if not _is_backed(t["term"], backed) and not t["boilerplate"]]
@@ -261,7 +271,11 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     comps = dict(score["components"])
     total_w = sum(weight(t) for t in terms.values())
     if total_w:
-        comps["keyword"] = 100.0 * sum(weight(t) for t in terms.values() if _is_backed(t["term"], backed)) / total_w
+        # A narrower phrase backed only through its skill reaches synonym credit, not full credit.
+        syn = cfg.get("synonym_credit", 0.5)
+        comps["keyword"] = 100.0 * sum(
+            weight(t) * (1.0 if _wording_backed(t["term"], backed) else syn)
+            for t in terms.values() if _is_backed(t["term"], backed)) / total_w
     if req_terms:
         sw = {k: soft if terms[k]["soft"] else 1.0 for k in req_terms}
         comps["skills"] = 100.0 * sum(sw[k] for k in req_terms if _is_backed(terms[k]["term"], backed)) / sum(sw.values())

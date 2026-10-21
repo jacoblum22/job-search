@@ -119,8 +119,11 @@ def scan(text: str, posting: str = "", own_texts: Iterable[str] = (), *, letter:
                 if i >= 0:
                     hits.append(Hit(code, w, i))
         for m in _TRIPLE.finditer(text):
-            # Naming real tools ("Shopify, Yotpo and Braze") is content, not rhythm (Jake, Oct 20 2026).
-            if not _names_tools(m.group(0)):
+            # Naming real tools ("Shopify, Yotpo and Braze") is content, not rhythm (Jake, Oct 20 2026),
+            # and a list quoted from the posting or Jake's own writing is protected (Jake, Oct 21 2026).
+            unlisted = m.group(0).replace(",", "")
+            if not _names_tools(m.group(0)) and not is_protected(unlisted, posting.replace(",", ""),
+                                                                   [t.replace(",", "") for t in own]):
                 hits.append(Hit("triple", m.group(0), m.start()))
     for code, rx in _PATTERNS.items():
         for m in rx.finditer(low):

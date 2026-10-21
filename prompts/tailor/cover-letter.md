@@ -90,7 +90,7 @@ role. If the vault has no `motivation.*` passages, keep movement 3 to one senten
      proven track record, and so on). Protection rule: allowed only when it is an exact term from the
      posting, or already in the candidate's own writing.
    - No em dashes. No "not just X but Y". No trailing ", showcasing ..." clauses. No lists of three
-     used as a rhythm trick. No fake-profound last line.
+     used as a rhythm trick (a list quoted from the posting is fine). No fake-profound last line.
    - No sayings that sound deep ("about as real as problems get", "as direct as data gets"), no
      staged run-ups ("Here's the thing"), no inflated significance ("plays a key role"). Every
      sentence must tell the reader something they didn't already know.

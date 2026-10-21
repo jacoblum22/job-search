@@ -10,8 +10,9 @@ already passed.
 
 ## Inputs to read
 
-- `drafts/r<N>/feedback.json`: `criticals`, `failed_items`, and `sections` (the only paths you may
-  change)
+- `drafts/r<N>/feedback.json`: `criticals`, `failed_items`, `warnings` (style problems such as a term
+  repeated too often, text copied from the posting, or a letter outside 200-300 words), and
+  `sections` (the only paths you may change)
 - `drafts/r<N-1>/edits.json` and `drafts/r<N-1>/cover-letter.json` (the previous draft)
 - `drafts/r<N-1>/check.json` and `grade.json` (for context)
 - `evidence.json` (PRESENT / ABSENT), `requirements.json`, the base resume, the vault index, the
@@ -21,8 +22,10 @@ already passed.
 
 1. **Edit only inside `feedback.json.sections`.** Lines you don't edit carry over from the previous
    draft as they are. Do not improve other lines, even ones you dislike.
-2. **Fix only the listed items.** Each failed item and critical should be answered by a specific
-   change; do not add other changes.
+2. **Fix only the listed items.** Each failed item, critical and warning should be answered by a
+   specific change; do not add other changes. For `term_stuffing`, keep the term where it matters
+   most and reword the other mentions; for `letter_length`, add or cut a sentence, never a claim
+   the vault can't back.
 3. **An unsourced number is removed, or replaced with a number the cited passage actually states.**
    Never reword around it ("roughly a third", "dozens"), never swap it for another invented figure.
 4. **"Use the posting's own words for these terms"** (the ATS item): work each listed term into a

@@ -1,7 +1,9 @@
 """Step 3 (code half): pick the base resume and score every bullet's relevance.
 
-The base is chosen by evidence (potential coverage of the posting's terms);
-Jev's holistic pick only wins when it is nearly as good. Claude then writes the
+The base is chosen by evidence: how much of the posting each base already
+shows (`current_pct`). Every base can reach the same vault-backed terms, so
+potential coverage ties and can't choose. Jev's holistic pick wins when it is
+within a few points of the best. Claude then writes the
 plan fields (headline, swap_in, ...) into the same plan.json.
 """
 
@@ -69,14 +71,13 @@ def run_base(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     index = load_index(cfg)
     bases = load_bases(cfg)
 
-    scores = {bid: float((ev.get("buckets") or {}).get(bid, {}).get("potential_pct", 0.0)) for bid in bases}
     if not any(b in (ev.get("buckets") or {}) for b in bases):
         raise TailorError("evidence.json has no buckets for any base; re-run the evidence step")
     summary = posting_summary(reqs)
     pick = _jev_pick(jev, summary, bases)
-    current = {bid: float((ev["buckets"].get(bid) or {}).get("current_pct", 0.0)) for bid in bases}
-    # Potential is vault-backed, so bases often tie on it; the tie goes to the one that says more already.
-    best = max(sorted(scores), key=lambda b: (scores[b], current[b]))
+    scores = {bid: float((ev["buckets"].get(bid) or {}).get("current_pct", 0.0)) for bid in bases}
+    potential = {bid: float((ev["buckets"].get(bid) or {}).get("potential_pct", 0.0)) for bid in bases}
+    best = max(sorted(scores), key=lambda b: (scores[b], potential[b]))
     chosen = pick if pick and scores[pick] >= scores[best] - JEV_TIE_POINTS else best
     base = bases[chosen]
 
@@ -105,10 +106,10 @@ def run_base(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     path = app_dir / "plan.json"
     plan = appdir.read_json(path) if path.exists() else {}
     plan.update({
-        "base_id": chosen, "base_scores": scores, "jev_pick": pick,
+        "base_id": chosen, "base_scores": scores, "reachable_pct": potential[chosen], "jev_pick": pick,
         "bullet_relevance": relevance, "candidate_passages": candidates,
         "protected_paths": protected,
     })
     appdir.write_json(path, plan)
-    appdir.log(app_dir, "base", f"base {chosen} (potential {scores[chosen]}%)", base_id=chosen)
+    appdir.log(app_dir, "base", f"base {chosen} (shows {scores[chosen]}% now, {potential[chosen]}% reachable)", base_id=chosen)
     return plan

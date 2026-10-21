@@ -33,7 +33,8 @@ plan cannot change them.
    Prefer passages for tier-1 and `must` requirements. At most 3.
 4. **`swap_out`**: base bullet paths with the lowest `bullet_relevance` that you would replace or
    drop to make room. **Never** list a path in `protected_paths` (it is the only cover for a matched
-   must-have). Same count or fewer than `swap_in`.
+   must-have), and never an entry's only bullet (`apply-edits` refuses to remove it). Same count or
+   fewer than `swap_in`.
 5. **`skills_order`**: the base's skills group ids, reordered so the groups holding tier-1 and `must`
    terms come first. Use only ids that exist in the base; include all of them exactly once.
 6. Do not plan anything for terms in `absent` (unless you add evidence for one under rule 9). They

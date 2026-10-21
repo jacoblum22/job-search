@@ -189,3 +189,39 @@ def test_unfixable_must_does_not_count_as_a_failed_item(tmp_path):
     add_round(app, 1, 85, items=[item("must.r1", True), gap], ats=82)
     out = next_round(app, CFG)
     assert out["action"] == "stop" and out["next_round"] is None
+
+
+def test_coin_flip_jev_answer_is_not_a_regression(tmp_path):
+    app = new_app(tmp_path)
+    add_round(app, 1, 60, items=[item("a", True), item("b", False)], feedback=["fix b"])
+    flip = dict(item("a", False), confidence=0.5)
+    add_round(app, 2, 66, items=[flip, item("b", True)], feedback=["fix a"])
+    out = next_round(app, CFG)
+    assert "regression" not in out["reason"]
+
+
+def test_stuffing_warning_earns_a_round_and_reaches_feedback(tmp_path):
+    app = new_app(tmp_path)
+    add_round(app, 1, 85, items=[item("a", True)], ats=60)
+    check = json.loads((app / "drafts" / "r1" / "check.json").read_text())
+    check["warnings"] = [
+        {"code": "term_stuffing", "message": "'BigQuery' appears 7 times", "path": "", "doc": "resume",
+         "data": {"term": "BigQuery", "paths": ["summary", "experience/algaecal/algaecal.sql"]}},
+        {"code": "ai_phrase", "message": "leverage", "path": "summary", "doc": "resume"},
+    ]
+    write_json(app / "drafts" / "r1" / "check.json", check)
+    out = next_round(app, {**CFG, "target_score": 80})
+    assert out["action"] == "repair"
+    fb = json.loads((app / "drafts" / "r2" / "feedback.json").read_text())
+    assert [w["code"] for w in fb["warnings"]] == ["term_stuffing"]
+    assert fb["sections"] == ["summary", "experience/algaecal"]
+
+
+def test_ride_along_warning_alone_does_not_earn_a_round(tmp_path):
+    app = new_app(tmp_path)
+    add_round(app, 1, 85, items=[item("a", True)], ats=60)
+    check = json.loads((app / "drafts" / "r1" / "check.json").read_text())
+    check["warnings"] = [{"code": "skill_only_in_list", "message": "m", "path": "skills", "doc": "resume"}]
+    write_json(app / "drafts" / "r1" / "check.json", check)
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and "nothing left" in out["reason"]

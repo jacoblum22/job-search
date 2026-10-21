@@ -254,7 +254,7 @@ def test_packet_flags_ats_below_floor(cfg):
     assert "## ATS score below 70: review before applying" in check
     assert "- [ ] Reviewed  ATS 51.3 is below the 70 minimum; your evidence could reach about 70.7, so the gap is wording." in check
     assert "doesn't use the posting's words:\n    - data analysis\n    - presentations" in check
-    assert "your vault doesn't show them:\n    - SPSS\n" in check
+    assert "your vault doesn't show them in these words:\n    - SPSS\n" in check
     assert "ATS score below" not in check.split("## Grade")[1]  # flag sits above the grade
     with pytest.raises(TailorError):
         approve(d, cfg)  # the Reviewed line must be ticked first
@@ -287,7 +287,7 @@ def test_packet_calls_a_low_ceiling_a_weaker_fit(cfg):
     check = (d / "check.md").read_text()
     assert "## Weaker fit: review before applying" in check
     assert "the best this resume could reach is about 66.0, under the 70 minimum" in check
-    assert "your vault doesn't show them:\n    - SPSS\n    - healthcare data" in check
+    assert "your vault doesn't show them in these words:\n    - SPSS\n    - healthcare data" in check
     assert "doesn't use the posting's words:\n    - None" in check  # both lists always shown
 
 

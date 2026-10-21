@@ -209,6 +209,20 @@ def _contact(cfg: dict[str, Any], data: dict[str, Any]) -> dict[str, str]:
     return base
 
 
+def _company_twins(app_dir: Path, app: dict[str, Any]) -> bool:
+    """True when another application folder beside this one is for the same company."""
+    me = str(app.get("company") or "").strip().lower()
+    for other in app_dir.parent.glob("*/app.json"):
+        if other.parent.resolve() == app_dir.resolve():
+            continue
+        try:
+            if str(read_json(other).get("company") or "").strip().lower() == me:
+                return True
+        except Exception:  # noqa: BLE001 - a broken sibling folder doesn't stop this render
+            continue
+    return False
+
+
 def run_render(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     app_dir = Path(app_dir)
     app = load_app(app_dir)
@@ -227,6 +241,9 @@ def run_render(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
 
     final = app_dir / "final"
     final.mkdir(exist_ok=True)
+    # Two applications to one company would upload as identical file names, so add the job title.
+    if _company_twins(app_dir, app):
+        company = f"{company} - {_safe(str(app.get('title') or ''))[:50].strip()}".rstrip(" -")
     resume_stem = f"{name} Resume - {company}"
     letter_stem = f"{name} Cover Letter - {company}"
 

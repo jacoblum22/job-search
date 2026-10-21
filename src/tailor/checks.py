@@ -15,7 +15,7 @@ Warning codes:
   years_inflation, title_drift, keyword_coverage_dropped, term_stuffing,
   skill_only_in_list, verbatim_posting_copy, too_many_skills, bullet_count,
   duplicate_bullets, ai_phrase, resume_invalid, rejected_edit_note,
-  no_company_fact, paragraph_count, familiar_absent_term, keen_to_grow, keen_not_must,
+  no_company_fact, paragraph_count, letter_length, familiar_absent_term, keen_to_grow, keen_not_must,
   course_grade (letter)
 Flag codes (source "jev"): jev_unsupported, jev_citation_gap
 """
@@ -344,7 +344,8 @@ def check_resume(
         n = _count(t, full)
         pn = _count(t, posting)
         if n and (n / words_n > 0.03 or n > 6):
-            w("term_stuffing", f"'{t}' appears {n} times in {words_n} words (posting: {pn})", term=t)
+            w("term_stuffing", f"'{t}' appears {n} times in {words_n} words (posting: {pn})", term=t,
+              paths=[pt for pt, tx in d_units if _count(t, tx)])
     prose = "\n".join(t for p, t in d_units if not p.startswith("skills/"))
     skills_text = "\n".join(t for p, t in d_units if p.startswith("skills/"))
     listed_only: set[str] = set()
@@ -564,6 +565,7 @@ def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> 
     posting_path = app_dir / "posting.md"
     posting = posting_path.read_text(encoding="utf-8") if posting_path.exists() else ""
     applied = _read_optional(rdir / "applied.json", {})
+    earlier = _read_optional(rdir / "check.json", {})
 
     # Revert weakly supported changes first, so later checks judge what actually ships.
     # Source-id problems are judged on the unreverted draft so a bad id is never hidden by a revert.
@@ -599,6 +601,15 @@ def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> 
         criticals.append({"code": "letter_shape", "message": err, "path": "cover-letter.json", "doc": "letter"})
 
     flags, added = _jev_flags(jev, _changed_lines(draft, base), index)
+    # A re-check finds nothing to flag where the first check already added the sources, so the
+    # earlier citation-gap flag carries over while the line still cites what it added.
+    lines = {"summary": draft.get("summary"), **dict(iter_bullets(draft))}
+    have = {f["path"] for f in flags}
+    for f in earlier.get("flags") or []:
+        line = lines.get(f.get("path"))
+        if (f.get("code") == "jev_citation_gap" and f["path"] not in have and isinstance(line, dict)
+                and set((f.get("data") or {}).get("added") or []) <= set(line.get("sources") or [])):
+            flags.append(f)
     if added:
         _add_sources(draft, added)
         draft_path.write_text(

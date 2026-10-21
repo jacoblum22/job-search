@@ -326,3 +326,12 @@ def test_degree_meeting_the_level_passes_a_related_field_requirement_by_rule(tmp
     # Without Jake's rule, or for a strict field, Jev still decides.
     item = next(it for it in run_grade(app, 1, CFG, jev)["checklist"] if it["id"] == "must.r2")
     assert item["passed"] is False
+
+
+def test_narrower_phrase_backed_only_through_its_skill_is_not_pushed(tmp_path):
+    from src.tailor.grade import ats_gap
+    r = req(terms=["reporting pipelines", "key performance indicators"])
+    out = ats_gap({"summary": {"text": "Analyst."}}, r, ev(["reporting", "KPIs/metrics"]), CFG)
+    # "reporting pipelines" is backed as reporting, but the vault doesn't say the phrase.
+    assert out["unused"] == ["key performance indicators"]
+    assert out["unbacked"] == []
