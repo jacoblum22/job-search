@@ -121,6 +121,11 @@ def _collect_terms(req: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], set[
     return terms, req_terms
 
 
+def _a(noun: str) -> str:
+    """'a Data Analyst' / 'an Associate'."""
+    return ("an " if noun[:1].lower() in "aeiou" else "a ") + noun
+
+
 def _backed_set(evidence: dict[str, Any]) -> set[str]:
     backed = {str(t).lower() for t in evidence.get("present") or []}
     for t in evidence.get("terms") or []:
@@ -398,7 +403,7 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
             add(f"must.{r['id']}", f"Is {r.get('text') or _req_label(r)} backed by a resume bullet that names a tool and a scope?", req_id=r["id"])
     title = str(req.get("title") or "").strip()
     if title:
-        add("top_third", f"Does the top third of the resume match a {title} role?", sections=["summary"])
+        add("top_third", f"Does the top third of the resume match {_a(title)} role?", sections=["summary"])
     for path in _changed_bullets(app_dir, rnd, data):
         add(f"portable.{path}", "Could this bullet describe almost any candidate?", fail_on_yes=True,
             sections=[_entry_of(path)], bullet=path)
@@ -583,7 +588,7 @@ def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeate
             label = ", ".join(t for t in r.get("terms") or [] if _is_backed(t, backed)) or _req_label(r)
             sentences.append(f"Must-have {label} needs a bullet that names the tool and its scope; {passage_clause(rid, r)}.")
         elif iid == "top_third":
-            sentences.append(f"Rewrite the summary so the top of the resume reads as a {req.get('title') or 'target'} role.")
+            sentences.append(f"Rewrite the summary so the top of the resume reads as {_a(req.get('title') or 'target')} role.")
         elif iid.startswith("portable."):
             path = iid[9:]
             sources = next((b.get("sources") for p, b in iter_bullets(data) if p == path), None) or []

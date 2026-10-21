@@ -136,6 +136,9 @@ def test_clean_pass(tmp_path):
     ({"path": "experience/northwind/northwind.forecast", "action": "remove"}, "protected"),
     ({"path": "experience/lab/lab.stats", "action": "remove"}, "without bullets"),
     ({"path": "experience/northwind", "action": "wipe"}, "malformed"),
+    (sql_edit(value="Wrote SQL daily " + "for the operations team " * 9), "limit 200"),
+    ({"path": "experience/northwind", "action": "append", "value": "Created dbt models " * 12,
+      "sources": ["northwind.dbt"]}, "limit 200"),
 ])
 def test_gate_rejections(tmp_path, edit, reason):
     app, cfg = make_app(tmp_path)

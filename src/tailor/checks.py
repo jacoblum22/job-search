@@ -351,6 +351,7 @@ def check_resume(
     prose = "\n".join(t for p, t in d_units if not p.startswith("skills/"))
     skills_text = "\n".join(t for p, t in d_units if p.startswith("skills/"))
     listed_only: set[str] = set()
+    base_skills = "\n".join(t for p, t in units(base) if p.startswith("skills/"))
     for t in terms:
         canon = taxonomy.canonical(t)
         if canon and taxonomy.is_hard(canon) and _covered(t, skills_text) and not _covered(t, prose):
@@ -360,7 +361,9 @@ def check_resume(
                 continue
             listed_only.add(canon)
             name = t if taxonomy.exact(t, skills_text) else canon
-            w("skill_only_in_list", f"'{name}' appears only in the skills list", "skills", term=name)
+            # `added`: this draft put it in the list; the repair loop fixes that, a base's own list item it leaves.
+            w("skill_only_in_list", f"'{name}' appears only in the skills list", "skills", term=name,
+              added=not _covered(t, base_skills))
     if posting:
         pw = [x for x in re.findall(r"[a-z0-9']+", norm(posting))]
         post_runs = _runs(pw, 8)
