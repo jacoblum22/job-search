@@ -68,7 +68,8 @@ list is also the before/after diff the candidate reviews.
 8. **Protected bullets.** Do not remove or replace a path listed in `protected_paths` in a way that
    drops the matched must-have term.
 9. **Keep it believable.** Bullets stay roughly the same length as the original, and a rewritten
-   bullet must be 200 characters or fewer (longer ones are sent back for repair). Vary the opening verbs and shapes across bullets; rows of identically shaped bullets
+   bullet must be 200 characters or fewer (`apply-edits` refuses a longer one; shorten it and rerun
+   `apply-edits` for the same round). Count before you write. Vary the opening verbs and shapes across bullets; rows of identically shaped bullets
    are the biggest AI tell. One page is a hard limit, so prefer replacing over appending.
 10. **Banned phrases.** Do not use any phrase in the banned list (`src/tailor/phrases.py`: words such
    as leverage, spearheaded, robust, seamless; self-descriptions such as passionate, results-driven,

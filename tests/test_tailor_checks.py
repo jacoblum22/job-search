@@ -575,6 +575,20 @@ def test_letter_keen_sentence_may_name_a_missing_must(tmp_path):
     assert any("Looker" in m for m in msgs) and any("Power BI" in m for m in msgs)
 
 
+def test_letter_keen_sentence_may_name_any_skill_in_a_must_term(tmp_path):
+    # "Snowflake SQL" names SQL and Snowflake; canonical() gives only SQL, so Snowflake was "invented".
+    app, cfg = make_app(tmp_path)
+    req = read_json(app / "requirements.json")
+    req["requirements"][0]["terms"] = ["SQL", "Snowflake SQL"]
+    write_json(app / "requirements.json", req)
+    put_draft(app, base_data(cfg))
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "text": paras[1]["text"] + " I have not used Snowflake SQL yet and would be keen to grow into it."}
+    write_letter(app, with_(paragraphs=paras))
+    res = run_check(app, 1, cfg, None)
+    assert not any(c["code"] == "invented_skill" for c in res["criticals"]), res["criticals"]
+
+
 def test_letter_warnings(tmp_path):
     paras = [
         {"text": "I am passionate about data. I am keen to grow and eager to learn. Familiar with Looker.", "sources": [], "company_facts": []},
@@ -596,6 +610,23 @@ def test_skill_pattern_ending_mid_word_still_finds_vault_wording():
     assert found["data visualization"] == {"visualizations"}
     vault = "Skill: Google BigQuery; Concrete Evidence: Company data warehouse; dashboards and visualization"
     assert all(_wording_in(w, vault) for w in found["data warehouse"] | found["data visualization"])
+
+
+def test_skill_listed_in_the_vault_is_a_wording_problem_not_invented():
+    # The vault lists the skill ("knowledge of economics, accounting, ..."); a draft's "basic
+    # accounting" is the vault's skill in other words, so the check asks for the vault's wording
+    # (a repair keeps the claim) instead of calling it invented (a repair drops a true must-have).
+    from src.tailor.checks import check_resume, flatten
+
+    passage = "Some knowledge of economics, accounting, and statistics from classes."
+    base = {"summary": {"id": "summary", "text": "Analyst.", "sources": []}}
+    draft = {"summary": {"id": "summary", "text": "Analyst with basic accounting from classes.",
+                         "sources": ["extra.knowledge"]}}
+    ctx = {"index": {"extra.knowledge": {"text": passage, "use": "claim"}}, "req": {}, "posting": "",
+           "base_text": flatten(base), "claim_texts": [passage], "own_texts": [passage], "confirmed": set()}
+    crit, _, _ = check_resume(draft, base, ctx)
+    [c] = [c for c in crit if c["code"] == "invented_skill"]
+    assert "use the vault's wording" in c["message"] and c["data"]["wording"] == "basic accounting"
 
 
 def test_plural_wording_finds_the_singular_in_the_vault():

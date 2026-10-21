@@ -115,6 +115,9 @@ folder before starting the next. Keep a running note of the outcome for the dige
    `prompts/tailor/cover-letter.md`; write `<app>/drafts/r1/edits.json` and `<app>/drafts/r1/cover-letter.json`.
    Use strategy `full` only if `app.json` tier is "A".
 8. `uv run python -m src.tailor apply-edits "<app>" --round 1`, then `check --round 1`, then `grade --round 1`.
+   If `apply-edits` rejected an edit with "shorten it" (a bullet over 200 characters), shorten that
+   edit's `value` in the same `edits.json` and rerun `apply-edits` for the same round once, before
+   `check`; otherwise the bullet is lost for the round. This applies to repair rounds too.
 9. **Repair loop.** Run `uv run python -m src.tailor next-round "<app>"`. Read its output.
    - If it says to stop (everything passes, the gain is under 2 points, something regressed, or two
      repair rounds are done), leave the loop.
@@ -147,7 +150,8 @@ malformed file or the rule broken.
 
 - Missing or invalid input file you wrote (for example malformed JSON): fix that file following the
   prompt's output shape and rerun the same command once.
-- A gate rejection inside the output (for example edits dropped): this is normal, continue.
+- A gate rejection inside the output (for example edits dropped): this is normal, continue. The one
+  exception is a "shorten it" rejection: shorten that edit and rerun `apply-edits` once (step 8).
 - Missing materials (no base resumes, no vault index, no rules file): stop the whole run and say so
   in the digest. Do not invent them.
 - Anything else: retry once; if it fails again, mark the folder "stopped: <message>" and go to the

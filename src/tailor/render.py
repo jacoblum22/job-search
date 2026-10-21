@@ -61,18 +61,25 @@ def drop_order(data: dict[str, Any], relevance: dict[str, Any], protected: list[
     """Bullet paths in the order they may be dropped.
 
     Lowest relevance first; ties drop later bullets first. Protected bullets are never
-    listed, and an entry always keeps at least one bullet.
+    listed, and an entry always keeps at least one bullet. A bullet the edits added has no
+    rating of its own (the plan rates base bullets and candidate passages), so it takes its
+    best-rated cited passage's: unrated, it would always be the first to go.
     """
     positions: dict[str, int] = {}
     entry_of: dict[str, str] = {}
-    for i, (path, _b) in enumerate(resume_mod.iter_bullets(data)):
+    score: dict[str, float] = {}
+    for i, (path, b) in enumerate(resume_mod.iter_bullets(data)):
         positions[path] = i
         entry_of[path] = path.rsplit("/", 1)[0]
+        if path in relevance:
+            score[path] = float(relevance.get(path) or 0)
+        else:
+            score[path] = max((float(relevance.get(s) or 0) for s in b.get("sources") or []), default=0.0)
     remaining: dict[str, int] = {}
     for path, entry in entry_of.items():
         remaining[entry] = remaining.get(entry, 0) + 1
     candidates = [p for p in positions if p not in set(protected)]
-    candidates.sort(key=lambda p: (float(relevance.get(p, 0) or 0), -positions[p]))
+    candidates.sort(key=lambda p: (score[p], -positions[p]))
     order = []
     for path in candidates:
         entry = entry_of[path]

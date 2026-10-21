@@ -64,9 +64,13 @@ _PATTERNS = {code: re.compile(rx, re.IGNORECASE) for code, rx in PATTERNS.items(
 _DASH = re.compile(r"\s[—–]\s|—")
 _NOT_JUST = re.compile(r"\bnot (?:just|only)\b[^.]{1,80}\bbut\b", re.I)
 _ING_TAIL = re.compile(r",\s+(?:showcasing|highlighting|demonstrating|underscoring|reflecting|ensuring)\b", re.I)
-# A list item never starts with a subject pronoun: "After hours, I built and tested" is an
-# opening clause plus two verbs, not three items.
-_TRIPLE = re.compile(r"\b\w+(?:\s\w+)?,\s(?!(?:i|we|you|he|she|they)\b)\w+(?:\s\w+)?,?\s(?:and|or)\s\w+", re.I)
+# A list item never starts with a subject pronoun or a preposition: "After hours, I built and
+# tested" is an opening clause plus two verbs, and "loads orders into Postgres, with retries and
+# alerts" a clause plus a phrase with two parts; neither is three items.
+_TRIPLE = re.compile(r"\b\w+(?:\s\w+)?,\s(?!(?:i|we|you|he|she|they|by|with|without|into|in|on|for|from|to|at|"
+                     r"through|via)\b)\w+(?:\s\w+)?,?\s(?:and|or)\s\w+", re.I)
+# "Contoso, Fabrikam and others": the names are the list; the tail only says it goes on.
+_ETC = re.compile(r"(?:others?|more|similar)(?:\s\w+)?", re.I)
 
 
 def _names_tools(phrase: str) -> bool:
@@ -74,8 +78,11 @@ def _names_tools(phrase: str) -> bool:
     if len(taxonomy.find(phrase)) >= 2:
         return True
     items = re.split(r",\s|,?\s(?:and|or)\s", phrase)
-    return len(items) >= 3 and all(i.split()[-1][:1].isupper() for i in items[:1]) and all(
-        i[:1].isupper() for i in items[1:])
+    if len(items) < 3:
+        return False
+    if _ETC.fullmatch(items[-1]):
+        items = items[:-1]
+    return all(i.split()[-1][:1].isupper() for i in items[:1]) and all(i[:1].isupper() for i in items[1:])
 
 
 @dataclass
