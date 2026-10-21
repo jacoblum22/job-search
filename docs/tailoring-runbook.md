@@ -102,7 +102,9 @@ folder before starting the next. Keep a running note of the outcome for the dige
    model **haiku**, telling it to follow `prompts/tailor/company-research.md`, and give it the company
    name, the company folder path, the application folder path and the "How to run commands" paragraph
    above. It finds pages with the WebSearch tool (no skills) and saves each with `company-fetch`
-   (web fetch is not available); it writes only inside that company folder. Then run
+   (web fetch is not available); it writes only inside that company folder. Run it in the
+   foreground (never `run_in_background`) and wait for its answer: this run is unattended, and a turn
+   that ends while a subagent is still working ends the run with nothing drafted. Then run
    `uv run python -m src.tailor company-verify "materials/companies/<company-slug>"`.
    If research finds nothing usable, continue; the letter then uses the posting alone and the digest says so.
 4. `uv run python -m src.tailor evidence "<app>"`.
