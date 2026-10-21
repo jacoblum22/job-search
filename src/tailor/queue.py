@@ -166,6 +166,13 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
     tier_pos = {t: i for i, t in enumerate(tiers)}
     conn = store.connect(resolve(cfg, "db"))
     try:
+        # Tiers in jobs.db are only as new as the last scrape or rescore, so a scoring fix (a
+        # location rule, a language skip) wouldn't reach the queue until then. Rescore first.
+        if cfg.get("rescore_before_queue", True):
+            from src.score import rescore_all
+            from src.tailor.paths import _settings
+
+            rescore_all(conn, _settings().get("score") or {})
         rows = _eligible(conn, cfg, job_ids)
         rows.sort(key=lambda r: (tier_pos.get(r["tier"], len(tiers)), -(r["score"] or 0), r["id"]))
         if not job_ids:

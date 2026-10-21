@@ -142,6 +142,15 @@ def _value_text(edit: dict[str, Any]) -> str:
     return re.sub(r"\s+", " ", v).strip()
 
 
+BULLET_MAX = 200  # characters; the check makes a longer changed bullet critical (bullet_long)
+
+
+def _check_length(value: str) -> None:
+    # Refused here so the run rewrites it in the same round instead of losing a round to the check.
+    if len(value) > BULLET_MAX:
+        raise _Reject(f"bullet is {len(value)} characters (limit {BULLET_MAX}); shorten it")
+
+
 def _apply_one(
     data: dict[str, Any], edit: dict[str, Any], index: dict[str, dict[str, Any]],
     protected: set[str], sections: list[str] | None,
@@ -189,6 +198,8 @@ def _apply_one(
                 raise _Reject("locked field: only coursework lines in education may change")
         else:
             raise _Reject("path not allowed for replace")
+        if head in ("experience", "projects"):
+            _check_length(value)
         original = edit.get("original")
         if not isinstance(original, str) or norm(original) != norm(node["text"]):
             raise _Reject("original does not match the current text")
@@ -207,6 +218,7 @@ def _apply_one(
         if e is None:
             raise _Reject("path does not resolve: " + path)
         value = _value_text(edit)
+        _check_length(value)
         sources = _check_sources(edit, index, required=True)
         taken = {b.get("id") for _, b in iter_bullets(data)}
         n = 1
@@ -362,7 +374,8 @@ def apply_edits(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
     write_json(rdir / "applied.json", result)
     if (app_dir / "app.json").exists():
         # The plan's evidence drops and adds join the shared lists so later jobs follow them.
-        result["new_rejects"] = len(rejects.sync_plan_drops(app_dir, cfg))
-        result["new_confirms"] = len(rejects.sync_plan_adds(app_dir, cfg))
+        # Named, so the run (and its review) can see which matches were set aside or confirmed.
+        result["new_rejects"] = [f"{r.get('term')} / {r.get('passage')}" for r in rejects.sync_plan_drops(app_dir, cfg)]
+        result["new_confirms"] = [f"{r.get('term')} / {r.get('passage')}" for r in rejects.sync_plan_adds(app_dir, cfg)]
         log(app_dir, "apply-edits", f"r{rnd}: {len(applied)} applied, {len(rejected)} rejected")
     return result

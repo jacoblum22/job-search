@@ -21,7 +21,7 @@ def cfg(tmp_path):
         "db": str(tmp_path / "jobs.db"),
         "applications": str(tmp_path / "apps"),
         "bases": str(tmp_path / "bases"),
-    }, "tiers": ["A", "B"]})
+    }, "tiers": ["A", "B"], "rescore_before_queue": False})
 
 
 def add(cfg, ext, title, tier, score, desc=DESC, group=None, company="Contoso Retail"):
@@ -334,3 +334,15 @@ def test_closed_and_internal_postings_are_never_queued(cfg):
     add(cfg, "g1", "Copy", "A", 97, desc=DESC + " more detail", group="g")
     add(cfg, "g2", "Copy", "D", 10, desc="Posting End Date: October 1, 2020", group="g")
     assert titles(run_queue(cfg, limit=5, jev=FakeJev(GOOD))) == ["Open"]
+
+
+def test_queue_rescores_so_a_stale_tier_is_not_drafted(cfg):
+    # Stored as A-tier remote before the country-only location rule existed; the posting is Toronto, on-site.
+    conn = connect(cfg["paths"]["db"])
+    job = Job("test", "t1", "Data Analyst", "Big Bank", "Canada",
+              "Work on-site in our Toronto, ON office. SQL and Python. " * 3, "https://x/t1")
+    jid, _ = upsert_job(conn, job)
+    conn.execute("UPDATE jobs SET tier = 'A', score = 90, location_category = 'remote' WHERE id = ?", (jid,))
+    conn.commit()
+    conn.close()
+    assert run_queue({**cfg, "rescore_before_queue": True}, limit=5) == []

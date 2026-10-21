@@ -157,7 +157,9 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     # Without a wording gap the "use the posting's words" line is advice, not a reason for a round.
     ats_lines = {g.get("sentence") for g in cur["grade"].get("gaps") or [] if g.get("id") == "ats.unused"}
     repairable = feedback if needs_ats else [f for f in feedback if f not in ats_lines]
-    round_warnings = [w for w in _warnings(cur["check"]) if w.get("code") in _ROUND_WARNINGS]
+    # A skill the draft itself added to the list with no bullet behind it is worth a round too.
+    round_warnings = [w for w in _warnings(cur["check"]) if w.get("code") in _ROUND_WARNINGS
+                      or (w.get("code") == "skill_only_in_list" and (w.get("data") or {}).get("added"))]
     if reason is None and not (cur["check"].get("criticals") or repairable or round_warnings):
         reason = "nothing left to repair"
 
