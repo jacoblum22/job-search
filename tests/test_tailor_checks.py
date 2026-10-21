@@ -577,3 +577,27 @@ def test_skill_pattern_ending_mid_word_still_finds_vault_wording():
     assert found["data visualization"] == {"visualizations"}
     vault = "Skill: Google BigQuery; Concrete Evidence: Company data warehouse; dashboards and visualization"
     assert all(_wording_in(w, vault) for w in found["data warehouse"] | found["data visualization"])
+
+
+def test_plural_wording_finds_the_singular_in_the_vault():
+    # "pipelines" is "pipeline" + s: stripping "es" left "pipelin", which never matched "Pipeline Design".
+    from src.tailor.checks import _wording_in
+
+    assert _wording_in("data pipelines", "Skill: Data Pipeline Design; built ingest jobs")
+    assert _wording_in("dashboards", "Fixed a dashboard filter")
+    assert _wording_in("boxes", "Shipped one box a day")
+    assert not _wording_in("data pipelines", "a pipeline of customer data")
+
+
+def test_skills_item_backed_by_singular_vault_wording_is_not_invented(tmp_path):
+    def m(d):
+        d["skills"][1]["items"].append("data pipelines")
+    app, cfg = make_app(tmp_path)
+    idx = json.loads(Path(cfg["paths"]["vault_index"]).read_text(encoding="utf-8"))
+    idx["passages"].append({**idx["passages"][0], "id": "skills.pipelines",
+                            "text": "Skill: Data Pipeline Design; Where Used: a side project"})
+    Path(cfg["paths"]["vault_index"]).write_text(json.dumps(idx), encoding="utf-8")
+    data = base_data(cfg)
+    m(data)
+    put_draft(app, data)
+    assert not any(c["code"] == "invented_skill" for c in run_check(app, 1, cfg, None)["criticals"])

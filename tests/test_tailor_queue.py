@@ -173,6 +173,24 @@ def test_packet_criticals_and_missing_inputs(cfg):
         run_packet(d, cfg)
 
 
+def test_packet_drops_style_warnings_the_humanize_pass_fixed(cfg):
+    _, d = _packet_app(cfg)
+    r1 = d / "drafts" / "r1"
+    letter = {"greeting": "Dear Hiring Manager,", "paragraphs": [
+        {"text": "I leveraged SQL daily.", "sources": []}, {"text": "I leveraged dashboards.", "sources": []}]}
+    appdir.write_json(r1 / "cover-letter.json", letter)
+    appdir.write_json(r1 / "check.json", {"criticals": [], "flags": [], "warnings": [
+        {"code": "ai_phrase", "message": "paragraphs[0]: banned_word 'leveraged'", "path": "paragraphs[0]", "doc": "letter"},
+        {"code": "ai_phrase", "message": "paragraphs[1]: banned_word 'leveraged'", "path": "paragraphs[1]", "doc": "letter"}]})
+    # humanize rewrote only the first paragraph
+    letter["paragraphs"][0]["text"] = "I used SQL daily."
+    appdir.write_json(d / "humanize" / "cover-letter.json", letter)
+    (d / "humanize" / "resume.yaml").write_text((r1 / "resume.yaml").read_text())
+    run_packet(d, cfg)
+    issues = (d / "check.md").read_text().split("## Remaining issues")[1]
+    assert "paragraph 2" in issues and "paragraph 1" not in issues
+
+
 def test_gate_skipped_without_jev_key(cfg):
     add(cfg, "k1", "Analyst", "A", 80)
 

@@ -658,6 +658,38 @@ def test_jev_yes_on_an_or_list_backs_no_single_tool(env):
     assert {"Power BI", "Power Automate"} <= set(ev["absent"])
 
 
+def test_jev_yes_without_the_wording_does_not_make_a_hard_skill_present(env):
+    cfg, app = env
+    # No passage says "quantitative"; Jev says the analysis bullets fit. The requirement is covered,
+    # but the check would call "quantitative analysis" invented, so the term isn't present.
+    _with_reqs(app, [{"id": "a", "text": "Quantitative analysis of sales data", "kind": "nice",
+                      "terms": ["quantitative analysis"], "weight": "role", "quote": "SQL"}])
+    ev = run_evidence(app, cfg, FakeJev(lambda s, q: 0.9 if "SQL" in s else 0.1))
+    r = ev["requirements"][0]
+    assert r["status"] == "covered" and r["method"] == "jev" and r["passages"]
+    t = ev["terms"][0]
+    assert t["passages"] == [] and t["related"]
+    assert "quantitative analysis" in ev["absent"]
+
+
+def test_evidence_command_prints_a_short_summary(env, monkeypatch):
+    from click.testing import CliRunner
+
+    from src.tailor import cli
+
+    cfg, app = env
+    normalize(app, cfg)
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+    monkeypatch.setattr(cli, "_jev", lambda: None)
+    res = CliRunner().invoke(cli.main, ["evidence", str(app)])
+    assert res.exit_code == 0, res.output
+    out = json.loads(res.output)
+    full = json.loads((app / "evidence.json").read_text(encoding="utf-8"))
+    assert out["present"] == full["present"] and out["absent"] == full["absent"]
+    assert out["requirements"][0] == {"id": "r1", "status": "covered", "strength": 3, "method": "taxonomy"}
+    assert "terms" not in out and "buckets" not in out  # those stay in evidence.json
+
+
 def test_positional_embeddings_are_not_embeddings():
     from src.tailor import taxonomy as tx
 
