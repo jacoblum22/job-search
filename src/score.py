@@ -14,7 +14,8 @@ A points system, tuned by the `score:` section of config/settings.yaml:
 
 Some things are hard skips rather than penalties (more than 5 years
 required, wrong-field title, US residence required, a PhD or
-Master's required; an optional Master's is a penalty). A skipped job gets
+Master's required, a language other than Jake's required; an optional
+Master's is a penalty). A skipped job gets
 tier "skip" and no score.
 
 Every point comes with a reason string, so the dashboard can show why a job
@@ -61,6 +62,40 @@ _ESCAPE_RE = re.compile(
     r"|equivalent (?:work |practical |professional )?experience|\band/or\b",
     re.IGNORECASE,
 )
+
+
+_LANGUAGES = (
+    "french", "spanish", "mandarin", "cantonese", "chinese", "punjabi", "hindi", "tagalog", "korean",
+    "japanese", "german", "portuguese", "italian", "arabic", "vietnamese", "russian", "farsi", "dutch",
+    "polish", "urdu",
+)
+_LANGUAGE_RE = re.compile(r"\b(" + "|".join(_LANGUAGES) + r")\b", re.IGNORECASE)
+# The line asks the candidate to speak or write it, not just mentions it.
+_LANGUAGE_ASK_RE = re.compile(
+    r"fluen|bilingual|proficien|\bnative\b|\b[BC][12] level|(?:spoken|oral) and written|written and (?:spoken|oral)"
+    r"|communicate (?:\w+ ){0,2}in\b|-speaking\b.*\b(?:required|mandatory)|\b(?:required|mandatory|must)\b",
+    re.IGNORECASE,
+)
+# Wanted but not needed, needed only somewhere else, or a test the employer may give.
+_LANGUAGE_OPTIONAL_RE = re.compile(
+    r"\basset\b|prefer|\ba plus\b|advantage|bonus|nice to have|desir|\bideal|welcome|\bconsidered\b"
+    r"|quebec only|for quebec|assessment|skills? tests?|\binform us\b",
+    re.IGNORECASE,
+)
+
+
+def _language_ask(description: str, known: set[str]) -> str | None:
+    """The line requiring a language Jake doesn't speak, else None.
+
+    "Fluency in Spanish", "Fully bilingual (English/French)" and "Spanish-speaking
+    candidates mandatory" require one; "French is an asset", "Bilingual strongly
+    preferred" and a skills-test list naming "French proficiency" don't.
+    """
+    for line in re.split(r"\n|(?<=[.!?])\s+", description):
+        langs = {m.lower() for m in _LANGUAGE_RE.findall(line)} - known
+        if langs and _LANGUAGE_ASK_RE.search(line) and not _LANGUAGE_OPTIONAL_RE.search(line):
+            return line.strip(" *-•+#\t")
+    return None
 
 
 def _masters_ask(description: str) -> tuple[str, str] | None:
@@ -165,6 +200,13 @@ def score_job(
     masters = _masters_ask(description) if masters_cfg else None
     if masters and masters[0] == "required" and masters_cfg.get("required_skip", True):
         return ScoreResult(None, "skip", [f"Master's required: \"{masters[1][:120]}\""])
+
+    lang_cfg = cfg.get("languages") or {}
+    if lang_cfg.get("required_skip"):
+        known = {str(x).lower() for x in lang_cfg.get("known") or ["english"]}
+        line = _language_ask(description, known)
+        if line:
+            return ScoreResult(None, "skip", [f"language required: \"{line[:120]}\""])
 
     # ── Points ────────────────────────────────────────────────────────
     score = 0

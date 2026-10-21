@@ -228,3 +228,29 @@ def test_rescore_reads_where_a_country_only_job_is(tmp_path):
     rescore_all(conn, CFG)
     row = conn.execute("SELECT location_category, tier FROM jobs").fetchone()
     assert row["location_category"] == "other" and row["tier"] == "skip"
+
+
+def test_required_language_skipped():
+    desc = "python sql " * 40
+    for line in [
+        "* Fluency in Spanish.",
+        "* Fully bilingual (English/French)",
+        "• Spanish-speaking candidates mandatory",
+        "* Ability to communicate effectively in French in a bilingual environment.",
+    ]:
+        r = _score("Data Analyst", line + "\n" + desc)
+        assert r.tier == "skip", line
+        assert "language required" in r.reasons[0]
+
+
+def test_optional_language_not_skipped():
+    desc = "python sql " * 40
+    for line in [
+        "* Bilingual in English and French is an asset",
+        "* Bilingual (English and French) strongly preferred",
+        "* Fluency in French will be considered an asset",
+        "complete an attribute-based assessment and other skills test (such as simulation, coding, French proficiency)",
+        "bilingualism (French, English, both oral and written) is required **for Quebec only**",
+        "* Excellent written and verbal communication skills in English.",
+    ]:
+        assert _score("Data Analyst", line + "\n" + desc).tier != "skip", line
