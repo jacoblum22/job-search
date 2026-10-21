@@ -63,6 +63,21 @@ def _load(app_dir: Path, n: int) -> dict[str, Any]:
     }
 
 
+def _gain(cur: dict[str, Any], ref: dict[str, Any]) -> float:
+    """Score gain over the checklist items both rounds were asked. Each round asks about the
+    bullets it changed, so editing more bullets adds easy passes that dilute the same failures:
+    the full score rises with nothing fixed."""
+    shared = cur["items"].keys() & ref["items"].keys()
+    if not shared:
+        return cur["score"] - ref["score"]
+
+    def score(r: dict[str, Any]) -> float:
+        rate = sum(1 for i in shared if r["items"][i].get("passed") is not False) / len(shared)
+        return 0.6 * float(r["ats"] or 0) + 40.0 * rate
+
+    return score(cur) - score(ref)
+
+
 def _best(rounds: list[dict[str, Any]]) -> dict[str, Any]:
     clean = [r for r in rounds if r["criticals"] == 0]
     if clean:
@@ -135,7 +150,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
         elif newly_failed:
             reason = f"regression: an item that passed in round {ref['round']} now fails"
         # With a wording gap left, a small gain still earns another round, up to the round limit.
-        elif cur["score"] - ref["score"] < min_gain and not needs_ats:
+        elif _gain(cur, ref) < min_gain and not needs_ats:
             reason = f"score gain under {min_gain} points over round {ref['round']}"
     if reason is None and len(rounds) >= max_rounds:
         reason = f"round limit of {max_rounds} reached"

@@ -759,3 +759,24 @@ def test_passages_and_requirements_commands_print_short_output(env, monkeypatch)
     assert res.exit_code == 0, res.output
     out = json.loads(res.output)
     assert out["requirements"] and set(out["requirements"][0]) == {"id", "kind", "terms"}
+    # The runbook says to note what was dropped, so the output has to show it.
+    assert ("requirement", "r6") in {(d["type"], d.get("id")) for d in out["dropped"]}
+    assert "translating insights" in out["unknown_terms"]
+
+
+def test_commands_print_any_character_through_a_narrow_pipe(monkeypatch):
+    import io
+    import sys
+
+    from src.tailor import cli, sources
+
+    raw = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw, encoding="cp1252"))
+    monkeypatch.setattr(sys, "argv", ["tailor", "passages", "proj.arrow"])
+    monkeypatch.setattr(cli, "load_config", lambda: {})
+    monkeypatch.setattr(sources, "load_index", lambda cfg: {"proj.arrow": {"text": "raw → clean — done"}})
+    with pytest.raises(SystemExit) as exc:
+        cli.run()
+    assert exc.value.code == 0
+    sys.stdout.flush()
+    assert json.loads(raw.getvalue().decode("utf-8")) == {"proj.arrow": "raw → clean — done"}

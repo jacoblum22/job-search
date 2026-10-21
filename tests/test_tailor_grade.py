@@ -190,6 +190,17 @@ def test_failed_items_become_feedback_without_question_text(tmp_path):
     assert "Rivera" not in jev.calls[0][0]
 
 
+def test_unshown_must_feedback_names_only_backed_terms(tmp_path):
+    # "Looker" comes first but the vault can't back it; repair must only be asked for dbt.
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "Looker and dbt", "terms": ["Looker", "dbt"]}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.8))
+    assert "Must-have dbt isn't shown; passage northwind.dbt supports it." in out["feedback"]
+    assert not any("Looker" in s and s.startswith("Must-have") for s in out["feedback"])
+
+
 def test_failed_must_with_only_unbacked_terms_missing_is_a_fit_gap(tmp_path):
     app = make_app(tmp_path)
     r = json.loads((app / "requirements.json").read_text())
