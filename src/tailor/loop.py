@@ -33,6 +33,17 @@ def _failed(grade: dict[str, Any]) -> list[dict[str, Any]]:
     return [it for it in grade.get("checklist") or [] if it.get("passed") is False and not it.get("fit_gap")]
 
 
+# Warnings a repair round fixes. The first set is worth a round of its own; the rest
+# only ride along with a round that happens anyway.
+_ROUND_WARNINGS = {"term_stuffing", "verbatim_posting_copy", "duplicate_bullets", "years_inflation",
+                   "title_drift", "letter_length"}
+_RIDE_WARNINGS = {"skill_only_in_list", "too_many_skills", "bullet_count", "paragraph_count"}
+
+
+def _warnings(check: dict[str, Any]) -> list[dict[str, Any]]:
+    return [w for w in check.get("warnings") or [] if w.get("code") in _ROUND_WARNINGS | _RIDE_WARNINGS]
+
+
 def _load(app_dir: Path, n: int) -> dict[str, Any]:
     d = round_dir(app_dir, n)
     check = read_json(d / "check.json")
@@ -48,6 +59,7 @@ def _load(app_dir: Path, n: int) -> dict[str, Any]:
         "grade": grade,
         "passed_ids": {it["id"] for it in grade.get("checklist") or [] if it.get("passed") is True},
         "failed_ids": {it["id"] for it in failed},
+        "items": {it["id"]: it for it in grade.get("checklist") or []},
     }
 
 
@@ -74,8 +86,10 @@ def _sections(cur: dict[str, Any]) -> list[str]:
         if s and s not in out:
             out.append(s)
 
-    for c in cur["check"].get("criticals") or []:
+    for c in (cur["check"].get("criticals") or []) + _warnings(cur["check"]):
         add(_section_of(c.get("path", ""), c.get("doc", "")))
+        for p in (c.get("data") or {}).get("paths") or []:
+            add(_section_of(p, c.get("doc", "")))
     for it in _failed(cur["grade"]):
         for s in it.get("sections") or []:
             add(s)
@@ -110,7 +124,12 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
         reason = "all checks pass and the ATS score meets the target"
     elif prev:
         ref = _best(prev)
-        newly_failed = cur["failed_ids"] & ref["passed_ids"]
+        # A Jev answer near 50/50 is a coin flip, not a regression (Jake, Oct 21 2026).
+        sure = loop_cfg.get("regression_min_confidence", 0.6)
+        newly_failed = {
+            i for i in cur["failed_ids"] & ref["passed_ids"]
+            if cur["items"][i].get("source") != "jev" or (cur["items"][i].get("confidence") or 1.0) > sure
+        }
         if cur["criticals"] > ref["criticals"]:
             reason = f"regression: round {cur['round']} has more criticals than round {ref['round']}"
         elif newly_failed:
@@ -123,7 +142,8 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     # Without a wording gap the "use the posting's words" line is advice, not a reason for a round.
     ats_lines = {g.get("sentence") for g in cur["grade"].get("gaps") or [] if g.get("id") == "ats.unused"}
     repairable = feedback if needs_ats else [f for f in feedback if f not in ats_lines]
-    if reason is None and not (cur["check"].get("criticals") or repairable):
+    round_warnings = [w for w in _warnings(cur["check"]) if w.get("code") in _ROUND_WARNINGS]
+    if reason is None and not (cur["check"].get("criticals") or repairable or round_warnings):
         reason = "nothing left to repair"
 
     summaries = [
@@ -140,6 +160,8 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
                 "round": nxt,
                 "criticals": cur["check"].get("criticals") or [],
                 "failed_items": feedback,
+                "warnings": [{"code": w["code"], "message": w["message"], "path": w.get("path", "")}
+                             for w in _warnings(cur["check"])],
                 "sections": _sections(cur),
             },
         )

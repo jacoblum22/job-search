@@ -278,6 +278,11 @@ def test_triple_needs_a_real_list_of_three():
     assert triples("At the clinic, we planned and ran the survey.") == []
     # Naming real tools is content, not rhythm.
     assert triples("I checked data from Shopify, Yotpo and Braze.") == []
+    # A list quoted from the posting is protected, with or without its Oxford comma.
+    posting = "Our work on seat belts, air bags, and graduated driving laws saved lives."
+    hits = [h for h in phrases.scan("I admire your work on seat belts, air bags and graduated driving laws.",
+                                    posting, letter=True) if h.code == "triple"]
+    assert hits == []
 
 
 def test_fetch_page_refuses_job_boards_and_profile_sites(tmp_path, monkeypatch):
@@ -331,3 +336,19 @@ def test_old_news_is_not_a_verified_fact(tmp_path, monkeypatch):
     by_id = {f["id"]: f for f in verify_company(tmp_path)["facts"]}
     assert not by_id["f1"]["verified"] and "old news" in by_id["f1"]["reason"]
     assert by_id["f2"]["verified"]  # an undated page (the company's own) is fine
+
+
+def test_company_twins_finds_a_second_application_to_the_same_company(tmp_path):
+    from src.tailor.render import _company_twins
+
+    def app(folder, company):
+        d = tmp_path / folder
+        d.mkdir()
+        (d / "app.json").write_text(json.dumps({"company": company}), encoding="utf-8")
+        return d
+
+    ds = app("2026-10-20 Amazon - Data Scientist", "Amazon")
+    app("2026-10-20 Amazon - BI Engineer", "amazon")
+    solo = app("2026-10-20 Allstate - Analyst", "Allstate")
+    assert _company_twins(ds, {"company": "Amazon"})
+    assert not _company_twins(solo, {"company": "Allstate"})
