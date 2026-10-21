@@ -59,6 +59,8 @@ def test_false_matches_are_gone(text, wrong):
     ("proficient in Excel", "Excel"),
     ("Bachelor's degree in Software Engineering", "degree in engineering"),
     ("degree in Business or Economics", "degree in economics/business"),
+    ("Data QA and integration of third-party e-commerce/marketing sources", "data integration"),
+    ("integrated external vendor data feeds", "data integration"),
 ])
 def test_real_matches_still_work(text, right):
     assert right in taxonomy.find(text)
