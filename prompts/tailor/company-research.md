@@ -15,7 +15,8 @@ text and drops any fact whose quote is not there.
 - The company name and the company folder path: `materials/companies/<company-slug>/` (given to you).
 - `<app folder>/requirements.json` for `company`, `title` and `responsibilities` (the team or
   product named in the posting).
-- `<company folder>/facts.json` if it exists.
+- `<company folder>/facts.json` if it exists (open it with the Read tool; if Read says there's no such
+  file, there are no facts yet. Don't use `ls`, which isn't allowed).
 
 ## Skip rule
 

@@ -221,7 +221,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             lines.append(f"  - {label}:")
             lines.extend([f"    - {t}" for t in terms] or ["    - None"])
 
-        term_list("The posting asks for these and your vault doesn't show them", unbacked)
+        term_list("The posting asks for these and your vault doesn't show them in these words", unbacked)
         term_list("Your vault shows these but the resume doesn't use the posting's words", unused)
         if unused_soft:
             term_list("Soft skills your vault shows that the resume leaves out on purpose (they count half "

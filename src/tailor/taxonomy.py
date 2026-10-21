@@ -552,6 +552,31 @@ def canonical(term: str) -> str | None:
     return hits[0] if hits else None
 
 
+# Words that don't narrow a skill: "key performance indicators" is still KPIs.
+_FILLER = {"indicator", "indicators", "skill", "skills", "experience", "tool", "tools", "knowledge",
+           "proficiency", "concept", "concepts", "technique", "techniques", "method", "methods",
+           "database", "databases", "platform", "platforms", "language", "languages", "programming",
+           "the", "of", "and", "in", "with", "a", "an"}
+
+
+def is_synonym(term: str) -> bool:
+    """True when `term` as a whole is a name for its skill ("key performance indicators" for KPIs),
+    not a narrower phrase that only contains one ("reporting pipelines" contains "reporting")."""
+    t = term.strip()
+    canon = canonical(t)
+    if not canon:
+        return False
+    if canon.lower() == t.lower():
+        return True
+    for _, n, rx in compiled():
+        m = rx.search(t) if n == canon else None
+        if m:
+            rest = re.findall(r"[a-z0-9+#]+", (t[:m.start()] + " " + t[m.end():]).lower())
+            if all(w in _FILLER for w in rest):
+                return True
+    return False
+
+
 def mentions(name: str, text: str) -> bool:
     """True when `text` mentions skill `name` by any of its synonyms."""
     for _, n, rx in compiled():
