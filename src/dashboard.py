@@ -606,7 +606,9 @@ def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
         status = r["app"]["status"] if r["app"] else None
         r["app_sort"] = _APP_ORDER.index(status) if status in _APP_ORDER else 99
         # A closed posting's application can't be sent, so it isn't pinned as waiting on you.
-        r["pin"] = _NEEDS_YOU.index(status) if status in _NEEDS_YOU and not r["closed"] else 99
+        # Nor is one you dismissed.
+        r["pin"] = (_NEEDS_YOU.index(status) if status in _NEEDS_YOU and not r["closed"]
+                    and r.get("status") != "dismissed" else 99)
         r["posted_sort"] = _sort_date(r.get("posted_date"), r.get("first_seen"))
         r["job_type"] = "internship" if _INTERNSHIP_RE.search(r["title"]) else "fulltime"
         # Skipped / never-scored rows sort below every real score.

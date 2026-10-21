@@ -186,9 +186,50 @@ def apply_undos(check_md: str, cfg: dict[str, Any]) -> list[tuple[str, str]]:
     if changed:
         appdir.write_json(path, data)
     # "Shows the skill" means the passage does show it: remember that for every later job.
-    add_confirms(cfg, [{"term": t, "passage": p, "source": "jake", "reason": "You said it shows the skill"}
+    add_confirms(cfg, [{"term": t, "passage": p, "source": "jake", "reason": _SHOWS_REASON}
                        for t, p in ticked if p != BASE])
     return changed
+
+
+_SHOWS_REASON = "You said it shows the skill"
+
+
+def apply_pick(line: str, cfg: dict[str, Any], job_id: Any = None) -> bool:
+    """Record one check.md evidence pick in the skill record the moment it's made, so a pick
+    counts even on a job that is never approved. Either way round, so swapping a pick swaps the
+    record: "Undo" brings a set-aside pair back as a match, "Set aside" puts it back; "This shows
+    it" / "Doesn't show it" as in `apply_confirms`. Other lines are ignored. Returns True for a
+    pick line."""
+    m = _UNDO.match(line)
+    if m:
+        undo = m["x"] != " "
+        set_aside = re.match(r"^- \[[xX]\] Set aside", line) is not None
+        if not (undo or set_aside):
+            return True
+        pair = (_key(m["term"]), m["passage"].strip())
+        if undo:
+            apply_undos(line, cfg)
+            return True
+        path = _record_path(cfg)
+        data = _load(path)
+        changed = False
+        for r in data["not_shown"]:
+            if (_key(r["term"]), r["passage"]) == pair and r.get("undone"):
+                r.pop("undone")
+                changed = True
+        # Only the confirm an earlier Undo added is taken back; one confirmed elsewhere stays.
+        for c in data["has"]:
+            if ((_key(c["term"]), str(c["passage"])) == pair and c.get("reason") == _SHOWS_REASON
+                    and not c.get("undone")):
+                c["undone"] = True
+                changed = True
+        if changed:
+            appdir.write_json(path, data)
+        return True
+    if _CONFIRM.match(line):
+        apply_confirms(line, cfg, job_id)
+        return True
+    return False
 
 
 def scrub_evidence(evidence: dict[str, Any], req: dict[str, Any], active: set[tuple[str, str]]) -> dict[str, Any]:
