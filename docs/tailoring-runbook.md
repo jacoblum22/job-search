@@ -101,8 +101,8 @@ folder before starting the next. Keep a running note of the outcome for the dige
    least 3 facts and the newest `read` is under 30 days old, skip. Otherwise start a subagent with
    model **haiku**, telling it to follow `prompts/tailor/company-research.md`, and give it the company
    name, the company folder path, the application folder path and the "How to run commands" paragraph
-   above. It finds pages with web search and saves each with `company-fetch` (web fetch is not
-   available); it writes only inside that company folder. Then run
+   above. It finds pages with the WebSearch tool (no skills) and saves each with `company-fetch`
+   (web fetch is not available); it writes only inside that company folder. Then run
    `uv run python -m src.tailor company-verify "materials/companies/<company-slug>"`.
    If research finds nothing usable, continue; the letter then uses the posting alone and the digest says so.
 4. `uv run python -m src.tailor evidence "<app>"`.

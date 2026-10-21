@@ -203,11 +203,18 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             lines += _note(f"{explain.FIT} {explain.FIT_GAP}")
             lines.append(f"- [ ] Reviewed  ATS {ats_total} out of 100. Even using every skill your vault backs, "
                          f"the best this resume could reach is about {ceiling}, under the {floor:g} minimum.")
-        else:
+        elif unused:
             lines += [f"## ATS score below {floor:g}: review before applying", ""]
             lines += _note(f"{explain.FIT} {explain.WORDING_GAP}")
             lines.append(f"- [ ] Reviewed  ATS {ats_total} is below the {floor:g} minimum"
                          + (f"; your evidence could reach about {ceiling}, so the gap is wording."
+                            if ceiling is not None else "."))
+        else:
+            # No backed term is left to work in, so calling it a wording gap would promise a fix that isn't there.
+            lines += [f"## ATS score below {floor:g}: review before applying", ""]
+            lines += _note(f"{explain.FIT} {explain.NO_WORDING_LEFT}")
+            lines.append(f"- [ ] Reviewed  ATS {ats_total} is below the {floor:g} minimum"
+                         + (f"; your evidence could reach about {ceiling}, but no backed term is left to add."
                             if ceiling is not None else "."))
 
         def term_list(label: str, terms: list[str]) -> None:

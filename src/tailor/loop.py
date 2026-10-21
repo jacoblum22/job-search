@@ -120,7 +120,10 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
             reason = f"score gain under {min_gain} points over round {ref['round']}"
     if reason is None and len(rounds) >= max_rounds:
         reason = f"round limit of {max_rounds} reached"
-    if reason is None and not (cur["check"].get("criticals") or feedback):
+    # Without a wording gap the "use the posting's words" line is advice, not a reason for a round.
+    ats_lines = {g.get("sentence") for g in cur["grade"].get("gaps") or [] if g.get("id") == "ats.unused"}
+    repairable = feedback if needs_ats else [f for f in feedback if f not in ats_lines]
+    if reason is None and not (cur["check"].get("criticals") or repairable):
         reason = "nothing left to repair"
 
     summaries = [

@@ -179,6 +179,31 @@ def test_page_text_drops_chrome():
     assert page_text(html) == "About\nWe deliver care to 1.25 million people."
 
 
+def test_page_text_keeps_inline_elements_in_their_sentence(tmp_path):
+    from src.tailor.company import page_text
+
+    html = ("<main><p>Acme was named one of\n<a href='/x'>Ontario's Top Garden Suppliers for 2025</a>, its third "
+            "year.</p><p>We have placed <span>1</span><span>20+ gardeners</span> since 2019.<br>Call us.</p></main>")
+    assert page_text(html) == ("Acme was named one of Ontario's Top Garden Suppliers for 2025, its third year.\n"
+                               "We have placed 120+ gardeners since 2019.\nCall us.")
+    d = tmp_path / "acme"
+    (d / "pages").mkdir(parents=True)
+    (d / "pages" / "1.txt").write_text("URL: x\n\n" + page_text(html), encoding="utf-8")
+    (d / "facts.json").write_text(json.dumps([
+        {"id": "f1", "fact": "award", "quote": "one of Ontario's Top Garden Suppliers for 2025, its third year",
+         "page": 1},
+        {"id": "f2", "fact": "placements", "quote": "placed 120+ gardeners", "page": 1}]), encoding="utf-8")
+    assert verify_company(d)["verified"] == 2
+
+
+def test_company_research_prompt_names_its_search_tool():
+    # A subagent told only "search the web" reached for a search skill instead and stalled.
+    root = Path(__file__).parent.parent
+    prompt = (root / "prompts" / "tailor" / "company-research.md").read_text(encoding="utf-8")
+    assert "WebSearch tool" in prompt and "Do not use skills" in prompt
+    assert "WebSearch tool (no skills)" in (root / "docs" / "tailoring-runbook.md").read_text(encoding="utf-8")
+
+
 def test_fetch_page_saves_next_page(tmp_path, monkeypatch):
     import httpx
 

@@ -320,7 +320,13 @@ def check_resume(
         for skill, words in sorted(taxonomy.find_wordings(text).items()):
             if taxonomy.is_hard(skill) and not confirmed_for(skill, path) and (
                     skill not in allowed_skills or not any(_wording_in(w, allowed_text) for w in words)):
-                c("invented_skill", f"{skill} appears in no vault passage or the base", path, term=skill)
+                if skill in allowed_skills:
+                    # The vault backs the skill, just not in these words: say so, or a repair drops a true claim.
+                    wording = sorted(words)[0]
+                    c("invented_skill", f"'{wording}' ({skill}) is not how any vault passage or the base words it; "
+                      "use the vault's wording", path, term=skill, wording=wording)
+                else:
+                    c("invented_skill", f"{skill} appears in no vault passage or the base", path, term=skill)
 
     full = "\n".join(t for _, t in d_units)
     req = ctx["req"]

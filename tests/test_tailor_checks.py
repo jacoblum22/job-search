@@ -603,6 +603,25 @@ def test_skills_item_backed_by_singular_vault_wording_is_not_invented(tmp_path):
     assert not any(c["code"] == "invented_skill" for c in run_check(app, 1, cfg, None)["criticals"])
 
 
+def test_skill_the_vault_words_differently_names_the_wording_not_a_missing_skill(tmp_path):
+    # The vault says "requirements gathering"; the draft says "data requirements". The wording is
+    # still flagged, but the message must not claim the skill is in no vault passage.
+    from src.tailor.explain import issue
+
+    app, cfg = make_app(tmp_path)
+    idx = json.loads(Path(cfg["paths"]["vault_index"]).read_text(encoding="utf-8"))
+    idx["passages"].append({**idx["passages"][0], "id": "skills.requirements",
+                            "text": "Stakeholder requirements gathering for the operations team"})
+    Path(cfg["paths"]["vault_index"]).write_text(json.dumps(idx), encoding="utf-8")
+    data = base_data(cfg)
+    bullet(data, "northwind.dashboards")["text"] += " Mapped each team's data requirements."
+    put_draft(app, data)
+    [c] = [c for c in run_check(app, 1, cfg, None)["criticals"] if c["code"] == "invented_skill"]
+    assert c["data"] == {"term": "requirements gathering", "wording": "data requirements"}
+    assert "'data requirements'" in c["message"] and "appears in no vault passage" not in c["message"]
+    assert "Your vault backs requirements gathering" in issue(c, None)[0]
+
+
 def test_us_and_canadian_spellings_are_the_same_wording():
     # The posting says "modeling", the vault "modelling": matching the posting's spelling
     # must not make a backed skill look invented, or the reverse.
