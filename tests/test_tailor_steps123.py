@@ -235,8 +235,11 @@ def test_base_without_jev(env):
     cfg, app = _prepare(env)
     plan = run_base(app, cfg, FakeJev())
     assert plan["base_id"] == "data-analyst" and plan["jev_pick"] is None
-    # Potential is vault-backed so the bases tie; the tie goes to the base that already says more.
-    assert plan["base_scores"]["data-analyst"] == plan["base_scores"]["researcher"]
+    # Scores are what each base already shows, so they tell the bases apart.
+    ev = json.loads((app / "evidence.json").read_text(encoding="utf-8"))
+    assert plan["base_scores"] == {b: ev["buckets"][b]["current_pct"] for b in plan["base_scores"]}
+    assert plan["base_scores"]["data-analyst"] > plan["base_scores"]["researcher"]
+    assert plan["reachable_pct"] == ev["buckets"]["data-analyst"]["potential_pct"]
     rel = plan["bullet_relevance"]
     assert rel["experience/northwind/northwind.sql-daily"] >= 1
     assert all(0 <= v <= 3 for v in rel.values())
@@ -258,8 +261,8 @@ def test_base_keeps_claude_fields(env):
 def test_base_jev_pick_within_tolerance(env):
     cfg, app = _prepare(env)
     ev = json.loads((app / "evidence.json").read_text(encoding="utf-8"))
-    best = ev["buckets"]["data-analyst"]["potential_pct"]
-    ev["buckets"]["researcher"]["potential_pct"] = best - 4  # within 5 points
+    best = ev["buckets"]["data-analyst"]["current_pct"]
+    ev["buckets"]["researcher"]["current_pct"] = best - 4  # within 5 points
     appdir.write_json(app / "evidence.json", ev)
     jev = FakeJev({"base_pick": "researcher"})
     plan = run_base(app, cfg, jev)
@@ -271,7 +274,7 @@ def test_base_jev_pick_within_tolerance(env):
 def test_base_jev_pick_too_far(env):
     cfg, app = _prepare(env)
     ev = json.loads((app / "evidence.json").read_text(encoding="utf-8"))
-    ev["buckets"]["researcher"]["potential_pct"] = ev["buckets"]["data-analyst"]["potential_pct"] - 10
+    ev["buckets"]["researcher"]["current_pct"] = ev["buckets"]["data-analyst"]["current_pct"] - 10
     appdir.write_json(app / "evidence.json", ev)
     plan = run_base(app, cfg, FakeJev({"base_pick": "researcher"}))
     assert plan["jev_pick"] == "researcher" and plan["base_id"] == "data-analyst"
@@ -739,3 +742,20 @@ def test_skill_record_reads_the_older_separate_files_until_it_exists(env):
     rejects.add_confirms(cfg, [{"term": "Tableau", "passage": "northwind.dashboards", "source": "jake"}])
     data = appdir.read_json(Path(cfg["paths"]["skill_record"]))
     assert [len(data[k]) for k in ("has", "lacks", "not_shown")] == [2, 1, 1]
+
+
+def test_passages_and_requirements_commands_print_short_output(env, monkeypatch):
+    from click.testing import CliRunner
+
+    from src.tailor import cli
+
+    cfg, app = env
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+    res = CliRunner().invoke(cli.main, ["passages", "northwind.dbt", "no.such-id"])
+    assert res.exit_code == 0, res.output
+    out = json.loads(res.output)
+    assert "dbt" in out["northwind.dbt"] and out["no.such-id"] is None
+    res = CliRunner().invoke(cli.main, ["requirements", str(app)])
+    assert res.exit_code == 0, res.output
+    out = json.loads(res.output)
+    assert out["requirements"] and set(out["requirements"][0]) == {"id", "kind", "terms"}

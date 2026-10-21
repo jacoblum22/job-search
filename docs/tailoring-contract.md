@@ -166,7 +166,7 @@ checked by two separate Jev questions (`letter.opener`, `letter.closer`), each q
 
 ### `plan.json`
 
-Code part (`run_base`): `{"base_id", "base_scores": {base: potential_pct}, "jev_pick": base|null,
+Code part (`run_base`): `{"base_id", "base_scores": {base: current_pct}, "reachable_pct": potential_pct of the chosen base, "jev_pick": base|null,
 "bullet_relevance": {"experience/algaecal/algaecal.sql-daily": 3}, "candidate_passages": [ids],
 "protected_paths": [paths that are the only cover for a matched must-have]}`.
 Claude adds: `{"headline": "...|null", "summary_angle": "...", "swap_in": [passage ids],

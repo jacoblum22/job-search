@@ -74,7 +74,8 @@ through the Bash tool (the PowerShell tool is denied).
 Run each command on its own: no `cd`, no `&&` or `;`, no variables like `$APP`, no pipes. Always
 pass the full application folder path in double quotes, for example
 `uv run python -m src.tailor check "materials/applications/2026-10-20 Acme - Data Analyst" --round 1`.
-Write JSON files with the Write tool. Anything else is denied; if a command is denied, do not look
+To read vault passages by id, run `uv run python -m src.tailor passages <id> <id> ...` instead of
+searching `vault-index.json`, which is large. Write JSON files with the Write tool. Anything else is denied; if a command is denied, do not look
 for another way to run it, note it for the digest.
 
 **Before you start**
