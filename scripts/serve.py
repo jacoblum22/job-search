@@ -38,7 +38,8 @@ def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
             self.send_response(status)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
+            # Pages may stay in the browser's back/forward cache (Back is instant); data never is cached.
+            self.send_header("Cache-Control", "no-cache" if ctype.startswith("text/html") else "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(data)

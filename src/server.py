@@ -310,11 +310,20 @@ DETAILS_PAGE = r"""<!DOCTYPE html>
 </head>
 <body>
 <div class="wrap">
-  <a href="/">&larr; Dashboard</a>
+  <a href="/" id="back">&larr; Dashboard</a>
   <div id="msg"></div>
   <div id="root"><p class="meta">Loading&hellip;</p></div>
 </div>
 <script>
+// Coming from the dashboard, going back reuses the page the browser kept (instant, same scroll and
+// filters) instead of building it again. A change made here marks it stale so it reloads once.
+document.getElementById('back').addEventListener('click', e => {
+  let fromDashboard = false;
+  try { fromDashboard = new URL(document.referrer).origin === location.origin
+        && new URL(document.referrer).pathname === '/'; } catch (_) {}
+  if (fromDashboard && history.length > 1) { e.preventDefault(); history.back(); }
+});
+function markDashboardStale() { try { sessionStorage.setItem('dashboardStale', '1'); } catch (_) {} }
 const jobId = location.pathname.split('/')[2];
 const root = document.getElementById('root');
 const msgEl = document.getElementById('msg');
@@ -328,6 +337,7 @@ async function post(action, body) {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})});
   const j = await r.json().catch(() => ({error: 'The server sent something unreadable.'}));
   if (!r.ok) throw new Error(j.error || r.statusText);
+  markDashboardStale();
   return j.result;
 }
 
