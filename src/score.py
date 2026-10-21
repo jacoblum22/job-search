@@ -32,6 +32,7 @@ from functools import lru_cache
 from typing import Any
 
 from src.experience import parse_min_years_experience
+from src.location_filter import classify_location
 from src.vault_gaps import Vault, find_gaps, load_vault
 
 _YEARS_IN_TITLE_RE = re.compile(r"\d+\s*(?:[-–]\s*\d+\s*)?\+?\s*(?:years?|yrs?)\b", re.IGNORECASE)
@@ -299,7 +300,7 @@ def rescore_all(
     """
     counts: dict[str, int] = {}
     rows = conn.execute(
-        "SELECT id, title, description, location_category, years_experience FROM jobs"
+        "SELECT id, title, description, location_category, years_experience, location, company FROM jobs"
     ).fetchall()
     updates = []
     vault_cfg = cfg.get("vault_gaps") or {}
@@ -313,7 +314,7 @@ def rescore_all(
             if cache is not None:
                 cache["_vault"] = vault
     for row in rows:
-        key = (row[1], row[2], row[3], row[4])
+        key = (row[1], row[2], row[3], row[4], row[5], row[6])
         if cache is not None and cache.get(row[0], (None,))[0] == key:
             counts[cache[row[0]][1]] = counts.get(cache[row[0]][1], 0) + 1
             continue
@@ -321,20 +322,22 @@ def rescore_all(
         # Re-parse: years_experience is stored from the description at insert
         # time and goes stale once enrichment fills in the full posting.
         years = parse_min_years_experience(desc) if desc else row[4]
+        # Same for a location that names only the country: the full description says where.
+        category = classify_location(row[5] or "", row[6] or "", desc)
         result = score_job(
             title=row[1],
             description=desc,
-            location_category=row[3],
+            location_category=category,
             years_experience=years,
             cfg=cfg,
             vault=vault,
         )
         counts[result.tier] = counts.get(result.tier, 0) + 1
-        updates.append((result.score, result.tier, result.reasons_text, row[0]))
+        updates.append((result.score, result.tier, result.reasons_text, category, row[0]))
         if cache is not None:
             cache[row[0]] = (key, result.tier)
     conn.executemany(
-        "UPDATE jobs SET score = ?, tier = ?, score_reasons = ? WHERE id = ?", updates
+        "UPDATE jobs SET score = ?, tier = ?, score_reasons = ?, location_category = ? WHERE id = ?", updates
     )
     conn.commit()
     return counts

@@ -217,3 +217,14 @@ def test_two_years_is_neutral():
     none = _score("Data Analyst", desc, years=None)
     assert _score("Data Analyst", desc, years=2).score == none.score
     assert _score("Data Analyst", desc, years=1).score == none.score + 5
+
+
+def test_rescore_reads_where_a_country_only_job_is(tmp_path):
+    # Enrichment fills the description after insert; the rescore then places the job.
+    conn = connect(tmp_path / "jobs.db")
+    upsert_job(conn, Job("adzuna", "1", "Junior Data Analyst", "Acme", "Canada", "SQL"))
+    conn.execute("UPDATE jobs SET description = ? WHERE external_id = '1'",
+                 ("SQL and BigQuery daily. **Work Location:** Toronto, Ontario, Canada. " * 5,))
+    rescore_all(conn, CFG)
+    row = conn.execute("SELECT location_category, tier FROM jobs").fetchone()
+    assert row["location_category"] == "other" and row["tier"] == "skip"

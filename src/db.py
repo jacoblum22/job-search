@@ -77,7 +77,7 @@ class Job:
         self.years_experience = (
             parse_min_years_experience(self.description) if self.description else None
         )
-        self.location_category = classify_location(self.location, self.company)
+        self.location_category = classify_location(self.location, self.company, self.description)
 
     @property
     def norm_key(self) -> tuple[str, str, str]:
