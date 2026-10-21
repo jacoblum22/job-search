@@ -31,7 +31,7 @@ details (names, employers, contact details) in your copy only, never in this tem
 
 ## 4. Spelling and tone
 
-- Spelling: <fill in, for example Canadian English: colour, centre, organization>.
+- Spelling: <fill in, for example "either; use the posting's spelling of a term">.
 - Plain words, concrete tools and scope, varied sentence length. No fake enthusiasm.
 - Letter greeting: "Dear <name>," only when the posting names the hiring manager or a recruiter to
   contact; otherwise "Dear Hiring Manager,".
