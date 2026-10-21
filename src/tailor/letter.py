@@ -189,7 +189,7 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
         srcs = p.get("sources") or []
         for skill in sorted(taxonomy.find(text) - vault_skills - fact_skills - keen_ok):
             if taxonomy.is_hard(skill) and not any((rejects.key(skill), sid) in confirmed for sid in srcs):
-                crit("invented_skill", f"{where}: mentions {skill}, which is not in the vault or base", where, term=skill)
+                crit("invented_skill", f"{where}: mentions {skill}, which the passages it cites don't back", where, term=skill)
         for m in _FAMILIAR.finditer(text):
             for skill in sorted(taxonomy.find(m.group(1)) - vault_skills):
                 warn("familiar_absent_term", f"{where}: 'familiar with' {skill}, which the vault does not show", where, term=skill)
@@ -199,6 +199,11 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     if not 3 <= len(paras) <= 5:
         warn("paragraph_count", f"{len(paras)} paragraphs; aim for 3-5")
     full = "\n".join(str(p.get("text", "")) for p in paras)
+    lo, hi = cfg.get("letter_words") or (190, 320)
+    n_words = len(re.findall(r"[\w'’-]+", full))
+    if paras and not lo <= n_words <= hi:
+        warn("letter_length", f"{n_words} words; aim for about 200-300 ({'add' if n_words < lo else 'cut'} a little)",
+             words=n_words)
     if len(_KEEN.findall(full)) > 1:
         warn("keen_to_grow", "more than one 'keen to grow' style phrase")
     elif _KEEN.search(full) and not _must_missing(app_dir, req):

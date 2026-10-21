@@ -409,6 +409,9 @@ def test_jev_no_from_a_missed_citation_adds_the_passage(tmp_path):
     draft = yaml.safe_load((app / "drafts" / "r1" / "resume.yaml").read_text())
     srcs = next(b["sources"] for e in draft["experience"] for b in e["bullets"] if b["id"] == "northwind.sql-daily")
     assert srcs == ["northwind.sql-daily", "northwind.dashboards"]
+    # Re-checking the same draft keeps the flag, though Jev now says yes with the added source.
+    again = run_check(app, 1, cfg, FakeJev(lambda s, q: 0.9))
+    assert [f["code"] for f in again["flags"]] == ["jev_citation_gap"]
     # Still "no" with the related passages: a real doubt, and nothing is added.
     write_edits(app, [sql_edit(value=value)])
     apply_edits(app, 1, cfg)
@@ -447,7 +450,8 @@ def with_(**kw):
 def test_letter_clean(tmp_path):
     res, app = letter_check(tmp_path, LETTER)
     assert [c for c in res["criticals"] if c["doc"] == "letter"] == []
-    assert [w for w in res["warnings"] if w["doc"] == "letter"] == []
+    # The fixture letter is short; length is tested on its own below.
+    assert [w for w in res["warnings"] if w["doc"] == "letter" and w["code"] != "letter_length"] == []
     assert read(app, "cover-letter.json")["greeting"] == "Dear Priya Shah,"
 
 
@@ -635,3 +639,14 @@ def test_us_and_canadian_spellings_are_the_same_wording():
     # The ATS score still counts exact wording, as a real ATS does.
     from src.tailor.taxonomy import exact
     assert not exact("data modeling", "data modelling in BigQuery")
+
+
+def test_letter_length_outside_200_to_300_words_warns(tmp_path):
+    res, _ = letter_check(tmp_path, LETTER)
+    short = [w for w in res["warnings"] if w["code"] == "letter_length"]
+    assert len(short) == 1 and "add" in short[0]["message"]
+    paras = copy.deepcopy(LETTER["paragraphs"])
+    paras[0]["text"] = paras[0]["text"] + " The team kept the reports running." * 60
+    res, _ = letter_check(tmp_path / "long", with_(paragraphs=paras))
+    long = [w for w in res["warnings"] if w["code"] == "letter_length"]
+    assert len(long) == 1 and "cut" in long[0]["message"]

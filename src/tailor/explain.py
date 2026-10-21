@@ -329,8 +329,10 @@ _ISSUES: dict[str, tuple[str, str]] = {
     "skill_only_in_list": ("{term} is in your skills list, but no bullet shows you using it.",
                            ("A skill with no bullet behind it can look padded. Keep it if you're happy to be "
                             "asked about {term} in an interview.")),
-    "invented_skill": ("{term} isn't anywhere in your vault or base resume.",
-                       "The resume should only claim what the vault backs."),
+    "invented_skill": ("{term} isn't backed by the passages this line cites, or anywhere else in your vault "
+                       "or base resume.",
+                       "The resume should only claim what the vault backs. If another passage shows it, cite "
+                       "that passage."),
     # invented_skill when the vault backs the skill, but not in the draft's words.
     "invented_wording": ("Your vault backs {term}, but not in the words this line uses.",
                          "The resume should say it the way the vault does."),
@@ -383,6 +385,8 @@ _ISSUES: dict[str, tuple[str, str]] = {
                                 "It may be wrong or out of date."),
     "paragraph_count": ("The letter has an unusual number of paragraphs (3 to 5 is normal).",
                         "Very short or long letters get skimmed."),
+    "letter_length": ("The letter is outside the usual 200 to 300 words.",
+                      "Too short reads as little effort; too long gets skimmed."),
 }
 
 # Older check.json files have no "data"; these pull the same field out of the message.
