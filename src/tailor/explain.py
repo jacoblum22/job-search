@@ -29,6 +29,8 @@ FIT_GAP = ("Here the gap is missing experience, not wording: even if the resume 
            "vault backs, it couldn't reach 70. You can still apply; just know it's a stretch.")
 WORDING_GAP = ("Here the gap is wording: your vault backs more of the posting's terms than the resume uses, "
                "so another repair round could raise the score.")
+NO_WORDING_LEFT = ("Here no repair round can help: every hard skill your vault backs is already on the resume "
+                   "in the posting's words, so what's left is how close the match is, not missing wording.")
 GRADE = ("The score is 60% the ATS estimate and 40% the share of Jev's checks the resume passed. The ATS "
          "estimate has five parts: keywords (the posting's terms that appear in the resume), skills (the "
          "required skills it names), title (how close your titles and headline are to this job title), "
@@ -329,6 +331,9 @@ _ISSUES: dict[str, tuple[str, str]] = {
                             "asked about {term} in an interview.")),
     "invented_skill": ("{term} isn't anywhere in your vault or base resume.",
                        "The resume should only claim what the vault backs."),
+    # invented_skill when the vault backs the skill, but not in the draft's words.
+    "invented_wording": ("Your vault backs {term}, but not in the words this line uses.",
+                         "The resume should say it the way the vault does."),
     "invented_number": ("The number {term} isn't in your vault or base resume.",
                         "Every number has to be one you can back up."),
     "unsupported_date": ("A year on this line isn't in your vault or base resume.",
@@ -403,6 +408,8 @@ def issue(it: dict[str, Any], data: dict[str, Any] | None) -> tuple[str, list[st
     path = str(it.get("path") or "")
     where = path_label(path, data) if path else ("Cover letter" if it.get("doc") == "letter" else "Resume")
     known = _ISSUES.get(code)
+    if code == "invented_skill" and (it.get("data") or {}).get("wording"):
+        known = _ISSUES["invented_wording"]
     term = _term(it)
     details: list[str] = []
     if known and ("{term}" not in known[0] or term):

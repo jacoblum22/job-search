@@ -165,6 +165,24 @@ def test_fit_gap_stops_on_small_gain_even_below_floor(tmp_path):
     assert next_round(app, cfg)["action"] == "stop"
 
 
+def test_ats_wording_line_alone_needs_no_round_when_the_ats_needs_no_repair(tmp_path):
+    # The ATS is already at what the evidence can reach: the wording line alone would be an empty round.
+    app = new_app(tmp_path)
+    line = "Use the posting's own words for these terms the vault backs: forecast dashboards."
+    add_round(app, 1, 60.0, ats=52, items=[item("must.r1", True)], feedback=[line],
+              gaps=[{"id": "ats.unused", "sentence": line, "sections": ["summary"]}])
+    gp = app / "drafts" / "r1" / "grade.json"
+    g = json.loads(gp.read_text())
+    g.update(needs_ats_repair=False, fit_gap=True)
+    gp.write_text(json.dumps(g))
+    out = next_round(app, {**CFG, "ats_floor": 70})
+    assert out["action"] == "stop" and out["reason"] == "nothing left to repair"
+    # With a wording gap the same line still earns a round.
+    g.update(needs_ats_repair=True, fit_gap=False)
+    gp.write_text(json.dumps(g))
+    assert next_round(app, {**CFG, "ats_floor": 70})["action"] == "repair"
+
+
 def test_unfixable_must_does_not_count_as_a_failed_item(tmp_path):
     app = new_app(tmp_path)
     gap = {**item("must.r2", False), "fit_gap": ["C#"]}

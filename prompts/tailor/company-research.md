@@ -32,6 +32,9 @@ old, **do nothing and report "fresh, skipped"**.
   company-profile or summary sites (Crunchbase, ZoomInfo, BriefGlance and the like): they restate
   other pages and can get them wrong.
 - Run commands with the Bash tool (the PowerShell tool is denied).
+- Search with the WebSearch tool (if it is not loaded yet, load it with ToolSearch
+  `select:WebSearch`). Do not use skills (search or research skills included) or start other
+  agents: finish the research yourself and do not hand searches back to the session that started you.
 
 ## Hard rules
 

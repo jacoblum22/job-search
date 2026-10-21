@@ -260,6 +260,21 @@ def test_packet_flags_ats_below_floor(cfg):
         approve(d, cfg)  # the Reviewed line must be ticked first
 
 
+def test_packet_below_floor_with_no_unused_terms_does_not_promise_a_wording_fix(cfg):
+    # Ceiling over the floor, but every backed term is already used: no repair round can help.
+    _, d = _packet_app(cfg)
+    g = d / "drafts" / "r1" / "grade.json"
+    data = json.loads(g.read_text())
+    data.update(ats={"total": 68.4, "components": {}}, ats_ceiling=70.4, fit_gap=False,
+                unused_terms=[], unbacked_terms=["SPSS"])
+    g.write_text(json.dumps(data))
+    check = (d / "check.md").read_text() if run_packet(d, cfg) else ""
+    assert "## ATS score below 70: review before applying" in check
+    assert "the gap is wording" not in check and "another repair round could raise" not in check
+    assert "- [ ] Reviewed  ATS 68.4 is below the 70 minimum; your evidence could reach about 70.4, " \
+           "but no backed term is left to add." in check
+
+
 def test_packet_calls_a_low_ceiling_a_weaker_fit(cfg):
     _, d = _packet_app(cfg)
     g = d / "drafts" / "r1" / "grade.json"

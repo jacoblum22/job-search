@@ -85,18 +85,29 @@ def _notes(name: str, facts: list[dict[str, Any]]) -> str:
 
 
 _DROP_TAGS = ("script", "style", "noscript", "nav", "header", "footer", "form", "svg", "iframe")
+_BLOCK_TAGS = ("address", "article", "aside", "blockquote", "br", "dd", "div", "dl", "dt", "figcaption",
+               "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "li", "main", "ol", "p", "pre",
+               "section", "table", "td", "th", "tr", "ul")
+_BREAK = "\x00"
 _PLACEHOLDER = re.compile(r"loading\b.{0,40}$", re.I)
 
 
 def page_text(html: str) -> str:
-    """Visible text of an HTML page, one block per line, without menus, scripts or footers."""
+    """Visible text of an HTML page, one block per line, without menus, scripts or footers.
+
+    Lines break only at block elements: a link or span inside a sentence stays in it, so a
+    quote copied from the rendered page ("one of <a>X</a>, marking") is found in the saved text.
+    """
     from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(html, "html.parser")
     for tag in soup(_DROP_TAGS):
         tag.decompose()
+    for tag in soup(_BLOCK_TAGS):
+        tag.insert_before(_BREAK)
+        tag.insert_after(_BREAK)
     root = soup.find("main") or soup.body or soup
-    lines = [" ".join(ln.split()) for ln in root.get_text("\n").splitlines()]
+    lines = [" ".join(ln.split()) for ln in root.get_text().split(_BREAK)]
     return "\n".join(ln for ln in lines if ln)
 
 
