@@ -33,18 +33,22 @@ if (-not (Test-Path $worktree)) { Log "Could not create worktree"; exit 1 }
 # A readable copy of the transcript, inside the worktree so Claude may read it (never committed).
 $summary = Join-Path $worktree ".run-summary.md"
 uv run python scripts\transcript_summary.py $Transcript 2>$null | Set-Content $summary -Encoding UTF8
+# What earlier reviews found, by area, so this one can tell a recurring problem from a new one.
+$tallyCsv = Join-Path $notesDir "tally.csv"
+$tallyView = Join-Path $worktree ".run-tally.md"
+uv run python scripts\review_tally.py show $tallyCsv 2>$null | Set-Content $tallyView -Encoding UTF8
 
 $doc = Get-Content (Join-Path $worktree "docs\run-review-task.md") -Raw -Encoding UTF8
 $prompt = ($doc -split "<!-- prompt start -->", 2)[1]
 $prompt = ($prompt -split "<!-- prompt end -->", 2)[0]
-$prompt = $prompt.Replace("{DATE}", $date).Replace("{BRANCH}", $branch).Replace("{MAIN}", $projectRoot).Replace("{SUMMARY}", $summary)
+$prompt = $prompt.Replace("{DATE}", $date).Replace("{BRANCH}", $branch).Replace("{MAIN}", $projectRoot).Replace("{SUMMARY}", $summary).Replace("{TALLY}", $tallyView)
 
 Set-Location $worktree
 uv sync -q 2>&1 | Out-Null
 $tools = @(
     "Read", "Glob", "Grep",
     "Edit(src/**)", "Edit(tests/**)", "Edit(prompts/**)", "Edit(docs/**)", "Edit(config/**)",
-    "Edit(.run-review-pr.md)", "Edit(.run-review-notes.md)",
+    "Edit(.run-review-pr.md)", "Edit(.run-review-notes.md)", "Edit(.run-review-tally.json)",
     "Bash(uv run pytest:*)", "Bash(uv run python -c:*)"
 )
 $claudeArgs = @("-p", "--output-format", "stream-json", "--verbose", "--strict-mcp-config",
@@ -57,6 +61,10 @@ foreach ($line in ($out | ForEach-Object { "$_" } | Select-Object -Last 5)) {
 
 $notes = Join-Path $worktree ".run-review-notes.md"
 if (Test-Path $notes) { Copy-Item $notes (Join-Path $notesDir "$stamp.md") -Force }
+$tallyJson = Join-Path $worktree ".run-review-tally.json"
+if (Test-Path $tallyJson) {
+    uv run python scripts\review_tally.py add $tallyJson $tallyCsv $stamp 2>&1 | Add-Content $logFile -Encoding UTF8
+}
 
 $bodyFile = Join-Path $worktree ".run-review-pr.md"
 # Claude is told not to commit, but count its commits too, so a fix is never thrown away.
