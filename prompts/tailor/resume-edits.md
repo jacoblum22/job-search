@@ -91,7 +91,8 @@ Actions: `replace | append | remove | reorder | add_skill`.
 - `append`: new bullet; `value` is the text.
 - `reorder`: `value` is a list of the same bullet ids (or skills items) in a new order, nothing added
   or dropped.
-- `add_skill`: `value` is the term to add; only for PRESENT terms.
+- `add_skill`: `value` is the term to add; only for PRESENT terms, and only when a bullet in the draft
+  shows you using it (a skill that is only in the list gets a `skill_only_in_list` warning).
 - Never editable: title, company, location, dates, school, degree, name, url, contact, any `id`, and
   education lines other than coursework.
 

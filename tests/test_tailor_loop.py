@@ -243,3 +243,13 @@ def test_ride_along_warning_alone_does_not_earn_a_round(tmp_path):
     write_json(app / "drafts" / "r1" / "check.json", check)
     out = next_round(app, CFG)
     assert out["action"] == "stop" and "nothing left" in out["reason"]
+
+
+def test_skill_the_draft_added_to_the_list_only_earns_a_round(tmp_path):
+    app = new_app(tmp_path)
+    add_round(app, 1, 85, items=[item("a", True)], ats=60)
+    check = json.loads((app / "drafts" / "r1" / "check.json").read_text())
+    check["warnings"] = [{"code": "skill_only_in_list", "message": "m", "path": "skills", "doc": "resume",
+                          "data": {"term": "AWS S3", "added": True}}]
+    write_json(app / "drafts" / "r1" / "check.json", check)
+    assert next_round(app, CFG)["action"] == "repair"
