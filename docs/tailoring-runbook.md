@@ -119,8 +119,10 @@ folder before starting the next. Keep a running note of the outcome for the dige
    edit's `value` in the same `edits.json` and rerun `apply-edits` for the same round once, before
    `check`; otherwise the bullet is lost for the round. This applies to repair rounds too.
 9. **Repair loop.** Run `uv run python -m src.tailor next-round "<app>"`. Read its output.
-   - If it says to stop (everything passes, the gain is under 2 points, something regressed, or two
-     repair rounds are done), leave the loop.
+   - If it says to stop (everything passes, the gain is under 2 points, something regressed with no
+     wording gap left, or two repair rounds are done), leave the loop. A round that regressed while a
+     wording gap remains doesn't stop the loop: the next round builds on the best earlier round
+     (`build_on` in feedback.json).
    - If it asks for another round, it has written `drafts/r<N>/feedback.json`. Follow
      `prompts/tailor/repair.md` for round N, write that round's `edits.json` and `cover-letter.json`,
      then run `apply-edits`, `check`, `grade` with `--round N`, and `next-round` again.

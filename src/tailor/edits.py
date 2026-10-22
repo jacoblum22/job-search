@@ -290,8 +290,19 @@ def _apply_one(
     return before, list(g["items"])
 
 
+def build_on(app_dir: Path, rnd: int) -> int:
+    """The round a repair round edits: feedback.json's `build_on` (the best round, when the last
+    one regressed), else the round before."""
+    p = round_dir(app_dir, rnd) / "feedback.json"
+    if p.exists():
+        n = read_json(p).get("build_on")
+        if isinstance(n, int) and 0 < n < rnd:
+            return n
+    return rnd - 1
+
+
 def _previous_resume(app_dir: Path, rnd: int) -> dict[str, Any]:
-    p = round_dir(app_dir, rnd - 1) / "resume.yaml"
+    p = round_dir(app_dir, build_on(app_dir, rnd)) / "resume.yaml"
     if not p.exists():
         raise TailorError(f"{p} is missing: repair round {rnd} edits the previous draft")
     return load_resume(p)
@@ -352,7 +363,7 @@ def apply_edits(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
     letter_path = rdir / "cover-letter.json"
     copied = False
     if not letter_path.exists() and rnd > 1:
-        prev = round_dir(app_dir, rnd - 1) / "cover-letter.json"
+        prev = round_dir(app_dir, build_on(app_dir, rnd)) / "cover-letter.json"
         if prev.exists():
             shutil.copyfile(prev, letter_path)
             copied = True

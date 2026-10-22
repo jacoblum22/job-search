@@ -751,3 +751,48 @@ def test_related_passages_reach_every_clause_of_a_long_summary():
     text = ", ".join(topics) + ". BSc in Cognitive Systems"
     out = related_passages(text, ["work.cited"], index, limit=12)
     assert "work.major" in out and len(out) == 12
+
+
+def test_repair_round_builds_on_the_round_feedback_names(tmp_path):
+    # When round 2 regressed, round 3 starts again from round 1 (feedback.json build_on).
+    app, cfg = make_app(tmp_path)
+    write_edits(app, [sql_edit()])
+    write_letter(app, LETTER)
+    apply_edits(app, 1, cfg)
+    shutil.copytree(app / "drafts/r1", app / "drafts/r2")
+    bad = load_resume(app / "drafts/r2/resume.yaml")
+    bad["experience"][0]["bullets"][0]["text"] = "A worse line from round 2."
+    (app / "drafts/r2/resume.yaml").write_text(yaml.safe_dump(bad, sort_keys=False))
+    (app / "drafts/r3").mkdir()
+    (app / "drafts/r3/feedback.json").write_text(json.dumps(
+        {"round": 3, "build_on": 1, "criticals": [], "failed_items": [], "sections": ["summary"]}))
+    write_edits(app, [], rnd=3)
+    apply_edits(app, 3, cfg)
+    b = {x["id"]: x for x in load_resume(app / "drafts/r3/resume.yaml")["experience"][0]["bullets"]}
+    assert b["northwind.sql-daily"]["text"] == SQL_NEW
+
+
+def test_letter_under_250_words_is_short_while_listed_skills_remain(tmp_path):
+    # Jake, Oct 22 2026: 12 of 14 open letters were 193-244 words, inside 190-320, so nothing
+    # asked them to show the skills the resume only lists.
+    import re
+
+    def padded(letter, words):
+        out = copy.deepcopy(letter)
+        n = len(re.findall(r"[\w'’-]+", " ".join(p["text"] for p in out["paragraphs"])))
+        out["paragraphs"][0]["text"] += " The team kept the reports running." * ((words - n) // 6)
+        return out
+
+    app, cfg = make_app(tmp_path)
+    write_edits(app, [{"path": "skills/skills.tools", "action": "add_skill", "value": "dbt", "sources": ["northwind.dbt"]}])
+    apply_edits(app, 1, cfg)
+    write_letter(app, padded(LETTER, 225))
+    res = run_check(app, 1, cfg, None)
+    short = [w for w in res["warnings"] if w["code"] == "letter_length"]
+    assert len(short) == 1 and short[0]["data"]["show"] == ["dbt"] and "250-300" in short[0]["message"]
+    # With nothing left to show, the same length is fine.
+    app2, cfg2 = make_app(tmp_path / "b")
+    write_edits(app2, [])
+    apply_edits(app2, 1, cfg2)
+    write_letter(app2, padded(LETTER, 225))
+    assert not any(w["code"] == "letter_length" for w in run_check(app2, 1, cfg2, None)["warnings"])

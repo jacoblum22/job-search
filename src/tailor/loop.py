@@ -154,28 +154,41 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
         needs_ats = (cur["ats"] or 0) < cfg.get("ats_floor", 70)
 
     reason: str | None = None
-    feedback = list(cur["grade"].get("feedback") or [])
+    # The round the next repair builds on: normally the last one, but a round that regressed is
+    # set aside and the repair starts again from the best round so far.
+    src, regressed = cur, None
     if cur["criticals"] == 0 and cur["failed_items"] == 0 and (cur["ats"] or 0) >= target:
         reason = "all checks pass and the ATS score meets the target"
     elif prev:
         ref = _best(prev)
         newly_failed = {i for i in cur["failed_ids"] & ref["passed_ids"] if not _unsure(cur["items"][i], sure)}
         if cur["criticals"] > ref["criticals"]:
-            reason = f"regression: round {cur['round']} has more criticals than round {ref['round']}"
+            regressed = f"regression: round {cur['round']} has more criticals than round {ref['round']}"
         elif newly_failed:
-            reason = f"regression: an item that passed in round {ref['round']} now fails"
+            regressed = f"regression: an item that passed in round {ref['round']} now fails"
+        best_needs_ats = best["grade"].get("needs_ats_repair")
+        if best_needs_ats is None:
+            best_needs_ats = (best["ats"] or 0) < cfg.get("ats_floor", 70)
+        if regressed and best_needs_ats and len(rounds) < max_rounds:
+            # A wording gap is still open (Jake's ATS floor: repair until within 5 of the ceiling or
+            # 70), so a bad round doesn't end the loop: the next one builds on the best round so far
+            # (REW.ca Data Engineer, Oct 20 2026, stopped at ATS 57.1 with 75.3 reachable).
+            src, needs_ats = best, best_needs_ats
+        elif regressed:
+            reason = regressed
         # With a wording gap left, a small gain still earns another round, up to the round limit.
         elif _gain(cur, ref) < min_gain and not needs_ats:
             reason = f"score gain under {min_gain} points over round {ref['round']}"
+    feedback = list(src["grade"].get("feedback") or [])
     if reason is None and len(rounds) >= max_rounds:
         reason = f"round limit of {max_rounds} reached"
     # Without a wording gap the "use the posting's words" line is advice, not a reason for a round.
-    ats_lines = {g.get("sentence") for g in cur["grade"].get("gaps") or [] if g.get("id") == "ats.unused"}
+    ats_lines = {g.get("sentence") for g in src["grade"].get("gaps") or [] if g.get("id") == "ats.unused"}
     repairable = feedback if needs_ats else [f for f in feedback if f not in ats_lines]
     # A skill the draft itself added to the list with no bullet behind it is worth a round too.
-    round_warnings = [w for w in _warnings(cur["check"]) if w.get("code") in _ROUND_WARNINGS
+    round_warnings = [w for w in _warnings(src["check"]) if w.get("code") in _ROUND_WARNINGS
                       or (w.get("code") == "skill_only_in_list" and (w.get("data") or {}).get("added"))]
-    if reason is None and not (cur["check"].get("criticals") or repairable or round_warnings):
+    if reason is None and not (src["check"].get("criticals") or repairable or round_warnings):
         reason = "nothing left to repair"
 
     summaries = [
@@ -185,16 +198,18 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     action = "stop" if reason else "repair"
     nxt = None if reason else cur["round"] + 1
     if not reason:
-        reason = "failed items or criticals remain and the last round still gained"
+        reason = (f"round {cur['round']} regressed, but a wording gap remains: repairing again from round {src['round']}"
+                  if regressed else "failed items or criticals remain and the last round still gained")
         write_json(
             round_dir(app_dir, nxt) / "feedback.json",
             {
                 "round": nxt,
-                "criticals": cur["check"].get("criticals") or [],
+                "build_on": src["round"],
+                "criticals": src["check"].get("criticals") or [],
                 "failed_items": feedback,
                 "warnings": [{"code": w["code"], "message": w["message"], "path": w.get("path", "")}
-                             for w in _warnings(cur["check"])],
-                "sections": _sections(cur),
+                             for w in _warnings(src["check"])],
+                "sections": _sections(src),
             },
         )
     log(app_dir, "loop", f"{action}: {reason}", rounds=summaries, best_round=best["round"])
