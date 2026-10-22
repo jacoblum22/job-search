@@ -406,7 +406,42 @@ def _term(issue: dict[str, Any]) -> str | None:
     return m.group("term") if m else None
 
 
-def issue(it: dict[str, Any], data: dict[str, Any] | None) -> tuple[str, list[str]]:
+_EXTRA = re.compile(r"even with (?P<ids>.+?) \(p=(?P<p>[\d.]+)\)|\(p=(?P<p2>[\d.]+)\)")
+
+
+def _line_sources(path: str, data: dict[str, Any] | None) -> list[str]:
+    if not data:
+        return []
+    if path == "summary":
+        return list((data.get("summary") or {}).get("sources") or [])
+    return next((list(b.get("sources") or []) for p, b in iter_bullets(data) if p == path), [])
+
+
+def _unsupported_details(it: dict[str, Any], data: dict[str, Any] | None,
+                         index: dict[str, dict] | None) -> list[str]:
+    """What Jev read for a jev_unsupported line, quoted, so the doubt can be checked by eye."""
+    d = it.get("data") or {}
+    m = _EXTRA.search(str(it.get("message") or ""))
+    extra = d.get("extra")
+    if extra is None:
+        extra = [x.strip() for x in m.group("ids").split(",")] if m and m.group("ids") else []
+    prob = d.get("p")
+    if prob is None and m:
+        prob = float(m.group("p") or m.group("p2"))
+    pids = [*_line_sources(str(it.get("path") or ""), data), *[x for x in extra if x]]
+    pids = list(dict.fromkeys(pids))
+    chance = f" (it put the chance at about {round(float(prob) * 100)}%)" if prob is not None else ""
+    out = [(f"Jev read these vault passages and still wasn't sure they back every part of the line{chance}. "
+            "Look for a part of the line none of them says:")]
+    for pid in pids:
+        text = passage_text(pid, index, limit=200)
+        p = (index or {}).get(pid)
+        out.append(f"{_where(p) if p else pid}: \"{text}\"" if text else pid)
+    return out
+
+
+def issue(it: dict[str, Any], data: dict[str, Any] | None,
+          index: dict[str, dict] | None = None) -> tuple[str, list[str]]:
     """A check issue as 'Where: what it means' plus details (the line, why it matters, the raw detail)."""
     code = str(it.get("code") or "")
     path = str(it.get("path") or "")
@@ -427,7 +462,9 @@ def issue(it: dict[str, Any], data: dict[str, Any] | None) -> tuple[str, list[st
         details.append(f"The line: \"{text}\"")
     if why:
         details.append(f"Why it matters: {why}")
-    if known and it.get("message") and "{term}" not in known[0]:
+    if code == "jev_unsupported":
+        details += _unsupported_details(it, data, index)
+    elif known and it.get("message") and "{term}" not in known[0]:
         details.append(f"Checker's note: {it['message']}")
     return head, details
 

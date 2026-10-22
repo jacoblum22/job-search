@@ -208,19 +208,21 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             lines.append("  - If you do have something in the first list, add it to your experience vault and "
                          "rerun from the evidence step: the resume can only claim what the vault shows.")
         lines.append("")
-    lines += ["## Grade", ""] + _note(explain.GRADE)
+    # Sections with buttons come first; the read-only ones (grade, changes, handled) go after them
+    # so nothing to decide sits below something with nothing to decide (Jake, Oct 22 2026).
+    info = ["", "## Grade", ""] + _note(explain.GRADE)
     if grade:
         ats = grade.get("ats") or {}
         comps = ", ".join(f"{k} {v}" for k, v in (ats.get("components") or {}).items())
-        lines.append(f"- Score: {grade.get('score', 'n/a')}")
-        lines.append(f"- ATS estimate: {ats.get('total', 'n/a')}{f' ({comps})' if comps else ''}")
+        info.append(f"- Score: {grade.get('score', 'n/a')}")
+        info.append(f"- ATS estimate: {ats.get('total', 'n/a')}{f' ({comps})' if comps else ''}")
         asked = [it for it in grade.get("checklist") or [] if it.get("passed") is not None]
         if asked:
-            lines.append(f"- Jev's checks passed: {sum(1 for it in asked if it['passed'])} of {len(asked)}")
+            info.append(f"- Jev's checks passed: {sum(1 for it in asked if it['passed'])} of {len(asked)}")
         if grade.get("stuffing"):
-            lines.append("- Keyword stuffing suspected: the score is high only because terms repeat")
+            info.append("- Keyword stuffing suspected: the score is high only because terms repeat")
     else:
-        lines.append("- No grade available")
+        info.append("- No grade available")
     # Jev's "no" answers are advice; listing them lets the candidate catch a false rejection.
     said_no = [it for it in (grade or {}).get("checklist") or [] if it.get("passed") is False]
     ev_no = (_opt_json(app_dir / "evidence.json") or {}).get("jev_said_no") or []
@@ -246,8 +248,8 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             lines += [f"  - {x}" for x in details]
     lines += _suggestions(app_dir, reqs, index, cfg)
     base_id = app.get("base_id") or (_opt_json(app_dir / "plan.json") or {}).get("base_id") or "chosen"
-    lines += ["", "## Changes from the base", ""] + _note(explain.CHANGES.format(base=base_id))
-    lines += _changes(rd, app_dir, cfg) or ["- No changes"]
+    info += ["", "## Changes from the base", ""] + _note(explain.CHANGES.format(base=base_id))
+    info += _changes(rd, app_dir, cfg) or ["- No changes"]
     issues = [it for sev in ("criticals", "warnings", "flags") for it in (check or {}).get(sev) or []]
     issues = _drop_humanized(issues, app_dir)
     # A skill already in the base's list was approved with the base; only one the draft added
@@ -257,15 +259,16 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     lines += ["", "## Remaining issues", ""] + _note(explain.ISSUES)
     boxed = [it for it in issues if not explain.is_note(it)]
     for it in boxed:
-        head, details = explain.issue(it, data)
+        head, details = explain.issue(it, data, index)
         lines.append(f"- [ ] Keep  - [ ] Remove  {head}")
         lines += [f"  - {d}" for d in details]
     if not boxed:
         lines.append("- None")
     notes = [it for it in issues if explain.is_note(it)]
     if notes:
-        lines += ["", "## Already handled", ""] + _note(explain.NOTES)
-        lines += [f"- {explain.note(it, data, index)}" for it in notes]
+        info += ["", "## Already handled", ""] + _note(explain.NOTES)
+        info += [f"- {explain.note(it, data, index)}" for it in notes]
+    lines += info
     return "\n".join(lines) + "\n"
 
 

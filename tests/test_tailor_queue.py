@@ -230,6 +230,9 @@ def test_packet_lists_evidence_drops(cfg):
                     "<!-- undo: Microsoft Access | firmament.oauth-2-0 -->")
     assert "  - Why: OAuth access tokens." in check
     assert check.index("Evidence set aside") < check.index("Changes from the base")
+    # Every section with buttons comes before the read-only ones (Jake, Oct 22 2026).
+    assert check.index("## Remaining issues") < check.index("## Grade") < check.index("## Changes from the base")
+    assert "- [ ]" not in check[check.index("## Grade"):]
     # The pair in the comment is what approve uses to undo the reject.
     from src.tailor import rejects
     assert rejects._UNDO.match(line.replace("[ ] Undo", "[x] Undo"))["passage"] == "firmament.oauth-2-0"

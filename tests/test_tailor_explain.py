@@ -78,3 +78,22 @@ def test_drops_show_the_passage_and_old_undo_lines_still_work():
     assert details == ['The passage: "Daily SQL."', "Why: Not a skill.", "First set aside on this job; later jobs skip it too."]
     old = rejects._OLD_UNDO.match("- [x] Undo  Excel (job-search.outputs): an export")
     assert (old["old_term"], old["old_passage"]) == ("Excel", "job-search.outputs")
+
+
+def test_unsupported_line_quotes_the_passages_jev_read():
+    # Jake, Oct 22 2026: a list of passage ids meant nothing; show what Jev actually read.
+    data = {"summary": {"text": "Data analyst writing SQL daily.", "sources": ["algaecal.sql"]}}
+    index = {"algaecal.sql": {"text": "Wrote SQL in BigQuery every day.", "file_title": "AlgaeCal"},
+             "course.minor": {"text": "Minor: Data Science.", "file_title": "Coursework"}}
+    it = {"code": "jev_unsupported", "path": "summary", "doc": "resume",
+          "message": "Jev doubts this line is supported by its cited passages, even with course.minor (p=0.23)",
+          "data": {"p": 0.23, "extra": ["course.minor"]}}
+    head, details = explain.issue(it, data, index)
+    text = "\n".join(details)
+    assert "about 23%" in text
+    assert 'AlgaeCal: "Wrote SQL in BigQuery every day."' in text
+    assert 'Coursework: "Minor: Data Science."' in text
+    assert "course.minor" not in text and "Checker's note" not in text
+    # an older flag without data still lists what it can from the message
+    old = {**it, "data": None}
+    assert 'Coursework: "Minor: Data Science."' in "\n".join(explain.issue(old, data, index)[1])

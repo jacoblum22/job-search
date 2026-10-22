@@ -737,3 +737,17 @@ def test_a_listed_skill_the_letter_shows_needs_no_bullet(tmp_path):
     res = run_check(app, 1, cfg, None)
     assert not any(w["code"] == "skill_only_in_list" for w in res["warnings"])
     assert not any(w["code"] == "invented_skill" for w in res["criticals"])
+
+
+def test_related_passages_reach_every_clause_of_a_long_summary():
+    # Amazon BI Engineer, Oct 22 2026: the first clauses of a long summary used up the 12-passage
+    # limit, so the degree at the end got none.
+    from src.tailor.checks import related_passages
+
+    topics = ["bigquery", "dashboards", "reports", "pipelines", "scripts", "models"]
+    index = {f"work.{t}{i}": {"text": f"{t} work {i}"} for t in topics for i in range(3)}
+    index["work.cited"] = {"text": "Wrote SQL"}
+    index["work.major"] = {"text": "Major: Cognitive Systems"}
+    text = ", ".join(topics) + ". BSc in Cognitive Systems"
+    out = related_passages(text, ["work.cited"], index, limit=12)
+    assert "work.major" in out and len(out) == 12
