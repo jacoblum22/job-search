@@ -110,7 +110,11 @@ def _eligible(conn, cfg: dict[str, Any], job_ids: list[int] | None) -> list[Any]
         f"SELECT * FROM jobs WHERE tier IN ({marks}) AND length(description) >= ? "
         "AND id NOT IN (SELECT job_id FROM applications) "
         "AND dedup_group_id NOT IN (SELECT j.dedup_group_id FROM jobs j "
-        "JOIN applications a ON a.job_id = j.id)",
+        "JOIN applications a ON a.job_id = j.id) "
+        # A job you dismissed or applied to yourself (any posting of it) is never drafted.
+        "AND status NOT IN ('dismissed', 'applied') "
+        "AND dedup_group_id NOT IN (SELECT dedup_group_id FROM jobs "
+        "WHERE status IN ('dismissed', 'applied') AND dedup_group_id IS NOT NULL)",
         [*tiers, int(cfg.get("min_description_chars", 1000))],
     ).fetchall()
     # A posting that says it's filled internally or whose deadline has passed is

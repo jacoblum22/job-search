@@ -189,6 +189,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <option value="skip">Skipped</option>
   </select>
   <label class="chk"><input type="checkbox" id="hideSkipped" checked> Hide skipped</label>
+  <label class="chk"><input type="checkbox" id="hideDismissed" checked> Hide dismissed</label>
   <select id="locationFilter">
     <option value="">All locations</option>
     <option value="vancouver">Vancouver-area</option>
@@ -435,6 +436,8 @@ function render() {
   const locationCat = document.getElementById('locationFilter').value;
   const tier = document.getElementById('tierFilter').value;
   const hideSkipped = document.getElementById('hideSkipped').checked;
+  // Choosing "Dismissed" in the status filter shows them whatever the box says.
+  const hideDismissed = document.getElementById('hideDismissed').checked && status !== 'dismissed';
   const appStatus = document.getElementById('appFilter').value;
 
   updateTabs();
@@ -447,6 +450,7 @@ function render() {
     if (locationCat && j.location_category !== locationCat) return false;
     if (tier && j.tier !== tier) return false;
     if (hideSkipped && tier !== 'skip' && j.tier === 'skip') return false;
+    if (hideDismissed && j.status === 'dismissed') return false;
     if (q) {
       const hay = (j.title + ' ' + j.company + ' ' + j.location).toLowerCase();
       if (!hay.includes(q)) return false;
@@ -465,8 +469,11 @@ function render() {
   const tabJobs = jobs.filter(j => j.job_type === activeTab);
   const skippedHidden = hideSkipped && tier !== 'skip'
     ? tabJobs.filter(j => j.tier === 'skip').length : 0;
+  const dismissedHidden = hideDismissed
+    ? tabJobs.filter(j => j.status === 'dismissed' && !(hideSkipped && tier !== 'skip' && j.tier === 'skip')).length : 0;
   document.getElementById('count').textContent = `${filtered.length} of ${tabJobs.length} shown`
-    + (skippedHidden ? ` \u00b7 ${skippedHidden} skipped hidden` : '');
+    + (skippedHidden ? ` \u00b7 ${skippedHidden} skipped hidden` : '')
+    + (dismissedHidden ? ` \u00b7 ${dismissedHidden} dismissed hidden` : '');
 
   const body = document.getElementById('jobsBody');
   if (!filtered.length) {
@@ -527,6 +534,7 @@ document.getElementById('appFilter').addEventListener('change', render);
 document.getElementById('locationFilter').addEventListener('change', render);
 document.getElementById('tierFilter').addEventListener('change', render);
 document.getElementById('hideSkipped').addEventListener('change', render);
+document.getElementById('hideDismissed').addEventListener('change', render);
 sourceFilterEl.addEventListener('change', render);
 document.getElementById('jobsBody').addEventListener('click', e => {
   const act = e.target.dataset && e.target.dataset.act;
