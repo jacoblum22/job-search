@@ -348,3 +348,19 @@ def test_queue_rescores_so_a_stale_tier_is_not_drafted(cfg):
     conn.commit()
     conn.close()
     assert run_queue({**cfg, "rescore_before_queue": True}, limit=5) == []
+
+
+def test_queue_never_drafts_a_job_you_dismissed_or_applied_to(cfg):
+    keep = add(cfg, "k1", "Data Analyst", "A", 90)
+    gone = add(cfg, "d1", "BI Analyst", "A", 95)
+    twin = add(cfg, "d2", "BI Analyst (repost)", "A", 94, group="g-dismissed")
+    other = add(cfg, "d3", "BI Analyst elsewhere", "A", 93, group="g-dismissed")
+    done = add(cfg, "a1", "Analyst", "A", 92)
+    conn = connect(cfg["paths"]["db"])
+    conn.executemany("UPDATE jobs SET status = ? WHERE id = ?",
+                     [("dismissed", gone), ("dismissed", twin), ("applied", done)])
+    conn.commit()
+    conn.close()
+    out = run_queue(cfg, limit=10)
+    assert [appdir.load_app(p)["job_id"] for p in out] == [keep]
+    assert other  # same posting group as a dismissed one, so left out too
