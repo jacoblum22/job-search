@@ -717,3 +717,23 @@ def test_recheck_applies_todays_rules_without_writing_or_asking_jev(tmp_path):
     assert any(w["code"] == "skill_only_in_list" and w["data"]["added"] for w in res["warnings"])
     assert res["flags"] == old["flags"]
     assert {p: p.read_bytes() for p in (app / "drafts" / "r1").iterdir()} == files
+
+
+def test_a_listed_skill_the_letter_shows_needs_no_bullet(tmp_path):
+    app, cfg = make_app(tmp_path)
+    write_edits(app, [{"path": "skills/skills.tools", "action": "add_skill", "value": "dbt", "sources": ["northwind.dbt"]}])
+    apply_edits(app, 1, cfg)
+    write_letter(app, LETTER)
+    res = run_check(app, 1, cfg, None)
+    listed = [w for w in res["warnings"] if w["code"] == "skill_only_in_list"]
+    assert [w["data"]["term"] for w in listed] == ["dbt"] and "letter" in listed[0]["data"]["paths"]
+    # The short letter is told to use its room for it.
+    short = next(w for w in res["warnings"] if w["code"] == "letter_length")
+    assert short["data"]["show"] == ["dbt"] and "show dbt" in short["message"]
+    letter = copy.deepcopy(LETTER)
+    letter["paragraphs"][1] = {"text": "At Northwind I created dbt models for the staging layer of the warehouse.",
+                               "sources": ["northwind.dbt"], "company_facts": []}
+    write_letter(app, letter)
+    res = run_check(app, 1, cfg, None)
+    assert not any(w["code"] == "skill_only_in_list" for w in res["warnings"])
+    assert not any(w["code"] == "invented_skill" for w in res["criticals"])

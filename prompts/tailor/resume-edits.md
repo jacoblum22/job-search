@@ -54,7 +54,8 @@ list is also the before/after diff the candidate reviews.
    analysts to review queries"), cited like any other claim. Use the posting's word only where it
    reads naturally. Never as an adjective about the candidate ("strong communicator",
    "detail-oriented") and never in the skills list; don't add a line or stretch one only to fit a
-   soft skill in. The cover letter shows the ones the resume doesn't.
+   soft skill in. The cover letter shows the ones the resume doesn't, and also any backed hard
+   skill the resume only lists or had no room for.
 6. **Headline.** Use the posting's title as the headline only when `plan.json` says it is truthful
    (`headline` not null). Never change a job title, company, location, dates, school, degree, name,
    url or contact. Those paths are rejected anyway.
