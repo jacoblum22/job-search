@@ -259,6 +259,7 @@ def test_best_round_ignores_coin_flip_jev_answers(tmp_path):
     # Amazon BI Engineer, Oct 22 2026 (real answers): round 2 used the posting's words (ATS 56.6 ->
     # 60.2). Its firm answers matched round 1's, but its 50/50 answers came up no where round 1's
     # came up yes, and round 1 asked about more lines, so round 1 scored 67.3 to 62.8 and was kept.
+    # Counted by probability over the shared questions, the coin flips cancel and the ATS decides.
     def jev(iid, passed, conf):
         return {**item(iid, passed), "confidence": conf}
 

@@ -7,7 +7,9 @@ Two parts feed one score:
 - a checklist judged by Jev on the identity-stripped draft. With no Jev key every
   item comes back "unchecked" and counts as passed.
 
-`score = 0.6 * ATS total + 0.4 * checklist pass rate * 100`. Feedback for the
+`score = 0.6 * ATS total + 0.4 * checklist pass rate * 100`, where each item counts
+by Jev's probability that it passes (`p_pass`), so a 0.51 yes and a 0.49 no
+weigh about the same instead of 1 and 0. Feedback for the
 repair round is built here from failed items and missing must-haves; it never
 quotes the checklist question wording (the writer must not see the rubric).
 """
@@ -30,7 +32,6 @@ SENIORITY_WORDS = {
     "junior", "jr", "senior", "sr", "lead", "principal", "staff", "associate", "entry", "level",
     "entry-level", "intern", "trainee", "i", "ii", "iii", "iv",
 }
-MAX_PORTABILITY = 6
 BOILERPLATE_FACTOR = 0.25
 MUST_FACTOR = 1.5
 SOFT_FACTOR = 0.5  # soft skills count half: an ATS search and a recruiter filter on hard skills
@@ -304,32 +305,18 @@ def _repeated(terms, text) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def _entry_of(path: str) -> str:
-    parts = path.split("/")
-    return "/".join(parts[:2]) if parts[0] != "summary" else "summary"
-
-
-def _changed_bullets(app_dir: Path, rnd: int, data: dict[str, Any]) -> list[str]:
-    """Paths of bullets the writer changed this round (edits.json), minus reverted ones; else the first bullets."""
-    d = round_dir(app_dir, rnd)
-    paths = [p for p, _ in iter_bullets(data)]
-    changed: list[str] = []
-    if (d / "edits.json").exists():
-        try:
-            edits = read_json(d / "edits.json").get("edits") or []
-        except TailorError:
-            edits = []
-        reverted: set[str] = set()
-        if (d / "check.json").exists():
-            try:
-                reverted = set(read_json(d / "check.json").get("reverted") or [])
-            except TailorError:
-                pass
-        for e in edits:
-            p = e.get("path", "")
-            if e.get("action") in ("replace", "append") and p in paths and p not in reverted and p not in changed:
-                changed.append(p)
-    return (changed or paths)[:MAX_PORTABILITY]
+def p_pass(item: dict[str, Any]) -> float:
+    """How likely a checklist item passes: Jev's probability when it answered, 1 or 0 for a rule,
+    1 for an unchecked item. Older grade files have no `p_pass`; their confidence is the
+    probability of the answer given, so it is recovered from that."""
+    if item.get("p_pass") is not None:
+        return float(item["p_pass"])
+    if item.get("passed") is None:
+        return 1.0
+    conf = item.get("confidence")
+    if item.get("source") == "jev" and isinstance(conf, (int, float)):
+        return float(conf) if item["passed"] else 1.0 - float(conf)
+    return 1.0 if item["passed"] else 0.0
 
 
 def _req_label(r: dict[str, Any]) -> str:
@@ -404,9 +391,6 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
     title = str(req.get("title") or "").strip()
     if title:
         add("top_third", f"Does the top third of the resume match {_a(title)} role?", sections=["summary"])
-    for path in _changed_bullets(app_dir, rnd, data):
-        add(f"portable.{path}", "Could this bullet describe almost any candidate?", fail_on_yes=True,
-            sections=[_entry_of(path)], bullet=path)
     if letter is not None:
         add("letter.specific", f"Does the letter name something specific to {company or 'the company'}?", sections=["letter"])
         # One question each, about the one sentence, so a doubt about either is clear.
@@ -435,6 +419,7 @@ def _run_checklist(jev, state: str, qs: list[Question], meta) -> list[dict[str, 
             yes = float(a.value) >= 0.5
             item["passed"] = (not yes) if m["fail_on_yes"] else yes
             item["confidence"] = a.confidence
+            item["p_pass"] = round(1.0 - float(a.value) if m["fail_on_yes"] else float(a.value), 3)
             item["source"] = "jev"
         if "sections" in m:
             item["sections"] = m["sections"]
@@ -475,15 +460,14 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     for it in items:
         r = must_reqs.get(meta[it["id"]].get("req_id", ""), {})
         if it["id"].startswith("must.") and _is_degree(r) and _degree_by_rule(r, evidence, cfg):
-            it.update(passed=True, confidence=None, source="rule")
+            it.update(passed=True, confidence=None, p_pass=1.0, source="rule")
     for it in items:
         if it["id"].startswith("must."):
             r = must_reqs[meta[it["id"]]["req_id"]]
             it["sections"] = _must_sections(data, {p for e in evidence.get("requirements") or [] if e.get("id") == r["id"] for p in e.get("passages") or []})
     _mark_fit_gaps(items, must_reqs, evidence, text, cfg)
 
-    passed = sum(1 for it in items if it["passed"] is not False)
-    rate = passed / len(items) if items else 1.0
+    rate = sum(p_pass(it) for it in items) / len(items) if items else 1.0
     score = round(0.6 * ats["total"] + 0.4 * rate * 100, 1)
 
     gaps, feedback = _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeated)
@@ -589,11 +573,6 @@ def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeate
             sentences.append(f"Must-have {label} needs a bullet that names the tool and its scope; {passage_clause(rid, r)}.")
         elif iid == "top_third":
             sentences.append(f"Rewrite the summary so the top of the resume reads as {_a(req.get('title') or 'target')} role.")
-        elif iid.startswith("portable."):
-            path = iid[9:]
-            sources = next((b.get("sources") for p, b in iter_bullets(data) if p == path), None) or []
-            tail = f" using passage {sources[0]}" if sources else ""
-            sentences.append(f"Bullet {path} could fit almost anyone; add its specific tool, scope or result{tail}.")
         elif iid == "letter.specific":
             sentences.append(f"Name one concrete fact about {req.get('company') or 'the company'} from the posting in the letter.")
         elif iid == "letter.opener":

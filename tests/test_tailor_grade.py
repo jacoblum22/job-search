@@ -162,15 +162,17 @@ def test_run_grade_without_jev_marks_everything_unchecked(tmp_path):
     assert saved["score"] == out["score"]
     ids = {it["id"] for it in out["checklist"]}
     assert {"must.r1", "must.r2", "top_third", "letter.specific", "letter.opener", "letter.closer"} <= ids
-    assert any(i.startswith("portable.") for i in ids)
+    # "Could this bullet describe almost any candidate?" came back at 0.6 confidence or less on 125
+    # of 152 answers (Oct 22 2026) and never failed above 0.6, so it isn't asked.
+    assert not any(i.startswith("portable.") for i in ids)
 
 
 def test_failed_items_become_feedback_without_question_text(tmp_path):
     app = make_app(tmp_path)
 
     def answers(state, q):
-        if q.id.startswith("portable."):
-            return 0.9  # "yes, could describe anyone" -> fail
+        if q.id == "letter.opener":
+            return 0.9  # "yes, could open any letter" -> fail
         if q.id == "letter.specific":
             return 0.2
         return 0.8
@@ -180,7 +182,7 @@ def test_failed_items_become_feedback_without_question_text(tmp_path):
     by_id = {it["id"]: it for it in out["checklist"]}
     assert by_id["must.r1"]["passed"] is True and by_id["must.r1"]["source"] == "jev"
     assert by_id["letter.specific"]["passed"] is False
-    assert any(it["passed"] is False for i, it in by_id.items() if i.startswith("portable."))
+    assert by_id["letter.opener"]["passed"] is False and by_id["letter.opener"]["p_pass"] == 0.1
     fb = " ".join(out["feedback"])
     assert "Must-have dbt isn't shown; passage northwind.dbt supports it." in out["feedback"]
     assert "Contoso Retail" in fb
@@ -217,17 +219,6 @@ def test_failed_must_with_only_unbacked_terms_missing_is_a_fit_gap(tmp_path):
     assert any("dbt" in f for f in out["feedback"])
 
 
-def test_portability_only_counts_changed_bullets(tmp_path):
-    app = make_app(tmp_path)
-    write_json(
-        app / "drafts" / "r1" / "edits.json",
-        {"strategy": "nudge", "edits": [{"path": "experience/northwind/northwind.dashboards", "action": "replace"}]},
-    )
-    out = run_grade(app, 1, CFG, FakeJev({}))
-    ports = [it["id"] for it in out["checklist"] if it["id"].startswith("portable.")]
-    assert ports == ["portable.experience/northwind/northwind.dashboards"]
-
-
 def test_jev_failure_means_unchecked(tmp_path):
     class Boom:
         def ask(self, state, questions):
@@ -239,10 +230,20 @@ def test_jev_failure_means_unchecked(tmp_path):
 
 def test_failed_checklist_lowers_score(tmp_path):
     app = make_app(tmp_path)
-    good = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.0 if q.id.startswith("portable.") else 0.9))
-    bad = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.9 if q.id.startswith("portable.") else 0.9))
+    good = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.9 if q.id == "top_third" else 0.9))
+    bad = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.1 if q.id == "top_third" else 0.9))
     assert bad["score"] < good["score"]
     assert good["ats"]["total"] == bad["ats"]["total"]
+
+
+def test_checklist_counts_jevs_probability_not_yes_or_no(tmp_path):
+    # A 0.51 yes and a 0.49 no are the same coin flip; they shouldn't move the score 1/n apart.
+    app = make_app(tmp_path)
+    yes = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.51 if q.id == "top_third" else 0.9))
+    no = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.49 if q.id == "top_third" else 0.9))
+    top = {it["id"]: it for it in no["checklist"]}["top_third"]
+    assert top["passed"] is False and top["p_pass"] == 0.49
+    assert yes["score"] - no["score"] < 0.5
 
 
 def test_letter_opener_and_closer_are_separate_questions(tmp_path):

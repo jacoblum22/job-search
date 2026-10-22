@@ -15,6 +15,7 @@ from typing import Any
 
 from src.tailor import TailorError
 from src.tailor.appdir import log, read_json, round_dir, write_json
+from src.tailor.grade import p_pass
 
 
 def _round_numbers(app_dir: Path) -> list[int]:
@@ -45,7 +46,7 @@ def _warnings(check: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _unsure(item: dict[str, Any], sure: float) -> bool:
-    """A Jev answer, yes or no, at or under `sure` confidence is a coin flip (Jake, Oct 21 2026)."""
+    """A Jev answer at or under `sure` confidence is a coin flip (Jake, Oct 21 2026)."""
     return item.get("source") == "jev" and (item.get("confidence") or 1.0) <= sure
 
 
@@ -68,37 +69,33 @@ def _load(app_dir: Path, n: int) -> dict[str, Any]:
     }
 
 
+def _shared_rate(r: dict[str, Any], shared: set[str]) -> float:
+    return sum(p_pass(r["items"][i]) for i in shared) / len(shared) if shared else 1.0
+
+
 def _gain(cur: dict[str, Any], ref: dict[str, Any]) -> float:
-    """Score gain over the checklist items both rounds were asked. Each round asks about the
-    bullets it changed, so editing more bullets adds easy passes that dilute the same failures:
-    the full score rises with nothing fixed."""
+    """Score gain over the checklist items both rounds were asked. Each round can ask different
+    questions, so extra easy passes would dilute the same failures: the full score rises with
+    nothing fixed."""
     shared = cur["items"].keys() & ref["items"].keys()
     if not shared:
         return cur["score"] - ref["score"]
 
     def score(r: dict[str, Any]) -> float:
-        rate = sum(1 for i in shared if r["items"][i].get("passed") is not False) / len(shared)
-        return 0.6 * float(r["ats"] or 0) + 40.0 * rate
+        return 0.6 * float(r["ats"] or 0) + 40.0 * _shared_rate(r, shared)
 
     return score(cur) - score(ref)
 
 
-def _best(rounds: list[dict[str, Any]], sure: float) -> dict[str, Any]:
-    """Fewest criticals first, then the best score. Rounds are compared on the checklist items
-    every one of them was asked, leaving out Jev's coin flips: each round asks about the lines it
-    changed, so a round that edits more lines collects more 50/50 answers, and those decide
-    nothing (the Amazon BI Engineer draft, Oct 22 2026, kept round 1 over a round 2 that gained
-    3.6 ATS points because its coin flips came up yes). The full score breaks ties."""
-    common = set.intersection(*(set(r["items"]) for r in rounds))
-
-    def firm(r: dict[str, Any]) -> list[dict[str, Any]]:
-        return [r["items"][i] for i in common
-                if r["items"][i].get("passed") is not None and not _unsure(r["items"][i], sure)]
+def _best(rounds: list[dict[str, Any]]) -> dict[str, Any]:
+    """Fewest criticals first, then the best score over the checklist items every round was asked,
+    each counted by Jev's probability that it passes. A 50/50 answer then weighs the same whichever
+    way it fell (the Amazon BI Engineer draft, Oct 22 2026, kept round 1 over a round 2 that gained
+    3.6 ATS points because round 1's coin flips came up yes). The full score breaks ties."""
+    shared = set.intersection(*(set(r["items"]) for r in rounds))
 
     def pick(r: dict[str, Any]) -> float:
-        items = firm(r)
-        rate = sum(1 for it in items if it.get("passed")) / len(items) if items else 1.0
-        return 0.6 * float(r["ats"] or 0) + 40.0 * rate
+        return 0.6 * float(r["ats"] or 0) + 40.0 * _shared_rate(r, shared)
 
     clean = [r for r in rounds if r["criticals"] == 0]
     if clean:
@@ -141,11 +138,11 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     if not nums:
         raise TailorError(f"no graded rounds in {app_dir / 'drafts'}")
     loop_cfg = cfg.get("loop") or {}
-    # A Jev answer near 50/50 is a coin flip, not a regression or a reason to prefer a round (Jake, Oct 21 2026).
+    # A Jev answer near 50/50 is a coin flip, not a regression (Jake, Oct 21 2026).
     sure = loop_cfg.get("regression_min_confidence", 0.6)
     rounds = [_load(app_dir, n) for n in nums]
     cur, prev = rounds[-1], rounds[:-1]
-    best = _best(rounds, sure)
+    best = _best(rounds)
 
     max_rounds = loop_cfg.get("max_rounds", 3)
     min_gain = loop_cfg.get("min_gain", 2.0)
@@ -161,7 +158,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     if cur["criticals"] == 0 and cur["failed_items"] == 0 and (cur["ats"] or 0) >= target:
         reason = "all checks pass and the ATS score meets the target"
     elif prev:
-        ref = _best(prev, sure)
+        ref = _best(prev)
         newly_failed = {i for i in cur["failed_ids"] & ref["passed_ids"] if not _unsure(cur["items"][i], sure)}
         if cur["criticals"] > ref["criticals"]:
             reason = f"regression: round {cur['round']} has more criticals than round {ref['round']}"
