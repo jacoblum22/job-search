@@ -40,7 +40,10 @@ each through a real story from its cited passage, not as a list of names.
    sentence is about the work, not about the candidate's feelings.
 2. **Proof.** 1-2 real achievements from the vault, told with concrete tools and scope, each citing
    its passage ids in `sources`. Pick them to cover the list from the end of step 1: a skill the
-   resume only lists (AWS S3, R) is shown here by what was done with it. Use a number only if the cited passage has it. Choose them so they
+   resume only lists (AWS S3, R) is shown here by what was done with it. Do it naturally: weave
+   each skill into a sentence the story already needs ("I used R to compare the churn models",
+   "I practised explaining results by walking the Loyalty team through each number"), never a
+   sentence added only to name a skill, and never a list of skill names. Use a number only if the cited passage has it. Choose them so they
    also show one or two of the posting's main soft-skill asks that the resume doesn't already show
    (working across teams, juggling several projects, explaining results to non-technical people),
    taken from requirements whose evidence is a work or project story, not a self-description line.

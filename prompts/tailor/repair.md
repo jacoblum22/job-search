@@ -28,7 +28,8 @@ already passed.
    the vault can't back; a short letter's warning names the skills to use the room for. Don't add
    a skill to the list unless a bullet or the letter shows it; for `skill_only_in_list`, show it in
    a bullet the vault backs, or in the letter's proof paragraph through a real story from a cited
-   passage when no bullet has room, or take it out of the list.
+   passage when no bullet has room (woven into a sentence the story already needs, not a new
+   sentence that only names it), or take it out of the list.
 3. **An unsourced number is removed, or replaced with a number the cited passage actually states.**
    Never reword around it ("roughly a third", "dozens"), never swap it for another invented figure.
 4. **"Use the posting's own words for these terms"** (the ATS item): work each listed term into a
