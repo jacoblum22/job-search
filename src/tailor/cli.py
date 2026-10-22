@@ -196,6 +196,37 @@ def packet(app_dir):
 
 
 @main.command()
+def repacket():
+    """Rebuild check.md and fit-notes.md for every application still waiting on review (not
+    approved, applied or dismissed), keeping the decisions already made. Run after an update
+    that changes the review page."""
+    from src.db import connect
+    from src.tailor import store
+    from src.tailor.packet import run_packet
+    from src.tailor.paths import ROOT
+
+    cfg = load_config()
+    conn = connect(resolve(cfg, "db"))
+    try:
+        dismissed = {r[0] for r in conn.execute("SELECT id FROM jobs WHERE status = 'dismissed'")}
+        apps = [a for a in store.all_apps(conn).values()
+                if a.get("status") in ("ready_for_review", "needs_fixes") and a["job_id"] not in dismissed]
+    finally:
+        conn.close()
+    done = []
+    for a in apps:
+        folder = Path(a.get("folder") or "")
+        if not folder.is_absolute():
+            folder = ROOT / folder
+        if not (folder / "app.json").exists():
+            continue
+        out = run_packet(folder, cfg)
+        done.append({"folder": folder.name, "status": out["status"]})
+    _out({"rebuilt": done})
+    _refresh_dashboard(cfg)
+
+
+@main.command()
 @APP
 def approve(app_dir):
     """Approve after every line of check.md is ticked."""

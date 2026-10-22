@@ -311,7 +311,10 @@ def run_packet(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     base = _base_id(app_dir, app, evidence.get("buckets") or {})
     (app_dir / "fit-notes.md").write_text(
         _fit_notes(app, evidence, _opt_json(app_dir / "requirements.json"), base), encoding="utf-8")
-    (app_dir / "check.md").write_text(_check_md(app, rd, app_dir, check, cfg), encoding="utf-8")
+    text = _check_md(app, rd, app_dir, check, cfg)
+    if (app_dir / "check.md").exists():  # a rebuild keeps the decisions already made
+        text = review.carry_over((app_dir / "check.md").read_text(encoding="utf-8"), text)
+    (app_dir / "check.md").write_text(text, encoding="utf-8")
     criticals = len((check or {}).get("criticals") or [])
     status = "needs_fixes" if criticals else "ready_for_review"
     grade = _opt_json(rd / "grade.json") if rd else None
