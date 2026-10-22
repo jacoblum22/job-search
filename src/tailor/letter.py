@@ -203,11 +203,14 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     full = "\n".join(str(p.get("text", "")) for p in paras)
     lo, hi = cfg.get("letter_words") or (190, 320)
     n_words = len(re.findall(r"[\w'’-]+", full))
-    if paras and not lo <= n_words <= hi:
-        short = n_words < lo
-        # A short letter has room for what the resume lists without a bullet behind it.
-        show = [t for t in ctx.get("listed_only") or [] if short]
-        msg = f"{n_words} words; aim for about 200-300 ({'add' if short else 'cut'} a little)"
+    # While the resume lists skills it can't show and the letter doesn't either, the letter uses
+    # 250-300 words to show them (Jake, Oct 22 2026), not just the 190 minimum.
+    room = cfg.get("letter_words_with_gaps", 250)
+    listed = list(ctx.get("listed_only") or [])
+    if paras and (not lo <= n_words <= hi or (listed and n_words < room)):
+        short = n_words < max(lo, room if listed else lo)
+        show = listed if short else []
+        msg = f"{n_words} words; aim for about {'250' if show else '200'}-300 ({'add' if short else 'cut'} a little)"
         if show:
             msg += "; use the room to show " + ", ".join(show) + ", which the resume lists without a bullet"
         warn("letter_length", msg, words=n_words, **({"show": show} if show else {}))
