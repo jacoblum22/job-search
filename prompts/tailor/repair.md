@@ -25,8 +25,11 @@ already passed.
 2. **Fix only the listed items.** Each failed item, critical and warning should be answered by a
    specific change; do not add other changes. For `term_stuffing`, keep the term where it matters
    most and reword the other mentions; for `letter_length`, add or cut a sentence, never a claim
-   the vault can't back. Don't add a skill to the list unless a bullet shows it; for
-   `skill_only_in_list`, show it in a bullet the vault backs or take it out of the list.
+   the vault can't back; a short letter's warning names the skills to use the room for. Don't add
+   a skill to the list unless a bullet or the letter shows it; for `skill_only_in_list`, show it in
+   a bullet the vault backs, or in the letter's proof paragraph through a real story from a cited
+   passage when no bullet has room (woven into a sentence the story already needs, not a new
+   sentence that only names it), or take it out of the list.
 3. **An unsourced number is removed, or replaced with a number the cited passage actually states.**
    Never reword around it ("roughly a third", "dozens"), never swap it for another invented figure.
 4. **"Use the posting's own words for these terms"** (the ATS item): work each listed term into a

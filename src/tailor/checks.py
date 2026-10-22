@@ -349,12 +349,16 @@ def check_resume(
             w("term_stuffing", f"'{t}' appears {n} times in {words_n} words (posting: {pn})", term=t,
               paths=[pt for pt, tx in d_units if _count(t, tx)])
     prose = "\n".join(t for p, t in d_units if not p.startswith("skills/"))
+    letter_text = ctx.get("letter_text") or ""
     skills_text = "\n".join(t for p, t in d_units if p.startswith("skills/"))
     listed_only: set[str] = set()
     base_skills = "\n".join(t for p, t in units(base) if p.startswith("skills/"))
     for t in terms:
         canon = taxonomy.canonical(t)
-        if canon and taxonomy.is_hard(canon) and _covered(t, skills_text) and not _covered(t, prose):
+        # A skill the letter shows with a story counts as shown: the letter is where what didn't
+        # fit in the bullets goes (Jake, Oct 22 2026). The letter checks still judge that story.
+        if (canon and taxonomy.is_hard(canon) and _covered(t, skills_text) and not _covered(t, prose)
+                and not _covered(t, letter_text)):
             # One warning per skill, named as the list has it: "AWS S3" covers the posting's
             # "AWS Step Functions" only through the skill AWS, which is what the list shows.
             if canon in listed_only:
@@ -363,7 +367,7 @@ def check_resume(
             name = t if taxonomy.exact(t, skills_text) else canon
             # `added`: this draft put it in the list; the repair loop fixes that, a base's own list item it leaves.
             w("skill_only_in_list", f"'{name}' appears only in the skills list", "skills", term=name,
-              added=not _covered(t, base_skills))
+              added=not _covered(t, base_skills), paths=["skills", "letter"])
     if posting:
         pw = [x for x in re.findall(r"[a-z0-9']+", norm(posting))]
         post_runs = _runs(pw, 8)
@@ -559,15 +563,25 @@ def _read_optional(path: Path, default: Any) -> Any:
     return read_json(path) if path.exists() else default
 
 
+def _letter_text(path: Path) -> str:
+    letter = _read_optional(path, {})
+    paras = letter.get("paragraphs") if isinstance(letter, dict) else None
+    return "\n".join(str(p.get("text", "")) for p in paras or [] if isinstance(p, dict))
+
+
 def _context(app_dir: Path, cfg: dict[str, Any], index: dict[str, Any], base: dict[str, Any],
-             req: dict[str, Any], posting: str) -> dict[str, Any]:
+             req: dict[str, Any], posting: str, letter_path: Path) -> dict[str, Any]:
     claim_texts = [p["text"] for p in index.values() if p.get("use", "claim") == "claim"]
     base_text = flatten(base)
     return {
         "index": index, "req": req, "posting": posting, "base_text": base_text,
         "claim_texts": claim_texts, "own_texts": [base_text, *claim_texts], "company": req.get("company", ""),
-        "confirmed": set(rejects.confirmed(cfg, app_dir)),
+        "confirmed": set(rejects.confirmed(cfg, app_dir)), "letter_text": _letter_text(letter_path),
     }
+
+
+def _listed_only(warnings: list[dict]) -> list[str]:
+    return [w["data"]["term"] for w in warnings if w.get("code") == "skill_only_in_list"]
 
 
 def recheck(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
@@ -584,8 +598,13 @@ def recheck(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
     index = load_index(cfg)
     posting_path = app_dir / "posting.md"
     posting = posting_path.read_text(encoding="utf-8") if posting_path.exists() else ""
-    ctx = _context(app_dir, cfg, index, base, _read_optional(app_dir / "requirements.json", {}), posting)
+    letter_path = app_dir / "humanize" / "cover-letter.json"
+    if not letter_path.exists():
+        letter_path = rdir / "cover-letter.json"
+    ctx = _context(app_dir, cfg, index, base, _read_optional(app_dir / "requirements.json", {}), posting,
+                   letter_path)
     criticals, warnings, _ = check_resume(draft, base, ctx)
+    ctx["listed_only"] = _listed_only(warnings)
     # Bad ids on lines the first check reverted are only known from that check.
     criticals += [c for c in earlier.get("criticals") or [] if c.get("code") == "unknown_source"
                   and c.get("path") in (earlier.get("reverted") or [])]
@@ -624,9 +643,10 @@ def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> 
             yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110), encoding="utf-8"
         )
 
-    ctx = _context(app_dir, cfg, index, base, req, posting)
+    ctx = _context(app_dir, cfg, index, base, req, posting, rdir / "cover-letter.json")
     claim_texts = ctx["claim_texts"]
     criticals, warnings, _ = check_resume(draft, base, ctx)
+    ctx["listed_only"] = _listed_only(warnings)
     # Re-add source criticals for reverted paths (bad ids on a reverted line still go on record).
     pre_b = _bullet_map(pre)
     for path in reverted:

@@ -28,12 +28,22 @@ phrased as a hedged reading, never as inside knowledge:
 2. What three outcomes will the hire be judged on in the first 6-12 months?
 3. What is the through-line in the candidate's vault that answers those outcomes?
 
+Then list, for yourself, **what the resume you just wrote couldn't show**: posting terms the vault
+backs (PRESENT, or a `plan.json` `evidence_adds` term) that appear only in the skills list with no
+bullet behind them, or not at all (cut for room, or no line to put them on), must-haves first. The
+letter is where these go: the proof paragraph(s) should show as many of them as fit naturally,
+each through a real story from its cited passage, not as a list of names.
+
 ## Step 2: four movements
 
 1. **Value for this role.** What the candidate offers *this* job, led by the through-line. First
    sentence is about the work, not about the candidate's feelings.
 2. **Proof.** 1-2 real achievements from the vault, told with concrete tools and scope, each citing
-   its passage ids in `sources`. Use a number only if the cited passage has it. Choose them so they
+   its passage ids in `sources`. Pick them to cover the list from the end of step 1: a skill the
+   resume only lists (AWS S3, R) is shown here by what was done with it. Do it naturally: weave
+   each skill into a sentence the story already needs ("I used R to compare the churn models",
+   "I practised explaining results by walking the Loyalty team through each number"), never a
+   sentence added only to name a skill, and never a list of skill names. Use a number only if the cited passage has it. Choose them so they
    also show one or two of the posting's main soft-skill asks that the resume doesn't already show
    (working across teams, juggling several projects, explaining results to non-technical people),
    taken from requirements whose evidence is a work or project story, not a self-description line.
@@ -74,7 +84,8 @@ role. If the vault has no `motivation.*` passages, keep movement 3 to one senten
 ## Hard rules
 
 1. **Length:** 3-5 short paragraphs (one per movement, movements 1 and 2 may share), roughly 200-300
-   words in all.
+   words in all. Use the room: while something on the step-1 list is still unshown, aim for 250-300
+   words. Under 200 is only right when nothing backed is left to show.
 2. **Greeting:** `"Dear <name>,"` only when `requirements.json.hiring_contact` is non-null (it has
    already been verified). Otherwise exactly `"Dear Hiring Manager,"`. Use the name as the posting
    gives it. Never guess a name.
@@ -155,6 +166,8 @@ Power BI are ABSENT.
 
 - [ ] Hidden diagnosis done first and not in the letter.
 - [ ] Four movements in order; 3-5 short paragraphs.
+- [ ] Every backed term the resume only lists (or left out) is shown in the letter where it fits;
+      if the letter is under 250 words, nothing on that list is left that could fit.
 - [ ] Greeting is "Dear Hiring Manager," unless `hiring_contact` is non-null.
 - [ ] Every achievement has `sources`; every company fact has a real id; no invented number.
 - [ ] Movement 3 links a `motivation.*` passage to the employer instead of restating their facts.

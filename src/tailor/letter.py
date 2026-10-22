@@ -204,8 +204,13 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     lo, hi = cfg.get("letter_words") or (190, 320)
     n_words = len(re.findall(r"[\w'’-]+", full))
     if paras and not lo <= n_words <= hi:
-        warn("letter_length", f"{n_words} words; aim for about 200-300 ({'add' if n_words < lo else 'cut'} a little)",
-             words=n_words)
+        short = n_words < lo
+        # A short letter has room for what the resume lists without a bullet behind it.
+        show = [t for t in ctx.get("listed_only") or [] if short]
+        msg = f"{n_words} words; aim for about 200-300 ({'add' if short else 'cut'} a little)"
+        if show:
+            msg += "; use the room to show " + ", ".join(show) + ", which the resume lists without a bullet"
+        warn("letter_length", msg, words=n_words, **({"show": show} if show else {}))
     if len(_KEEN.findall(full)) > 1:
         warn("keen_to_grow", "more than one 'keen to grow' style phrase")
     elif _KEEN.search(full) and not _must_missing(app_dir, req):
