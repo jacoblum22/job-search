@@ -559,6 +559,48 @@ def _read_optional(path: Path, default: Any) -> Any:
     return read_json(path) if path.exists() else default
 
 
+def _context(app_dir: Path, cfg: dict[str, Any], index: dict[str, Any], base: dict[str, Any],
+             req: dict[str, Any], posting: str) -> dict[str, Any]:
+    claim_texts = [p["text"] for p in index.values() if p.get("use", "claim") == "claim"]
+    base_text = flatten(base)
+    return {
+        "index": index, "req": req, "posting": posting, "base_text": base_text,
+        "claim_texts": claim_texts, "own_texts": [base_text, *claim_texts], "company": req.get("company", ""),
+        "confirmed": set(rejects.confirmed(cfg, app_dir)),
+    }
+
+
+def recheck(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
+    """The code-only checks again, under today's rules, on the resume and letter a round shipped
+    (the humanized resume when there is one). Nothing is written and Jev isn't asked: Jev's flags,
+    reverts and metrics come from the round's check.json. repacket uses it so an older review page
+    doesn't keep items a later fix would no longer raise."""
+    app_dir = Path(app_dir)
+    rdir = round_dir(app_dir, rnd)
+    earlier = _read_optional(rdir / "check.json", {})
+    shipped = app_dir / "humanize" / "resume.yaml"
+    draft = load_resume(shipped if shipped.exists() else rdir / "resume.yaml")
+    base = load_base(app_dir, cfg)
+    index = load_index(cfg)
+    posting_path = app_dir / "posting.md"
+    posting = posting_path.read_text(encoding="utf-8") if posting_path.exists() else ""
+    ctx = _context(app_dir, cfg, index, base, _read_optional(app_dir / "requirements.json", {}), posting)
+    criticals, warnings, _ = check_resume(draft, base, ctx)
+    # Bad ids on lines the first check reverted are only known from that check.
+    criticals += [c for c in earlier.get("criticals") or [] if c.get("code") == "unknown_source"
+                  and c.get("path") in (earlier.get("reverted") or [])]
+    warnings += [{"code": "resume_invalid", "message": p, "path": "", "doc": "resume"}
+                 for p in validate(draft, require_sources=True)]
+    letter_path = rdir / "cover-letter.json"
+    before = letter_path.read_bytes() if letter_path.exists() else None
+    letter = run_letter_checks(app_dir, rnd, cfg, ctx)
+    if before is not None and letter_path.read_bytes() != before:
+        letter_path.write_bytes(before)  # a recheck only reports; it never edits the round's files
+    criticals += letter["criticals"] + [c for c in earlier.get("criticals") or [] if c.get("code") == "letter_shape"]
+    warnings += letter["warnings"]
+    return {**earlier, "criticals": criticals, "warnings": warnings}
+
+
 def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> dict[str, Any]:
     app_dir = Path(app_dir)
     rdir = round_dir(app_dir, rnd)
@@ -582,13 +624,8 @@ def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> 
             yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110), encoding="utf-8"
         )
 
-    claim_texts = [p["text"] for p in index.values() if p.get("use", "claim") == "claim"]
-    base_text = flatten(base)
-    ctx = {
-        "index": index, "req": req, "posting": posting, "base_text": base_text,
-        "claim_texts": claim_texts, "own_texts": [base_text, *claim_texts], "company": req.get("company", ""),
-        "confirmed": set(rejects.confirmed(cfg, app_dir)),
-    }
+    ctx = _context(app_dir, cfg, index, base, req, posting)
+    claim_texts = ctx["claim_texts"]
     criticals, warnings, _ = check_resume(draft, base, ctx)
     # Re-add source criticals for reverted paths (bad ids on a reverted line still go on record).
     pre_b = _bullet_map(pre)

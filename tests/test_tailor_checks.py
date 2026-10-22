@@ -696,3 +696,24 @@ def test_letter_length_outside_200_to_300_words_warns(tmp_path):
     res, _ = letter_check(tmp_path / "long", with_(paragraphs=paras))
     long = [w for w in res["warnings"] if w["code"] == "letter_length"]
     assert len(long) == 1 and "cut" in long[0]["message"]
+
+
+def test_recheck_applies_todays_rules_without_writing_or_asking_jev(tmp_path):
+    from src.tailor.checks import recheck
+
+    app, cfg = make_app(tmp_path)
+    write_edits(app, [{"path": "skills/skills.tools", "action": "add_skill", "value": "dbt", "sources": ["northwind.dbt"]}])
+    apply_edits(app, 1, cfg)
+    run_check(app, 1, cfg, None)
+    chk = app / "drafts" / "r1" / "check.json"
+    # An older check.json: a warning a later rule no longer raises, and a Jev flag.
+    old = read_json(chk)
+    old["warnings"] = [{"code": "ai_phrase", "message": "stale", "path": "summary", "doc": "resume"}]
+    old["flags"] = [{"code": "jev_unsupported", "message": "jev", "path": "summary", "doc": "resume"}]
+    write_json(chk, old)
+    files = {p: p.read_bytes() for p in (app / "drafts" / "r1").iterdir()}
+    res = recheck(app, 1, cfg)
+    assert not any(w["message"] == "stale" for w in res["warnings"])
+    assert any(w["code"] == "skill_only_in_list" and w["data"]["added"] for w in res["warnings"])
+    assert res["flags"] == old["flags"]
+    assert {p: p.read_bytes() for p in (app / "drafts" / "r1").iterdir()} == files

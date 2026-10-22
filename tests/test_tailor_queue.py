@@ -193,6 +193,20 @@ def test_packet_leaves_ai_phrases_to_the_humanize_pass(cfg):
     assert "paragraph 1" not in issues and "paragraph 2" not in issues
 
 
+def test_packet_asks_only_about_skills_the_draft_added_to_the_list(cfg):
+    _, d = _packet_app(cfg)
+    r1 = d / "drafts" / "r1"
+    warn = {"code": "skill_only_in_list", "path": "skills", "doc": "resume"}
+    appdir.write_json(r1 / "check.json", {"criticals": [], "flags": [], "warnings": [
+        {**warn, "message": "'R' appears only in the skills list", "data": {"term": "R", "added": False}},
+        {**warn, "message": "'AWS' appears only in the skills list", "data": {"term": "AWS", "added": True}},
+        {**warn, "message": "'dbt' appears only in the skills list", "data": {"term": "dbt"}}]})
+    run_packet(d, cfg)
+    issues = (d / "check.md").read_text().split("## Remaining issues")[1]
+    assert "AWS is in your skills list" in issues and "dbt is in your skills list" in issues
+    assert "R is in your skills list" not in issues
+
+
 def test_gate_skipped_without_jev_key(cfg):
     add(cfg, "k1", "Analyst", "A", 80)
 
