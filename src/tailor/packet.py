@@ -257,7 +257,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     lines += ["", "## Remaining issues", ""] + _note(explain.ISSUES)
     boxed = [it for it in issues if not explain.is_note(it)]
     for it in boxed:
-        head, details = explain.issue(it, data)
+        head, details = explain.issue(it, data, index)
         lines.append(f"- [ ] Keep  - [ ] Remove  {head}")
         lines += [f"  - {d}" for d in details]
     if not boxed:

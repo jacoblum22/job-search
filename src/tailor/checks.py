@@ -477,11 +477,18 @@ def related_passages(text: str, srcs: list[str], index: dict[str, Any], per_clau
     idf = {w: math.log(n / c) for w, c in df.items()}
     pool = {pid: ws for pid, ws in claims.items() if pid not in srcs and pid.split(".", 1)[0] in prefixes}
     floor = math.log(n / 20) * 1.5  # one rare word, or a few common ones
-    out: list[str] = []
-    for clause in re.split(r"[,;:]| and ", text):
+    per: list[list[str]] = []
+    for clause in re.split(r"[,;:.]| and ", text):
         words = _content_words(clause)
         scored = sorted((-sum(idf.get(w, 0.0) for w in words & ws), pid) for pid, ws in pool.items())
-        out += [pid for score, pid in scored[:per_clause] if -score >= floor and pid not in out]
+        per.append([pid for score, pid in scored[:per_clause] if -score >= floor])
+    # Each clause's best match first, then each one's second, and so on: a long summary's last
+    # clause (the degree) still gets its passage before the limit is reached.
+    out: list[str] = []
+    for rank in range(per_clause):
+        for picks in per:
+            if rank < len(picks) and picks[rank] not in out:
+                out.append(picks[rank])
     return out[:limit]
 
 
