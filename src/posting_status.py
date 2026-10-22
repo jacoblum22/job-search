@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, timedelta
+from functools import lru_cache
 
 _INTERNAL = re.compile(
     r"(?i)\b(?:will be|is being|to be) filled internally"
@@ -100,12 +101,18 @@ def deadline(description: str, seen: date | None = None) -> date | None:
     return max(dates) if dates else None
 
 
+@lru_cache(maxsize=8192)
+def _scan(description: str, seen: date) -> tuple[bool, date | None]:
+    """The slow part of closed_reason, remembered: the dashboard asks it for every job on every load."""
+    return bool(_INTERNAL.search(description)), deadline(description, seen)
+
+
 def closed_reason(description: str, today: date | None = None, seen: date | None = None) -> str | None:
     """Why the posting is closed ("Filled internally", "Closed Oct 15, 2026"), or None if open."""
     today = today or date.today()
-    if _INTERNAL.search(description or ""):
+    internal, end = _scan(description or "", seen or today)
+    if internal:
         return "Filled internally"
-    end = deadline(description, seen or today)
     if end is not None and end < today:
         return f"Closed {end.strftime('%b')} {end.day}, {end.year}"
     return None

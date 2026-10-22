@@ -256,3 +256,13 @@ def test_a_dismissed_application_is_not_pinned(env):
     rows = json.loads(render_dashboard(conn).split('type="application/json">')[1].split("</script>")[0])
     conn.close()
     assert {r["title"]: r for r in rows}["Junior Analyst"]["pin"] == 99
+
+
+def test_rebuilt_check_md_keeps_decisions_already_made():
+    old = CHECK.replace("- [ ] Reviewed  ATS 59.0", "- [x] Reviewed  ATS 59.0").replace(
+        "- [ ] Keep  - [ ] Remove  skill_only", "- [ ] Keep  - [x] Remove  skill_only")
+    new = CHECK.replace("## Remaining issues", "## Remaining issues\n\n- [ ] Keep  - [ ] Remove  a new issue")
+    out = review.carry_over(old, new)
+    assert "- [x] Reviewed  ATS 59.0" in out
+    assert "- [ ] Keep  - [x] Remove  skill_only_in_list" in out
+    assert "- [ ] Keep  - [ ] Remove  a new issue" in out  # new lines start undecided

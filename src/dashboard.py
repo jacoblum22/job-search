@@ -227,6 +227,15 @@ window.addEventListener('error', e => {
     'The dashboard hit an error and could not show jobs: ' + e.message;
 });
 const SERVER = __SERVER__;
+// Back from a job page the browser shows this page as it was; if something was changed there, reload.
+window.addEventListener('pageshow', e => {
+  try {
+    if (SERVER && sessionStorage.getItem('dashboardStale')) {
+      sessionStorage.removeItem('dashboardStale');
+      if (e.persisted) location.reload();
+    }
+  } catch (_) {}
+});
 const rawJobs = JSON.parse(document.getElementById('jobs-data').textContent);
 const jobs = rawJobs.map(j => ({...j, sourcesStr: j.sources.join(', ')}));
 

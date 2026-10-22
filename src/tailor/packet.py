@@ -121,35 +121,13 @@ def _changes(rd: Path | None, app_dir: Path, cfg: dict[str, Any]) -> list[str]:
     return out
 
 
-def _drop_humanized(issues: list[dict[str, Any]], rd: Path | None, app_dir: Path,
-                    cfg: dict[str, Any]) -> list[dict[str, Any]]:
-    """Leave out style warnings on lines the humanize pass rewrote so they no longer hit: check.json
-    judged the round's draft, but the files that ship are the humanized ones."""
-    hdir = app_dir / "humanize"
-    if rd is None or not hdir.is_dir():
+def _drop_humanized(issues: list[dict[str, Any]], app_dir: Path) -> list[dict[str, Any]]:
+    """Leave out AI-style phrase warnings once the humanize pass has run. check.json judged the
+    round's draft, but that pass is where these are handled: it rewrites what it can, and one it
+    left alone isn't worth a review line (Jake, Oct 22 2026)."""
+    if not (app_dir / "humanize").is_dir():
         return issues
-    from src.tailor import phrases
-    from src.tailor.checks import units
-    from src.tailor.humanize import _own_texts, _posting
-
-    def texts(folder: Path) -> dict[str, str]:
-        out: dict[str, str] = {}
-        if (folder / "resume.yaml").exists():
-            out.update(units(load_resume(folder / "resume.yaml")))
-        for i, p in enumerate((_opt_json(folder / "cover-letter.json") or {}).get("paragraphs") or []):
-            out[f"paragraphs[{i}]"] = str(p.get("text") if isinstance(p, dict) else p)
-        return out
-
-    before, after = texts(rd), texts(hdir)
-    posting, own = _posting(app_dir), _own_texts(app_dir, cfg)
-
-    def fixed(it: dict[str, Any]) -> bool:
-        path = str(it.get("path", ""))
-        if it.get("code") != "ai_phrase" or path not in after or after[path] == before.get(path):
-            return False
-        return not phrases.scan(after[path], posting, own, letter=path.startswith("paragraphs["))
-
-    return [it for it in issues if not fixed(it)]
+    return [it for it in issues if it.get("code") != "ai_phrase"]
 
 
 def _note(text: str) -> list[str]:
@@ -271,7 +249,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     lines += ["", "## Changes from the base", ""] + _note(explain.CHANGES.format(base=base_id))
     lines += _changes(rd, app_dir, cfg) or ["- No changes"]
     issues = [it for sev in ("criticals", "warnings", "flags") for it in (check or {}).get(sev) or []]
-    issues = _drop_humanized(issues, rd, app_dir, cfg)
+    issues = _drop_humanized(issues, app_dir)
     lines += ["", "## Remaining issues", ""] + _note(explain.ISSUES)
     boxed = [it for it in issues if not explain.is_note(it)]
     for it in boxed:
@@ -333,7 +311,10 @@ def run_packet(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     base = _base_id(app_dir, app, evidence.get("buckets") or {})
     (app_dir / "fit-notes.md").write_text(
         _fit_notes(app, evidence, _opt_json(app_dir / "requirements.json"), base), encoding="utf-8")
-    (app_dir / "check.md").write_text(_check_md(app, rd, app_dir, check, cfg), encoding="utf-8")
+    text = _check_md(app, rd, app_dir, check, cfg)
+    if (app_dir / "check.md").exists():  # a rebuild keeps the decisions already made
+        text = review.carry_over((app_dir / "check.md").read_text(encoding="utf-8"), text)
+    (app_dir / "check.md").write_text(text, encoding="utf-8")
     criticals = len((check or {}).get("criticals") or [])
     status = "needs_fixes" if criticals else "ready_for_review"
     grade = _opt_json(rd / "grade.json") if rd else None

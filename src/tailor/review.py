@@ -77,6 +77,30 @@ def open_items(text: str) -> int:
     return len(undecided(text))
 
 
+def carry_over(old: str, new: str) -> str:
+    """`new` check.md with the decisions already made in `old` kept: a boxed line whose kind and
+    wording are unchanged keeps its ticks, so rebuilding a review page never loses work."""
+    marks: dict[tuple[str, str], str] = {}
+    for line in old.splitlines():
+        for kind, rx in _KINDS.items():
+            m = rx.match(line)
+            if m:
+                marks[(kind, m["text"])] = "".join(m[f"b{n}"] for n in range(len(_OPTIONS[kind])))
+                break
+    out = []
+    for line in new.splitlines():
+        for kind, rx in _KINDS.items():
+            m = rx.match(line)
+            if m:
+                kept = marks.get((kind, m["text"]))
+                if kept and kept.strip():
+                    boxes = iter(kept)
+                    line = _BOX.sub(lambda _: f"[{next(boxes)}]", line, count=len(kept))
+                break
+        out.append(line)
+    return "\n".join(out) + ("\n" if new.endswith("\n") else "")
+
+
 def set_box(text: str, line: int, raw: str, option: str, checked: bool) -> str:
     """Tick or untick one box. `raw` is the line as the page saw it, so a check.md that
     changed since (a re-run packet) is refused instead of ticking the wrong line.
