@@ -256,14 +256,20 @@ def test_skill_the_draft_added_to_the_list_only_earns_a_round(tmp_path):
 
 
 def test_best_round_ignores_coin_flip_jev_answers(tmp_path):
-    # Amazon BI Engineer, Oct 22 2026: round 2 used the posting's words (ATS 56.6 -> 60.2) but two
-    # Jev "no"s at 0.5 and 0.55 dropped its score under round 1's, so round 1's resume was kept.
-    app = new_app(tmp_path)
-    sure_no = {**item("must.r7", False), "confidence": 0.97}
-    r1 = [sure_no] + [item(f"a{i}", True) for i in range(15)]
-    add_round(app, 1, 67.3, items=r1, ats=56.6, feedback=["fix"])
-    flips = [{**item("must.r10", False), "confidence": 0.55}, {**item("portable.x", False), "confidence": 0.5}]
-    r2 = [sure_no] + flips + [item(f"a{i}", True) for i in range(12)]
+    # Amazon BI Engineer, Oct 22 2026 (real answers): round 2 used the posting's words (ATS 56.6 ->
+    # 60.2). Its firm answers matched round 1's, but its 50/50 answers came up no where round 1's
+    # came up yes, and round 1 asked about more lines, so round 1 scored 67.3 to 62.8 and was kept.
+    def jev(iid, passed, conf):
+        return {**item(iid, passed), "confidence": conf}
+
+    same = [jev("must.r7", False, 0.97), jev("must.r8", False, 0.8), item("must.r9", True),
+            jev("must.r11", True, 0.87), jev("must.r12", False, 0.65), jev("must.r13", True, 0.96),
+            jev("must.r14", True, 0.92), jev("top_third", True, 0.71), jev("letter.specific", True, 0.96),
+            jev("letter.opener", True, 0.86), jev("letter.closer", True, 0.65)]
+    r1 = same + [jev("must.r10", True, 0.54), jev("portable.sql", True, 0.51), jev("portable.apps", True, 0.52)] + [
+        jev(f"portable.p{i}", True, 0.52) for i in range(4)]
+    add_round(app := new_app(tmp_path), 1, 67.3, items=r1, ats=56.6, feedback=["fix"])
+    r2 = same + [jev("must.r10", False, 0.55), jev("portable.sql", False, 0.5), jev("portable.apps", True, 0.51),
+                 jev("portable.std", True, 0.51)]
     add_round(app, 2, 62.8, items=r2, ats=60.2, feedback=["fix"])
-    out = next_round(app, CFG)
-    assert out["best_round"] == 2
+    assert next_round(app, CFG)["best_round"] == 2

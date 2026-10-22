@@ -45,26 +45,11 @@ def _warnings(check: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _unsure(item: dict[str, Any], sure: float) -> bool:
-    """A Jev "no" at or under `sure` confidence is a coin flip (Jake, Oct 21 2026)."""
+    """A Jev answer, yes or no, at or under `sure` confidence is a coin flip (Jake, Oct 21 2026)."""
     return item.get("source") == "jev" and (item.get("confidence") or 1.0) <= sure
 
 
-def _pick_score(grade: dict[str, Any], sure: float) -> float:
-    """The round's score with coin-flip Jev answers left out, so a round that gained ATS points isn't
-    passed over because Jev happened to say no at 50/50 on a line it asked about."""
-    score = float(grade.get("score", 0))
-    asked = [it for it in grade.get("checklist") or [] if it.get("passed") is not None]
-    kept = [it for it in asked if not (it.get("passed") is False and _unsure(it, sure))]
-    if len(kept) == len(asked) or not kept:
-        return score
-
-    def rate(items: list[dict[str, Any]]) -> float:
-        return sum(1 for it in items if it.get("passed")) / len(items)
-
-    return round(score + 40.0 * (rate(kept) - rate(asked)), 1)
-
-
-def _load(app_dir: Path, n: int, sure: float) -> dict[str, Any]:
+def _load(app_dir: Path, n: int) -> dict[str, Any]:
     d = round_dir(app_dir, n)
     check = read_json(d / "check.json")
     grade = read_json(d / "grade.json")
@@ -72,7 +57,6 @@ def _load(app_dir: Path, n: int, sure: float) -> dict[str, Any]:
     return {
         "round": n,
         "score": float(grade.get("score", 0)),
-        "pick_score": _pick_score(grade, sure),
         "ats": (grade.get("ats") or {}).get("total"),
         "criticals": len(check.get("criticals") or []),
         "failed_items": len(failed),
@@ -99,11 +83,27 @@ def _gain(cur: dict[str, Any], ref: dict[str, Any]) -> float:
     return score(cur) - score(ref)
 
 
-def _best(rounds: list[dict[str, Any]]) -> dict[str, Any]:
+def _best(rounds: list[dict[str, Any]], sure: float) -> dict[str, Any]:
+    """Fewest criticals first, then the best score. Rounds are compared on the checklist items
+    every one of them was asked, leaving out Jev's coin flips: each round asks about the lines it
+    changed, so a round that edits more lines collects more 50/50 answers, and those decide
+    nothing (the Amazon BI Engineer draft, Oct 22 2026, kept round 1 over a round 2 that gained
+    3.6 ATS points because its coin flips came up yes). The full score breaks ties."""
+    common = set.intersection(*(set(r["items"]) for r in rounds))
+
+    def firm(r: dict[str, Any]) -> list[dict[str, Any]]:
+        return [r["items"][i] for i in common
+                if r["items"][i].get("passed") is not None and not _unsure(r["items"][i], sure)]
+
+    def pick(r: dict[str, Any]) -> float:
+        items = firm(r)
+        rate = sum(1 for it in items if it.get("passed")) / len(items) if items else 1.0
+        return 0.6 * float(r["ats"] or 0) + 40.0 * rate
+
     clean = [r for r in rounds if r["criticals"] == 0]
     if clean:
-        return max(clean, key=lambda r: (r["pick_score"], -r["round"]))
-    return min(rounds, key=lambda r: (r["criticals"], -r["pick_score"], r["round"]))
+        return max(clean, key=lambda r: (pick(r), r["score"], -r["round"]))
+    return min(rounds, key=lambda r: (r["criticals"], -pick(r), -r["score"], r["round"]))
 
 
 def _section_of(path: str, doc: str) -> str | None:
@@ -143,9 +143,9 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     loop_cfg = cfg.get("loop") or {}
     # A Jev answer near 50/50 is a coin flip, not a regression or a reason to prefer a round (Jake, Oct 21 2026).
     sure = loop_cfg.get("regression_min_confidence", 0.6)
-    rounds = [_load(app_dir, n, sure) for n in nums]
+    rounds = [_load(app_dir, n) for n in nums]
     cur, prev = rounds[-1], rounds[:-1]
-    best = _best(rounds)
+    best = _best(rounds, sure)
 
     max_rounds = loop_cfg.get("max_rounds", 3)
     min_gain = loop_cfg.get("min_gain", 2.0)
@@ -161,7 +161,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     if cur["criticals"] == 0 and cur["failed_items"] == 0 and (cur["ats"] or 0) >= target:
         reason = "all checks pass and the ATS score meets the target"
     elif prev:
-        ref = _best(prev)
+        ref = _best(prev, sure)
         newly_failed = {i for i in cur["failed_ids"] & ref["passed_ids"] if not _unsure(cur["items"][i], sure)}
         if cur["criticals"] > ref["criticals"]:
             reason = f"regression: round {cur['round']} has more criticals than round {ref['round']}"
