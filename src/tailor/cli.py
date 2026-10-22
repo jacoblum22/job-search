@@ -195,18 +195,12 @@ def packet(app_dir):
     _refresh_dashboard(cfg)
 
 
-@main.command()
-def repacket():
-    """Rebuild check.md and fit-notes.md for every application still waiting on review (not
-    approved, applied or dismissed), keeping the decisions already made. The free checks run
-    again under today's rules (Jev isn't asked; its flags are kept). Run after an update that
-    changes the review page or the checks."""
+def _open_folders(cfg) -> list[Path]:
+    """Application folders still waiting on review: not approved, applied or dismissed."""
     from src.db import connect
     from src.tailor import store
-    from src.tailor.packet import run_packet
     from src.tailor.paths import ROOT
 
-    cfg = load_config()
     conn = connect(resolve(cfg, "db"))
     try:
         dismissed = {r[0] for r in conn.execute("SELECT id FROM jobs WHERE status = 'dismissed'")}
@@ -214,13 +208,52 @@ def repacket():
                 if a.get("status") in ("ready_for_review", "needs_fixes") and a["job_id"] not in dismissed]
     finally:
         conn.close()
-    done = []
+    out = []
     for a in apps:
         folder = Path(a.get("folder") or "")
         if not folder.is_absolute():
             folder = ROOT / folder
-        if not (folder / "app.json").exists():
+        if (folder / "app.json").exists():
+            out.append(folder)
+    return out
+
+
+@main.command()
+def pending():
+    """Rounds waiting to be drafted in applications already up for review: a repair round
+    next-round asked for that was never run, or a letter-only round asked for here when the best
+    round's letter fails today's letter checks. The daily run does these before new jobs."""
+    from src.tailor.loop import letter_round, pending_round
+    from src.tailor.paths import ROOT
+
+    cfg = load_config()
+    out = []
+    for folder in _open_folders(cfg):
+        letter_round(folder, cfg)
+        rnd = pending_round(folder)
+        if rnd is None:
             continue
+        fb = json.loads((folder / "drafts" / f"r{rnd}" / "feedback.json").read_text(encoding="utf-8"))
+        try:
+            shown = folder.relative_to(ROOT).as_posix()
+        except ValueError:
+            shown = str(folder)
+        out.append({"app": shown, "round": rnd, "build_on": fb.get("build_on"),
+                    "kind": "letter" if fb.get("letter_only") else "repair"})
+    _out(out)
+
+
+@main.command()
+def repacket():
+    """Rebuild check.md and fit-notes.md for every application still waiting on review (not
+    approved, applied or dismissed), keeping the decisions already made. The free checks run
+    again under today's rules (Jev isn't asked; its flags are kept). Run after an update that
+    changes the review page or the checks."""
+    from src.tailor.packet import run_packet
+
+    cfg = load_config()
+    done = []
+    for folder in _open_folders(cfg):
         out = run_packet(folder, cfg, recheck=True)
         done.append({"folder": folder.name, "status": out["status"]})
     _out({"rebuilt": done})

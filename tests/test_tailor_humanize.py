@@ -152,3 +152,18 @@ def test_apply_without_flags_or_patches_writes_final_copies(tmp_path):
     res = humanize_apply(app, CFG)
     assert res["applied"] == [] and res["rejected"] == []
     assert (app / "humanize" / "resume.yaml").exists()
+
+
+def test_flags_reset_the_final_copies_to_the_current_best_round(tmp_path):
+    import json as _json
+
+    from src.tailor.appdir import humanized
+
+    app = make_app(tmp_path)
+    humanize_flags(app, CFG)
+    assert humanized(app, "resume.yaml") is not None
+    assert _json.loads((app / "humanize" / "round.json").read_text())["round"] == 2
+    # A later round became the best: round 2's copies are stale and nothing reads them.
+    data = _json.loads((app / "app.json").read_text())
+    write_json(app / "app.json", {**data, "best_round": 3})
+    assert humanized(app, "resume.yaml") is None and humanized(app, "cover-letter.json") is None

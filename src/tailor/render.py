@@ -16,7 +16,7 @@ from docx.shared import Inches, Pt
 
 from src import resume as resume_mod
 from src.tailor import TailorError
-from src.tailor.appdir import _UNSAFE, load_app, log, read_json, write_json
+from src.tailor.appdir import _UNSAFE, humanized, load_app, log, read_json, write_json
 from src.tailor.parsecheck import parse_check
 
 
@@ -39,9 +39,9 @@ def _rounds(app_dir: Path) -> list[int]:
 
 
 def _source_path(app_dir: Path, app: dict[str, Any], name: str) -> Path:
-    humanized = app_dir / "humanize" / name
-    if humanized.exists():
-        return humanized
+    shipped = humanized(app_dir, name)
+    if shipped:
+        return shipped
     rounds = _rounds(app_dir)
     best = app.get("best_round")
     order = ([best] if best in rounds else []) + sorted(rounds, reverse=True)

@@ -381,3 +381,9 @@ def test_queue_never_drafts_a_job_you_dismissed_or_applied_to(cfg):
     out = run_queue(cfg, limit=10)
     assert [appdir.load_app(p)["job_id"] for p in out] == [keep]
     assert other  # same posting group as a dismissed one, so left out too
+
+
+def test_limit_zero_queues_nothing_without_touching_the_database(tmp_path):
+    from src.tailor.queue import run_queue
+
+    assert run_queue({"paths": {"db": str(tmp_path / "missing" / "jobs.db")}}, limit=0) == []

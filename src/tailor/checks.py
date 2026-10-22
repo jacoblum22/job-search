@@ -34,7 +34,7 @@ from rapidfuzz import fuzz
 
 from src.resume import iter_bullets, load_resume, validate
 from src.tailor import metrics, phrases, rejects, taxonomy, wording
-from src.tailor.appdir import log, read_json, round_dir, write_json
+from src.tailor.appdir import humanized, log, read_json, round_dir, write_json
 from src.tailor.edits import LOCKED_FIELDS, load_base, load_index, norm
 from src.tailor.jev import Question
 from src.tailor.letter import run_letter_checks
@@ -599,15 +599,13 @@ def recheck(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
     app_dir = Path(app_dir)
     rdir = round_dir(app_dir, rnd)
     earlier = _read_optional(rdir / "check.json", {})
-    shipped = app_dir / "humanize" / "resume.yaml"
-    draft = load_resume(shipped if shipped.exists() else rdir / "resume.yaml")
+    shipped = humanized(app_dir, "resume.yaml")
+    draft = load_resume(shipped or rdir / "resume.yaml")
     base = load_base(app_dir, cfg)
     index = load_index(cfg)
     posting_path = app_dir / "posting.md"
     posting = posting_path.read_text(encoding="utf-8") if posting_path.exists() else ""
-    letter_path = app_dir / "humanize" / "cover-letter.json"
-    if not letter_path.exists():
-        letter_path = rdir / "cover-letter.json"
+    letter_path = humanized(app_dir, "cover-letter.json") or rdir / "cover-letter.json"
     ctx = _context(app_dir, cfg, index, base, _read_optional(app_dir / "requirements.json", {}), posting,
                    letter_path)
     criticals, warnings, _ = check_resume(draft, base, ctx)

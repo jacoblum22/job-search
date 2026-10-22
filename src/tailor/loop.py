@@ -14,8 +14,73 @@ from pathlib import Path
 from typing import Any
 
 from src.tailor import TailorError
-from src.tailor.appdir import log, read_json, round_dir, write_json
+from src.tailor.appdir import load_app, log, read_json, round_dir, write_json
 from src.tailor.grade import p_pass
+
+
+def _round_dirs(app_dir: Path) -> dict[int, Path]:
+    drafts = app_dir / "drafts"
+    out = {}
+    if drafts.is_dir():
+        for p in drafts.iterdir():
+            m = re.fullmatch(r"r(\d+)", p.name)
+            if m and p.is_dir():
+                out[int(m.group(1))] = p
+    return out
+
+
+def _feedback(app_dir: Path, n: int) -> dict[str, Any]:
+    p = round_dir(app_dir, n) / "feedback.json"
+    return read_json(p) if p.exists() else {}
+
+
+def pending_round(app_dir: Path) -> int | None:
+    """A round the tool asked for (its feedback.json is written) that was never graded: a run
+    stopped partway, or the round was asked for outside a run (a letter round, a repair that
+    `next-round` started after a fix). The daily run finishes these before new jobs."""
+    waiting = [n for n, d in _round_dirs(Path(app_dir)).items()
+               if (d / "feedback.json").exists() and not (d / "grade.json").exists()]
+    return max(waiting) if waiting else None
+
+
+def letter_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
+    """Ask for a letter-only round when the best round's letter fails a letter check under today's
+    rules (the 250-word rule of Oct 22 2026 flagged letters drafted before it). The resume carries
+    over from the best round unchanged. Writes `drafts/r<N>/feedback.json` and returns it, or None.
+
+    One try per best round: a letter round that didn't become the best, or that is the best and
+    still falls short, isn't asked for again, so a letter that can't be fixed doesn't cost a round
+    every day."""
+    from src.tailor.checks import recheck
+
+    app_dir = Path(app_dir)
+    best = (load_app(app_dir).get("best_round") or 0)
+    if not best or pending_round(app_dir) is not None:
+        return None
+    dirs = _round_dirs(app_dir)
+    if best not in dirs or _feedback(app_dir, best).get("letter_only"):
+        return None
+    if any(_feedback(app_dir, n).get("letter_only") and _feedback(app_dir, n).get("build_on") == best
+           for n in dirs):
+        return None
+    warnings = [w for w in recheck(app_dir, best, cfg).get("warnings") or []
+                if w.get("doc") == "letter" and w.get("code") in _ROUND_WARNINGS]
+    if not warnings:
+        return None
+    nxt = max(dirs) + 1
+    feedback = {
+        "round": nxt,
+        "build_on": best,
+        "letter_only": True,
+        "criticals": [],
+        "failed_items": [],
+        "warnings": [{"code": w["code"], "message": w["message"], "path": w.get("path", "")} for w in warnings],
+        "sections": ["letter"],
+    }
+    write_json(round_dir(app_dir, nxt) / "feedback.json", feedback)
+    log(app_dir, "letter-round", f"round {nxt}: letter only, on round {best}: "
+        + "; ".join(w["code"] for w in warnings))
+    return feedback
 
 
 def _round_numbers(app_dir: Path) -> list[int]:
@@ -132,6 +197,24 @@ def _sections(cur: dict[str, Any]) -> list[str]:
     return out
 
 
+def _finish_letter_round(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[str, Any],
+                         build_on: Any) -> dict[str, Any]:
+    """A letter-only round ends the loop. It keeps the resume it built on, so it becomes the best
+    unless the new letter added a critical: comparing Jev's answers on the same resume again would
+    only pick between coin flips."""
+    base = next((r for r in rounds if r["round"] == build_on), None) or _best(rounds[:-1])
+    if cur["criticals"] <= base["criticals"]:
+        best, reason = cur, f"letter round done: round {cur['round']} is round {base['round']}'s resume with the new letter"
+    else:
+        best, reason = base, f"letter round {cur['round']} added a critical: keeping round {base['round']}"
+    summaries = [
+        {"round": r["round"], "score": r["score"], "criticals": r["criticals"], "failed_items": r["failed_items"]}
+        for r in rounds
+    ]
+    log(app_dir, "loop", f"stop: {reason}", rounds=summaries, best_round=best["round"])
+    return {"action": "stop", "best_round": best["round"], "reason": reason, "next_round": None}
+
+
 def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     app_dir = Path(app_dir)
     nums = _round_numbers(app_dir)
@@ -143,6 +226,10 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     rounds = [_load(app_dir, n) for n in nums]
     cur, prev = rounds[-1], rounds[:-1]
     best = _best(rounds)
+
+    letter_only = _feedback(app_dir, cur["round"])
+    if letter_only.get("letter_only") and prev:
+        return _finish_letter_round(app_dir, rounds, cur, letter_only.get("build_on"))
 
     max_rounds = loop_cfg.get("max_rounds", 3)
     min_gain = loop_cfg.get("min_gain", 2.0)

@@ -83,14 +83,21 @@ for another way to run it, note it for the digest.
 1. Read `materials/docs/tailoring-rules.md` (the rules file). It is binding for everything you write.
 2. Read `docs/tailoring-contract.md` once for the file shapes.
 
-**Step A: unfinished folders, then the queue**
+**Step A: unfinished folders, waiting rounds, then the queue**
 
 1. Glob `materials/applications/*/app.json` and read each. A folder whose `status` is still
    `shortlisted` was left unfinished by an earlier run: finish it first (Step B, starting at the first
    step whose output file is missing).
-2. Run `{QUEUE}`. It prints a JSON list of new application folders (capped by `tailor.daily_cap`,
-   best A-tier jobs first). If the list is empty and nothing was unfinished, end with the one-line
-   digest "Nothing new to tailor".
+2. Run `uv run python -m src.tailor pending`. It prints a JSON list of folders already up for review
+   that have a round waiting: `{"app", "round", "build_on", "kind"}`. `kind` "repair" is a repair
+   round the tool asked for; "letter" is a letter-only round (the letter fails a letter check
+   added since it was drafted; the resume stays as it is). For each, in order, run that round as
+   Step B step 9 describes from "If it asks for another round" (follow `prompts/tailor/repair.md`
+   for round N; if that round's `edits.json` and `cover-letter.json` already exist, start at
+   `apply-edits`), keep going with `next-round` as step 9 says, then do step 10.
+3. Run `{QUEUE}`. It prints a JSON list of new application folders (capped by `tailor.daily_cap`,
+   best A-tier jobs first). If the list is empty and nothing was unfinished or waiting, end with the
+   one-line digest "Nothing new to tailor".
 
 **Step B: for each folder, in the order printed, do steps 1 to 10 below.** Finish or skip one
 folder before starting the next. Keep a running note of the outcome for the digest.

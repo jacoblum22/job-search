@@ -308,3 +308,85 @@ def test_regression_with_a_wording_gap_repairs_again_from_the_best_round(tmp_pat
     add_round(app2, 1, 65.6, items=[item("a", True)], ats=72, feedback=["x"])
     add_round(app2, 2, 57.6, items=[item("a", False)], ats=72, feedback=["x"])
     assert next_round(app2, CFG)["reason"].startswith("regression")
+
+
+def test_pending_round_is_a_round_asked_for_and_never_graded(tmp_path):
+    from src.tailor.loop import pending_round
+
+    app = new_app(tmp_path)
+    add_round(app, 1, 60, items=[item("must.r1", False, ["summary"])], ats=60, feedback=["show SQL"])
+    assert pending_round(app) is None
+    next_round(app, CFG)
+    assert pending_round(app) == 2
+    add_round(app, 2, 70, items=[item("must.r1", True)], ats=66)
+    assert pending_round(app) is None
+
+
+def _letter_app(tmp_path, monkeypatch, warnings):
+    import src.tailor.checks as checks
+
+    app = new_app(tmp_path)
+    add_round(app, 1, 60, ats=60)
+    add_round(app, 2, 70, ats=66)
+    write_json(app / "app.json", {"history": [], "best_round": 2})
+    calls = []
+
+    def fake_recheck(app_dir, rnd, cfg):
+        calls.append(rnd)
+        return {"criticals": [], "warnings": warnings}
+
+    monkeypatch.setattr(checks, "recheck", fake_recheck)
+    return app, calls
+
+
+SHORT = {"code": "letter_length", "message": "214 words; aim for about 250-300 (add a little); use the room "
+         "to show Airflow", "path": "letter", "doc": "letter", "data": {"words": 214, "show": ["Airflow"]}}
+
+
+def test_letter_round_asked_for_when_the_best_letter_fails_todays_rules(tmp_path, monkeypatch):
+    from src.tailor.loop import letter_round, pending_round
+
+    app, calls = _letter_app(tmp_path, monkeypatch, [SHORT, {**SHORT, "code": "ai_phrase"}])
+    fb = letter_round(app, CFG)
+    assert calls == [2]
+    assert fb["round"] == 3 and fb["build_on"] == 2 and fb["letter_only"] is True
+    assert fb["sections"] == ["letter"] and [w["code"] for w in fb["warnings"]] == ["letter_length"]
+    assert "Airflow" in fb["warnings"][0]["message"]
+    assert pending_round(app) == 3
+    # Already waiting: not asked for twice.
+    assert letter_round(app, CFG) is None
+
+
+def test_letter_round_not_asked_for_a_good_letter(tmp_path, monkeypatch):
+    from src.tailor.loop import letter_round
+
+    app, _ = _letter_app(tmp_path, monkeypatch, [{**SHORT, "doc": "resume", "code": "term_stuffing"}])
+    assert letter_round(app, CFG) is None
+    assert not (app / "drafts" / "r3").exists()
+
+
+def test_letter_round_ends_the_loop_and_becomes_best(tmp_path, monkeypatch):
+    from src.tailor.loop import letter_round
+
+    app, _ = _letter_app(tmp_path, monkeypatch, [SHORT])
+    letter_round(app, CFG)
+    # Jev's answers on the same resume came out a little lower: still the letter round wins.
+    add_round(app, 3, 68, ats=66)
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and out["best_round"] == 3 and "letter round done" in out["reason"]
+    assert not (app / "drafts" / "r4").exists()
+    # One try per best round: the letter round is the best now and isn't redone.
+    assert letter_round(app, CFG) is None
+
+
+def test_letter_round_that_adds_a_critical_keeps_the_round_it_built_on(tmp_path, monkeypatch):
+    from src.tailor.loop import letter_round
+
+    app, _ = _letter_app(tmp_path, monkeypatch, [SHORT])
+    letter_round(app, CFG)
+    add_round(app, 3, 72, criticals=[crit("letter", "letter")], ats=66)
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and out["best_round"] == 2
+    write_json(app / "app.json", {**json.loads((app / "app.json").read_text()), "best_round": 2})
+    # The try was spent on round 2: no new letter round every day.
+    assert letter_round(app, CFG) is None

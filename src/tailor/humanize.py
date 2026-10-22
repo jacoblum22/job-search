@@ -114,6 +114,13 @@ def humanize_flags(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
         if hits:
             flags.append({"path": path, "text": text, "reasons": _reasons(hits)})
     write_json(app_dir / "humanize" / "flags.json", flags)
+    # The final copies start as this round's draft, so a round with nothing flagged (where the run
+    # skips humanize-apply) doesn't leave an earlier round's copies to be rendered; patches written
+    # for an earlier round are dropped.
+    _write_outputs(app_dir, n, resume, letter)
+    stale = app_dir / "humanize" / "patches.json"
+    if stale.exists():
+        stale.unlink()
     log(app_dir, "humanize-flags", f"round {n}: {len(flags)} flagged lines")
     return flags
 
@@ -150,14 +157,17 @@ def _total_hits(resume, letter, posting, own) -> int:
     return sum(len(phrases.scan(t, posting, own, letter=lt)) for _, t, lt in _lines(resume, letter))
 
 
-def _write_outputs(app_dir: Path, resume: dict[str, Any], letter: dict[str, Any] | None) -> None:
+def _write_outputs(app_dir: Path, n: int, resume: dict[str, Any], letter: dict[str, Any] | None) -> None:
     out = app_dir / "humanize"
     out.mkdir(parents=True, exist_ok=True)
+    write_json(out / "round.json", {"round": n})
     (out / "resume.yaml").write_text(
         yaml.safe_dump(resume, sort_keys=False, allow_unicode=True, width=10_000), encoding="utf-8"
     )
     if letter is not None:
         write_json(out / "cover-letter.json", letter)
+    elif (out / "cover-letter.json").exists():
+        (out / "cover-letter.json").unlink()
 
 
 def humanize_apply(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
@@ -213,7 +223,7 @@ def humanize_apply(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
             rejected.append({"path": a["path"], "reason": "pass reverted: style hits went up"})
         applied = []
         patched, patched_letter = resume, letter
-    _write_outputs(app_dir, patched, patched_letter)
+    _write_outputs(app_dir, n, patched, patched_letter)
     result = {"applied": applied, "rejected": rejected, "reverted": reverted, "note": note}
     log(app_dir, "humanize-apply", f"round {n}: {len(applied)} applied, {len(rejected)} rejected" + (", reverted" if reverted else ""))
     return result

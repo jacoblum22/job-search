@@ -73,10 +73,10 @@ def _fit_notes(app: dict[str, Any], evidence: dict[str, Any], reqs: dict[str, An
 
 def _final_resume(rd: Path | None, app_dir: Path) -> tuple[Path | None, dict[str, Any] | None]:
     """The resume that was rendered: the humanized one if present, else the best round's."""
-    path = app_dir / "humanize" / "resume.yaml"
-    if not path.exists() and rd is not None:
+    path = appdir.humanized(app_dir, "resume.yaml")
+    if path is None and rd is not None:
         path = rd / "resume.yaml"
-    if not path.exists():
+    if path is None or not path.exists():
         return None, None
     try:
         return path, load_resume(path)
@@ -125,7 +125,7 @@ def _drop_humanized(issues: list[dict[str, Any]], app_dir: Path) -> list[dict[st
     """Leave out AI-style phrase warnings once the humanize pass has run. check.json judged the
     round's draft, but that pass is where these are handled: it rewrites what it can, and one it
     left alone isn't worth a review line (Jake, Oct 22 2026)."""
-    if not (app_dir / "humanize").is_dir():
+    if appdir.humanized(app_dir, "resume.yaml") is None:
         return issues
     return [it for it in issues if it.get("code") != "ai_phrase"]
 

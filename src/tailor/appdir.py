@@ -53,6 +53,21 @@ def save_app(app_dir: Path, app: dict[str, Any]) -> None:
     write_json(app_dir / "app.json", app)
 
 
+def humanized(app_dir: Path, name: str) -> Path | None:
+    """The humanize pass's copy of `name` (resume.yaml or cover-letter.json) when it was made from
+    the current best round. A later round that becomes the best makes the old copy stale: rendering
+    it would ship the earlier draft. Copies from before the pass recorded its round count as current."""
+    path = app_dir / "humanize" / name
+    if not path.exists():
+        return None
+    marker = app_dir / "humanize" / "round.json"
+    if marker.exists():
+        best = load_app(app_dir).get("best_round")
+        if best and int(read_json(marker).get("round") or 0) != int(best):
+            return None
+    return path
+
+
 def log(app_dir: Path, step: str, note: str = "", **fields: Any) -> dict[str, Any]:
     """Append to app.json history (and set any top-level fields); returns the updated app."""
     app = load_app(app_dir)
