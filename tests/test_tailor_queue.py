@@ -173,7 +173,7 @@ def test_packet_criticals_and_missing_inputs(cfg):
         run_packet(d, cfg)
 
 
-def test_packet_drops_style_warnings_the_humanize_pass_fixed(cfg):
+def test_packet_leaves_ai_phrases_to_the_humanize_pass(cfg):
     _, d = _packet_app(cfg)
     r1 = d / "drafts" / "r1"
     letter = {"greeting": "Dear Hiring Manager,", "paragraphs": [
@@ -182,13 +182,15 @@ def test_packet_drops_style_warnings_the_humanize_pass_fixed(cfg):
     appdir.write_json(r1 / "check.json", {"criticals": [], "flags": [], "warnings": [
         {"code": "ai_phrase", "message": "paragraphs[0]: banned_word 'leveraged'", "path": "paragraphs[0]", "doc": "letter"},
         {"code": "ai_phrase", "message": "paragraphs[1]: banned_word 'leveraged'", "path": "paragraphs[1]", "doc": "letter"}]})
-    # humanize rewrote only the first paragraph
+    run_packet(d, cfg)  # no humanize pass yet: they're listed
+    assert "paragraph 2" in (d / "check.md").read_text().split("## Remaining issues")[1]
+    # humanize rewrote only the first paragraph; neither is a review line once it has run
     letter["paragraphs"][0]["text"] = "I used SQL daily."
     appdir.write_json(d / "humanize" / "cover-letter.json", letter)
     (d / "humanize" / "resume.yaml").write_text((r1 / "resume.yaml").read_text())
     run_packet(d, cfg)
     issues = (d / "check.md").read_text().split("## Remaining issues")[1]
-    assert "paragraph 2" in issues and "paragraph 1" not in issues
+    assert "paragraph 1" not in issues and "paragraph 2" not in issues
 
 
 def test_gate_skipped_without_jev_key(cfg):
