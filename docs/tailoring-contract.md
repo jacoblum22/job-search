@@ -287,14 +287,16 @@ bullet whose related passages close the gap gets those citations instead of bein
 
 ```json
 {"ats": {"total": 78.0, "components": {"keyword": 80, "skills": 75, "title": 100, "sections": 100, "dates": 100}},
- "checklist": [{"id": "must.r1", "question": "...", "passed": true, "confidence": 0.9, "source": "jev|code|unchecked",
+ "checklist": [{"id": "must.r1", "question": "...", "passed": true, "confidence": 0.9, "p_pass": 0.9, "source": "jev|code|unchecked",
                 "sections": ["summary", "experience/algaecal"]}],
  "score": 76.2, "stuffing": false, "gaps": [{"id": "must.r1", "sentence": "...", "sections": ["experience/algaecal"]}],
  "feedback": ["Must-have 'dbt' isn't shown; passage resess.pipeline supports it."]}
 ```
 
-`score` = 0.6 × ATS total + 0.4 × checklist pass rate × 100 (unchecked items count as passed for the
-score but are listed). In the keyword and skills components a must-have term weighs 1.5, a
+`score` = 0.6 × ATS total + 0.4 × checklist pass rate × 100, where each item counts by `p_pass`
+(Jev's probability that it passes, so a 0.51 yes and a 0.49 no weigh about the same; unchecked items
+count as passed for the score but are listed). Choosing the best round compares rounds only on the
+checklist items every round was asked. In the keyword and skills components a must-have term weighs 1.5, a
 boilerplate term 0.25 and a soft skill (taxonomy "Soft skills": communication, teamwork...) 0.5
 (`tailor.ats_soft_weight`), since ATS searches and recruiter filters key on hard skills. `feedback` is built by code from failed items; it never quotes the checklist
 question wording.
