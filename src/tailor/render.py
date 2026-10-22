@@ -216,6 +216,22 @@ def _contact(cfg: dict[str, Any], data: dict[str, Any]) -> dict[str, str]:
     return base
 
 
+def _short_title(title: str, limit: int = 60) -> str:
+    """The job title for a file name, without bracketed asides and never cut mid-word:
+    "Business Intelligence Engineer, IT PnD Data & Analytics (DnA)" keeps everything but "(DnA)".
+    The rest stays, since it is what tells two jobs at one company apart."""
+    words = _safe(re.sub(r"\([^)]*\)?", " ", title)).split()
+    out: list[str] = []
+    for w in words:
+        if len(" ".join([*out, w])) > limit:
+            break
+        out.append(w)
+    while out and (out[-1].lower() in {"and", "&", "of", "for", "the", "a", "-", "|", "in", "with"}
+                   or not re.search(r"\w", out[-1])):
+        out.pop()
+    return " ".join(out).rstrip(",;:") or _safe(title)[:limit]
+
+
 def _company_twins(app_dir: Path, app: dict[str, Any]) -> bool:
     """True when another application folder beside this one is for the same company."""
     me = str(app.get("company") or "").strip().lower()
@@ -250,9 +266,14 @@ def run_render(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     final.mkdir(exist_ok=True)
     # Two applications to one company would upload as identical file names, so add the job title.
     if _company_twins(app_dir, app):
-        company = f"{company} - {_safe(str(app.get('title') or ''))[:50].strip()}".rstrip(" -")
+        company = f"{company} - {_short_title(str(app.get('title') or ''))}".rstrip(" -")
     resume_stem = f"{name} Resume - {company}"
     letter_stem = f"{name} Cover Letter - {company}"
+    # A rerender under another name (a title added, a rule changed) would leave the old files
+    # beside the new ones, and either could get uploaded.
+    for old in [*final.glob(f"{name} Resume - *"), *final.glob(f"{name} Cover Letter - *")]:
+        if old.suffix.lower() in (".pdf", ".docx") and old.stem not in (resume_stem, letter_stem):
+            old.unlink()
 
     def pages_of(candidate: dict[str, Any]) -> int:
         with tempfile.TemporaryDirectory() as tmp:

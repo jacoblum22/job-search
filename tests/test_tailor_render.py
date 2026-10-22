@@ -172,7 +172,11 @@ def test_run_render_end_to_end(tmp_path):
     (app / "app.json").write_text(
         json.dumps({"company": "Acme Corp", "status": "drafted", "best_round": 1}), encoding="utf-8"
     )
+    # Files from an earlier render under another name don't survive a rerender.
+    (app / "final").mkdir()
+    (app / "final" / "Alex Rivera Resume - Acme Corp - Old Ti.pdf").write_bytes(b"old")
     out = run_render(app, {"contact": CONTACT})
+    assert not (app / "final" / "Alex Rivera Resume - Acme Corp - Old Ti.pdf").exists()
     assert out["ok"], out
     final = app / "final"
     for name in ("Alex Rivera Resume - Acme Corp.pdf", "Alex Rivera Cover Letter - Acme Corp.docx",
@@ -381,3 +385,13 @@ def test_company_twins_finds_a_second_application_to_the_same_company(tmp_path):
     solo = app("2026-10-20 Allstate - Analyst", "Allstate")
     assert _company_twins(ds, {"company": "Amazon"})
     assert not _company_twins(solo, {"company": "Allstate"})
+
+
+def test_file_name_title_keeps_whole_words_and_drops_brackets():
+    from src.tailor.render import _short_title
+
+    assert _short_title("Business Intelligence Engineer, IT PnD Data & Analytics (DnA)") == \
+        "Business Intelligence Engineer, IT PnD Data & Analytics"
+    assert _short_title("Data Engineer (12 Month Contract)") == "Data Engineer"
+    assert _short_title("Senior Data-Driven Experimentation and Machine Learning Platform Engineer for Payments") == \
+        "Senior Data-Driven Experimentation and Machine Learning"
