@@ -253,3 +253,17 @@ def test_skill_the_draft_added_to_the_list_only_earns_a_round(tmp_path):
                           "data": {"term": "AWS S3", "added": True}}]
     write_json(app / "drafts" / "r1" / "check.json", check)
     assert next_round(app, CFG)["action"] == "repair"
+
+
+def test_best_round_ignores_coin_flip_jev_answers(tmp_path):
+    # Amazon BI Engineer, Oct 22 2026: round 2 used the posting's words (ATS 56.6 -> 60.2) but two
+    # Jev "no"s at 0.5 and 0.55 dropped its score under round 1's, so round 1's resume was kept.
+    app = new_app(tmp_path)
+    sure_no = {**item("must.r7", False), "confidence": 0.97}
+    r1 = [sure_no] + [item(f"a{i}", True) for i in range(15)]
+    add_round(app, 1, 67.3, items=r1, ats=56.6, feedback=["fix"])
+    flips = [{**item("must.r10", False), "confidence": 0.55}, {**item("portable.x", False), "confidence": 0.5}]
+    r2 = [sure_no] + flips + [item(f"a{i}", True) for i in range(12)]
+    add_round(app, 2, 62.8, items=r2, ats=60.2, feedback=["fix"])
+    out = next_round(app, CFG)
+    assert out["best_round"] == 2
