@@ -341,6 +341,10 @@ def rescore_all(
     whose scored fields haven't changed since the previous call.
     """
     counts: dict[str, int] = {}
+    # Postings stored flattened onto one line hide their headings from scoring and review.
+    from src.db import reflow_stored
+
+    reflow_stored(conn)
     rows = conn.execute(
         "SELECT id, title, description, location_category, years_experience, location, company FROM jobs"
     ).fetchall()

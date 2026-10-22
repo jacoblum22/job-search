@@ -17,6 +17,7 @@ from typing import Any
 from src.experience import parse_min_years_experience
 from src.location_filter import classify_location
 from src.posting_status import closed_reason, seen_date
+from src.reflow import reflow
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -74,6 +75,7 @@ class Job:
     def __post_init__(self) -> None:
         # Derived fields, not settable by adapters directly — every source's
         # location/description text is parsed the same way.
+        self.description = reflow(self.description)
         self.years_experience = (
             parse_min_years_experience(self.description) if self.description else None
         )
@@ -305,3 +307,17 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
 
     result.sort(key=lambda r: r["first_seen"], reverse=True)
     return result
+
+
+def reflow_stored(conn: sqlite3.Connection) -> int:
+    """Give stored descriptions that arrived flattened onto one line their lines back
+    (src/reflow.py). New rows are reflowed on the way in; this catches older ones."""
+    rows = conn.execute(
+        "SELECT id, description FROM jobs WHERE length(description) >= 800 "
+        "AND length(description) - length(replace(description, char(10), '')) < 3"
+    ).fetchall()
+    changed = [(new, r[0]) for r in rows if (new := reflow(r[1])) != r[1]]
+    if changed:
+        conn.executemany("UPDATE jobs SET description = ? WHERE id = ?", changed)
+        conn.commit()
+    return len(changed)
