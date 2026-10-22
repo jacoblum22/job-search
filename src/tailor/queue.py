@@ -167,6 +167,8 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
     gate = cfg.get("gate") or {}
     tiers = cfg.get("tiers") or ["A", "B"]
     limit = limit if limit is not None else int(cfg.get("daily_cap", 3))
+    if limit <= 0 and not job_ids:
+        return []  # a run that only finishes waiting rounds (run_tailoring.ps1 -ResumeOnly)
     tier_pos = {t: i for i, t in enumerate(tiers)}
     conn = store.connect(resolve(cfg, "db"))
     try:

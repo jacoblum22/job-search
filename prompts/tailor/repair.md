@@ -57,6 +57,13 @@ already passed.
     `sources` cite a passage for every claim in it; if one is missing, add that passage and keep the
     wording. Change the wording only when no passage backs the claim.
 
+## Letter-only rounds
+
+When `feedback.json` has `"letter_only": true`, `sections` is `["letter"]`: the resume is already
+done and stays exactly as round `B` has it. Write `edits.json` as `{"edits": []}` and rewrite only
+the letter to answer the listed warnings (for a short letter, use the room for the skills the
+warning names, as rule 2 says). Everything else in this prompt still applies to the letter.
+
 ## Output
 
 Write `drafts/r<N>/edits.json` and `drafts/r<N>/cover-letter.json` in the same shapes as steps 4 and

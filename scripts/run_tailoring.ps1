@@ -5,6 +5,8 @@
 #
 # Test on one job:   .\scripts\run_tailoring.ps1 -Limit 1   (or -JobId 812)
 # Normal daily run:  .\scripts\run_tailoring.ps1            (tailor.daily_cap jobs)
+# Waiting rounds only (repair or letter rounds on applications up for review, no new jobs):
+#                    .\scripts\run_tailoring.ps1 -ResumeOnly
 # Afterwards run_tailoring_review.ps1 reviews the log and opens a PR for any pipeline
 # fixes (docs/run-review-task.md); -NoReview skips that.
 
@@ -12,7 +14,8 @@ param(
     [int]$JobId = 0,
     [int]$Limit = 0,
     [double]$MaxBudgetUsd = 0,
-    [switch]$NoReview
+    [switch]$NoReview,
+    [switch]$ResumeOnly
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -32,7 +35,10 @@ $OutputEncoding = $utf8
 [Console]::OutputEncoding = $utf8
 
 Set-Location $projectRoot
-if ($JobId -gt 0) {
+if ($ResumeOnly) {
+    $queueCmd = "uv run python -m src.tailor queue --limit 0"
+    $mode = "waiting rounds only"
+} elseif ($JobId -gt 0) {
     $queueCmd = "uv run python -m src.tailor queue --job-id $JobId"
     $mode = "job $JobId"
 } elseif ($Limit -gt 0) {
