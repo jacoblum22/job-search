@@ -13,8 +13,10 @@ already passed.
 - `drafts/r<N>/feedback.json`: `criticals`, `failed_items`, `warnings` (style problems such as a term
   repeated too often, text copied from the posting, or a letter outside 200-300 words), and
   `sections` (the only paths you may change)
-- `drafts/r<N-1>/edits.json` and `drafts/r<N-1>/cover-letter.json` (the previous draft)
-- `drafts/r<N-1>/check.json` and `grade.json` (for context)
+- `drafts/r<B>/edits.json` and `drafts/r<B>/cover-letter.json` (the draft you build on), where `B` is
+  feedback.json's `build_on`: normally N-1, but when round N-1 made things worse it names the best
+  earlier round, and round N-1's changes are dropped
+- `drafts/r<B>/check.json` and `grade.json` (for context)
 - `evidence.json` (PRESENT / ABSENT), `requirements.json`, the base resume, the vault index, the
   rules file
 
@@ -58,8 +60,8 @@ already passed.
 ## Output
 
 Write `drafts/r<N>/edits.json` and `drafts/r<N>/cover-letter.json` in the same shapes as steps 4 and
-4b. `edits.json` lists only this round's changes, made **against the previous draft**
-(`drafts/r<N-1>/resume.yaml`): each `original` is copied from that file, since `apply-edits` starts
+4b. `edits.json` lists only this round's changes, made **against the draft you build on**
+(`drafts/r<B>/resume.yaml`, `B` from `build_on`): each `original` is copied from that file, since `apply-edits` starts
 from it, not from the base. `cover-letter.json`
 is always complete. If the letter is not in `sections`, copy it unchanged.
 
@@ -80,5 +82,5 @@ for dbt citing `northwind.pipeline`. Nothing else goes in `edits.json`; the rest
 - [ ] Each critical and failed item is addressed, and nothing else was touched.
 - [ ] No number remains that the cited passage does not state; none was reworded around.
 - [ ] No ABSENT term was added; no must-have was claimed without a passage.
-- [ ] Every `original` in `edits.json` is copied from `drafts/r<N-1>/resume.yaml`; `cover-letter.json`
+- [ ] Every `original` in `edits.json` is copied from `drafts/r<B>/resume.yaml` (`B` = `build_on`); `cover-letter.json`
   is complete; both are valid JSON.

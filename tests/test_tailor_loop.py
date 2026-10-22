@@ -274,3 +274,37 @@ def test_best_round_ignores_coin_flip_jev_answers(tmp_path):
                  jev("portable.std", True, 0.51)]
     add_round(app, 2, 62.8, items=r2, ats=60.2, feedback=["fix"])
     assert next_round(app, CFG)["best_round"] == 2
+
+
+def test_regression_with_a_wording_gap_repairs_again_from_the_best_round(tmp_path):
+    # REW.ca Data Engineer, Oct 20 2026: round 2 failed an item round 1 passed and the loop
+    # stopped at ATS 57.1 with 75.3 reachable. A wording gap that big earns another round, from round 1.
+    app = new_app(tmp_path)
+    add_round(app, 1, 65.6, items=[item("a", True), item("b", False)], ats=56.0, feedback=["use the words: cloud"])
+    add_round(app, 2, 57.6, items=[item("a", False), item("b", False)], ats=57.1, feedback=["r2 notes"])
+    for n in (1, 2):
+        gp = app / "drafts" / f"r{n}" / "grade.json"
+        g = json.loads(gp.read_text())
+        g["needs_ats_repair"] = True
+        gp.write_text(json.dumps(g))
+    out = next_round(app, CFG)
+    assert out["action"] == "repair" and out["next_round"] == 3 and "from round 1" in out["reason"]
+    fb = json.loads((app / "drafts" / "r3" / "feedback.json").read_text())
+    assert fb["build_on"] == 1 and fb["failed_items"] == ["use the words: cloud"]
+    # REW.ca's own shape: round 1 had criticals, so round 2 is still the best and round 3 builds on it
+    (tmp_path / "c").mkdir()
+    app3 = new_app(tmp_path / "c")
+    add_round(app3, 1, 65.6, criticals=[crit("summary")], items=[item("a", True)], ats=56.0, feedback=["r1"])
+    add_round(app3, 2, 57.6, items=[item("a", False)], ats=57.1, feedback=["r2 words: cloud"])
+    gp = app3 / "drafts" / "r2" / "grade.json"
+    g = json.loads(gp.read_text())
+    g["needs_ats_repair"] = True
+    gp.write_text(json.dumps(g))
+    assert next_round(app3, CFG)["action"] == "repair"
+    assert json.loads((app3 / "drafts" / "r3" / "feedback.json").read_text())["build_on"] == 2
+    # without a wording gap the regression still stops the loop
+    (tmp_path / "b").mkdir()
+    app2 = new_app(tmp_path / "b")
+    add_round(app2, 1, 65.6, items=[item("a", True)], ats=72, feedback=["x"])
+    add_round(app2, 2, 57.6, items=[item("a", False)], ats=72, feedback=["x"])
+    assert next_round(app2, CFG)["reason"].startswith("regression")

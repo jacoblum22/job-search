@@ -751,3 +751,22 @@ def test_related_passages_reach_every_clause_of_a_long_summary():
     text = ", ".join(topics) + ". BSc in Cognitive Systems"
     out = related_passages(text, ["work.cited"], index, limit=12)
     assert "work.major" in out and len(out) == 12
+
+
+def test_repair_round_builds_on_the_round_feedback_names(tmp_path):
+    # When round 2 regressed, round 3 starts again from round 1 (feedback.json build_on).
+    app, cfg = make_app(tmp_path)
+    write_edits(app, [sql_edit()])
+    write_letter(app, LETTER)
+    apply_edits(app, 1, cfg)
+    shutil.copytree(app / "drafts/r1", app / "drafts/r2")
+    bad = load_resume(app / "drafts/r2/resume.yaml")
+    bad["experience"][0]["bullets"][0]["text"] = "A worse line from round 2."
+    (app / "drafts/r2/resume.yaml").write_text(yaml.safe_dump(bad, sort_keys=False))
+    (app / "drafts/r3").mkdir()
+    (app / "drafts/r3/feedback.json").write_text(json.dumps(
+        {"round": 3, "build_on": 1, "criticals": [], "failed_items": [], "sections": ["summary"]}))
+    write_edits(app, [], rnd=3)
+    apply_edits(app, 3, cfg)
+    b = {x["id"]: x for x in load_resume(app / "drafts/r3/resume.yaml")["experience"][0]["bullets"]}
+    assert b["northwind.sql-daily"]["text"] == SQL_NEW
