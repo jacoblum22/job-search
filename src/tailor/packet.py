@@ -250,6 +250,10 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     lines += _changes(rd, app_dir, cfg) or ["- No changes"]
     issues = [it for sev in ("criticals", "warnings", "flags") for it in (check or {}).get(sev) or []]
     issues = _drop_humanized(issues, app_dir)
+    # A skill already in the base's list was approved with the base; only one the draft added
+    # needs a look (older check.json files don't say, so those stay).
+    issues = [it for it in issues if not (it.get("code") == "skill_only_in_list"
+                                          and (it.get("data") or {}).get("added") is False)]
     lines += ["", "## Remaining issues", ""] + _note(explain.ISSUES)
     boxed = [it for it in issues if not explain.is_note(it)]
     for it in boxed:
@@ -301,13 +305,18 @@ def _suggestions(app_dir: Path, reqs: dict[str, dict], index: dict[str, dict] | 
     return lines
 
 
-def run_packet(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
-    """Write fit-notes.md and check.md and move the application to review."""
+def run_packet(app_dir: Path, cfg: dict[str, Any], recheck: bool = False) -> dict[str, Any]:
+    """Write fit-notes.md and check.md and move the application to review. With `recheck`
+    (repacket), the code-only checks run again under today's rules instead of being read back."""
     app = appdir.load_app(app_dir)
     evidence = appdir.read_json(app_dir / "evidence.json")
     rnd = _best_round(app_dir, app)
     rd = appdir.round_dir(app_dir, rnd) if rnd else None
     check = _opt_json(rd / "check.json") if rd else None
+    if recheck and check is not None:
+        from src.tailor.checks import recheck as run_recheck
+
+        check = run_recheck(app_dir, rnd, cfg)
     base = _base_id(app_dir, app, evidence.get("buckets") or {})
     (app_dir / "fit-notes.md").write_text(
         _fit_notes(app, evidence, _opt_json(app_dir / "requirements.json"), base), encoding="utf-8")

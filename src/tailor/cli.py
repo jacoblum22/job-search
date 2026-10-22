@@ -198,8 +198,9 @@ def packet(app_dir):
 @main.command()
 def repacket():
     """Rebuild check.md and fit-notes.md for every application still waiting on review (not
-    approved, applied or dismissed), keeping the decisions already made. Run after an update
-    that changes the review page."""
+    approved, applied or dismissed), keeping the decisions already made. The free checks run
+    again under today's rules (Jev isn't asked; its flags are kept). Run after an update that
+    changes the review page or the checks."""
     from src.db import connect
     from src.tailor import store
     from src.tailor.packet import run_packet
@@ -220,7 +221,7 @@ def repacket():
             folder = ROOT / folder
         if not (folder / "app.json").exists():
             continue
-        out = run_packet(folder, cfg)
+        out = run_packet(folder, cfg, recheck=True)
         done.append({"folder": folder.name, "status": out["status"]})
     _out({"rebuilt": done})
     _refresh_dashboard(cfg)
