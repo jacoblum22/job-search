@@ -108,7 +108,7 @@ def gap_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
         return None
     dirs = _round_dirs(app_dir)
     rdir = round_dir(app_dir, best)
-    if best not in dirs or not (rdir / "grade.json").exists() or _feedback(app_dir, best).get("letter_only"):
+    if best not in dirs or not (rdir / "grade.json").exists():
         return None
     if any(_feedback(app_dir, n).get("revisit") and _feedback(app_dir, n).get("build_on") == best for n in dirs):
         return None

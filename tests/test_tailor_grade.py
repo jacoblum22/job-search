@@ -189,6 +189,24 @@ def test_stuffing_needs_high_score_and_repetition():
 # --- run_grade ------------------------------------------------------------
 
 
+def test_regrade_scores_the_ats_again_under_todays_rules(tmp_path):
+    # Remarcable, Oct 23 2026: the review page kept an ATS graded under older rules.
+    from src.tailor.grade import regrade
+    app = make_app(tmp_path)
+    fresh = run_grade(app, 1, CFG, FakeJev({}))
+    path = app / "drafts" / "r1" / "grade.json"
+    stale = {**fresh, "ats": {"total": 10.0, "components": {}}, "ats_ceiling": 99.0, "score": 1.0,
+             "gaps": [{"id": "ats.unused", "sentence": "Use the posting's own words: old."}],
+             "feedback": ["Use the posting's own words: old.", "kept"]}
+    write_json(path, stale)
+    out = regrade(app, 1, CFG)
+    assert out["ats"] == fresh["ats"] and out["ats_ceiling"] == fresh["ats_ceiling"]
+    assert out["score"] == fresh["score"] and out["checklist"] == fresh["checklist"]
+    assert "Use the posting's own words: old." not in out["feedback"] and "kept" in out["feedback"]
+    assert json.loads(path.read_text())["ats_ceiling"] == 99.0  # nothing written
+    assert regrade(app, 2, CFG) is None
+
+
 def test_run_grade_without_jev_marks_everything_unchecked(tmp_path):
     app = make_app(tmp_path)
     out = run_grade(app, 1, CFG, FakeJev({}))

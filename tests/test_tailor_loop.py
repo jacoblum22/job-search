@@ -455,6 +455,28 @@ def test_title_note_counts_as_a_wording_gap(tmp_path):
     assert title in json.loads((app / "drafts" / "r2" / "feedback.json").read_text())["failed_items"]
 
 
+def test_gap_round_builds_on_a_letter_round(tmp_path, monkeypatch):
+    # Remarcable and Allstate, Oct 23 2026: their best round was a letter-only round.
+    import src.tailor.grade as grade
+    from src.tailor.loop import gap_round
+
+    app = new_app(tmp_path)
+    add_round(app, 1, 60, ats=55)
+    add_round(app, 2, 61, ats=55)
+    write_json(app / "drafts" / "r2" / "feedback.json", {"round": 2, "build_on": 1, "letter_only": True})
+    write_json(app / "app.json", {"history": [], "best_round": 2})
+    write_json(app / "requirements.json", {"requirements": []})
+    (app / "drafts" / "r2" / "resume.yaml").write_text("summary:\n  text: Analyst.\n", encoding="utf-8")
+    line = {"id": "ats.unused", "sentence": "Use the posting's own words ...: SQL.", "sections": ["summary"]}
+    monkeypatch.setattr(grade, "graded_evidence", lambda *a: {})
+    monkeypatch.setattr(grade, "_vault_wording", lambda *a: None)
+    monkeypatch.setattr(grade, "ats_gap", lambda *a, **k: {"unused": ["SQL"], "unused_soft": [], "ceiling": 80.0})
+    monkeypatch.setattr(grade, "ats_score", lambda *a: {"total": 55.0})
+    monkeypatch.setattr(grade, "ats_gap_lines", lambda *a: [line])
+    fb = gap_round(app, CFG)
+    assert fb and fb["round"] == 3 and fb["build_on"] == 2
+
+
 def test_gap_round_asked_for_when_the_best_round_is_far_under_reach(tmp_path, monkeypatch):
     import src.tailor.grade as grade
     from src.tailor.loop import gap_round, pending_round
