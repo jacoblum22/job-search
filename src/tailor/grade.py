@@ -206,7 +206,7 @@ def _core_title(title: str) -> str:
     return " ".join(words)
 
 
-def _title_score(title: str, data: dict[str, Any]) -> float | None:
+def _title_score(title: str, data: dict[str, Any], plan_title: str = "") -> float | None:
     summary = _summary_text(data)
     headline = data.get("headline")
     if not title.strip() or not (summary or headline):
@@ -214,6 +214,11 @@ def _title_score(title: str, data: dict[str, Any]) -> float | None:
     first = str(headline) if isinstance(headline, str) and headline.strip() else re.split(r"(?<=[.!?])\s", summary, maxsplit=1)[0]
     core = _core_title(title)
     phrases = [p for p in (title.strip(), core) if p]
+    # The plan's true title counts when it is the posting's title with words left out ("Product
+    # analyst" for "Provincial Product Analyst", Allstate, Oct 23 2026): the role words still match.
+    plan_title = str(plan_title or "").strip()
+    if plan_title and {w.lower() for w in re.findall(r"\w+", plan_title)} <= {w.lower() for w in re.findall(r"\w+", title)}:
+        phrases.append(plan_title)
     if any(taxonomy.exact(p, first) for p in phrases):
         return 100.0
     if any(taxonomy.exact(p, summary) for p in phrases):
@@ -239,8 +244,10 @@ def _dates_score(data: dict[str, Any]) -> float | None:
     return 100.0 * sum(checks) / len(checks) if checks else None
 
 
-def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-    """Deterministic ATS score. Components that can't be scored are None and their weight is redistributed."""
+def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any],
+              headline: str = "") -> dict[str, Any]:
+    """Deterministic ATS score. Components that can't be scored are None and their weight is redistributed.
+    `headline` is the plan's true job title (`title_ok`), which the title part also accepts."""
     text = resume_text(data)
     terms, req_terms = _collect_terms(req)
     backed = _backed_set(evidence)
@@ -248,7 +255,7 @@ def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any
     comps: dict[str, float | None] = {
         "keyword": _keyword_score(terms, backed, text, cfg.get("synonym_credit", 0.5), soft),
         "skills": _skills_score(req_terms, terms, data, soft),
-        "title": _title_score(str(req.get("title") or ""), data),
+        "title": _title_score(str(req.get("title") or ""), data, headline),
         "sections": _sections_score(data),
         "dates": _dates_score(data),
     }
@@ -286,7 +293,7 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     unused = [t["term"] for t in missing if not t["soft"]]
     unused_soft = [t["term"] for t in missing if t["soft"]]
     unbacked = [t["term"] for t in ranked if not _is_backed(t["term"], backed) and not t["boilerplate"]]
-    score = ats_score(data, req, evidence, cfg)
+    score = ats_score(data, req, evidence, cfg, title_ok if isinstance(title_ok, str) else "")
     comps = dict(score["components"])
     total_w = sum(weight(t) for t in terms.values())
     if total_w:
@@ -479,7 +486,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     letter = read_json(d / "cover-letter.json") if (d / "cover-letter.json").exists() else None
     company = str(req.get("company") or "")
 
-    ats = ats_score(data, req, evidence, cfg)
+    ats = ats_score(data, req, evidence, cfg, title_ok(app_dir))
     repeated = ats.pop("_repeated") if ats["stuffing"] else []
     ats.pop("_repeated", None)
 
@@ -521,6 +528,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         "fit_gap": gap["fit_gap"],
         "needs_ats_repair": gap["needs_repair"],
         "unused_terms": gap["unused"],
+        "title_missing": gap["title_missing"],
         "unused_soft_terms": gap["unused_soft"],
         "unbacked_terms": gap["unbacked"],
     }
@@ -542,7 +550,7 @@ def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | No
     req = read_json(app_dir / "requirements.json")
     evidence = graded_evidence(app_dir, cfg, req)
     data = load_resume(d / "resume.yaml")
-    ats = ats_score(data, req, evidence, cfg)
+    ats = ats_score(data, req, evidence, cfg, title_ok(app_dir))
     ats.pop("_repeated", None)
     items = old.get("checklist") or []
     rate = sum(p_pass(it) for it in items) / len(items) if items else 1.0
@@ -559,7 +567,8 @@ def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | No
             "feedback": [f for f in old.get("feedback") or [] if f not in old_ats] + [g["sentence"] for g in lines],
             "ats_floor": gap["floor"], "below_floor": ats["total"] < gap["floor"], "ats_ceiling": gap["ceiling"],
             "ats_target": gap["target"], "fit_gap": gap["fit_gap"], "needs_ats_repair": gap["needs_repair"],
-            "unused_terms": gap["unused"], "unused_soft_terms": gap["unused_soft"], "unbacked_terms": gap["unbacked"]}
+            "unused_terms": gap["unused"],
+        "title_missing": gap["title_missing"], "unused_soft_terms": gap["unused_soft"], "unbacked_terms": gap["unbacked"]}
 
 
 def unsaid_soft(gap: dict[str, Any], items: list[dict[str, Any]], req: dict[str, Any],

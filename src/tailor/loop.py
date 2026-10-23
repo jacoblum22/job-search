@@ -116,7 +116,7 @@ def gap_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
     evidence = graded_evidence(app_dir, cfg, req)
     data = load_resume(rdir / "resume.yaml")
     gap = ats_gap(data, req, evidence, cfg, _vault_wording(app_dir, cfg), title_ok=title_ok(app_dir))
-    total = ats_score(data, req, evidence, cfg)["total"]
+    total = ats_score(data, req, evidence, cfg, title_ok(app_dir))["total"]
     if total >= gap["ceiling"] - float((cfg.get("loop") or {}).get("wide_gap", 10)):
         return None
     grade = read_json(rdir / "grade.json")

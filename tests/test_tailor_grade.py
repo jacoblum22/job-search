@@ -117,6 +117,19 @@ def test_title_note_when_the_summary_does_not_open_with_the_true_title():
     assert ats_gap(data, r, ev(["SQL"]), CFG)["title_missing"] == ""
 
 
+def test_plan_title_with_words_left_out_still_counts():
+    # Allstate, Oct 23 2026: the summary opened with "Product analyst" for "Provincial Product
+    # Analyst", but only the full title counted, so the title note came back every round.
+    from src.tailor.grade import ats_gap
+    r = {**req(terms=["SQL"]), "title": "Provincial Product Analyst"}
+    data = {"summary": {"text": "Product analyst writing SQL daily."}, "skills": [{"items": ["SQL"]}]}
+    assert ats_score(data, r, ev(["SQL"]), CFG)["components"]["title"] < 100
+    assert ats_score(data, r, ev(["SQL"]), CFG, "Product analyst")["components"]["title"] == 100
+    assert ats_gap(data, r, ev(["SQL"]), CFG, title_ok="Product analyst")["title_missing"] == ""
+    # A headline with words the posting's title doesn't have earns nothing extra.
+    assert ats_score(data, r, ev(["SQL"]), CFG, "Data analyst")["components"]["title"] < 100
+
+
 def test_title_ok_reads_the_plan_headline(tmp_path):
     from src.tailor.grade import title_ok
     assert title_ok(tmp_path) == ""
