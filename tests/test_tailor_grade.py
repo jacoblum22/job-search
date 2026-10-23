@@ -82,12 +82,23 @@ def test_boilerplate_weighs_a_quarter_and_must_one_and_a_half():
     assert out["components"]["keyword"] == pytest.approx(63.6, abs=0.1)
 
 
-def test_soft_skills_weigh_half():
+def test_soft_skills_do_not_count():
+    # Jake, Oct 23 2026: ATS searches key on hard skills, so a soft skill is no part of the score.
     r = req(terms=["SQL", "communication"])
     out = ats_score(base(), r, ev(["SQL"]), CFG)
-    # SQL must 1.5 earned, communication must 1.5 x 0.5 unbacked -> 1.5 / 2.25
-    assert out["components"]["keyword"] == pytest.approx(66.7, abs=0.1)
+    assert out["components"]["keyword"] == 100.0
     assert ats_score(base(), r, ev(["SQL"]), {**CFG, "ats_soft_weight": 1.0})["components"]["keyword"] == 50.0
+    # A posting whose only terms are soft skills has no keyword or skills component to score.
+    soft_only = ats_score(base(), req(terms=["communication"]), ev([]), CFG)["components"]
+    assert soft_only["keyword"] is None and soft_only["skills"] is None
+
+
+def test_ceiling_counts_the_title_when_the_plan_found_it_truthful():
+    from src.tailor.grade import ats_gap
+    r = {**req(terms=["SQL"]), "title": "Data Developer"}
+    data = {"summary": {"text": "Analyst writing SQL daily."}, "skills": [{"items": ["SQL"]}]}
+    plain = ats_gap(data, r, ev(["SQL"]), CFG)["ceiling"]
+    assert ats_gap(data, r, ev(["SQL"]), CFG, title_ok=True)["ceiling"] > plain
 
 
 def test_soft_skills_are_never_pushed_for_points(tmp_path):

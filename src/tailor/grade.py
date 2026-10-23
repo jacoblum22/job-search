@@ -34,7 +34,7 @@ SENIORITY_WORDS = {
 }
 BOILERPLATE_FACTOR = 0.25
 MUST_FACTOR = 1.5
-SOFT_FACTOR = 0.5  # soft skills count half: an ATS search and a recruiter filter on hard skills
+SOFT_FACTOR = 0.0  # soft skills don't count: ATS searches and recruiter filters key on hard skills (Jake, Oct 23 2026)
 
 _RANGE = re.compile(r"^[A-Z][a-z]{2} \d{4}\s*[–-]\s*(?:[A-Z][a-z]{2} \d{4}|Present)$")
 _SINGLE = re.compile(r"^[A-Z][a-z]{2} \d{4}$")
@@ -189,7 +189,7 @@ def _keyword_score(terms, backed, text, synonym_credit, soft_factor: float = SOF
         total += w
         if _is_backed(t["term"], backed):
             got += w * _credit(t["term"], text, synonym_credit)
-    return 100.0 * got / total
+    return 100.0 * got / total if total else None
 
 
 def _skills_score(req_terms: set[str], terms, data, soft_factor: float = SOFT_FACTOR) -> float | None:
@@ -198,7 +198,7 @@ def _skills_score(req_terms: set[str], terms, data, soft_factor: float = SOFT_FA
     hay = _skills_text(data) + "\n" + "\n".join(t for _, t in _bullet_texts(data))
     w = {k: soft_factor if terms[k].get("soft") else 1.0 for k in req_terms}
     found = sum(w[k] for k in req_terms if _credit(terms[k]["term"], hay, 0.5) > 0)
-    return 100.0 * found / sum(w.values())
+    return 100.0 * found / sum(w.values()) if sum(w.values()) else None
 
 
 def _core_title(title: str) -> str:
@@ -262,10 +262,13 @@ def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any
 
 
 def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any],
-            vault: tuple[str, set[str]] | None = None) -> dict[str, Any]:
-    """Why the ATS score is where it is: backed hard-skill terms the resume doesn't use (soft skills
-    are listed apart and never pushed for points), terms the vault can't back, and the highest score
-    reachable if every backed term were used in the posting's words (`vault`: see `_wording_backed`).
+            vault: tuple[str, set[str]] | None = None, title_ok: bool = False) -> dict[str, Any]:
+    """Why the ATS score is where it is: backed hard-skill terms the resume doesn't use, backed soft
+    skills it doesn't name (listed apart: a repair works them into a line whose story shows them,
+    never as an adjective), terms the vault can't back, and the highest score reachable if every
+    backed hard term were used in the posting's words (`vault`: see `_wording_backed`), and the job
+    title too when the plan found it truthful (`title_ok`). Soft skills weigh `ats_soft_weight` (0 since
+    Jake, Oct 23 2026: ATS searches key on hard skills), so a missing soft word is never a gap to close.
 
     The ATS target is the floor, or the ceiling minus a small tolerance when the ceiling itself is
     under the floor. A ceiling under the floor is a fit gap (the evidence isn't there), not a wording gap."""
@@ -293,7 +296,10 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
             for t in terms.values() if _is_backed(t["term"], backed)) / total_w
     if req_terms:
         sw = {k: soft if terms[k]["soft"] else 1.0 for k in req_terms}
-        comps["skills"] = 100.0 * sum(sw[k] for k in req_terms if _is_backed(terms[k]["term"], backed)) / sum(sw.values())
+        if sum(sw.values()):
+            comps["skills"] = 100.0 * sum(sw[k] for k in req_terms if _is_backed(terms[k]["term"], backed)) / sum(sw.values())
+    if title_ok and comps.get("title") is not None:
+        comps["title"] = 100.0
     weights = {**DEFAULT_WEIGHTS, **(cfg.get("ats_weights") or {})}
     live = {k: v for k, v in comps.items() if v is not None}
     wsum = sum(weights.get(k, 0) for k in live)
@@ -462,10 +468,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     app_dir = Path(app_dir)
     d = round_dir(app_dir, rnd)
     req = read_json(app_dir / "requirements.json")
-    # Repair notes must never point back at a match that was rejected (here or on an earlier job).
-    evidence = rejects.scrub_evidence(read_json(app_dir / "evidence.json"), req, rejects.pairs(cfg, app_dir))
-    # The plan may have added a match the evidence step missed; count it here too.
-    evidence = rejects.add_evidence(evidence, req, rejects.confirmed(cfg, app_dir))
+    evidence = graded_evidence(app_dir, cfg, req)
     if not (d / "resume.yaml").exists():
         raise TailorError(f"resume.yaml is missing in {d}")
     data = load_resume(d / "resume.yaml")
@@ -495,16 +498,14 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     score = round(0.6 * ats["total"] + 0.4 * rate * 100, 1)
 
     gaps, feedback = _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeated)
-    gap = ats_gap(data, req, evidence, cfg, _vault_wording(app_dir, cfg))
-    if gap["unused"]:
-        # Hard skills the vault backs but the resume never says in the posting's words: the main ATS lever.
-        names = {u.lower() for u in gap["unused"]}
-        pids = {p for t in evidence.get("terms") or [] if str(t.get("term", "")).lower() in names
-                for p in t.get("passages") or []}
-        sentence = ("Use the posting's own words for these terms the vault backs (only where a cited passage "
-                    f"supports them): {', '.join(gap['unused'][:12])}.")
-        gaps.append({"id": "ats.unused", "sentence": sentence, "sections": _must_sections(data, pids)})
-        feedback.append(sentence)
+    gap = ats_gap(data, req, evidence, cfg, _vault_wording(app_dir, cfg), title_ok=title_ok(app_dir))
+    # A soft must-have Jev already says a bullet shows needs no word for it.
+    shown = {str(t).lower() for it in items if it["id"].startswith("must.") and it["passed"] is True
+             for t in must_reqs.get(it["id"][5:], {}).get("terms") or []}
+    gap["unused_soft"] = [t for t in gap["unused_soft"] if t.lower() not in shown]
+    for g in ats_gap_lines(gap, evidence, data):
+        gaps.append(g)
+        feedback.append(g["sentence"])
     result = {
         "ats": {"total": ats["total"], "components": ats["components"]},
         "checklist": items,
@@ -525,6 +526,46 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     write_json(d / "grade.json", result)
     log(app_dir, "grade", f"round {rnd}: score {score}, ATS {ats['total']}", )
     return result
+
+
+def title_ok(app_dir: Path) -> bool:
+    """The plan found the posting's job title truthful as the headline (prompts/tailor/plan.md)."""
+    p = app_dir / "plan.json"
+    return p.exists() and bool(str(read_json(p).get("headline") or "").strip())
+
+
+def graded_evidence(app_dir: Path, cfg: dict[str, Any], req: dict[str, Any]) -> dict[str, Any]:
+    """evidence.json as the grade sees it."""
+    # Repair notes must never point back at a match that was rejected (here or on an earlier job).
+    evidence = rejects.scrub_evidence(read_json(app_dir / "evidence.json"), req, rejects.pairs(cfg, app_dir))
+    # The plan may have added a match the evidence step missed; count it here too.
+    return rejects.add_evidence(evidence, req, rejects.confirmed(cfg, app_dir))
+
+
+def ats_gap_lines(gap: dict[str, Any], evidence: dict[str, Any], data: dict[str, Any]) -> list[dict[str, Any]]:
+    """The repair notes for an ATS gap: backed hard skills the resume doesn't say in the posting's
+    words, and backed soft skills it doesn't name."""
+    out = []
+
+    def sections(terms: list[str]) -> list[str]:
+        names = {u.lower() for u in terms}
+        return _must_sections(data, {p for t in evidence.get("terms") or [] if str(t.get("term", "")).lower() in names
+                                     for p in t.get("passages") or []})
+
+    if gap["unused"]:
+        # Hard skills the vault backs but the resume never says in the posting's words: the main ATS lever.
+        out.append({"id": "ats.unused", "sections": sections(gap["unused"]), "sentence": (
+            "Use the posting's own words for these terms the vault backs (only where a cited passage "
+            f"supports them): {', '.join(gap['unused'][:12])}.")})
+    if gap["unused_soft"]:
+        # Soft skills don't count in the score, but a reader still looks for them: the resume names
+        # the ones a story already shows and the letter the rest (Jake, Oct 23 2026). A ride-along
+        # note: never a reason for a round on its own.
+        out.append({"id": "ats.soft", "sections": sections(gap["unused_soft"]) + ["letter"], "sentence": (
+            "Soft skills the vault shows that neither draft names yet: use the posting's word where a resume "
+            "line's story already shows it (never as an adjective about the candidate, never stretched to fit), "
+            f"and show the rest in the letter through a story: {', '.join(gap['unused_soft'][:8])}.")})
+    return out
 
 
 def _mark_fit_gaps(items, must_reqs, evidence, text, cfg) -> None:

@@ -51,11 +51,13 @@ list is also the before/after diff the candidate reviews.
    a work or project story, not only with a self-description line ("Strong collaboration ...") or
    a skills list. Show at least one of them, more if they fit, through a bullet that describes the
    work that shows it ("explained the numbers to non-technical teams", "worked with the senior
-   analysts to review queries"), cited like any other claim. Use the posting's word only where it
-   reads naturally. Never as an adjective about the candidate ("strong communicator",
+   analysts to review queries"), cited like any other claim. Where a line's story already shows a
+   soft skill, use the posting's own word for it ("cross-functional", "communication"): an ATS only
+   counts the word. Never as an adjective about the candidate ("strong communicator",
    "detail-oriented") and never in the skills list; don't add a line or stretch one only to fit a
    soft skill in. The cover letter shows the ones the resume doesn't, and also any backed hard
-   skill the resume only lists or had no room for.
+   skill the resume only lists or had no room for. Soft skills don't have to be in bullets: the
+   letter is as good a place for them.
 6. **Headline.** Use the posting's title as the headline only when `plan.json` says it is truthful
    (`headline` not null). Never change a job title, company, location, dates, school, degree, name,
    url or contact. Those paths are rejected anyway.

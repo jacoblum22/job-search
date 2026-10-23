@@ -127,13 +127,14 @@ folder before starting the next. Keep a running note of the outcome for the dige
    `check`; otherwise the bullet is lost for the round. This applies to repair rounds too.
 9. **Repair loop.** Run `uv run python -m src.tailor next-round "<app>"`. Read its output.
    - If it says to stop (everything passes, the gain is under 2 points, something regressed with no
-     wording gap left, or two repair rounds are done), leave the loop. A round that regressed while a
+     wording gap left, or the round limit is reached), leave the loop. A round that regressed while a
      wording gap remains doesn't stop the loop: the next round builds on the best earlier round
      (`build_on` in feedback.json).
    - If it asks for another round, it has written `drafts/r<N>/feedback.json`. Follow
      `prompts/tailor/repair.md` for round N, write that round's `edits.json` and `cover-letter.json`,
      then run `apply-edits`, `check`, `grade` with `--round N`, and `next-round` again.
-   - At most 2 repair rounds (3 drafts). Never start a round the tool did not ask for. The tool keeps
+   - Normally at most 2 repair rounds (3 drafts); the tool allows up to 5 drafts while the resume
+     is still far under what the evidence allows and gaining. Never start a round the tool did not ask for. The tool keeps
      the best round, not the last.
 10. **Humanize, render, packet.**
     - `uv run python -m src.tailor humanize-flags "<app>"`. If it lists no flags, skip the patch step.

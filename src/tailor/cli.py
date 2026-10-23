@@ -221,14 +221,16 @@ def _open_folders(cfg) -> list[Path]:
 @main.command()
 def pending():
     """Rounds waiting to be drafted in applications already up for review: a repair round
-    next-round asked for that was never run, or a letter-only round asked for here when the best
-    round's letter fails today's letter checks. The daily run does these before new jobs."""
-    from src.tailor.loop import letter_round, pending_round
+    next-round asked for that was never run, a repair round asked for here when the best round's ATS
+    is more than loop.wide_gap under what the evidence allows, or a letter-only round asked for here
+    when the best round's letter fails today's letter checks. The daily run does these before new jobs."""
+    from src.tailor.loop import gap_round, letter_round, pending_round
     from src.tailor.paths import ROOT
 
     cfg = load_config()
     out = []
     for folder in _open_folders(cfg):
+        gap_round(folder, cfg)
         letter_round(folder, cfg)
         rnd = pending_round(folder)
         if rnd is None:
