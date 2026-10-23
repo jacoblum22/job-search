@@ -135,7 +135,7 @@ def _note(text: str) -> list[str]:
 
 
 def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
-              check: dict[str, Any] | None, cfg: dict[str, Any]) -> str:
+              check: dict[str, Any] | None, cfg: dict[str, Any], grade: dict[str, Any] | None) -> str:
     from src.tailor.checks import units  # local: checks pulls in the heavier metrics stack
 
     """check.md: every section opens with a "> " note saying what it is and what to decide, and
@@ -167,7 +167,6 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
         for path in dropped:
             lines.append(f"- [ ] Reviewed  {explain.path_label(path, data)}: {texts.get(path, path)}")
         lines.append("")
-    grade = _opt_json(rd / "grade.json") if rd else None
     floor = float(cfg.get("ats_floor", 70))
     ats_total = ((grade or {}).get("ats") or {}).get("total")
     if isinstance(ats_total, (int, float)) and ats_total < floor:
@@ -310,7 +309,8 @@ def _suggestions(app_dir: Path, reqs: dict[str, dict], index: dict[str, dict] | 
 
 def run_packet(app_dir: Path, cfg: dict[str, Any], recheck: bool = False) -> dict[str, Any]:
     """Write fit-notes.md and check.md and move the application to review. With `recheck`
-    (repacket), the code-only checks run again under today's rules instead of being read back."""
+    (repacket), the code-only checks and the ATS score run again under today's rules instead of
+    being read back."""
     app = appdir.load_app(app_dir)
     evidence = appdir.read_json(app_dir / "evidence.json")
     rnd = _best_round(app_dir, app)
@@ -320,15 +320,19 @@ def run_packet(app_dir: Path, cfg: dict[str, Any], recheck: bool = False) -> dic
         from src.tailor.checks import recheck as run_recheck
 
         check = run_recheck(app_dir, rnd, cfg)
+    grade = _opt_json(rd / "grade.json") if rd else None
+    if recheck and grade is not None:
+        from src.tailor.grade import regrade
+
+        grade = regrade(app_dir, rnd, cfg) or grade
     base = _base_id(app_dir, app, evidence.get("buckets") or {})
     (app_dir / "fit-notes.md").write_text(
         _fit_notes(app, evidence, _opt_json(app_dir / "requirements.json"), base), encoding="utf-8")
-    text = _check_md(app, rd, app_dir, check, cfg)
+    text = _check_md(app, rd, app_dir, check, cfg, grade)
     if (app_dir / "check.md").exists():  # a rebuild keeps the decisions already made
         text = review.carry_over((app_dir / "check.md").read_text(encoding="utf-8"), text)
     (app_dir / "check.md").write_text(text, encoding="utf-8")
     criticals = len((check or {}).get("criticals") or [])
-    grade = _opt_json(rd / "grade.json") if rd else None
     ats_total = ((grade or {}).get("ats") or {}).get("total")
     ceiling = (grade or {}).get("ats_ceiling")
     # Jake, Oct 23 2026: more than loop.wide_gap under what the evidence allows isn't acceptable, so

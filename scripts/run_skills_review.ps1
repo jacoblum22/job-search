@@ -13,6 +13,8 @@ New-Item -ItemType Directory -Force -Path (Split-Path $logFile) | Out-Null
 function Log($msg) { "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $msg" | Add-Content $logFile }
 
 Log "Starting skills review"
+. (Join-Path $PSScriptRoot "uv_path.ps1")
+if (-not (Add-UvToPath)) { Log "ERROR: uv not found on PATH or in the usual install folders; nothing ran"; exit 1 }
 Set-Location $projectRoot
 git fetch origin jake 2>&1 | Out-Null
 if (Test-Path $worktree) { git worktree remove --force $worktree 2>&1 | Out-Null }

@@ -532,6 +532,41 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     return result
 
 
+def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | None:
+    """A round's grade.json with the ATS part scored again under today's rules, so a review page
+    and the loop read the same numbers (Remarcable, Oct 23 2026: its page kept the old 66.6 under
+    80.1 while today's rules gave 75.0 under 83.4). Jev's checklist is reused, not asked again.
+    Nothing is written. None when the round has no grade."""
+    app_dir = Path(app_dir)
+    d = round_dir(app_dir, rnd)
+    if not (d / "grade.json").exists() or not (d / "resume.yaml").exists():
+        return None
+    old = read_json(d / "grade.json")
+    req = read_json(app_dir / "requirements.json")
+    evidence = graded_evidence(app_dir, cfg, req)
+    data = load_resume(d / "resume.yaml")
+    ats = ats_score(data, req, evidence, cfg)
+    ats.pop("_repeated", None)
+    items = old.get("checklist") or []
+    rate = sum(p_pass(it) for it in items) / len(items) if items else 1.0
+    gap = ats_gap(data, req, evidence, cfg, _vault_wording(app_dir, cfg), title_ok=title_ok(app_dir))
+    must_reqs = {r["id"]: r for r in req.get("requirements") or [] if r.get("kind") == "must"}
+    shown = {str(t).lower() for it in items if str(it.get("id", "")).startswith("must.") and it.get("passed") is True
+             for t in must_reqs.get(it["id"][5:], {}).get("terms") or []}
+    gap["unused_soft"] = [t for t in gap["unused_soft"] if t.lower() not in shown]
+    lines = ats_gap_lines(gap, evidence, data)
+    old_ats = {g.get("sentence") for g in old.get("gaps") or [] if str(g.get("id", "")).startswith("ats.")}
+    return {**old,
+            "ats": {"total": ats["total"], "components": ats["components"]},
+            "score": round(0.6 * ats["total"] + 0.4 * rate * 100, 1),
+            "stuffing": ats["stuffing"],
+            "gaps": [g for g in old.get("gaps") or [] if not str(g.get("id", "")).startswith("ats.")] + lines,
+            "feedback": [f for f in old.get("feedback") or [] if f not in old_ats] + [g["sentence"] for g in lines],
+            "ats_floor": gap["floor"], "below_floor": ats["total"] < gap["floor"], "ats_ceiling": gap["ceiling"],
+            "ats_target": gap["target"], "fit_gap": gap["fit_gap"], "needs_ats_repair": gap["needs_repair"],
+            "unused_terms": gap["unused"], "unused_soft_terms": gap["unused_soft"], "unbacked_terms": gap["unbacked"]}
+
+
 def title_ok(app_dir: Path) -> str:
     """The job title the plan found truthful for the summary to open with (prompts/tailor/plan.md),
     or "" when it found none."""

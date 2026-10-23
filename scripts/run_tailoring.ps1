@@ -49,6 +49,8 @@ if ($ResumeOnly) {
     $mode = "daily cap"
 }
 Log "Starting tailoring run ($mode); transcript $transcript"
+. (Join-Path $PSScriptRoot "uv_path.ps1")
+if (-not (Add-UvToPath)) { Log "ERROR: uv not found on PATH or in the usual install folders; nothing ran"; exit 1 }
 
 uv sync -q 2>&1 | Out-Null
 
