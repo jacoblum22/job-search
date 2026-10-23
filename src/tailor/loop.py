@@ -99,7 +99,8 @@ def gap_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
     It builds on the best round. Writes `drafts/r<N>/feedback.json` and returns it, or None. One
     try per best round, like `letter_round`."""
     from src.resume import load_resume
-    from src.tailor.grade import _vault_wording, ats_gap, ats_gap_lines, ats_score, graded_evidence, title_ok
+    from src.tailor.grade import (_vault_wording, ats_gap, ats_gap_lines, ats_score, graded_evidence, title_ok,
+                                  unsaid_soft)
 
     app_dir = Path(app_dir)
     best = (load_app(app_dir).get("best_round") or 0)
@@ -120,6 +121,8 @@ def gap_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
         return None
     grade = read_json(rdir / "grade.json")
     check = read_json(rdir / "check.json") if (rdir / "check.json").exists() else {}
+    letter = read_json(rdir / "cover-letter.json") if (rdir / "cover-letter.json").exists() else None
+    unsaid_soft(gap, grade.get("checklist") or [], req, letter)
     lines = ats_gap_lines(gap, evidence, data)
     old_ats = {g.get("sentence") for g in grade.get("gaps") or [] if str(g.get("id", "")).startswith("ats.")}
     grade = {**grade, "gaps": [g for g in grade.get("gaps") or [] if not str(g.get("id", "")).startswith("ats.")] + lines}
@@ -331,7 +334,9 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
             reason = f"score gain under {min_gain} points over round {ref['round']}"
     feedback = list(src["grade"].get("feedback") or [])
     if reason is None and len(rounds) >= max_rounds:
-        reason = f"round limit of {max_rounds} reached"
+        # A round `pending` asked for (gap_round, letter_round) can take a folder past the limit.
+        reason = f"round limit of {max_rounds} reached" + (
+            f" ({len(rounds)} drafts with the one pending asked for)" if len(rounds) > max_rounds else "")
     # Without a wording gap the "use the posting's words" line is advice, not a reason for a round.
     ats_lines = {g.get("sentence") for g in src["grade"].get("gaps") or [] if g.get("id") in ("ats.unused", "ats.title")}
     # The soft-skill note rides along with a round that happens anyway, never starts one.

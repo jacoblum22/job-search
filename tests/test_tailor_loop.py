@@ -424,6 +424,15 @@ def test_wide_gap_that_stopped_gaining_stops_at_the_limit(tmp_path):
     assert out["action"] == "stop" and "round limit" in out["reason"]
 
 
+def test_round_limit_reason_counts_the_drafts_past_it(tmp_path):
+    # REW.ca, Oct 22 2026: a 4th draft (the round pending asked for) stopped with "round limit of 3".
+    app = new_app(tmp_path)
+    for n, ats in ((1, 50), (2, 54), (3, 58), (4, 62)):
+        add_round(app, n, 60 + n, items=[item("must.r1", False, ["summary"])], ats=ats, feedback=["show SQL"])
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and out["reason"] == "round limit of 3 reached (4 drafts with the one pending asked for)"
+
+
 def test_soft_skill_note_alone_does_not_start_a_round(tmp_path):
     app = new_app(tmp_path)
     soft = "Soft skills the vault shows that neither draft names yet: teamwork."
@@ -504,3 +513,26 @@ def test_gap_round_asked_for_when_the_best_round_is_far_under_reach(tmp_path, mo
     (app2 / "drafts" / "r1" / "resume.yaml").write_text("summary:\n  text: Analyst.\n", encoding="utf-8")
     monkeypatch.setattr(grade, "ats_score", lambda *a: {"total": 63.0})
     assert gap_round(app2, CFG) is None
+
+
+def test_gap_round_soft_note_leaves_out_what_the_letter_already_says(tmp_path, monkeypatch):
+    # VCH Junior Data Developer, Oct 22 2026: the round asked for a soft skill again after the
+    # letter said it.
+    import src.tailor.grade as grade
+    from src.tailor.loop import gap_round
+
+    app = new_app(tmp_path)
+    add_round(app, 1, 60, ats=55)
+    write_json(app / "app.json", {"history": [], "best_round": 1})
+    write_json(app / "requirements.json", {"requirements": []})
+    (app / "drafts" / "r1" / "resume.yaml").write_text("summary:\n  text: Analyst.\n", encoding="utf-8")
+    write_json(app / "drafts" / "r1" / "cover-letter.json",
+               {"paragraphs": [{"text": "At Northwind I ran cross-functional reviews with the store teams."}]})
+    gap = {"unused": ["dbt"], "unused_soft": ["cross-functional", "teamwork"], "ceiling": 72.0}
+    monkeypatch.setattr(grade, "graded_evidence", lambda *a: {})
+    monkeypatch.setattr(grade, "_vault_wording", lambda *a: None)
+    monkeypatch.setattr(grade, "ats_gap", lambda *a, **k: gap)
+    monkeypatch.setattr(grade, "ats_score", lambda *a: {"total": 55.0})
+    fb = gap_round(app, CFG)
+    soft = [f for f in fb["failed_items"] if f.startswith("Soft skills")]
+    assert soft and soft[0].endswith("through a story: teamwork.")

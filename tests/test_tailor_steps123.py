@@ -484,6 +484,24 @@ def test_plan_adds_join_the_shared_list_and_count_in_grade(env):
     assert out["terms"][0]["passages"] == ["northwind.stakeholders"]
 
 
+def test_another_jobs_plan_add_the_grade_counts_is_asked_in_check_md(env):
+    # The grade counts a plan add from any job; nobody had decided it, so check.md asks here too.
+    from src.tailor import packet
+    from src.tailor.sources import load_index as _idx
+
+    cfg, app = env
+    appdir.write_json(Path(cfg["paths"]["skill_record"]), {"has": [
+        {"term": "Tableau", "passage": "northwind.stakeholders", "source": "plan", "reason": "x", "job_id": 99},
+        {"term": "Excel", "passage": "northwind.dashboards", "source": "plan", "reason": "x", "job_id": 99},
+        {"term": "dbt", "passage": "northwind.pipeline", "source": "jake", "reason": "x", "job_id": 98}]})
+    reqs = {r["id"]: r for r in appdir.read_json(app / "requirements.json")["requirements"]}
+    md = "\n".join(packet._suggestions(app, reqs, _idx(cfg), cfg))
+    confirms = [ln for ln in md.splitlines() if "<!-- confirm:" in ln]
+    # Tableau: this posting asks for it. Excel: it doesn't. dbt: the candidate already decided.
+    assert confirms == [ln for ln in confirms if ln.endswith("<!-- confirm: tableau | northwind.stakeholders -->")]
+    assert len(confirms) == 1 and "## Evidence the plan added" in md
+
+
 # --- false-match guards (VCH run, Oct 18 2026) ----------------------------------------
 
 

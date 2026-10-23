@@ -201,8 +201,8 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
         term_list("The posting asks for these and your vault doesn't show them in these words", unbacked)
         term_list("Your vault shows these but the resume doesn't use the posting's words", unused)
         if unused_soft:
-            term_list("Soft skills your vault shows that the resume doesn't name (they don't count in the ATS "
-                      "score; the letter is the place for the ones no line fits)", unused_soft)
+            term_list("Soft skills your vault shows that neither the resume nor the letter names (they don't "
+                      "count in the ATS score; the letter is the place for the ones no line fits)", unused_soft)
         if unbacked:
             lines.append("  - If you do have something in the first list, add it to your experience vault and "
                          "rerun from the evidence step: the resume can only claim what the vault shows.")
@@ -283,6 +283,15 @@ def _suggestions(app_dir: Path, reqs: dict[str, dict], index: dict[str, dict] | 
     lines: list[str] = []
     adds = (_opt_json(app_dir / "plan.json") or {}).get("evidence_adds") or []
     adds = [d for d in adds if isinstance(d, dict) and d.get("term") and d.get("passage")]
+    # Another job's plan add counts here too (the grade's rejects.confirmed), so the repair can lean
+    # on it; until the candidate decides it, ask here as well (REW.ca Data Engineer, Oct 22 2026: a
+    # term from another job's plan was pushed into a bullet with no line here).
+    mine = {(rejects.key(d["term"]), str(d["passage"])) for d in adds}
+    reqs_json = _opt_json(app_dir / "requirements.json") or {}
+    asked = {rejects.key(t) for r in reqs.values() for t in r.get("terms") or [] if isinstance(t, str)}
+    asked |= {rejects.key(k["term"]) for k in reqs_json.get("keywords") or [] if isinstance(k, dict) and k.get("term")}
+    adds += [c for k, c in rejects.confirmed(cfg, app_dir).items()
+             if c.get("source") == "plan" and k not in mine and k[0] in asked]
     if adds:
         lines += ["", "## Evidence the plan added", ""] + _note(explain.ADDS)
         for d in adds:

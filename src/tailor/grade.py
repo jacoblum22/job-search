@@ -503,10 +503,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
 
     gaps, feedback = _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeated)
     gap = ats_gap(data, req, evidence, cfg, _vault_wording(app_dir, cfg), title_ok=title_ok(app_dir))
-    # A soft must-have Jev already says a bullet shows needs no word for it.
-    shown = {str(t).lower() for it in items if it["id"].startswith("must.") and it["passed"] is True
-             for t in must_reqs.get(it["id"][5:], {}).get("terms") or []}
-    gap["unused_soft"] = [t for t in gap["unused_soft"] if t.lower() not in shown]
+    unsaid_soft(gap, items, req, letter)
     for g in ats_gap_lines(gap, evidence, data):
         gaps.append(g)
         feedback.append(g["sentence"])
@@ -550,10 +547,8 @@ def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | No
     items = old.get("checklist") or []
     rate = sum(p_pass(it) for it in items) / len(items) if items else 1.0
     gap = ats_gap(data, req, evidence, cfg, _vault_wording(app_dir, cfg), title_ok=title_ok(app_dir))
-    must_reqs = {r["id"]: r for r in req.get("requirements") or [] if r.get("kind") == "must"}
-    shown = {str(t).lower() for it in items if str(it.get("id", "")).startswith("must.") and it.get("passed") is True
-             for t in must_reqs.get(it["id"][5:], {}).get("terms") or []}
-    gap["unused_soft"] = [t for t in gap["unused_soft"] if t.lower() not in shown]
+    letter = read_json(d / "cover-letter.json") if (d / "cover-letter.json").exists() else None
+    unsaid_soft(gap, items, req, letter)
     lines = ats_gap_lines(gap, evidence, data)
     old_ats = {g.get("sentence") for g in old.get("gaps") or [] if str(g.get("id", "")).startswith("ats.")}
     return {**old,
@@ -565,6 +560,19 @@ def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | No
             "ats_floor": gap["floor"], "below_floor": ats["total"] < gap["floor"], "ats_ceiling": gap["ceiling"],
             "ats_target": gap["target"], "fit_gap": gap["fit_gap"], "needs_ats_repair": gap["needs_repair"],
             "unused_terms": gap["unused"], "unused_soft_terms": gap["unused_soft"], "unbacked_terms": gap["unbacked"]}
+
+
+def unsaid_soft(gap: dict[str, Any], items: list[dict[str, Any]], req: dict[str, Any],
+                letter: dict[str, Any] | None) -> None:
+    """Keep in `gap["unused_soft"]` only the soft skills neither draft says. `ats_gap` reads the
+    resume alone, but the letter is where the rest go, so one the letter names in the posting's word
+    is said (VCH Junior Data Developer, Oct 22 2026: a soft skill was asked for again after the
+    letter said it). A soft must-have Jev already says a bullet shows needs no word for it either."""
+    must = {r["id"]: r for r in req.get("requirements") or [] if r.get("kind") == "must"}
+    shown = {str(t).lower() for it in items if it["id"].startswith("must.") and it.get("passed") is True
+             for t in must.get(it["id"][5:], {}).get("terms") or []}
+    said = letter_text(letter)
+    gap["unused_soft"] = [t for t in gap["unused_soft"] if t.lower() not in shown and not wording.same(t, said)]
 
 
 def title_ok(app_dir: Path) -> str:
