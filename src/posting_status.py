@@ -107,6 +107,11 @@ def _scan(description: str, seen: date) -> tuple[bool, date | None]:
     return bool(_INTERNAL.search(description)), deadline(description, seen)
 
 
+def due_date(description: str, seen: date | None = None) -> date | None:
+    """deadline(), remembered: the dashboard shows it for every job on every load."""
+    return _scan(description or "", seen or date.today())[1]
+
+
 def closed_reason(description: str, today: date | None = None, seen: date | None = None) -> str | None:
     """Why the posting is closed ("Filled internally", "Closed Oct 15, 2026"), or None if open."""
     today = today or date.today()

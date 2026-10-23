@@ -139,6 +139,22 @@ def test_closed_postings_are_marked_and_not_pinned(env):
     assert get(env, f"/api/job/{env['other']}")[1]["closed"] is None
 
 
+def test_rows_and_details_carry_the_deadline(env):
+    conn = connect(env["cfg"]["paths"]["db"])
+    conn.execute("UPDATE jobs SET description = description || ? WHERE id = ?",
+                 ("\nApplication deadline: December 31, 2099.", env["jid"]))
+    conn.commit()
+    rows = json.loads(render_dashboard(conn).split('type="application/json">')[1].split("</script>")[0])
+    conn.close()
+    by_title = {r["title"]: r for r in rows}
+    assert by_title["Junior Analyst"]["deadline"] == "2099-12-31"
+    assert by_title["Junior Analyst"]["deadline_sort"] == "2099-12-31"
+    assert by_title["Data Analyst"]["deadline"] is None
+    assert by_title["Data Analyst"]["deadline_sort"] > "2099-12-31"  # no deadline sorts last
+    assert get(env, f"/api/job/{env['jid']}")[1]["deadline"] == "2099-12-31"
+    assert get(env, f"/api/job/{env['other']}")[1]["deadline"] is None
+
+
 # --- retention ------------------------------------------------------------
 
 

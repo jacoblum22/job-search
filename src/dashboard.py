@@ -69,6 +69,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .status-dismissed { background: var(--dismissed); }
   .status-expired { background: var(--dismissed); }
   .closed { background: none; border: 1px solid #b23b3b; color: #e07070; }
+  .due { white-space: nowrap; }
+  .muted { color: var(--muted); }
+  .due-soon { background: #b23b3b; color: #fff; }
+  .due-week { background: none; border: 1px solid #c8932f; color: #e0b050; }
   .app-shortlisted, .app-ready_for_review { background: var(--accent); }
   .app-needs_fixes { background: #b23b3b; }
   .app-approved { background: var(--new); }
@@ -209,13 +213,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
       <th data-key="location_category">Category</th>
       <th data-key="status">Status</th>
       <th data-key="app_sort">Application</th>
+      <th data-key="deadline_sort" title="Red: 3 days or less left. Amber: a week or less.">Deadline</th>
       <th data-key="years_experience">Years Exp</th>
       <th data-key="sourcesStr">Sources</th>
       <th data-key="posted_sort">Posted</th>
       <th data-key="first_seen">First Seen</th>
     </tr>
   </thead>
-  <tbody id="jobsBody"><tr><td class="notice" colspan="11">Loading jobs&hellip;</td></tr></tbody>
+  <tbody id="jobsBody"><tr><td class="notice" colspan="12">Loading jobs&hellip;</td></tr></tbody>
 </table>
 </div>
 </div>
@@ -224,7 +229,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
 // If anything below throws, say so instead of leaving the "Loading" row up forever.
 window.addEventListener('error', e => {
   document.getElementById('jobsBody').innerHTML =
-    '<tr><td class="notice error" colspan="11"></td></tr>';
+    '<tr><td class="notice error" colspan="12"></td></tr>';
   document.querySelector('#jobsBody td').textContent =
     'The dashboard hit an error and could not show jobs: ' + e.message;
 });
@@ -488,7 +493,7 @@ function render() {
       msg = 'No jobs match the current search and filters.';
       action = '<button data-act="clear">Clear filters</button>';
     }
-    body.innerHTML = `<tr><td class="notice" colspan="11">${escapeHtml(msg)}${action}</td></tr>`;
+    body.innerHTML = `<tr><td class="notice" colspan="12">${escapeHtml(msg)}${action}</td></tr>`;
     return;
   }
   body.innerHTML = filtered.map(j => {
@@ -513,12 +518,32 @@ function render() {
       <td><span class="badge cat-${escapeHtml(j.location_category)}">${escapeHtml(j.location_category)}</span></td>
       <td><span class="badge status-${escapeHtml(j.status)}">${escapeHtml(j.status)}</span></td>
       <td>${appCell(j.app)}</td>
+      <td class="due">${dueCell(j)}</td>
       <td>${j.years_experience ?? ''}</td>
       <td>${srcBadges}</td>
       <td>${escapeHtml(j.posted_date)}</td>
       <td>${escapeHtml(j.first_seen)}</td>
     </tr>`;
   }).join('');
+}
+
+// Days from today to a YYYY-MM-DD deadline, counted in the viewer's own calendar days.
+function daysLeft(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const now = new Date();
+  return Math.round((new Date(y, m - 1, d) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
+}
+
+// The posting's deadline: red with 3 days or less left, amber within a week.
+function dueCell(j) {
+  if (!j.deadline) return '';
+  const [y, m, d] = j.deadline.split('-').map(Number);
+  const date = new Date(y, m - 1, d).toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
+  const days = daysLeft(j.deadline);
+  if (j.closed || days < 0) return `<span class="muted">${escapeHtml(date)}</span>`;
+  const left = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `${days} days left`;
+  const cls = days <= 3 ? 'due-soon' : days <= 7 ? 'due-week' : 'src';
+  return `<span class="badge ${cls}" title="Applications close ${escapeHtml(j.deadline)}">${escapeHtml(date)} · ${left}</span>`;
 }
 
 document.querySelectorAll('th[data-key]').forEach(th => {
@@ -627,6 +652,8 @@ def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
         # Nor is one you dismissed.
         r["pin"] = (_NEEDS_YOU.index(status) if status in _NEEDS_YOU and not r["closed"]
                     and r.get("status") != "dismissed" else 99)
+        # Soonest first when sorted ascending; postings that give no deadline go last.
+        r["deadline_sort"] = r.get("deadline") or "9999-12-31"
         r["posted_sort"] = _sort_date(r.get("posted_date"), r.get("first_seen"))
         r["job_type"] = "internship" if _INTERNSHIP_RE.search(r["title"]) else "fulltime"
         # Skipped / never-scored rows sort below every real score.
