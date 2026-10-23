@@ -22,8 +22,9 @@ plan cannot change them.
 ## Hard rules
 
 1. **Headline.** `headline` is the job title the summary's first sentence will open with. Set it to
-   the posting's core job title, without level words ("Junior Data Developer" becomes "Data
-   developer", "Product Analyst II" becomes "Product analyst"), whenever it is true: the vault shows
+   the posting's core job title, without level or qualifier words ("Junior Data Developer" becomes
+   "Data developer", "Provincial Product Analyst II" becomes "Product analyst"), using only words
+   from the posting's title (the ATS score matches them), whenever it is true: the vault shows
    the candidate doing that kind of work. An ATS ranks a resume whose opening names the job title
    well above one that doesn't, and saying a true title is not stuffing (Jake, Oct 23 2026). Output
    `null` when the title names a role the vault doesn't show ("Data Engineer" or "Integration
