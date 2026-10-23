@@ -49,7 +49,7 @@ def term_mentioned(entry: dict, text: str) -> bool:
     """True when `text` mentions a term entry (taxonomy synonyms, else the exact phrase)."""
     if entry.get("canonical"):
         return taxonomy.mentions(entry["canonical"], text)
-    return taxonomy.exact(entry["term"], text)
+    return taxonomy.exact(entry["term"], text) or wording.same(entry["term"], text)
 
 
 def term_exact(entry: dict, text: str) -> bool:
