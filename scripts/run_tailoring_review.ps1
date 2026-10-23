@@ -24,6 +24,8 @@ $OutputEncoding = $utf8
 Set-Location $projectRoot
 $Transcript = (Resolve-Path $Transcript).Path
 Log "Starting run review of $Transcript"
+. (Join-Path $PSScriptRoot "uv_path.ps1")
+if (-not (Add-UvToPath)) { Log "ERROR: uv not found on PATH or in the usual install folders; nothing ran"; exit 1 }
 git fetch origin jake 2>&1 | Out-Null
 if (Test-Path $worktree) { git worktree remove --force $worktree 2>&1 | Out-Null }
 git branch -D $branch 2>&1 | Out-Null
