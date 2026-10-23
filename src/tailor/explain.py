@@ -27,8 +27,9 @@ FIT = ("The ATS score estimates how well an applicant tracking system would matc
        "posting's keywords, out of 100. Below 70 we stop and ask you to look.")
 FIT_GAP = ("Here the gap is missing experience, not wording: even if the resume used every skill your "
            "vault backs, it couldn't reach 70. You can still apply; just know it's a stretch.")
-WORDING_GAP = ("Here the gap is wording: your vault backs more of the posting's terms than the resume uses, "
-               "so another repair round could raise the score.")
+WORDING_GAP = ("Here the gap is wording: your vault backs more of the posting's terms than the resume uses. "
+               "The pipeline has already used its repair rounds, so no more will run on their own; "
+               "the terms below are the words to work in if you edit a line yourself.")
 NO_WORDING_LEFT = ("Here no repair round can help: every hard skill your vault backs is already on the resume "
                    "in the posting's words, so what's left is how close the match is, not missing wording.")
 GRADE = ("The score is 60% the ATS estimate and 40% the share of Jev's checks the resume passed. The ATS "
