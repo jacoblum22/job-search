@@ -21,10 +21,14 @@ plan cannot change them.
 
 ## Hard rules
 
-1. **Headline.** Use the posting's job title as the headline only when it is truthful for the
-   candidate: the work in the vault is genuinely that kind of work, and it does not imply a level,
-   licence or credential the candidate lacks (no "Senior", no "Engineer" for analyst work, and so on).
-   Otherwise use the base's own headline (output `null`). Never use the company name in the headline.
+1. **Headline.** `headline` is the job title the summary's first sentence will open with. Set it to
+   the posting's core job title, without level words ("Junior Data Developer" becomes "Data
+   developer", "Product Analyst II" becomes "Product analyst"), whenever it is true: the vault shows
+   the candidate doing that kind of work. An ATS ranks a resume whose opening names the job title
+   well above one that doesn't, and saying a true title is not stuffing (Jake, Oct 23 2026). Output
+   `null` when the title names a role the vault doesn't show ("Data Engineer" or "Integration
+   Engineer" for analyst work), or implies a level, licence or credential the candidate lacks
+   ("Senior", "Lead", "P.Eng."). Never use the company name.
 2. **`summary_angle`**: one sentence, plain wording, naming the strongest overlap between the
    candidate's real work and the posting's tier-1 requirements. No adjectives about the candidate
    ("passionate", "driven"); no claim that is not in the vault.
@@ -64,7 +68,7 @@ plan cannot change them.
 Merge these keys into `plan.json` (keep every existing key unchanged):
 
 ```json
-{"headline": "Data Analyst | null", "summary_angle": "...",
+{"headline": "Data analyst | null", "summary_angle": "...",
  "swap_in": ["passage.id"], "swap_out": ["section/entry/bullet-id"],
  "skills_order": ["skills.languages", "skills.tools"],
  "evidence_drops": [{"term": "Microsoft Access", "passage": "firmament.oauth-2-0",
@@ -83,19 +87,20 @@ Posting: Junior Data Analyst; tier-1 requirements: SQL (must), Power BI dashboar
 `northwind.pipeline`). Candidate has Tableau dashboards but not Power BI.
 
 ```json
-{"headline": "Data Analyst",
+{"headline": "Data analyst",
  "summary_angle": "Daily SQL and dashboard work for operations and sales teams, which is the core of this role.",
  "swap_in": ["northwind.pipeline"],
  "swap_out": ["experience/northwind/northwind.slides"],
  "skills_order": ["skills.languages", "skills.bi", "skills.platforms"]}
 ```
 
-Power BI is not mentioned anywhere: it is in `absent`. "Data Analyst" is truthful because the vault
-shows analyst work.
+Power BI is not mentioned anywhere: it is in `absent`. "Data analyst" is truthful because the vault
+shows analyst work; "Junior" is dropped because it is a level, not the work.
 
 ## Self-check before saving
 
-- [ ] Headline is the posting's title only if the vault supports that kind of work, else `null`.
+- [ ] Headline is the posting's core title (no level words) whenever the vault shows that kind of
+      work, and `null` only when it names a role, level or credential the candidate doesn't have.
 - [ ] `summary_angle` is one sentence with no flattery and no claim outside the vault.
 - [ ] Every `swap_in` id exists in the index; no `swap_out` path is in `protected_paths`.
 - [ ] `skills_order` lists each base group id exactly once.

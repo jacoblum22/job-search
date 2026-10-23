@@ -262,12 +262,13 @@ def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any
 
 
 def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any],
-            vault: tuple[str, set[str]] | None = None, title_ok: bool = False) -> dict[str, Any]:
+            vault: tuple[str, set[str]] | None = None, title_ok: bool | str = False) -> dict[str, Any]:
     """Why the ATS score is where it is: backed hard-skill terms the resume doesn't use, backed soft
     skills it doesn't name (listed apart: a repair works them into a line whose story shows them,
     never as an adjective), terms the vault can't back, and the highest score reachable if every
     backed hard term were used in the posting's words (`vault`: see `_wording_backed`), and the job
-    title too when the plan found it truthful (`title_ok`). Soft skills weigh `ats_soft_weight` (0 since
+    title too when the plan found it truthful (`title_ok`, the plan's headline; `title_missing` names it
+    when the summary doesn't open with it yet). Soft skills weigh `ats_soft_weight` (0 since
     Jake, Oct 23 2026: ATS searches key on hard skills), so a missing soft word is never a gap to close.
 
     The ATS target is the floor, or the ceiling minus a small tolerance when the ceiling itself is
@@ -298,7 +299,10 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
         sw = {k: soft if terms[k]["soft"] else 1.0 for k in req_terms}
         if sum(sw.values()):
             comps["skills"] = 100.0 * sum(sw[k] for k in req_terms if _is_backed(terms[k]["term"], backed)) / sum(sw.values())
+    title_missing = ""
     if title_ok and comps.get("title") is not None:
+        if comps["title"] < 100.0:
+            title_missing = title_ok if isinstance(title_ok, str) else ""
         comps["title"] = 100.0
     weights = {**DEFAULT_WEIGHTS, **(cfg.get("ats_weights") or {})}
     live = {k: v for k, v in comps.items() if v is not None}
@@ -306,9 +310,9 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     ceiling = round(sum(weights.get(k, 0) * v for k, v in live.items()) / wsum if wsum else 0.0, 1)
     floor = float(cfg.get("ats_floor", 70))
     target = min(floor, ceiling - float(cfg.get("ats_wording_tolerance", 5)))
-    return {"unused": unused, "unused_soft": unused_soft, "unbacked": unbacked, "ceiling": ceiling,
-            "floor": floor, "target": round(target, 1), "fit_gap": ceiling < floor,
-            "needs_repair": score["total"] < target and bool(unused)}
+    return {"unused": unused, "unused_soft": unused_soft, "unbacked": unbacked, "title_missing": title_missing,
+            "ceiling": ceiling, "floor": floor, "target": round(target, 1), "fit_gap": ceiling < floor,
+            "needs_repair": score["total"] < target and bool(unused or title_missing)}
 
 
 def _repeated(terms, text) -> list[str]:
@@ -528,10 +532,11 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     return result
 
 
-def title_ok(app_dir: Path) -> bool:
-    """The plan found the posting's job title truthful as the headline (prompts/tailor/plan.md)."""
+def title_ok(app_dir: Path) -> str:
+    """The job title the plan found truthful for the summary to open with (prompts/tailor/plan.md),
+    or "" when it found none."""
     p = app_dir / "plan.json"
-    return p.exists() and bool(str(read_json(p).get("headline") or "").strip())
+    return str(read_json(p).get("headline") or "").strip() if p.exists() else ""
 
 
 def graded_evidence(app_dir: Path, cfg: dict[str, Any], req: dict[str, Any]) -> dict[str, Any]:
@@ -544,7 +549,8 @@ def graded_evidence(app_dir: Path, cfg: dict[str, Any], req: dict[str, Any]) -> 
 
 def ats_gap_lines(gap: dict[str, Any], evidence: dict[str, Any], data: dict[str, Any]) -> list[dict[str, Any]]:
     """The repair notes for an ATS gap: backed hard skills the resume doesn't say in the posting's
-    words, and backed soft skills it doesn't name."""
+    words, the job title the plan found truthful when the summary doesn't open with it, and backed
+    soft skills it doesn't name."""
     out = []
 
     def sections(terms: list[str]) -> list[str]:
@@ -557,6 +563,12 @@ def ats_gap_lines(gap: dict[str, Any], evidence: dict[str, Any], data: dict[str,
         out.append({"id": "ats.unused", "sections": sections(gap["unused"]), "sentence": (
             "Use the posting's own words for these terms the vault backs (only where a cited passage "
             f"supports them): {', '.join(gap['unused'][:12])}.")})
+    if gap.get("title_missing"):
+        # An ATS ranks a resume whose opening names the job title well above one that doesn't (Jake,
+        # Oct 23 2026: fine to say when it is true).
+        out.append({"id": "ats.title", "sections": ["summary"], "sentence": (
+            f'Open the summary\'s first sentence with the job title "{gap["title_missing"]}", worded as a plain '
+            f'description of the work ("{gap["title_missing"]} working in ..."), once; the plan found it truthful.')})
     if gap["unused_soft"]:
         # Soft skills don't count in the score, but a reader still looks for them: the resume names
         # the ones a story already shows and the letter the rest (Jake, Oct 23 2026). A ride-along

@@ -433,6 +433,19 @@ def test_soft_skill_note_alone_does_not_start_a_round(tmp_path):
     assert out["action"] == "stop" and out["reason"] == "nothing left to repair"
 
 
+def test_title_note_counts_as_a_wording_gap(tmp_path):
+    title = 'Open the summary\'s first sentence with the job title "Data developer", worded as ...'
+    for needs, action in ((False, "stop"), (True, "repair")):
+        # Advice only while the ATS is within reach, a reason for a round when it isn't.
+        (tmp_path / str(needs)).mkdir()
+        app = new_app(tmp_path / str(needs))
+        add_round(app, 1, 60, ats=58, feedback=[title],
+                  gaps=[{"id": "ats.title", "sentence": title, "sections": ["summary"]}])
+        _set_grade(app, 1, needs_ats_repair=needs)
+        assert next_round(app, CFG)["action"] == action
+    assert title in json.loads((app / "drafts" / "r2" / "feedback.json").read_text())["failed_items"]
+
+
 def test_gap_round_asked_for_when_the_best_round_is_far_under_reach(tmp_path, monkeypatch):
     import src.tailor.grade as grade
     from src.tailor.loop import gap_round, pending_round

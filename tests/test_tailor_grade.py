@@ -101,6 +101,31 @@ def test_ceiling_counts_the_title_when_the_plan_found_it_truthful():
     assert ats_gap(data, r, ev(["SQL"]), CFG, title_ok=True)["ceiling"] > plain
 
 
+def test_title_note_when_the_summary_does_not_open_with_the_true_title():
+    # Jake, Oct 23 2026: say the job title when it is true, as the summary's opening.
+    from src.tailor.grade import ats_gap, ats_gap_lines
+    r = {**req(terms=["SQL"]), "title": "Junior Data Developer"}
+    data = {"summary": {"text": "Analyst writing SQL daily."}, "skills": [{"items": ["SQL"]}]}
+    gap = ats_gap(data, r, ev(["SQL"]), CFG, title_ok="Data developer")
+    assert gap["title_missing"] == "Data developer"
+    line = [g for g in ats_gap_lines(gap, {}, data) if g["id"] == "ats.title"]
+    assert line and '"Data developer"' in line[0]["sentence"] and line[0]["sections"] == ["summary"]
+    # Already opening with it (level word dropped): no note.
+    done = {**data, "summary": {"text": "Data developer writing SQL daily."}}
+    assert ats_gap(done, r, ev(["SQL"]), CFG, title_ok="Data developer")["title_missing"] == ""
+    # The plan found no true title: nothing to ask for.
+    assert ats_gap(data, r, ev(["SQL"]), CFG)["title_missing"] == ""
+
+
+def test_title_ok_reads_the_plan_headline(tmp_path):
+    from src.tailor.grade import title_ok
+    assert title_ok(tmp_path) == ""
+    write_json(tmp_path / "plan.json", {"headline": None})
+    assert title_ok(tmp_path) == ""
+    write_json(tmp_path / "plan.json", {"headline": " Product analyst "})
+    assert title_ok(tmp_path) == "Product analyst"
+
+
 def test_soft_skills_are_never_pushed_for_points(tmp_path):
     from src.tailor.grade import ats_gap
     r = req(terms=["SQL", "communication", "Looker"])

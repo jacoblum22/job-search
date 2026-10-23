@@ -58,9 +58,11 @@ list is also the before/after diff the candidate reviews.
    soft skill in. The cover letter shows the ones the resume doesn't, and also any backed hard
    skill the resume only lists or had no room for. Soft skills don't have to be in bullets: the
    letter is as good a place for them.
-6. **Headline.** Use the posting's title as the headline only when `plan.json` says it is truthful
-   (`headline` not null). Never change a job title, company, location, dates, school, degree, name,
-   url or contact. Those paths are rejected anyway.
+6. **Job title in the summary.** When `plan.json` `headline` is set, the summary's first sentence
+   opens with it, worded as a plain description of the work ("Data developer working in SQL and
+   Python on ..."), not as a copied headline or a claim to have held the job. Use it once. When
+   `headline` is null, keep the summary's own opening. Never change a job title, company, location,
+   dates, school, degree, name, url or contact. Those paths are rejected anyway.
 7. **Strategy** (set at the top of the output):
    - `nudge`: swap or reorder only; minimal wording changes. Use when the base already matches well.
    - `keywords` (default): rephrase existing bullets and add injectable terms the vault backs.
