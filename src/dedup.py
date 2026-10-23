@@ -33,17 +33,22 @@ MIN_DESCRIPTION_CHARS = 300
 
 
 def _is_match(a: sqlite3.Row, b: sqlite3.Row) -> bool:
+    title_score = fuzz.token_sort_ratio(normalize(a["title"]), normalize(b["title"]))
+    if title_score < TITLE_THRESHOLD:
+        return False
+
     company_score = fuzz.ratio(normalize(a["company"]), normalize(b["company"]))
     if company_score < COMPANY_THRESHOLD:
-        return False
+        # One posting is often listed under a subsidiary's or parent's name on one
+        # source and the brand on another ("Autodata Solutions Company" on Adzuna,
+        # "J.D. Power" on Wellfound, same text). Same title and description is the
+        # same job whatever the company field says.
+        return _same_description(a["description"], b["description"])
 
     # token_set_ratio, not ratio: locations are often phrased at different
     # granularity across sources ("Vancouver, BC" vs "Greater Vancouver,
     # British Columbia" for the same posting) — plain ratio penalizes the
     # length difference too harshly and misses real matches.
-    title_score = fuzz.token_sort_ratio(normalize(a["title"]), normalize(b["title"]))
-    if title_score < TITLE_THRESHOLD:
-        return False
 
     location_score = fuzz.token_set_ratio(normalize(a["location"]), normalize(b["location"]))
     if location_score >= LOCATION_THRESHOLD:

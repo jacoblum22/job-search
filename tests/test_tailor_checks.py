@@ -672,6 +672,44 @@ def test_skill_the_vault_words_differently_names_the_wording_not_a_missing_skill
     assert "Your vault backs requirements gathering" in issue(c, None)[0]
 
 
+def test_every_unbacked_wording_of_a_skill_on_a_line_is_named(tmp_path):
+    # Naming only the first lets a repair fix "AI agent" and the next round flag "tool calling".
+    app, cfg = make_app(tmp_path)
+    idx = json.loads(Path(cfg["paths"]["vault_index"]).read_text(encoding="utf-8"))
+    idx["passages"].append({**idx["passages"][0], "id": "side.agent",
+                            "text": "Side project: a chat bot with an LLM tool-use loop"})
+    Path(cfg["paths"]["vault_index"]).write_text(json.dumps(idx), encoding="utf-8")
+    data = base_data(cfg)
+    bullet(data, "northwind.dashboards")["text"] += " Built an AI agent with tool calling."
+    put_draft(app, data)
+    found = [c for c in run_check(app, 1, cfg, None)["criticals"] if c["code"] == "invented_skill"]
+    agent = [c for c in found if c["data"]["term"] == "AI agents / agentic AI / MCP"]
+    assert len(agent) == 1, found
+    c = agent[0]
+    assert "'AI agent'" in c["message"] and "'tool calling'" in c["message"]
+    assert c["data"]["wording"] == "AI agent, tool calling"
+
+
+def test_a_backed_wording_does_not_back_another_wording_beside_it(tmp_path):
+    # The vault says "tool-use"; "AI agent" on the same line is still the draft's own wording.
+    app, cfg = make_app(tmp_path)
+    idx = json.loads(Path(cfg["paths"]["vault_index"]).read_text(encoding="utf-8"))
+    idx["passages"].append({**idx["passages"][0], "id": "side.agent",
+                            "text": "Side project: a chat bot with an LLM tool-use loop"})
+    Path(cfg["paths"]["vault_index"]).write_text(json.dumps(idx), encoding="utf-8")
+    data = base_data(cfg)
+    bullet(data, "northwind.dashboards")["text"] += " Built an AI agent with tool use."
+    put_draft(app, data)
+    found = [c for c in run_check(app, 1, cfg, None)["criticals"]
+             if c["code"] == "invented_skill" and c["data"]["term"] == "AI agents / agentic AI / MCP"]
+    assert [c["data"]["wording"] for c in found] == ["AI agent"]
+    bullet(data, "northwind.dashboards")["text"] = bullet(data, "northwind.dashboards")["text"].replace(
+        "an AI agent with tool use", "a chat bot with tool use")
+    put_draft(app, data)
+    assert not any(c["code"] == "invented_skill" and c["data"]["term"] == "AI agents / agentic AI / MCP"
+                   for c in run_check(app, 1, cfg, None)["criticals"])
+
+
 def test_us_and_canadian_spellings_are_the_same_wording():
     # The posting says "modeling", the vault "modelling": matching the posting's spelling
     # must not make a backed skill look invented, or the reverse.

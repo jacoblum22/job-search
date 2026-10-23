@@ -308,15 +308,21 @@ def check_resume(
         for y in sorted(years_in(text) - allowed_years):
             c("unsupported_date", f"year {y} appears in no vault passage or the base", path)
         # A skill counts as backed only when the draft's own wording for it is in the
-        # vault or base: "experimentation" in a passage doesn't back "A/B testing".
+        # vault or base: "experimentation" in a passage doesn't back "A/B testing". Each
+        # wording on the line counts: a backed "tool use" doesn't back "AI agent" beside it.
         for skill, words in sorted(taxonomy.find_wordings(text).items()):
+            unbacked = [x for x in words if not _wording_in(x, allowed_text)]
             if taxonomy.is_hard(skill) and not confirmed_for(skill, path) and (
-                    skill not in allowed_skills or not any(_wording_in(w, allowed_text) for w in words)):
+                    skill not in allowed_skills or unbacked):
                 if skill in allowed_skills:
                     # The vault backs the skill, just not in these words: say so, or a repair drops a true claim.
-                    wording = sorted(words)[0]
-                    c("invented_skill", f"'{wording}' ({skill}) is not how any vault passage or the base words it; "
-                      "use the vault's wording", path, term=skill, wording=wording)
+                    # Name every such wording on the line: naming one lets the repair fix it and the next
+                    # round flag the other ("AI agent ... with tool calling").
+                    said = sorted({x.lower(): x for x in sorted(unbacked)}.values(), key=str.lower)
+                    quoted = " and ".join(f"'{x}'" for x in said)
+                    c("invented_skill", f"{quoted} ({skill}) {'is' if len(said) == 1 else 'are'} not how any vault "
+                      "passage or the base words it; use the vault's wording", path, term=skill,
+                      wording=", ".join(said))
                 else:
                     c("invented_skill", f"{skill} appears in no vault passage or the base", path, term=skill)
 
