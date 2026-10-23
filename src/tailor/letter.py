@@ -212,8 +212,19 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
         show = listed if short else []
         msg = f"{n_words} words; aim for about {'250' if show else '200'}-300 ({'add' if short else 'cut'} a little)"
         if show:
-            msg += "; use the room to show " + ", ".join(show) + ", which the resume lists without a bullet"
+            msg += ("; use the room to show " + ", ".join(show) + " (the resume lists it without a bullet) "
+                    "inside a story the letter tells, never in a sentence that only names it")
         warn("letter_length", msg, words=n_words, **({"show": show} if show else {}))
+    # A middle paragraph of one sentence that names a list-only skill is padding, not proof: the
+    # Remarcable letter round (Oct 22 2026) met the 250-word rule with "For Firmament ... I set up a
+    # Docker-ready deployment configuration." as a paragraph of its own.
+    for i, p in enumerate(paras[1:-1], 1):
+        text = str(p.get("text", "")).strip()
+        named = sorted(taxonomy.find(text) & set(ctx.get("no_bullet") or ()))
+        if named and len(_SENTENCE.split(text)) == 1:
+            warn("skill_name_only", f"paragraphs[{i}] is one sentence that names {', '.join(named)}; show it "
+                 "inside a story another paragraph tells, or take the sentence out", f"paragraphs[{i}]",
+                 skills=named)
     if len(_KEEN.findall(full)) > 1:
         warn("keen_to_grow", "more than one 'keen to grow' style phrase")
     elif _KEEN.search(full) and not _must_missing(app_dir, req):

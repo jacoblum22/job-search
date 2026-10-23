@@ -834,3 +834,22 @@ def test_letter_under_250_words_is_short_while_listed_skills_remain(tmp_path):
     apply_edits(app2, 1, cfg2)
     write_letter(app2, padded(LETTER, 225))
     assert not any(w["code"] == "letter_length" for w in run_check(app2, 1, cfg2, None)["warnings"])
+
+
+def test_one_sentence_paragraph_that_only_names_a_listed_skill_is_flagged(tmp_path):
+    # Remarcable letter round, Oct 22 2026: a paragraph of its own that only names Docker.
+    app, cfg = make_app(tmp_path)
+    write_edits(app, [{"path": "skills/skills.tools", "action": "add_skill", "value": "dbt", "sources": ["northwind.dbt"]}])
+    apply_edits(app, 1, cfg)
+    letter = copy.deepcopy(LETTER)
+    letter["paragraphs"].insert(2, {"text": "At Northwind I also built models in dbt.", "sources": ["northwind.dbt"],
+                                    "company_facts": []})
+    write_letter(app, letter)
+    res = run_check(app, 1, cfg, None)
+    flagged = [w for w in res["warnings"] if w["code"] == "skill_name_only"]
+    assert len(flagged) == 1 and flagged[0]["path"] == "paragraphs[2]" and flagged[0]["data"]["skills"] == ["dbt"]
+    # The same mention inside a paragraph that tells a story is fine.
+    letter["paragraphs"][2]["text"] = ("At Northwind I also built models in dbt. They fed the weekly sales "
+                                       "report the stakeholders reviewed.")
+    write_letter(app, letter)
+    assert not any(w["code"] == "skill_name_only" for w in run_check(app, 1, cfg, None)["warnings"])

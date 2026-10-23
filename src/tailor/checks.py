@@ -358,11 +358,17 @@ def check_resume(
     letter_text = ctx.get("letter_text") or ""
     skills_text = "\n".join(t for p, t in d_units if p.startswith("skills/"))
     listed_only: set[str] = set()
+    # Listed skills with no bullet, whether or not the letter shows them: the letter check looks
+    # at how it shows them.
+    no_bullet: set[str] = set()
+    ctx["no_bullet"] = no_bullet
     base_skills = "\n".join(t for p, t in units(base) if p.startswith("skills/"))
     for t in terms:
         canon = taxonomy.canonical(t)
         # A skill the letter shows with a story counts as shown: the letter is where what didn't
         # fit in the bullets goes (Jake, Oct 22 2026). The letter checks still judge that story.
+        if canon and taxonomy.is_hard(canon) and _covered(t, skills_text) and not _covered(t, prose):
+            no_bullet.add(canon)
         if (canon and taxonomy.is_hard(canon) and _covered(t, skills_text) and not _covered(t, prose)
                 and not _covered(t, letter_text)):
             # One warning per skill, named as the list has it: "AWS S3" covers the posting's

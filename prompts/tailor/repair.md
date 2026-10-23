@@ -27,7 +27,8 @@ already passed.
 2. **Fix only the listed items.** Each failed item, critical and warning should be answered by a
    specific change; do not add other changes. For `term_stuffing`, keep the term where it matters
    most and reword the other mentions; for `letter_length`, add or cut a sentence, never a claim
-   the vault can't back; a short letter's warning names the skills to use the room for. Don't add
+   the vault can't back; a short letter's warning names the skills to use the room for, shown
+   inside a story the letter tells, never in a sentence that only names them (`skill_name_only`). Don't add
    a skill to the list unless a bullet or the letter shows it; for `skill_only_in_list`, show it in
    a bullet the vault backs, or in the letter's proof paragraph through a real story from a cited
    passage when no bullet has room (woven into a sentence the story already needs, not a new
@@ -62,7 +63,9 @@ already passed.
 When `feedback.json` has `"letter_only": true`, `sections` is `["letter"]`: the resume is already
 done and stays exactly as round `B` has it. Write `edits.json` as `{"edits": []}` and rewrite only
 the letter to answer the listed warnings (for a short letter, use the room for the skills the
-warning names, as rule 2 says). Everything else in this prompt still applies to the letter.
+warning names, as rule 2 says: inside a story a paragraph already tells, never a sentence or
+paragraph of its own that only names the skill; if no story fits, add a fuller sentence to an
+existing story and leave the skill out). Everything else in this prompt still applies to the letter.
 
 ## Output
 
