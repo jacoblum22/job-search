@@ -83,6 +83,64 @@ def letter_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
     return feedback
 
 
+_ATS_NOTES = ("Use the posting's own words", "Open the summary's first sentence with the job title",
+              "Soft skills the vault shows")
+
+
+def _wide_gap(r: dict[str, Any], loop_cfg: dict[str, Any]) -> bool:
+    ceiling = r["grade"].get("ats_ceiling")
+    return ceiling is not None and (r["ats"] or 0) < float(ceiling) - float(loop_cfg.get("wide_gap", 10))
+
+
+def gap_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
+    """Ask for one more repair round when the best round's ATS, scored under today's rules, is more
+    than `loop.wide_gap` points under what the evidence allows and the resume leaves backed terms
+    unsaid (Jake, Oct 23 2026: VCH Junior Data Developer stopped at 59.2 with about 71 reachable).
+    It builds on the best round. Writes `drafts/r<N>/feedback.json` and returns it, or None. One
+    try per best round, like `letter_round`."""
+    from src.resume import load_resume
+    from src.tailor.grade import _vault_wording, ats_gap, ats_gap_lines, ats_score, graded_evidence, title_ok
+
+    app_dir = Path(app_dir)
+    best = (load_app(app_dir).get("best_round") or 0)
+    if not best or pending_round(app_dir) is not None:
+        return None
+    dirs = _round_dirs(app_dir)
+    rdir = round_dir(app_dir, best)
+    if best not in dirs or not (rdir / "grade.json").exists() or _feedback(app_dir, best).get("letter_only"):
+        return None
+    if any(_feedback(app_dir, n).get("revisit") and _feedback(app_dir, n).get("build_on") == best for n in dirs):
+        return None
+    req = read_json(app_dir / "requirements.json")
+    evidence = graded_evidence(app_dir, cfg, req)
+    data = load_resume(rdir / "resume.yaml")
+    gap = ats_gap(data, req, evidence, cfg, _vault_wording(app_dir, cfg), title_ok=title_ok(app_dir))
+    total = ats_score(data, req, evidence, cfg)["total"]
+    if total >= gap["ceiling"] - float((cfg.get("loop") or {}).get("wide_gap", 10)):
+        return None
+    grade = read_json(rdir / "grade.json")
+    check = read_json(rdir / "check.json") if (rdir / "check.json").exists() else {}
+    lines = ats_gap_lines(gap, evidence, data)
+    old_ats = {g.get("sentence") for g in grade.get("gaps") or [] if str(g.get("id", "")).startswith("ats.")}
+    grade = {**grade, "gaps": [g for g in grade.get("gaps") or [] if not str(g.get("id", "")).startswith("ats.")] + lines}
+    nxt = max(dirs) + 1
+    feedback = {
+        "round": nxt,
+        "build_on": best,
+        "revisit": True,
+        "criticals": check.get("criticals") or [],
+        # Today's ATS notes replace the round's own (an older grade words them differently).
+        "failed_items": [f for f in grade.get("feedback") or [] if f not in old_ats and not f.startswith(_ATS_NOTES)]
+                        + [g["sentence"] for g in lines],
+        "warnings": [{"code": w["code"], "message": w["message"], "path": w.get("path", "")} for w in _warnings(check)],
+        "sections": _sections({"check": check, "grade": grade}),
+    }
+    write_json(round_dir(app_dir, nxt) / "feedback.json", feedback)
+    log(app_dir, "gap-round", f"round {nxt}: ATS {total} is more than {(cfg.get('loop') or {}).get('wide_gap', 10)} "
+        f"under the {gap['ceiling']} the evidence allows; repairing again from round {best}")
+    return feedback
+
+
 def _round_numbers(app_dir: Path) -> list[int]:
     drafts = app_dir / "drafts"
     nums = []
@@ -231,7 +289,12 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     if letter_only.get("letter_only") and prev:
         return _finish_letter_round(app_dir, rounds, cur, letter_only.get("build_on"))
 
+    # Jake, Oct 23 2026: more than `wide_gap` points under what the evidence allows isn't acceptable,
+    # so while the best round is that far off and the last round still raised its ATS, the loop gets
+    # up to `max_rounds_wide_gap` drafts.
     max_rounds = loop_cfg.get("max_rounds", 3)
+    if _wide_gap(best, loop_cfg) and (not prev or (best["ats"] or 0) > (_best(prev)["ats"] or 0)):
+        max_rounds = max(max_rounds, loop_cfg.get("max_rounds_wide_gap", 5))
     min_gain = loop_cfg.get("min_gain", 2.0)
     target = cfg.get("target_score", 80)
     # A wording gap (hard skills the vault backs but the resume doesn't say) earns more rounds;
@@ -270,8 +333,10 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     if reason is None and len(rounds) >= max_rounds:
         reason = f"round limit of {max_rounds} reached"
     # Without a wording gap the "use the posting's words" line is advice, not a reason for a round.
-    ats_lines = {g.get("sentence") for g in src["grade"].get("gaps") or [] if g.get("id") == "ats.unused"}
-    repairable = feedback if needs_ats else [f for f in feedback if f not in ats_lines]
+    ats_lines = {g.get("sentence") for g in src["grade"].get("gaps") or [] if g.get("id") in ("ats.unused", "ats.title")}
+    # The soft-skill note rides along with a round that happens anyway, never starts one.
+    soft_lines = {g.get("sentence") for g in src["grade"].get("gaps") or [] if g.get("id") == "ats.soft"}
+    repairable = [f for f in feedback if f not in soft_lines and (needs_ats or f not in ats_lines)]
     # A skill the draft itself added to the list with no bullet behind it is worth a round too.
     round_warnings = [w for w in _warnings(src["check"]) if w.get("code") in _ROUND_WARNINGS
                       or (w.get("code") == "skill_only_in_list" and (w.get("data") or {}).get("added"))]

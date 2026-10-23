@@ -31,7 +31,8 @@ _APP_LABELS = {
 _APP_ORDER = ["needs_fixes", "ready_for_review", "approved", "shortlisted", "applied"]
 # Applications waiting on you; they stay at the top of the table whatever it is sorted by.
 _NEEDS_YOU = _APP_ORDER[:3]
-_FLAG_LABELS = {"weaker_fit": "Weaker fit", "ats_below_floor": "ATS below 70"}
+_FLAG_LABELS = {"weaker_fit": "Weaker fit", "ats_below_floor": "ATS below 70",
+                "wide_gap": "ATS 10+ under reachable"}
 
 _TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">

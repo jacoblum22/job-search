@@ -390,3 +390,95 @@ def test_letter_round_that_adds_a_critical_keeps_the_round_it_built_on(tmp_path,
     write_json(app / "app.json", {**json.loads((app / "app.json").read_text()), "best_round": 2})
     # The try was spent on round 2: no new letter round every day.
     assert letter_round(app, CFG) is None
+
+
+def _set_grade(app, n, **fields):
+    p = app / "drafts" / f"r{n}" / "grade.json"
+    write_json(p, {**json.loads(p.read_text()), **fields})
+
+
+WIDE = {**CFG, "loop": {**CFG["loop"], "wide_gap": 10, "max_rounds_wide_gap": 5}}
+
+
+def test_wide_gap_that_still_gains_gets_rounds_past_the_limit(tmp_path):
+    # Jake, Oct 23 2026: more than 10 under what the evidence allows isn't acceptable.
+    app = new_app(tmp_path)
+    for n, ats in ((1, 50), (2, 54), (3, 58)):
+        add_round(app, n, 60 + n, items=[item("must.r1", False, ["summary"])], ats=ats, feedback=["show SQL"])
+        _set_grade(app, n, ats_ceiling=75, needs_ats_repair=True)
+    out = next_round(app, WIDE)
+    assert out["action"] == "repair" and out["next_round"] == 4
+    # Without the wide gap the usual limit holds.
+    for n in (1, 2, 3):
+        _set_grade(app, n, ats_ceiling=62)
+    (app / "drafts" / "r4" / "feedback.json").unlink()
+    assert next_round(app, WIDE)["action"] == "stop"
+
+
+def test_wide_gap_that_stopped_gaining_stops_at_the_limit(tmp_path):
+    app = new_app(tmp_path)
+    for n, ats in ((1, 50), (2, 58), (3, 58)):
+        add_round(app, n, 60 + n, items=[item("must.r1", False, ["summary"])], ats=ats, feedback=["show SQL"])
+        _set_grade(app, n, ats_ceiling=75, needs_ats_repair=True)
+    out = next_round(app, WIDE)
+    assert out["action"] == "stop" and "round limit" in out["reason"]
+
+
+def test_soft_skill_note_alone_does_not_start_a_round(tmp_path):
+    app = new_app(tmp_path)
+    soft = "Soft skills the vault shows that neither draft names yet: teamwork."
+    add_round(app, 1, 70, ats=72, feedback=[soft], gaps=[{"id": "ats.soft", "sentence": soft, "sections": ["letter"]}])
+    _set_grade(app, 1, needs_ats_repair=False)
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and out["reason"] == "nothing left to repair"
+
+
+def test_title_note_counts_as_a_wording_gap(tmp_path):
+    title = 'Open the summary\'s first sentence with the job title "Data developer", worded as ...'
+    for needs, action in ((False, "stop"), (True, "repair")):
+        # Advice only while the ATS is within reach, a reason for a round when it isn't.
+        (tmp_path / str(needs)).mkdir()
+        app = new_app(tmp_path / str(needs))
+        add_round(app, 1, 60, ats=58, feedback=[title],
+                  gaps=[{"id": "ats.title", "sentence": title, "sections": ["summary"]}])
+        _set_grade(app, 1, needs_ats_repair=needs)
+        assert next_round(app, CFG)["action"] == action
+    assert title in json.loads((app / "drafts" / "r2" / "feedback.json").read_text())["failed_items"]
+
+
+def test_gap_round_asked_for_when_the_best_round_is_far_under_reach(tmp_path, monkeypatch):
+    import src.tailor.grade as grade
+    from src.tailor.loop import gap_round, pending_round
+
+    app = new_app(tmp_path)
+    add_round(app, 1, 60, ats=55, feedback=["Use the posting's own words for these terms the vault backs: old."],
+              gaps=[{"id": "ats.unused", "sentence": "Use the posting's own words for these terms the vault backs: old.",
+                     "sections": ["summary"]}])
+    add_round(app, 2, 62, ats=58, feedback=["Use the posting's own words for these terms the vault backs: old."])
+    write_json(app / "app.json", {"history": [], "best_round": 2})
+    write_json(app / "requirements.json", {"requirements": []})
+    (app / "drafts" / "r2" / "resume.yaml").write_text("summary:\n  text: Analyst.\n", encoding="utf-8")
+    line = {"id": "ats.unused", "sentence": "Use the posting's own words ...: coding best practices.",
+            "sections": ["experience/algaecal"]}
+    gap = {"unused": ["coding best practices"], "unused_soft": [], "ceiling": 72.0}
+    monkeypatch.setattr(grade, "graded_evidence", lambda *a: {})
+    monkeypatch.setattr(grade, "_vault_wording", lambda *a: None)
+    monkeypatch.setattr(grade, "ats_gap", lambda *a, **k: gap)
+    monkeypatch.setattr(grade, "ats_score", lambda *a: {"total": 58.3})
+    monkeypatch.setattr(grade, "ats_gap_lines", lambda *a: [line])
+    fb = gap_round(app, CFG)
+    assert fb["round"] == 3 and fb["build_on"] == 2 and fb["revisit"] is True
+    assert fb["failed_items"] == [line["sentence"]] and "experience/algaecal" in fb["sections"]
+    assert pending_round(app) == 3
+    # One try per best round.
+    add_round(app, 3, 63, ats=60)
+    assert gap_round(app, CFG) is None
+    # Within 10 of the ceiling: no round.
+    app2 = tmp_path / "b"
+    app2.mkdir()
+    write_json(app2 / "app.json", {"history": [], "best_round": 1})
+    write_json(app2 / "requirements.json", {"requirements": []})
+    add_round(app2, 1, 60, ats=63)
+    (app2 / "drafts" / "r1" / "resume.yaml").write_text("summary:\n  text: Analyst.\n", encoding="utf-8")
+    monkeypatch.setattr(grade, "ats_score", lambda *a: {"total": 63.0})
+    assert gap_round(app2, CFG) is None

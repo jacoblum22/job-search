@@ -202,8 +202,8 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
         term_list("The posting asks for these and your vault doesn't show them in these words", unbacked)
         term_list("Your vault shows these but the resume doesn't use the posting's words", unused)
         if unused_soft:
-            term_list("Soft skills your vault shows that the resume leaves out on purpose (they count half "
-                      "and are never added just for points)", unused_soft)
+            term_list("Soft skills your vault shows that the resume doesn't name (they don't count in the ATS "
+                      "score; the letter is the place for the ones no line fits)", unused_soft)
         if unbacked:
             lines.append("  - If you do have something in the first list, add it to your experience vault and "
                          "rerun from the evidence step: the resume can only claim what the vault shows.")
@@ -328,14 +328,19 @@ def run_packet(app_dir: Path, cfg: dict[str, Any], recheck: bool = False) -> dic
         text = review.carry_over((app_dir / "check.md").read_text(encoding="utf-8"), text)
     (app_dir / "check.md").write_text(text, encoding="utf-8")
     criticals = len((check or {}).get("criticals") or [])
-    status = "needs_fixes" if criticals else "ready_for_review"
     grade = _opt_json(rd / "grade.json") if rd else None
     ats_total = ((grade or {}).get("ats") or {}).get("total")
+    ceiling = (grade or {}).get("ats_ceiling")
+    # Jake, Oct 23 2026: more than loop.wide_gap under what the evidence allows isn't acceptable, so
+    # it needs a fix (a line reworded by hand, or another round) before it is sent.
+    wide_gap = (isinstance(ats_total, (int, float)) and isinstance(ceiling, (int, float))
+                and ats_total < ceiling - float((cfg.get("loop") or {}).get("wide_gap", 10)))
+    status = "needs_fixes" if criticals or wide_gap else "ready_for_review"
     below_floor = isinstance(ats_total, (int, float)) and ats_total < float(cfg.get("ats_floor", 70))
     weaker_fit = bool(below_floor and (grade or {}).get("fit_gap"))
     # What the dashboard shows next to the status, so a review problem is visible without
     # opening the folder.
-    flags = ["weaker_fit"] if weaker_fit else ["ats_below_floor"] if below_floor else []
+    flags = (["weaker_fit"] if weaker_fit else ["ats_below_floor"] if below_floor else []) + (["wide_gap"] if wide_gap else [])
     app = appdir.log(app_dir, "packet", f"{status}, {criticals} critical(s)", status=status)
     _sync(app_dir, cfg, app, status, review_flags=json.dumps(flags))
     return {"status": status, "criticals": criticals, "round": rnd, "below_ats_floor": below_floor,

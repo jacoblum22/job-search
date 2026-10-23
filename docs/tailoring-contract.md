@@ -297,19 +297,27 @@ bullet whose related passages close the gap gets those citations instead of bein
 (Jev's probability that it passes, so a 0.51 yes and a 0.49 no weigh about the same; unchecked items
 count as passed for the score but are listed). Choosing the best round compares rounds only on the
 checklist items every round was asked. In the keyword and skills components a must-have term weighs 1.5, a
-boilerplate term 0.25 and a soft skill (taxonomy "Soft skills": communication, teamwork...) 0.5
+boilerplate term 0.25 and a soft skill (taxonomy "Soft skills": communication, teamwork...) 0
 (`tailor.ats_soft_weight`), since ATS searches and recruiter filters key on hard skills. `feedback` is built by code from failed items; it never quotes the checklist
 question wording.
 
 ATS floor (`tailor.ats_floor`, 70): grade.json also has `ats_floor`, `below_floor`, `ats_ceiling`
-(the score if every vault-backed term were used in the posting's words), `ats_target`
+(the score if every vault-backed hard term were used in the posting's words, and the job title
+when `plan.json` found it truthful as the headline), `ats_target`
 (the floor, or the ceiling minus `ats_wording_tolerance` (5) when that is lower), `fit_gap` (the
-ceiling is under the floor), `needs_ats_repair` (under the target with backed hard skills unused),
-`unused_terms` (backed hard skills not used word for word), `unused_soft_terms` (listed, never pushed)
+ceiling is under the floor), `needs_ats_repair` (under the target with backed hard skills unused,
+or with the summary not yet opening with the plan's true job title, which an `ats.title` note asks for),
+`unused_terms` (backed hard skills not used word for word), `unused_soft_terms` (an `ats.soft`
+note that rides along with a round, for a line whose story shows them or for the letter; never a
+reason for a round on its own)
 and `unbacked_terms` (the posting asks, the vault can't back). Unused hard skills become an
 `ats.unused` gap and feedback line. While `needs_ats_repair` holds, `next-round` keeps repairing even
 on a small gain (up to the round limit); a fit gap gets no extra rounds, since that would only stuff
-keywords. Under the floor `check.md` opens with a Reviewed line that blocks `approve`: "Weaker fit"
+keywords. While the best round's ATS is more than `loop.wide_gap` (10) under the ceiling and the last
+round raised it, the limit is `loop.max_rounds_wide_gap` (5) drafts. `pending` asks for one more
+repair round (feedback `revisit: true`, built on the best round) for an application up for review
+whose best round, scored under today's rules, is that far off; and `packet` sets such an
+application to needs_fixes with the `wide_gap` flag. Under the floor `check.md` opens with a Reviewed line that blocks `approve`: "Weaker fit"
 when the evidence can't reach 70, otherwise "ATS score below 70" (a wording gap).
 
 ### `feedback.json` (input to a repair round)

@@ -37,8 +37,13 @@ already passed.
    Never reword around it ("roughly a third", "dozens"), never swap it for another invented figure.
 4. **"Use the posting's own words for these terms"** (the ATS item): work each listed term into a
    line in `sections`, word for word as the posting says it, only where a cited passage supports it.
-   Prefer rewording an existing line over adding one. The list holds only hard skills; don't add soft
-   skills (communication, collaboration) to chase the score, and each term needs only one mention.
+   Prefer rewording an existing line over adding one. The list holds only hard skills, and each term
+   needs only one mention.
+   **The soft-skill note** (soft skills the vault shows that neither draft names) rides along with a
+   round: use the posting's word where a line in `sections` already tells the story that shows it,
+   and show the rest in the letter through a story (if the letter is in `sections`). Never as an
+   adjective about the candidate, never a line stretched or added only to fit one in; leaving one
+   out is fine.
    Add the word without trading away what makes the line specific: keep its tools, methods and scope
    ("CTEs, window functions, views") and cut filler instead. A line stripped to fit the term reads as
    one any candidate could write, and the grader marks it down for that.

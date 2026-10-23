@@ -51,14 +51,18 @@ list is also the before/after diff the candidate reviews.
    a work or project story, not only with a self-description line ("Strong collaboration ...") or
    a skills list. Show at least one of them, more if they fit, through a bullet that describes the
    work that shows it ("explained the numbers to non-technical teams", "worked with the senior
-   analysts to review queries"), cited like any other claim. Use the posting's word only where it
-   reads naturally. Never as an adjective about the candidate ("strong communicator",
+   analysts to review queries"), cited like any other claim. Where a line's story already shows a
+   soft skill, use the posting's own word for it ("cross-functional", "communication"): an ATS only
+   counts the word. Never as an adjective about the candidate ("strong communicator",
    "detail-oriented") and never in the skills list; don't add a line or stretch one only to fit a
    soft skill in. The cover letter shows the ones the resume doesn't, and also any backed hard
-   skill the resume only lists or had no room for.
-6. **Headline.** Use the posting's title as the headline only when `plan.json` says it is truthful
-   (`headline` not null). Never change a job title, company, location, dates, school, degree, name,
-   url or contact. Those paths are rejected anyway.
+   skill the resume only lists or had no room for. Soft skills don't have to be in bullets: the
+   letter is as good a place for them.
+6. **Job title in the summary.** When `plan.json` `headline` is set, the summary's first sentence
+   opens with it, worded as a plain description of the work ("Data developer working in SQL and
+   Python on ..."), not as a copied headline or a claim to have held the job. Use it once. When
+   `headline` is null, keep the summary's own opening. Never change a job title, company, location,
+   dates, school, degree, name, url or contact. Those paths are rejected anyway.
 7. **Strategy** (set at the top of the output):
    - `nudge`: swap or reorder only; minimal wording changes. Use when the base already matches well.
    - `keywords` (default): rephrase existing bullets and add injectable terms the vault backs.
