@@ -340,6 +340,56 @@ def test_degree_meeting_the_level_passes_a_related_field_requirement_by_rule(tmp
     assert item["passed"] is False
 
 
+def test_unshown_must_with_a_degree_match_points_at_the_terms_passage(tmp_path):
+    # "5+ years of dbt work with a Bachelor's degree" matched as a degree requirement; the degree
+    # line backs no term, so repair must be pointed at dbt's own passage.
+    app = make_app(tmp_path)
+    e = json.loads((app / "evidence.json").read_text())
+    e["requirements"] = [x for x in e["requirements"] if x["id"] != "r2"] + [
+        {"id": "r2", "status": "covered", "strength": 2, "passages": ["edu.degree"], "method": "degree"}]
+    write_json(app / "evidence.json", e)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.8))
+    assert "Must-have dbt isn't shown; passage northwind.dbt supports it." in out["feedback"]
+    assert not any("edu.degree" in f for f in out["feedback"])
+
+
+def test_synonym_the_vault_never_says_is_not_pushed(tmp_path):
+    # The check flags "data requirements" as invented when the vault only says "requirements
+    # gathering", so the grade must not tell repair to use it; both judge against the same text.
+    from src.tailor.paths import load_config
+
+    app = make_app(tmp_path)
+    (tmp_path / "bases").mkdir()
+    shutil.copy(FIX / "base-analyst.yaml", tmp_path / "bases" / "data-analyst.yaml")
+    shutil.copy(FIX / "checks" / "plan.json", app / "plan.json")
+    idx = json.loads((FIX / "vault-index.json").read_text(encoding="utf-8"))
+    idx["passages"].append({**idx["passages"][0], "id": "skills.requirements",
+                            "text": "Stakeholder requirements gathering for the operations team"})
+    (tmp_path / "vault-index.json").write_text(json.dumps(idx), encoding="utf-8")
+    cfg = load_config({"paths": {"bases": str(tmp_path / "bases"), "vault_index": str(tmp_path / "vault-index.json")}})
+    r = json.loads((app / "requirements.json").read_text())
+    r["keywords"] += [{"term": "data requirements", "weight": "role"}, {"term": "requirements gathering", "weight": "role"}]
+    write_json(app / "requirements.json", r)
+    e = json.loads((app / "evidence.json").read_text())
+    e["present"].append("requirements gathering")
+    write_json(app / "evidence.json", e)
+    out = run_grade(app, 1, {**cfg, **CFG}, FakeJev({}))
+    assert "requirements gathering" in out["unused_terms"]
+    assert "data requirements" not in out["unused_terms"]
+
+
+def test_synonym_is_pushed_when_its_skill_is_confirmed_for_a_passage():
+    # A confirmed pair backs the skill's name in any wording (the check's confirmed_for).
+    from src.tailor.grade import ats_gap
+    r = req(terms=["data requirements"])
+    out = ats_gap({"summary": {"text": "Analyst."}}, r, ev(["requirements gathering"]), CFG,
+                  ("Mapped what each team needed.", {"requirements gathering"}))
+    assert out["unused"] == ["data requirements"]
+    out = ats_gap({"summary": {"text": "Analyst."}}, r, ev(["requirements gathering"]), CFG,
+                  ("Mapped what each team needed.", set()))
+    assert out["unused"] == []
+
+
 def test_narrower_phrase_backed_only_through_its_skill_is_not_pushed(tmp_path):
     from src.tailor.grade import ats_gap
     r = req(terms=["reporting pipelines", "key performance indicators"])

@@ -144,14 +144,22 @@ def _is_backed(term: str, backed: set[str]) -> bool:
     return bool(canon and canon.lower() in backed)
 
 
-def _wording_backed(term: str, backed: set[str]) -> bool:
+def _wording_backed(term: str, backed: set[str], vault: tuple[str, set[str]] | None = None) -> bool:
     """Backed in the posting's own words: the term itself, or a full synonym of a backed skill. A
     narrower phrase backed only through its skill ("reporting pipelines" via "reporting") is not, so
-    repair is never told to use words the vault doesn't say."""
-    if term.lower() in backed:
-        return True
+    repair is never told to use words the vault doesn't say.
+
+    `vault` is (base and claim-passage text, confirmed skill keys), what the check judges a draft's
+    wording against: a hard skill's term must be in that text or its skill confirmed for a passage.
+    A synonym the vault never says ("data requirements" where it says "requirements gathering") is
+    flagged as invented by the check, so it is not a wording the grade may ask for."""
     canon = taxonomy.canonical(term)
-    return bool(canon and canon.lower() in backed and taxonomy.is_synonym(term))
+    if term.lower() not in backed and not (canon and canon.lower() in backed and taxonomy.is_synonym(term)):
+        return False
+    if vault is None or not (canon and taxonomy.is_hard(canon)):
+        return True
+    text, confirmed = vault
+    return wording.same(term, text) or rejects.key(term) in confirmed
 
 
 def _credit(term: str, text: str, synonym_credit: float) -> float:
@@ -253,10 +261,11 @@ def ats_score(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any
     return {"total": round(total, 1), "components": rounded, "stuffing": stuffing, "_repeated": _repeated(terms, text)}
 
 
-def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
+def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, Any],
+            vault: tuple[str, set[str]] | None = None) -> dict[str, Any]:
     """Why the ATS score is where it is: backed hard-skill terms the resume doesn't use (soft skills
     are listed apart and never pushed for points), terms the vault can't back, and the highest score
-    reachable if every backed term were used in the posting's words.
+    reachable if every backed term were used in the posting's words (`vault`: see `_wording_backed`).
 
     The ATS target is the floor, or the ceiling minus a small tolerance when the ceiling itself is
     under the floor. A ceiling under the floor is a fit gap (the evidence isn't there), not a wording gap."""
@@ -269,7 +278,7 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
         return _term_weight(t, soft)
 
     ranked = sorted(terms.values(), key=lambda t: -weight(t))
-    missing = [t for t in ranked if _wording_backed(t["term"], backed) and _credit(t["term"], text, 1.0) < 1.0]
+    missing = [t for t in ranked if _wording_backed(t["term"], backed, vault) and _credit(t["term"], text, 1.0) < 1.0]
     unused = [t["term"] for t in missing if not t["soft"]]
     unused_soft = [t["term"] for t in missing if t["soft"]]
     unbacked = [t["term"] for t in ranked if not _is_backed(t["term"], backed) and not t["boilerplate"]]
@@ -280,7 +289,7 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
         # A narrower phrase backed only through its skill reaches synonym credit, not full credit.
         syn = cfg.get("synonym_credit", 0.5)
         comps["keyword"] = 100.0 * sum(
-            weight(t) * (1.0 if _wording_backed(t["term"], backed) else syn)
+            weight(t) * (1.0 if _wording_backed(t["term"], backed, vault) else syn)
             for t in terms.values() if _is_backed(t["term"], backed)) / total_w
     if req_terms:
         sw = {k: soft if terms[k]["soft"] else 1.0 for k in req_terms}
@@ -343,7 +352,9 @@ def _degree_by_rule(r: dict[str, Any], evidence: dict[str, Any], cfg: dict[str, 
 
 def _req_passage(rid: str, r: dict[str, Any], evidence: dict[str, Any]) -> str | None:
     for e in evidence.get("requirements") or []:
-        if e.get("id") == rid and e.get("passages"):
+        # A degree match ("5+ years with a Bachelor's degree") cites the degree line, which backs
+        # none of the requirement's terms: point repair at a term's own passage instead.
+        if e.get("id") == rid and e.get("passages") and e.get("method") != "degree":
             return e["passages"][0]
     wanted = {t.lower() for t in r.get("terms") or []}
     for t in evidence.get("terms") or []:
@@ -434,6 +445,19 @@ def _run_checklist(jev, state: str, qs: list[Question], meta) -> list[dict[str, 
 # ---------------------------------------------------------------------------
 
 
+def _vault_wording(app_dir: Path, cfg: dict[str, Any]) -> tuple[str, set[str]] | None:
+    """The text and confirmed skills the check judges wording against (checks.check_resume: the
+    chosen base and every claim passage). None before the plan has picked a base."""
+    if not (app_dir / "plan.json").exists():
+        return None
+    from src.tailor.checks import flatten
+    from src.tailor.edits import load_base, load_index
+
+    claims = [p["text"] for p in load_index(cfg).values() if p.get("use", "claim") == "claim"]
+    text = flatten(load_base(app_dir, cfg)) + "\n" + "\n".join(claims)
+    return text, {k for k, _ in rejects.confirmed(cfg, app_dir)}
+
+
 def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, Any]:
     app_dir = Path(app_dir)
     d = round_dir(app_dir, rnd)
@@ -471,7 +495,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     score = round(0.6 * ats["total"] + 0.4 * rate * 100, 1)
 
     gaps, feedback = _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeated)
-    gap = ats_gap(data, req, evidence, cfg)
+    gap = ats_gap(data, req, evidence, cfg, _vault_wording(app_dir, cfg))
     if gap["unused"]:
         # Hard skills the vault backs but the resume never says in the posting's words: the main ATS lever.
         names = {u.lower() for u in gap["unused"]}

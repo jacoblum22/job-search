@@ -32,5 +32,14 @@ def test_same_location_still_matches_without_description():
     assert _is_match(_row(location="Vancouver, BC", description=""), _row(location="Vancouver, BC", description=""))
 
 
+def test_same_posting_under_a_parent_company_name_matches():
+    # One source lists the subsidiary, another the parent brand; the text is the same job.
+    assert _is_match(_row(company="Northwind Data Services Inc"), _row(company="Contoso Group", location="Remote"))
+    other = "Totally different role description about warehouse forecasting and logistics. " * 10
+    assert not _is_match(_row(company="Northwind Data Services Inc"), _row(company="Contoso Group", description=other))
+    assert not _is_match(_row(company="Northwind Data Services Inc", description=""),
+                         _row(company="Contoso Group", description=""))
+
+
 def test_different_title_never_matches():
     assert not _is_match(_row(), _row(title="Senior Marketing Manager"))
