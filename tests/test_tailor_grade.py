@@ -331,6 +331,27 @@ def test_soft_must_that_jev_passes_needs_no_word(tmp_path):
     assert any("communication" in f for f in out["feedback"])
 
 
+def test_soft_skill_the_letter_names_is_not_asked_for_again(tmp_path):
+    # The note says "neither draft names yet", so a soft skill the letter says isn't on it.
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "Strong communication", "terms": ["communication"]}
+    write_json(app / "requirements.json", r)
+    e = json.loads((app / "evidence.json").read_text())
+    e["present"] = list(e.get("present") or []) + ["communication"]
+    write_json(app / "evidence.json", e)
+    jev = FakeJev(lambda state, q: 0.2 if q.id == "must.r2" else 0.8)
+    assert "communication" in run_grade(app, 1, CFG, jev)["unused_soft_terms"]
+    letter_path = app / "drafts" / "r1" / "cover-letter.json"
+    letter = json.loads(letter_path.read_text())
+    letter["paragraphs"].append({"text": "Clear communication with the store teams mattered most.",
+                                 "sources": [], "company_facts": []})
+    letter_path.write_text(json.dumps(letter))
+    out = run_grade(app, 1, CFG, jev)
+    assert "communication" not in out["unused_soft_terms"]
+    assert not any(g["id"] == "ats.soft" for g in out["gaps"])
+
+
 def test_failed_years_requirement_is_a_fit_gap(tmp_path):
     app = make_app(tmp_path)
     r = json.loads((app / "requirements.json").read_text())
