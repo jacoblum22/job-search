@@ -159,6 +159,22 @@ def test_packet_and_approve_gate(cfg):
         record_outcome(d, cfg, "bogus")
 
 
+def test_fit_notes_count_the_plans_evidence_adds(cfg):
+    # REW.ca, Oct 23 2026: fit-notes listed a term as not backed (and as interview prep) while
+    # check.md and the grade counted the plan's match for it.
+    _, d = _packet_app(cfg)
+    ev = json.loads((d / "evidence.json").read_text())
+    ev.update(present=["SQL", "dbt"], absent=["Looker"],
+              terms=[{"term": "Looker", "canonical": "Looker", "passages": [], "related": [], "in_base": {}}])
+    appdir.write_json(d / "evidence.json", ev)
+    appdir.write_json(d / "plan.json", {"base_id": "data-analyst",
+                                        "evidence_adds": [{"term": "Looker", "passage": "a.dash"}]})
+    run_packet(d, cfg)
+    notes = (d / "fit-notes.md").read_text()
+    assert "- Can be added (backed by the vault): dbt, Looker" in notes
+    assert "- Not backed by the vault: none" in notes and "Term not in your record: Looker" not in notes
+
+
 def test_packet_criticals_and_missing_inputs(cfg):
     jid, d = _packet_app(cfg)
     chk = d / "drafts" / "r1" / "check.json"
