@@ -43,9 +43,24 @@ def pending_round(app_dir: Path) -> int | None:
     return max(waiting) if waiting else None
 
 
+LETTER_SOFT = ("Name these soft skills in the letter, in the posting's own word, inside a story the letter "
+               "already tells or one a cited vault passage shows (never as an adjective about the candidate, "
+               "never a sentence that only names it): ")
+
+
+def soft_for_letter(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> list[str]:
+    """Soft skills the posting asks for and the vault shows, that neither the resume nor the letter
+    of round `rnd` names (Jake, Oct 23 2026: REW.ca's letter told teamwork stories but never said
+    "teamwork", and with its rounds used up nothing asked for it)."""
+    from src.tailor.grade import regrade
+
+    return list((regrade(app_dir, rnd, cfg) or {}).get("unused_soft_terms") or [])
+
+
 def letter_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
     """Ask for a letter-only round when the best round's letter fails a letter check under today's
-    rules (the 250-word rule of Oct 22 2026 flagged letters drafted before it). The resume carries
+    rules (the 250-word rule of Oct 22 2026 flagged letters drafted before it), or when neither draft
+    names a soft skill the posting asks for and the vault shows (`soft_for_letter`). The resume carries
     over from the best round unchanged. Writes `drafts/r<N>/feedback.json` and returns it, or None.
 
     One try per best round: a letter round that didn't become the best, or that is the best and
@@ -65,7 +80,8 @@ def letter_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
         return None
     warnings = [w for w in recheck(app_dir, best, cfg).get("warnings") or []
                 if w.get("doc") == "letter" and w.get("code") in _ROUND_WARNINGS]
-    if not warnings:
+    soft = soft_for_letter(app_dir, best, cfg)
+    if not warnings and not soft:
         return None
     nxt = max(dirs) + 1
     feedback = {
@@ -73,13 +89,13 @@ def letter_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
         "build_on": best,
         "letter_only": True,
         "criticals": [],
-        "failed_items": [],
+        "failed_items": [LETTER_SOFT + ", ".join(soft) + "."] if soft else [],
         "warnings": [{"code": w["code"], "message": w["message"], "path": w.get("path", "")} for w in warnings],
         "sections": ["letter"],
     }
     write_json(round_dir(app_dir, nxt) / "feedback.json", feedback)
     log(app_dir, "letter-round", f"round {nxt}: letter only, on round {best}: "
-        + "; ".join(w["code"] for w in warnings))
+        + "; ".join([w["code"] for w in warnings] + (["soft skills: " + ", ".join(soft)] if soft else [])))
     return feedback
 
 

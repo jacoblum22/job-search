@@ -91,7 +91,8 @@ for another way to run it, note it for the digest.
 2. Run `uv run python -m src.tailor pending`. It prints a JSON list of folders already up for review
    that have a round waiting: `{"app", "round", "build_on", "kind"}`. `kind` "repair" is a repair
    round the tool asked for; "letter" is a letter-only round (the letter fails a letter check
-   added since it was drafted; the resume stays as it is). For each, in order, run that round as
+   added since it was drafted, or neither draft names a soft skill the posting asks for and the
+   vault shows; the resume stays as it is). For each, in order, run that round as
    Step B step 9 describes from "If it asks for another round" (follow `prompts/tailor/repair.md`
    for round N; if that round's `edits.json` and `cover-letter.json` already exist, start at
    `apply-edits`), keep going with `next-round` as step 9 says, then do step 10.
