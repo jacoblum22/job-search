@@ -21,7 +21,7 @@ from typing import Any
 
 from src.dashboard import app_summary, generate_dashboard, render_dashboard
 from src.db import JOB_STATUSES, connect, set_job_status
-from src.posting_status import closed_reason, seen_date
+from src.posting_status import closed_reason, due_date, seen_date
 from src.tailor import TailorError, rejects, review, store
 from src.tailor.packet import OUTCOMES, approve, record_outcome
 
@@ -130,10 +130,12 @@ class DashboardApp:
         if job is None:
             return self._error("no such job", 404)
         closed = next((c for d, seen in group if (c := closed_reason(d or "", seen=seen_date(seen)))), None)
+        due = max((x for d, seen in group if (x := due_date(d or "", seen_date(seen)))), default=None)
         out: dict[str, Any] = {
             "job": {k: job[k] for k in ("id", "title", "company", "location", "url", "status", "tier", "score",
                                         "score_reasons", "posted_date", "first_seen", "description", "source")},
             "closed": closed,
+            "deadline": due.isoformat() if due else None,
             "job_statuses": list(JOB_STATUSES),
             "outcomes": list(OUTCOMES),
             "app": None,
@@ -482,13 +484,25 @@ function checkHtml(blocks) {
   return h;
 }
 
+// The deadline line: red with 3 days or less left, amber within a week (as on the dashboard).
+function dueLine(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const due = new Date(y, m - 1, d), now = new Date();
+  const days = Math.round((due - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
+  const left = days === 0 ? 'last day today' : days === 1 ? '1 day left' : `${days} days left`;
+  const color = days <= 3 ? '#e07070' : days <= 7 ? '#e0b050' : '';
+  const date = due.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'});
+  return `<div class="meta" style="margin-top:6px${color ? ';color:' + color : ''}">Applications close ${esc(date)} (${left}).</div>`;
+}
+
 function render() {
-  const {job, app, closed} = data;
+  const {job, app, closed, deadline} = data;
   document.title = `${job.title} · ${job.company}`;
   let h = `<h1>${esc(job.title)}</h1>
     <div class="meta">${esc(job.company)} · ${esc(job.location)} · Tier ${esc(job.tier)} ${job.score ?? ''}
     · posted ${esc(job.posted_date || job.first_seen || '')}</div>
     ${closed ? `<div class="meta" style="color:#e07070;margin-top:6px">${esc(closed)}: this posting no longer takes applications.</div>` : ''}
+    ${!closed && deadline ? dueLine(deadline) : ''}
     <div class="row" style="margin-top:8px">`;
   if (/^https?:\/\//i.test(job.url || '')) h += `<a href="${esc(job.url)}" target="_blank" rel="noopener noreferrer">Open the posting</a>`;
   h += `</div>`;

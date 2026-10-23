@@ -16,7 +16,7 @@ from typing import Any
 
 from src.experience import parse_min_years_experience
 from src.location_filter import classify_location
-from src.posting_status import closed_reason, seen_date
+from src.posting_status import closed_reason, due_date, seen_date
 from src.reflow import reflow
 
 SCHEMA = """
@@ -281,6 +281,9 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
             )
         closed = next((c for m in members if (c := closed_reason(
             m["description"] or "", seen=seen_date(m["first_seen"])))), None)
+        # Sources can disagree; the later deadline is the safe read, as in deadline().
+        due = max((d for m in members if (d := due_date(
+            m["description"] or "", seen_date(m["first_seen"])))), default=None)
         result.append(
             {
                 "dedup_group_id": group_id,
@@ -295,6 +298,7 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
                 "urls": sorted({(m["source"], m["url"]) for m in members if m["url"]}),
                 "status": status,
                 "closed": closed,
+                "deadline": due.isoformat() if due else None,
                 "years_experience": years_experience,
                 "tier": primary["tier"],
                 "score": primary["score"],
