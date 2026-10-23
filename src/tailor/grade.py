@@ -530,6 +530,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         "unused_terms": gap["unused"],
         "title_missing": gap["title_missing"],
         "unused_soft_terms": gap["unused_soft"],
+        "letter_soft_terms": gap["letter_soft"],
         "unbacked_terms": gap["unbacked"],
     }
     write_json(d / "grade.json", result)
@@ -568,7 +569,8 @@ def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | No
             "ats_floor": gap["floor"], "below_floor": ats["total"] < gap["floor"], "ats_ceiling": gap["ceiling"],
             "ats_target": gap["target"], "fit_gap": gap["fit_gap"], "needs_ats_repair": gap["needs_repair"],
             "unused_terms": gap["unused"],
-        "title_missing": gap["title_missing"], "unused_soft_terms": gap["unused_soft"], "unbacked_terms": gap["unbacked"]}
+        "title_missing": gap["title_missing"], "unused_soft_terms": gap["unused_soft"], "unbacked_terms": gap["unbacked"],
+            "letter_soft_terms": gap["letter_soft"]}
 
 
 def unsaid_soft(gap: dict[str, Any], items: list[dict[str, Any]], req: dict[str, Any],
@@ -581,6 +583,9 @@ def unsaid_soft(gap: dict[str, Any], items: list[dict[str, Any]], req: dict[str,
     shown = {str(t).lower() for it in items if it["id"].startswith("must.") and it.get("passed") is True
              for t in must.get(it["id"][5:], {}).get("terms") or []}
     said = letter_text(letter)
+    # The ones only the letter names: a letter round must keep them (REW.ca, Oct 23 2026: rewording
+    # a sentence for "teamwork" dropped "knowledge sharing").
+    gap["letter_soft"] = [t for t in gap["unused_soft"] if t.lower() not in shown and wording.same(t, said)]
     gap["unused_soft"] = [t for t in gap["unused_soft"] if t.lower() not in shown and not wording.same(t, said)]
 
 

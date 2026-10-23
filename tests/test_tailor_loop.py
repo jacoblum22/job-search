@@ -380,6 +380,33 @@ def test_letter_round_asked_for_soft_skills_neither_draft_names(tmp_path, monkey
     assert loop.letter_round(app, CFG) is None
 
 
+def test_letter_round_keeps_soft_skills_the_letter_already_names(tmp_path, monkeypatch):
+    # REW.ca, Oct 23 2026: rewording a sentence for "teamwork" dropped "knowledge sharing", which
+    # only the old letter named, and the loop ended without saying so.
+    import src.tailor.loop as loop
+
+    app, _ = _letter_app(tmp_path, monkeypatch, [])
+    monkeypatch.setattr(loop, "soft_for_letter", lambda *a: ["teamwork"])
+    monkeypatch.setattr(loop, "soft_in_letter", lambda *a: ["mentoring", "knowledge sharing"])
+    fb = loop.letter_round(app, CFG)
+    assert fb["keep_soft"] == ["mentoring", "knowledge sharing"]
+    assert fb["failed_items"][-1] == loop.LETTER_KEEP + "mentoring, knowledge sharing."
+    add_round(app, 3, 70, ats=66)
+    write_json(app / "drafts" / "r3" / "cover-letter.json", {"paragraphs": [
+        {"text": "Teamwork meant mentoring two new hires through the reporting stack."}]})
+    out = next_round(app, CFG)
+    assert out["best_round"] == 3
+    assert out["reason"].endswith("the new letter no longer names knowledge sharing, which round 2's did")
+
+
+def test_unsaid_soft_keeps_apart_the_ones_only_the_letter_names():
+    from src.tailor.grade import unsaid_soft
+
+    gap = {"unused_soft": ["teamwork", "knowledge sharing"]}
+    unsaid_soft(gap, [], {"requirements": []}, {"paragraphs": [{"text": "I shared knowledge-sharing notes."}]})
+    assert gap["unused_soft"] == ["teamwork"] and gap["letter_soft"] == ["knowledge sharing"]
+
+
 def test_letter_round_ends_the_loop_and_becomes_best(tmp_path, monkeypatch):
     from src.tailor.loop import letter_round
 

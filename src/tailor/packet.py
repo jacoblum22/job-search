@@ -59,7 +59,16 @@ def _fit_notes(app: dict[str, Any], evidence: dict[str, Any], reqs: dict[str, An
                      f"strength {strength}; passages: {passages}")
         if kind == "must" and strength <= 1:
             weak.append(f"Must-have: {text} (strength {strength})")
-    bucket = (evidence.get("buckets") or {}).get(base or "", {})
+    bucket = dict((evidence.get("buckets") or {}).get(base or "", {}))
+    if "present" in evidence:
+        # The buckets are from the evidence step; a plan add or a set-aside since then moves a term
+        # (REW.ca, Oct 23 2026: "data accuracy" sat under "not backed" while check.md and the grade
+        # counted the plan's match for it).
+        present = set(evidence.get("present") or [])
+        now_backed = [t for t in bucket.get("non_injectable") or [] if t in present]
+        dropped = [t for t in bucket.get("injectable") or [] if t not in present]
+        bucket["injectable"] = [t for t in bucket.get("injectable") or [] if t in present] + now_backed
+        bucket["non_injectable"] = [t for t in bucket.get("non_injectable") or [] if t not in present] + dropped
     lines += ["", f"## Keyword buckets (base: {base or 'none'})", ""]
     for key, label in (("matched", "Already in the resume"), ("injectable", "Can be added (backed by the vault)"),
                        ("non_injectable", "Not backed by the vault")):
@@ -337,8 +346,12 @@ def run_packet(app_dir: Path, cfg: dict[str, Any], recheck: bool = False) -> dic
 
         grade = regrade(app_dir, rnd, cfg) or grade
     base = _base_id(app_dir, app, evidence.get("buckets") or {})
+    from src.tailor.grade import graded_evidence
+
+    reqs = _opt_json(app_dir / "requirements.json")
+    # Fit notes read the evidence as the grade and check.md do: set-asides out, plan adds in.
     (app_dir / "fit-notes.md").write_text(
-        _fit_notes(app, evidence, _opt_json(app_dir / "requirements.json"), base), encoding="utf-8")
+        _fit_notes(app, graded_evidence(app_dir, cfg, reqs or {}), reqs, base), encoding="utf-8")
     text = _check_md(app, rd, app_dir, check, cfg, grade)
     if (app_dir / "check.md").exists():  # a rebuild keeps the decisions already made
         text = review.carry_over((app_dir / "check.md").read_text(encoding="utf-8"), text)
