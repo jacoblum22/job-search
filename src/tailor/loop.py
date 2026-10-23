@@ -102,7 +102,7 @@ def _failed(grade: dict[str, Any]) -> list[dict[str, Any]]:
 # Warnings a repair round fixes. The first set is worth a round of its own; the rest
 # only ride along with a round that happens anyway.
 _ROUND_WARNINGS = {"term_stuffing", "verbatim_posting_copy", "duplicate_bullets", "years_inflation",
-                   "title_drift", "letter_length"}
+                   "title_drift", "letter_length", "skill_name_only"}
 _RIDE_WARNINGS = {"skill_only_in_list", "too_many_skills", "bullet_count", "paragraph_count"}
 
 

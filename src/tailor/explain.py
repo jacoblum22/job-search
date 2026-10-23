@@ -385,6 +385,8 @@ _ISSUES: dict[str, tuple[str, str]] = {
                                 "It may be wrong or out of date."),
     "paragraph_count": ("The letter has an unusual number of paragraphs (3 to 5 is normal).",
                         "Very short or long letters get skimmed."),
+    "skill_name_only": ("A letter paragraph is one sentence that only names a skill.",
+                        "A skill named with no story reads as padding; it belongs inside a real example."),
     "letter_length": ("The letter is outside the usual 200 to 300 words.",
                       "Too short reads as little effort; too long gets skimmed."),
 }
