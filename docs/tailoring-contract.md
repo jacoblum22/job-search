@@ -308,8 +308,8 @@ when `plan.json` found it truthful as the headline), `ats_target`
 ceiling is under the floor), `needs_ats_repair` (under the target with backed hard skills unused,
 or with the summary not yet opening with the plan's true job title, which an `ats.title` note asks for),
 `unused_terms` (backed hard skills not used word for word), `unused_soft_terms` (an `ats.soft`
-note that rides along with a round, for a line whose story shows them or for the letter; never a
-reason for a round on its own)
+note that rides along with a repair round, for a line whose story shows them or for the letter;
+on its own it starts at most one letter-only round per best round, via `pending`)
 and `unbacked_terms` (the posting asks, the vault can't back). Unused hard skills become an
 `ats.unused` gap and feedback line. While `needs_ats_repair` holds, `next-round` keeps repairing even
 on a small gain (up to the round limit); a fit gap gets no extra rounds, since that would only stuff

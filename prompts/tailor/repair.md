@@ -67,10 +67,13 @@ already passed.
 
 When `feedback.json` has `"letter_only": true`, `sections` is `["letter"]`: the resume is already
 done and stays exactly as round `B` has it. Write `edits.json` as `{"edits": []}` and rewrite only
-the letter to answer the listed warnings (for a short letter, use the room for the skills the
+the letter to answer the listed warnings and failed items (for a short letter, use the room for the skills the
 warning names, as rule 2 says: inside a story a paragraph already tells, never a sentence or
 paragraph of its own that only names the skill; if no story fits, add a fuller sentence to an
-existing story and leave the skill out). Everything else in this prompt still applies to the letter.
+existing story and leave the skill out). Soft skills listed in the failed items go in the same way,
+in the posting's own word: "teamwork" in the sentence about working through a design with two
+teammates, "communication" where the letter says the candidate explained results to other teams.
+Everything else in this prompt still applies to the letter.
 
 ## Output
 

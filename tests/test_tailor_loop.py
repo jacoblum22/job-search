@@ -365,6 +365,21 @@ def test_letter_round_not_asked_for_a_good_letter(tmp_path, monkeypatch):
     assert not (app / "drafts" / "r3").exists()
 
 
+def test_letter_round_asked_for_soft_skills_neither_draft_names(tmp_path, monkeypatch):
+    # REW.ca, Oct 23 2026: the letter told teamwork stories but never said "teamwork", and with the
+    # rounds used up the soft-skill note was never acted on.
+    import src.tailor.loop as loop
+
+    app, _ = _letter_app(tmp_path, monkeypatch, [])
+    monkeypatch.setattr(loop, "soft_for_letter", lambda *a: ["teamwork", "communication"])
+    fb = loop.letter_round(app, CFG)
+    assert fb["letter_only"] is True and fb["warnings"] == [] and fb["sections"] == ["letter"]
+    assert fb["failed_items"] == [loop.LETTER_SOFT + "teamwork, communication."]
+    # Once per best round, like any letter round.
+    add_round(app, 3, 70, ats=66)
+    assert loop.letter_round(app, CFG) is None
+
+
 def test_letter_round_ends_the_loop_and_becomes_best(tmp_path, monkeypatch):
     from src.tailor.loop import letter_round
 
