@@ -48,3 +48,21 @@ def test_different_wording_never_matches(words, text):
 
 def test_count_includes_plurals():
     assert wording.count("dashboard", "A dashboard, two dashboards, Dashboards.") == 3
+
+
+@pytest.mark.parametrize("words, text", [
+    ("KPIs", "Traced every metric back to source SQL."),
+    ("key performance indicators", "Caught broken metrics in QA."),
+    ("metrics", "Reported weekly KPIs."),
+    ("data analytics", "Descriptive data analysis for the Loyalty team."),
+])
+def test_equivalent_wordings_back_each_other(words, text):
+    # Jake, Oct 23 2026: wordings that name one thing are the same wording for the truth checks,
+    # but the ATS still wants the posting's own word.
+    assert wording.same(words, text) and _wording_in(words, text)
+    assert term_exact({"term": words}, text)
+    assert not wording.ats(words, text)
+
+
+def test_vague_words_are_not_equivalents():
+    assert not wording.same("insights", "data analysis") and not wording.same("analytics", "data analysis")

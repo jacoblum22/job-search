@@ -11,6 +11,8 @@ Two strictness levels:
 - `same(words, text)`: for truth checks. Plurals, hyphen/space and US/British
   spelling don't change the wording: the vault's "data modelling" backs a
   draft's "data modeling".
+  Wordings in one `EQUIVALENTS` group also count as the same: they name one thing
+  ("KPIs" and "metrics"), so the vault saying one backs a draft saying the other.
 - `ats(words, text)`: for the ATS score. Plurals and hyphen/space still count
   as the same word (ATSs stem and tokenize), but spelling is exact, as a real
   ATS keyword search is.
@@ -70,11 +72,29 @@ def pattern(words: str, spelling_blind: bool = False) -> re.Pattern[str]:
     return re.compile(_EDGE_BEFORE + body + _EDGE_AFTER, re.I)
 
 
+# Wordings that mean exactly the same thing (Jake, Oct 23 2026). Only true equivalents belong here:
+# a word whose meaning shifts from job to job ("insights", "trends") needs a vault line instead.
+EQUIVALENTS = [
+    ("KPI", "key performance indicator", "metrics"),
+    ("data analytics", "data analysis"),
+]
+
+
+def _equivalents(words: str) -> list[str]:
+    key = us_spelling(words.strip()).lower()
+    for group in EQUIVALENTS:
+        if any(pattern(g, True).fullmatch(key) for g in group):
+            return list(group)
+    return []
+
+
 def same(words: str, text: str) -> bool:
-    """`text` uses `words` as a phrase, ignoring plural, hyphen/space and spelling."""
+    """`text` uses `words` as a phrase, ignoring plural, hyphen/space and spelling; a wording in
+    the same `EQUIVALENTS` group counts too."""
     if not words.strip():
         return False
-    return bool(pattern(words, True).search(us_spelling(text)))
+    text = us_spelling(text)
+    return any(pattern(w, True).search(text) for w in [words, *_equivalents(words)])
 
 
 def ats(words: str, text: str) -> bool:
