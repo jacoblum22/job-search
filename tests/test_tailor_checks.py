@@ -832,3 +832,70 @@ def test_one_sentence_paragraph_that_only_names_a_listed_skill_is_flagged(tmp_pa
                                        "report the stakeholders reviewed.")
     write_letter(app, letter)
     assert not any(w["code"] == "skill_name_only" for w in run_check(app, 1, cfg, None)["warnings"])
+
+
+ETL = "Built an ETL pipeline in Python and Airflow that loaded survey data into BigQuery."
+
+
+def _with_library(tmp_path):
+    (tmp_path / "entries.yaml").write_text(yaml.safe_dump({"projects": [
+        {"id": "survey", "name": "Survey Loader", "context": "Personal project", "dates": "May 2026",
+         "url": "https://github.com/x/survey", "vault": "lab"}]}), encoding="utf-8")
+
+
+def test_add_entry_from_the_library_and_drop_a_project(tmp_path):
+    # Jake, Oct 25 2026: any base can bring in any story the vault has (House Finder for WiDS).
+    app, cfg = make_app(tmp_path)
+    _with_library(tmp_path)
+    write_edits(app, [
+        {"path": "projects/survey", "action": "add_entry", "value": ETL, "sources": ["lab.pipeline"]},
+        {"path": "projects/spam", "action": "remove_entry"},
+    ])
+    res = apply_edits(app, 1, cfg)
+    assert res["rejected"] == [] and len(res["applied"]) == 2
+    draft = load_resume(app / "drafts/r1/resume.yaml")
+    assert [e["id"] for e in draft["projects"]] == ["survey"]
+    entry = draft["projects"][0]
+    assert entry["name"] == "Survey Loader" and entry["dates"] == "May 2026" and "vault" not in entry
+    assert entry["bullets"] == [{"id": "survey.new-1", "text": ETL, "sources": ["lab.pipeline"]}]
+    assert validate(draft, require_sources=True) == []
+    cs = codes(run_check(app, 1, cfg, None)["criticals"])
+    assert "invented_project" not in cs and "locked_changed" not in cs
+
+
+def test_entry_library_lists_what_the_base_lacks(tmp_path):
+    from src.tailor.entries import available, library
+
+    app, cfg = make_app(tmp_path)
+    _with_library(tmp_path)
+    lib = library(cfg)
+    assert "survey" in lib["projects"] and "spam" in lib["projects"]
+    assert lib["projects"]["spam"]["vault"] == "proj"  # the file its bullets cite
+    base = base_data(cfg)
+    assert available(cfg, base) == [{"section": "projects", "id": "survey", "label": "Survey Loader",
+                                     "dates": "May 2026", "vault": "lab"}]
+
+
+@pytest.mark.parametrize("edit,reason", [
+    ({"path": "projects/ghost", "action": "add_entry", "value": ETL, "sources": ["lab.pipeline"]}, "entry library"),
+    ({"path": "projects/spam", "action": "add_entry", "value": ETL, "sources": ["lab.pipeline"]}, "already in the resume"),
+    ({"path": "projects/survey", "action": "add_entry", "value": ETL, "sources": []}, "at least one source"),
+    ({"path": "experience/northwind", "action": "remove_entry"}, "jobs stay"),
+])
+def test_entry_gate_rejections(tmp_path, edit, reason):
+    app, cfg = make_app(tmp_path)
+    _with_library(tmp_path)
+    write_edits(app, [edit])
+    res = apply_edits(app, 1, cfg)
+    assert res["applied"] == [] and reason in res["rejected"][0]["reason"], res["rejected"]
+
+
+def test_reorder_projects(tmp_path):
+    app, cfg = make_app(tmp_path)
+    _with_library(tmp_path)
+    write_edits(app, [
+        {"path": "projects/survey", "action": "add_entry", "value": ETL, "sources": ["lab.pipeline"]},
+        {"path": "projects", "action": "reorder", "value": ["survey", "spam"]},
+    ])
+    assert apply_edits(app, 1, cfg)["rejected"] == []
+    assert [e["id"] for e in load_resume(app / "drafts/r1/resume.yaml")["projects"]] == ["survey", "spam"]

@@ -37,6 +37,7 @@ from src.tailor import metrics, phrases, rejects, taxonomy, wording
 from src.tailor.appdir import humanized, log, read_json, round_dir, write_json
 from src.tailor.edits import LOCKED_FIELDS, load_base, load_index, norm
 from src.tailor.jev import Question
+from src.tailor.entries import library as entry_library
 from src.tailor.letter import run_letter_checks
 
 DEFAULT_SIMILARITY_REVERT = 0.4
@@ -253,11 +254,13 @@ def check_resume(
 
     # Locked fields, entries, employers.
     base_entries = {s: {e["id"]: e for e in base.get(s) or []} for s in ("experience", "projects", "education")}
+    # A job or project from the entry library (entries.py) isn't invented; its header must match it.
+    library = ctx.get("library") or {}
     for section in ("experience", "projects", "education"):
         seen = set()
         for e in draft.get(section) or []:
             seen.add(e.get("id"))
-            be = base_entries[section].get(e.get("id"))
+            be = base_entries[section].get(e.get("id")) or (library.get(section) or {}).get(e.get("id"))
             if be is None:
                 if section == "experience":
                     c("invented_employer", f"experience entry {e.get('company')!r} is not in the base", f"experience/{e.get('id')}")
@@ -422,7 +425,8 @@ def check_resume(
 
 
 def _revert_low_similarity(
-    draft: dict[str, Any], base: dict[str, Any], index: dict[str, Any], threshold: float
+    draft: dict[str, Any], base: dict[str, Any], index: dict[str, Any], threshold: float,
+    library: dict[str, dict[str, Any]] | None = None,
 ) -> list[str]:
     """Revert changed bullets that don't resemble their cited passages; return the reverted paths."""
     base_b = _bullet_map(base)
@@ -448,6 +452,10 @@ def _revert_low_similarity(
                 else:
                     e["bullets"].remove(b)
                 reverted.append(path)
+        # An entry the draft added from the library goes when its last bullet was reverted (one
+        # that is in neither stays, so the check still calls it invented).
+        added = set((library or {}).get(section) or {}) - {x.get("id") for x in base.get(section) or []}
+        draft[section] = [e for e in draft.get(section) or [] if e.get("bullets") or e.get("id") not in added]
     return reverted
 
 
@@ -596,6 +604,7 @@ def _context(app_dir: Path, cfg: dict[str, Any], index: dict[str, Any], base: di
         "index": index, "req": req, "posting": posting, "base_text": base_text,
         "claim_texts": claim_texts, "own_texts": [base_text, *claim_texts], "company": req.get("company", ""),
         "confirmed": set(rejects.confirmed(cfg, app_dir)), "letter_text": _letter_text(letter_path),
+        "library": entry_library(cfg),
     }
 
 
@@ -654,7 +663,7 @@ def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> 
     # Source-id problems are judged on the unreverted draft so a bad id is never hidden by a revert.
     pre = copy.deepcopy(draft)
     threshold = float(cfg.get("similarity_revert", DEFAULT_SIMILARITY_REVERT))
-    reverted = _revert_low_similarity(draft, base, index, threshold)
+    reverted = _revert_low_similarity(draft, base, index, threshold, entry_library(cfg))
     if reverted or draft != pre:  # a revert, or citations added for a missed passage
         draft_path.write_text(
             yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110), encoding="utf-8"

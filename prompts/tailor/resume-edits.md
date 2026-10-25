@@ -120,13 +120,21 @@ Use judgment.
 ## Allowed edits
 
 Paths: `summary`; `<section>/<entry id>/<bullet id>` for bullets; `<section>/<entry id>` for
-`append` (new bullet) or `reorder`; `skills/<group id>` for `add_skill` or `reorder`.
-Actions: `replace | append | remove | reorder | add_skill`.
+`append` (new bullet), `reorder`, `add_entry` or `remove_entry`; `skills/<group id>` for `add_skill` or `reorder`.
+Actions: `replace | append | remove | reorder | add_skill | add_entry | remove_entry`.
 
 - `replace`: needs `original` (the current text exactly) and `value`.
 - `append`: new bullet; `value` is the text.
 - `reorder`: `value` is a list of the same bullet ids (or skills items) in a new order, nothing added
   or dropped.
+- `add_entry`: path `experience/<id>` or `projects/<id>` for an entry in `plan.json`
+  `entry_library` (a job or project this base doesn't have). Code copies its title, name, dates and
+  link; `value` is its first bullet, with `sources`; add more bullets with `append` edits after it.
+  Optional `"after": "<entry id>"` places it after that entry (default: last in the section).
+  Carry out each `plan.json` `swap_entries` item this way.
+- `remove_entry`: path `projects/<id>`; drops a whole project (never a job, never one with a
+  protected bullet).
+- `reorder` with path `projects` and a list of project ids changes the order of the projects.
 - `add_skill`: `value` is the term to add; only for PRESENT terms, and only when a bullet in the draft
   shows you using it (a skill that is only in the list gets a `skill_only_in_list` warning).
 - Never editable: title, company, location, dates, school, degree, name, url, contact, any `id`, and

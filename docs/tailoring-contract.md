@@ -244,7 +244,11 @@ as a fit gap. A `jake` confirm for the same skill takes it off the list.
 Paths: `summary`; `<section>/<entry id>/<bullet id>` for bullets; `<section>/<entry id>` for
 `append` (new bullet, id `<entry>.new-<n>`); `skills/<group id>` for `add_skill` / `reorder`;
 `<section>/<entry id>` with `action: "reorder"` and a list value of bullet ids. Actions:
-`replace | append | remove | reorder | add_skill`. **Never editable:** `title, company, location,
+`replace | append | remove | reorder | add_skill | add_entry | remove_entry`. `add_entry` on
+`experience/<id>` or `projects/<id>` brings in a job or project from the entry library
+(`src/tailor/entries.py`: every base's entries plus `materials/resumes/entries.yaml`); code copies its
+header, `value` + `sources` is its first bullet, optional `after` places it. `remove_entry` drops a
+project (never a job). `reorder` on `projects` orders the projects. **Never editable:** `title, company, location,
 dates, school, degree, name, url, contact`, any `id`, and `education` lines except coursework.
 Gates (all must pass or the edit is rejected with a reason): path allowed, path resolves, not
 locked, `replace.original` matches current text (case/whitespace-insensitive), `reorder` keeps

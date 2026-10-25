@@ -98,11 +98,20 @@ def evidence(app_dir):
 @main.command()
 @click.argument("ids", nargs=-1, required=True)
 def passages(ids):
-    """Print vault passages by id (instead of searching vault-index.json)."""
+    """Print vault passages by id (instead of searching vault-index.json). An id ending in ".*"
+    (`vhf.*`) prints every claim passage of that vault file."""
     from src.tailor.sources import load_index
 
     index = load_index(load_config())
-    _out({i: (index[i].get("text") if i in index else None) for i in ids})
+    out = {}
+    for i in ids:
+        if i.endswith(".*"):
+            pre = i[:-1]
+            out.update({k: p.get("text") for k, p in index.items()
+                        if k.startswith(pre) and p.get("use", "claim") == "claim"})
+        else:
+            out[i] = index[i].get("text") if i in index else None
+    _out(out)
 
 
 @main.command()
