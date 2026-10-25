@@ -37,10 +37,10 @@ _DATE = (
 _CUE = (
     r"(?:job )?posting end date|application (?:closing )?deadline(?: is)?|(?:application )?closing date"
     r"|deadline (?:for|to) (?:applications?|apply)(?: is)?"
-    r"|applications? (?:will be )?(?:accepted|received) (?:\w+ ){0,3}until"
+    r"|applications? (?:\w+ ){0,5}?(?:accepted|received) (?:\w+ ){0,3}until"
     r"|applications? (?:close|closes|closing)|(?:posting|competition) closes"
-    r"|(?<=· )closes|apply (?:online )?(?:\S+ ){0,3}by|submit(?:ted)? (?:your application )?(?:\S+ ){0,4}by"
-    r"|application window is expected to close on"
+    r"|(?<=· )closes|apply (?:online )?(?:\S+ ){0,3}(?:by|before)|submit(?:ted)? (?:your application )?(?:\S+ ){0,4}by"
+    r"|application window (?:is )?expected to close(?: on)?|open until filled \(expires"
 )
 # Anything between the cue and the date: markdown, "on", a weekday, a time.
 _GAP = (
@@ -48,7 +48,13 @@ _GAP = (
     r"(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day,?\s?)?"
     r"(?:\d{1,2}(?::\d{2})?\s?(?:am|pm|a\.m\.|p\.m\.)(?:\s\w+)?,?\s(?:on\s)?)?"
 )
-_DEADLINE = re.compile(r"(?i)(?<![\w-])(?<!internal )(?:" + _CUE + r")" + _GAP + r"(?:\*\*)?(?:" + _DATE + r")")
+# A cue starts a word, or a capitalised word glued to the one before it ("Full timeClosing Date")
+# when a page's layout was flattened.
+_DEADLINE = re.compile(r"(?i)(?:(?<![\w-])|(?<=[a-z])(?-i:(?=[A-Z])))(?<!internal )(?:" + _CUE + r")" + _GAP + r"(?:\*\*)?(?:" + _DATE + r")")
+
+
+# "Our application deadline is 40 days from the date of posting."
+_RELATIVE = re.compile(r"(?i)\bdeadline(?: is)? (\d{1,3}) days from (?:the )?(?:date of )?posting")
 
 
 def _parse(m: re.Match[str], seen: date) -> date | None:
@@ -97,6 +103,9 @@ def deadline(description: str, seen: date | None = None) -> date | None:
     `seen` (when the posting was first seen) supplies a year the text leaves out."""
     seen = seen or date.today()
     dates = [d for m in _DEADLINE.finditer(description or "") if (d := _parse(m, seen))]
+    # Counted from the day it was first seen, which is on or after the posting day,
+    # so a posting is never closed too early.
+    dates += [seen + timedelta(days=int(m[1])) for m in _RELATIVE.finditer(description or "")]
     # A posting can repeat its deadline; if two differ, the later one is the safe read.
     return max(dates) if dates else None
 

@@ -21,6 +21,13 @@ SEEN = date(2026, 10, 1)
     ("Deadline for applications is on November 8, 2026 at 11:59 PM PST.", date(2026, 11, 8)),
     ("Applications accepted until Oct 21, 2026", date(2026, 10, 21)),
     ("Application deadline: October 30", date(2026, 10, 30)),               # no year: after first seen
+    ("Applications for this position will be accepted until **Oct. 15, 2026** **Expo", date(2026, 10, 15)),
+    ("Business UnitRegular, Full timeClosing Date: October 23, 2026  The", date(2026, 10, 23)),  # flattened page
+    ("Open until filled (expires Dec 31, 2026)", date(2026, 12, 31)),
+    ("Application window expected to close 11/14/2026.", date(2026, 11, 14)),
+    ("regular posting (APTPUO) · **Apply before 2026-11-07** **Pay:**", date(2026, 11, 7)),
+    ("Our application deadline is 40 days from the date of posting.", date(2026, 11, 10)),  # from first seen
+    ("- Application deadline 40 days from posting.", date(2026, 11, 10)),
 ])
 def test_reads_the_deadline(text, end):
     assert deadline(text, SEEN) == end
@@ -31,6 +38,9 @@ def test_reads_the_deadline(text, end):
     "The internal job posting expires on October 2, 2026 and will no longer be accessible.",
     "Job End Date\n\nAugust 31, 2027",
     "Review of applications will begin on October 1, 2026.",
+    "the internal job posting will no longer be accessible after the expiry date of October 23, 2026.",
+    "Temporary, Full-Time (Until December 27, 2027) Salary",
+    "Investigates incorrect invoices and expiry dates of contracts. Start May 2027.",
 ])
 def test_ignores_dates_that_are_not_the_closing_date(text):
     assert deadline(text, SEEN) is None
