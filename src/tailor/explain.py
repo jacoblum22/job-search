@@ -63,6 +63,9 @@ ISSUES = ("Automatic checks on the final resume and letter. Pick Keep if it's fi
           "you'll change it before applying. Remove only records your choice: edit the file yourself, then "
           "rerun the render and packet steps.")
 NOTES = "Things the pipeline already handled. Nothing to decide; they're here so you know."
+OUTSIDE = ("After the repair rounds, a fresh reviewer that never saw your vault read the posting, resume and "
+           "letter and gave notes. The last round acted on the ones your vault and rules allow. Nothing to "
+           "decide; the changes are in the resume and letter, and in Changes from the base.")
 
 # ---------------------------------------------------------------------------
 # Where in the resume

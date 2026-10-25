@@ -387,3 +387,16 @@ def test_limit_zero_queues_nothing_without_touching_the_database(tmp_path):
     from src.tailor.queue import run_queue
 
     assert run_queue({"paths": {"db": str(tmp_path / "missing" / "jobs.db")}}, limit=0) == []
+
+
+def test_packet_lists_what_the_review_round_did_with_each_note(cfg):
+    _, d = _packet_app(cfg)
+    appdir.write_json(d / "review" / "response.json", [
+        {"note": "Summary names the Loyalty team", "action": "changed", "why": "now says business teams"},
+        {"note": "Quantify the Apps Script time saved", "action": "left", "why": "no number in the vault"}])
+    run_packet(d, cfg)
+    check = (d / "check.md").read_text()
+    section = check.split("## Outside review")[1]
+    assert "- Changed: Summary names the Loyalty team: now says business teams" in section
+    assert "- Left as is: Quantify the Apps Script time saved: no number in the vault" in section
+    assert check.index("## Remaining issues") < check.index("## Outside review")  # read-only, after the buttons

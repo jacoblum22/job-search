@@ -157,6 +157,26 @@ def next_round_cmd(app_dir):
     _out(next_round(app_dir, load_config()))
 
 
+@main.command("review-input")
+@APP
+def review_input_cmd(app_dir):
+    """Step 7b: write review/input.md (posting, best resume, letter) for the outside reviewer."""
+    from src.tailor.outside import review_input
+
+    _out(review_input(app_dir))
+
+
+@main.command("review-round")
+@APP
+def review_round_cmd(app_dir):
+    """Step 7b: after review/notes.md is written, ask for one round that acts on it."""
+    from src.tailor.outside import review_round
+
+    fb = review_round(app_dir)
+    _out({"action": "repair", "next_round": fb["round"], "build_on": fb["build_on"]} if fb
+         else {"action": "stop", "reason": "no notes, a round is already pending, or the review round was done"})
+
+
 @main.command("humanize-flags")
 @APP
 def humanize_flags_cmd(app_dir):
@@ -241,7 +261,7 @@ def pending():
         except ValueError:
             shown = str(folder)
         out.append({"app": shown, "round": rnd, "build_on": fb.get("build_on"),
-                    "kind": "letter" if fb.get("letter_only") else "repair"})
+                    "kind": "letter" if fb.get("letter_only") else "review" if fb.get("review") else "repair"})
     _out(out)
 
 

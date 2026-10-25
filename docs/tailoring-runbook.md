@@ -92,15 +92,16 @@ for another way to run it, note it for the digest.
    that have a round waiting: `{"app", "round", "build_on", "kind"}`. `kind` "repair" is a repair
    round the tool asked for; "letter" is a letter-only round (the letter fails a letter check
    added since it was drafted, or neither draft names a soft skill the posting asks for and the
-   vault shows; the resume stays as it is). For each, in order, run that round as
+   vault shows; the resume stays as it is); "review" is a round acting on an outside review that
+   wasn't finished (follow repair.md's "Review round"). For each, in order, run that round as
    Step B step 9 describes from "If it asks for another round" (follow `prompts/tailor/repair.md`
    for round N; if that round's `edits.json` and `cover-letter.json` already exist, start at
-   `apply-edits`), keep going with `next-round` as step 9 says, then do step 10.
+   `apply-edits`), keep going with `next-round` as step 9 says, then do step 11. Don't start a new outside review (step 10) for these folders.
 3. Run `{QUEUE}`. It prints a JSON list of new application folders (capped by `tailor.daily_cap`,
    best A-tier jobs first). If the list is empty and nothing was unfinished or waiting, end with the
    one-line digest "Nothing new to tailor".
 
-**Step B: for each folder, in the order printed, do steps 1 to 10 below.** Finish or skip one
+**Step B: for each folder, in the order printed, do steps 1 to 11 below.** Finish or skip one
 folder before starting the next. Keep a running note of the outcome for the digest.
 
 1. **Requirements (Claude).** Follow `prompts/tailor/requirements.md`; write `<app>/requirements.json`.
@@ -137,7 +138,17 @@ folder before starting the next. Keep a running note of the outcome for the dige
    - Normally at most 2 repair rounds (3 drafts); the tool allows up to 5 drafts while the resume
      is still far under what the evidence allows and gaining. Never start a round the tool did not ask for. The tool keeps
      the best round, not the last.
-10. **Humanize, render, packet.**
+10. **Outside review (one extra round).** When the loop has stopped:
+    - `uv run python -m src.tailor review-input "<app>"`. It writes `<app>/review/input.md`.
+    - Start a subagent (no model override), telling it to follow `prompts/tailor/outside-review.md`
+      for that folder and give it the folder path. It reads only `review/input.md` and writes
+      `review/notes.md`. Run it in the foreground and wait for its answer, as in step 3.
+    - `uv run python -m src.tailor review-round "<app>"`. If it asks for a round, follow
+      `prompts/tailor/repair.md` ("Review round") for that round number, then run `apply-edits`,
+      `check`, `grade` with `--round N`, and `next-round` once (it ends the loop and keeps the review
+      round unless it added a critical or lost ATS points). If the subagent failed or wrote no notes,
+      skip this step and note it for the digest.
+11. **Humanize, render, packet.**
     - `uv run python -m src.tailor humanize-flags "<app>"`. If it lists no flags, skip the patch step.
     - Otherwise follow `prompts/tailor/humanize.md`, write `<app>/humanize/patches.json`, then run
       `humanize-apply "<app>"`. A rejected or reverted pass is fine; do not retry it.
@@ -228,9 +239,13 @@ summary; read it before continuing.
    `check.json` and `grade.json`.
 8. **Repair if asked:** `... next-round "$APP"`; if it wrote `feedback.json`, run
    `prompts/tailor/repair.md`, then repeat step 7 with `--round 2` (and 3 at most).
-9. **Humanize:** `... humanize-flags "$APP"`; if there are flags, run `prompts/tailor/humanize.md` to write
+9. **Outside review:** `... review-input "$APP"`, have a fresh Claude follow
+   `prompts/tailor/outside-review.md` to write `APP/review/notes.md`, then `... review-round "$APP"`; if
+   it asks for a round, run repair.md's "Review round", repeat step 7 for that round and run
+   `next-round` once.
+10. **Humanize:** `... humanize-flags "$APP"`; if there are flags, run `prompts/tailor/humanize.md` to write
    `humanize/patches.json`, then `... humanize-apply "$APP"`.
-10. **Finish:** `... render "$APP"`, then `... packet "$APP"`. Review `APP/check.md` (gate flags first, then
+11. **Finish:** `... render "$APP"`, then `... packet "$APP"`. Review `APP/check.md` (gate flags first, then
     the diff and Keep/Remove lines), open `APP/final/`, and approve or skip. The easiest way is the local
     dashboard (`uv run python scripts/serve.py`): click the job's title to open its details page, which shows
     the files, lets you tick check.md's boxes, approve, and press "I applied" (or record a later outcome).

@@ -58,6 +58,7 @@ max 120 chars). Contents, in the order steps create them:
 | `drafts/r<N>/check.json` | code | 5 |
 | `drafts/r<N>/grade.json` | code | 6 |
 | `drafts/r<N>/feedback.json` | code (input to the repair round) | 7 |
+| `review/input.md`, `review/notes.md`, `review/response.json` | code, then a fresh reviewer, then Claude (the review round) | 7b |
 | `humanize/flags.json`, `humanize/patches.json` | code, then Claude | 8 |
 | `final/` resume + letter `.yaml/.json/.docx/.pdf`, `parse.json` | code | 9 |
 | `fit-notes.md`, `check.md` | code | 10 |
