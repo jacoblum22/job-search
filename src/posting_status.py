@@ -14,8 +14,9 @@ end of the deadline day, so a posting closes the day after.
 
 from __future__ import annotations
 
+import json
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 
 _INTERNAL = re.compile(
@@ -41,6 +42,7 @@ _CUE = (
     r"|applications? (?:close|closes|closing)|(?:posting|competition) closes"
     r"|(?<=· )closes|apply (?:online )?(?:\S+ ){0,3}(?:by|before)|submit(?:ted)? (?:your application )?(?:\S+ ){0,4}by"
     r"|application window (?:is )?expected to close(?: on)?|open until filled \(expires"
+    r"|advertised until|accepting applications (?:now )?through(?: end of day)?(?: on)?"
 )
 # Anything between the cue and the date: markdown, "on", a weekday, a time.
 _GAP = (
@@ -53,6 +55,8 @@ _GAP = (
 _DEADLINE = re.compile(r"(?i)(?:(?<![\w-])|(?<=[a-z])(?-i:(?=[A-Z])))(?<!internal )(?:" + _CUE + r")" + _GAP + r"(?:\*\*)?(?:" + _DATE + r")")
 
 
+# A date written before its cue: "November 30, 2026 – Application Window Closes".
+_DATE_FIRST = re.compile(r"(?i)(?:" + _DATE + r")[\s*\u00a0]*[–—-][\s\u00a0]*application (?:window|period) closes")
 # "Our application deadline is 40 days from the date of posting."
 _RELATIVE = re.compile(r"(?i)\bdeadline(?: is)? (\d{1,3}) days from (?:the )?(?:date of )?posting")
 
@@ -106,6 +110,7 @@ def deadline(description: str, seen: date | None = None) -> date | None:
     # Counted from the day it was first seen, which is on or after the posting day,
     # so a posting is never closed too early.
     dates += [seen + timedelta(days=int(m[1])) for m in _RELATIVE.finditer(description or "")]
+    dates += [d for m in _DATE_FIRST.finditer(description or "") if (d := _parse(m, seen))]
     # A posting can repeat its deadline; if two differ, the later one is the safe read.
     return max(dates) if dates else None
 
@@ -116,15 +121,58 @@ def _scan(description: str, seen: date) -> tuple[bool, date | None]:
     return bool(_INTERNAL.search(description)), deadline(description, seen)
 
 
-def due_date(description: str, seen: date | None = None) -> date | None:
-    """deadline(), remembered: the dashboard shows it for every job on every load."""
-    return _scan(description or "", seen or date.today())[1]
+_PACIFIC = timezone(timedelta(hours=-8))
+# Closing dates some job sites send as data rather than in the posting text.
+_RAW_KEYS = (
+    ("jobPostingInfo", "endDate"),   # Workday
+    ("postingExpiryTimestampUTC",),  # Dayforce
+    ("validThrough",),               # schema.org JobPosting (iCIMS and other JSON-LD pages)
+    ("closes",),                     # BC Public Service
+    ("expiryDate",),                 # Himalayas
+)
 
 
-def closed_reason(description: str, today: date | None = None, seen: date | None = None) -> str | None:
+@lru_cache(maxsize=8192)
+def raw_deadline(raw: str | None) -> date | None:
+    """The closing date in a job's stored source data (`jobs.raw`), or None."""
+    try:
+        data = json.loads(raw or "null")
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    for path in _RAW_KEYS:
+        value: object = data
+        for key in path:
+            value = value.get(key) if isinstance(value, dict) else None
+        if isinstance(value, (int, float)) and value > 0:
+            # A Unix time, in seconds or milliseconds.
+            return datetime.fromtimestamp(value / 1000 if value > 1e11 else value, timezone.utc).date()
+        if isinstance(value, str) and value.strip():
+            try:
+                stamp = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if stamp.tzinfo is not None and stamp.time() != datetime.min.time():
+                # Read a closing time on Pacific time: "2026-10-31T03:59:00+00:00" is Oct 30.
+                stamp = stamp.astimezone(_PACIFIC)
+            return stamp.date()
+    return None
+
+
+def due_date(description: str, seen: date | None = None, raw: str | None = None) -> date | None:
+    """The posting's deadline from its text or its source data, remembered: the dashboard
+    shows it for every job on every load. The later date wins if the two differ."""
+    dates = [d for d in (_scan(description or "", seen or date.today())[1], raw_deadline(raw)) if d]
+    return max(dates) if dates else None
+
+
+def closed_reason(description: str, today: date | None = None, seen: date | None = None,
+                  raw: str | None = None) -> str | None:
     """Why the posting is closed ("Filled internally", "Closed Oct 15, 2026"), or None if open."""
     today = today or date.today()
-    internal, end = _scan(description or "", seen or today)
+    internal = _scan(description or "", seen or today)[0]
+    end = due_date(description, seen or today, raw)
     if internal:
         return "Filled internally"
     if end is not None and end < today:

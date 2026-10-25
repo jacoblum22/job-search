@@ -86,7 +86,8 @@ def to_job(card: dict, posting: dict, board: dict) -> Job:
         description=to_markdown(posting.get("description")),
         url=card["url"].replace("?in_iframe=1", "").replace("&in_iframe=1", ""),
         posted_date=None,
-        raw={"id": card["id"], "city": card.get("city"), "employmentType": posting.get("employmentType")},
+        raw={"id": card["id"], "city": card.get("city"), "employmentType": posting.get("employmentType"),
+             "validThrough": posting.get("validThrough")},
     )
 
 
