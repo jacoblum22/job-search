@@ -376,8 +376,6 @@ _ISSUES: dict[str, tuple[str, str]] = {
                              "Only claim familiarity you can back up."),
     "keen_to_grow": ("The letter says it's keen to learn or grow more than once.",
                      "Once reads as eager; more reads as inexperienced."),
-    "keen_not_must": ("The letter says you're keen to grow into something, but every must-have is covered.",
-                      "Only a missing must-have earns that line; otherwise it just reads as inexperienced."),
     "course_grade": ("The letter uses a course grade as evidence ({term}).",
                      "The work is the evidence; name what you built or did instead."),
     "no_company_fact": ("The letter doesn't mention a checked fact about the company.",

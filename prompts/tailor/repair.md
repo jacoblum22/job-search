@@ -47,6 +47,8 @@ already passed.
    Add the word without trading away what makes the line specific: keep its tools, methods and scope
    ("CTEs, window functions, views") and cut filler instead. A line stripped to fit the term reads as
    one any candidate could write, and the grader marks it down for that.
+   Build the word into the sentence; don't bolt it on as an add-on phrase ("a Google Apps Script
+   automation, a small ETL job") or pad it with words like "small" or "simple".
 5. **Missing must-have that the vault backs** (the feedback names the passage): show it in a bullet
    with the tool and scope, citing that passage. **A must-have that is ABSENT stays absent.** Do not
    add it to satisfy the grader.

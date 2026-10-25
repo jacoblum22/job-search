@@ -517,34 +517,13 @@ def test_letter_numbers_come_from_the_verified_quote_not_the_fact_paraphrase(tmp
     assert len(invented) == 1 and "900" in invented[0]
 
 
-def test_letter_keen_only_for_a_missing_must_and_no_grades(tmp_path):
+def test_letter_flags_course_grades(tmp_path):
     paras = [dict(p) for p in LETTER["paragraphs"]]
-    paras[1] = {**paras[1], "text": paras[1]["text"] + " I earned 88% in STAT 301 and am keen to grow into dbt."}
+    paras[1] = {**paras[1], "text": paras[1]["text"] + " I earned 88% in STAT 301."}
     app, cfg = make_app(tmp_path)
     put_draft(app, base_data(cfg))
     write_letter(app, with_(paragraphs=paras))
-    req = read_json(app / "requirements.json")
-    must = next(r["id"] for r in req["requirements"] if r["kind"] == "must")
-    write_json(app / "evidence.json", {"requirements": [{"id": must, "status": "covered"}]})
-    ws = codes(run_check(app, 1, cfg, None)["warnings"])
-    assert "keen_not_must" in ws and "course_grade" in ws
-    write_json(app / "evidence.json", {"requirements": [{"id": must, "status": "missing"}]})
-    assert "keen_not_must" not in codes(run_check(app, 1, cfg, None)["warnings"])
-
-
-def test_letter_keen_fits_a_partial_must_with_an_absent_term(tmp_path):
-    # "Power BI or Tableau" is partial when Tableau is backed, but Power BI is still missing.
-    paras = [dict(p) for p in LETTER["paragraphs"]]
-    paras[1] = {**paras[1], "text": paras[1]["text"] + " I would be keen to grow into Power BI."}
-    app, cfg = make_app(tmp_path)
-    put_draft(app, base_data(cfg))
-    write_letter(app, with_(paragraphs=paras))
-    write_json(app / "evidence.json", {"requirements": [{"id": "r1", "status": "covered"}, {"id": "r3", "status": "partial"}],
-                                       "absent": ["Power BI"]})
-    assert "keen_not_must" not in codes(run_check(app, 1, cfg, None)["warnings"])
-    write_json(app / "evidence.json", {"requirements": [{"id": "r1", "status": "covered"}, {"id": "r3", "status": "covered"}],
-                                       "absent": ["dbt"]})  # only a nice-to-have is absent
-    assert "keen_not_must" in codes(run_check(app, 1, cfg, None)["warnings"])
+    assert "course_grade" in codes(run_check(app, 1, cfg, None)["warnings"])
 
 
 def test_letter_skill_backed_by_a_plan_add_where_its_passage_is_cited(tmp_path):
