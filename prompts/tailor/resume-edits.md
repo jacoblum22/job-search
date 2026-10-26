@@ -110,7 +110,10 @@ Use judgment.
   posting's word is fair and helps the reader see the match. Don't stretch it to work that isn't.
 - **Make the summary read as this role.** Lead with the work the posting asks for first, in its
   words where the vault backs them. When `headline` is null because the title isn't safe to claim,
-  still open with the posting's top asks rather than the base's label.
+  still open with the posting's top asks rather than the base's label. Don't frame work the
+  candidate has done as something they're heading toward ("moving toward analytics engineering",
+  "aspiring data engineer"): if the vault shows the work, say they did it ("hands-on analytics
+  engineering experience: built reusable BigQuery datasets ..."), without claiming the job title.
 - **Grades are usually noise.** A grade in brackets after a report or a course ("(87%)", "(A+)")
   confuses more than it helps; leave it out unless the posting asks for grades. The cGPA / Dean's
   List line is fine.
