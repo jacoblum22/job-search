@@ -95,6 +95,8 @@ _SKIP_HOSTS = (
     "pitchbook.", "cbinsights.", "comparably.", "signalhire.", "apollo.io", "lusha.", "village.ai",
     "publicsectornetwork.", "facebook.com", "instagram.com", "twitter.com", "x.com", "tiktok.com",
     "reddit.com", "youtube.com", "medium.com", "trustpilot.", "yelp.",
+    # Review and listing directories (clinics, local services): star ratings and text the site wrote.
+    "medimap.", "ratemds.", "healthgrades.", "zocdoc.", "trustanalytica.", "yellowpages.",
 )
 PAGE_BUDGET = 6  # pages one research pass may save
 _BUDGET_WINDOW_S = 12 * 3600  # pages saved within this window count as the same pass
@@ -131,6 +133,11 @@ def published_date(html: str) -> str | None:
 
 def _page_published(text: str) -> str | None:
     m = re.search(r"^Published: (\d{4}-\d{2}-\d{2})$", text[:300], re.MULTILINE)
+    return m.group(1) if m else None
+
+
+def _page_url(text: str) -> str | None:
+    m = re.match(r"URL: (\S+)", text)
     return m.group(1) if m else None
 
 
@@ -239,19 +246,27 @@ def verify_company(directory: Path) -> dict[str, Any]:
     pages_dir = directory / "pages"
     cache: dict[str, str | None] = {}
     dated: dict[str, str | None] = {}
+    where: dict[str, str | None] = {}
     for f in facts:
         page = str(f["page"])
         if page not in cache:
             raw = _page_text(pages_dir, page) if page.strip() else None
             cache[page] = None if raw is None else _normalize(raw)
             dated[page] = None if raw is None else _page_published(raw)
+            where[page] = None if raw is None else _page_url(raw)
         text = cache[page]
         quote = _normalize(f["quote"])
+        # The source rule applies here too, not only at fetch time: a page saved before a site was
+        # added to the list (or a fact naming another url) would otherwise verify for 30 days.
+        skipped = next((h for h in (_skipped_host(u) for u in (where.get(page), f.get("url")) if u) if h), None)
         f.pop("reason", None)
         if not quote:
             f["verified"], f["reason"] = False, "empty quote"
         elif text is None:
             f["verified"], f["reason"] = False, f"page {page!r} not found under pages/"
+        elif skipped:
+            f["verified"], f["reason"] = False, (f"from a job board, profile, review or social site "
+                                                 f"({skipped.strip('.')}): not a company or news source")
         elif quote not in text:
             f["verified"], f["reason"] = False, "quote not found in page text"
         elif dated[page] and _age_days(dated[page], f.get("read")) > NEWS_MAX_AGE_DAYS:
