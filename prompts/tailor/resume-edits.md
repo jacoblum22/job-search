@@ -114,6 +114,9 @@ Use judgment.
   candidate has done as something they're heading toward ("moving toward analytics engineering",
   "aspiring data engineer"): if the vault shows the work, say they did it ("hands-on analytics
   engineering experience: built reusable BigQuery datasets ..."), without claiming the job title.
+- **Tense and stock shapes.** Work from a job that has ended is past tense, in the summary too
+  ("made", not "works across"); present tense only for what is still going on (a current project).
+  Template shapes like "works across X, from A to B" read as machine-written; say the plain thing.
 - **Say each thing once.** The summary positions the candidate for the role; it shouldn't restate
   the bullets in their own words ("wrote BigQuery SQL daily to build reusable datasets" in both),
   and the skills list doesn't need the same parenthetical detail a bullet already gives. Read the
