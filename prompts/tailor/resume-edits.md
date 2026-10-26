@@ -122,6 +122,10 @@ Use judgment.
   the bullets, not the same sentence twice; the skills list doesn't need the same parenthetical
   detail a bullet already gives. Read the page top to bottom and reword any phrase that appears
   twice.
+- **AI-assisted projects: lead with what the system does.** The "(AI-assisted build)" label
+  already says how it was made, so "Built a Python pipeline with Claude Code that loads ..." is
+  honest; opening every project bullet with "Directed" reads as "I prompted a chatbot". Let the
+  numbers (tests, postings, runs) carry the credibility.
 - **Grades are usually noise.** A grade in brackets after a report or a course ("(87%)", "(A+)")
   confuses more than it helps; leave it out unless the posting asks for grades. The cGPA / Dean's
   List line is fine.
