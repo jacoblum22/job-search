@@ -143,6 +143,9 @@ These aren't checks; they're what a good reviewer noticed on past letters (Point
   building pipelines or automating reporting, the proof paragraph should tell that story, even when
   the resume has a bullet for it. "Don't repeat the resume" means don't restate the bullet; tell
   what the bullet couldn't (why it was needed, what it replaced, who used it).
+  Name the posting's first-named system or tool in the opening paragraph when the vault backs
+  it (Salesforce for PointClickCare), and put the best data-quality story where the letter talks
+  about data quality, not in the gap paragraph.
 - **Don't undercut the candidate.** Lines that read as confessions ("I was open about what I didn't
   know") or blame ("found problems in SQL my teammates wrote") make the reader wonder. Say what the
   candidate did plainly ("reviewed teammates' SQL for errors"), or leave it out.
