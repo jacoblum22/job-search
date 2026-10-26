@@ -110,17 +110,18 @@ Use judgment.
   posting's word is fair and helps the reader see the match. Don't stretch it to work that isn't.
 - **Make the summary read as this role.** Lead with the work the posting asks for first, in its
   words where the vault backs them. When `headline` is null because the title isn't safe to claim,
-  still open with the posting's top asks rather than the base's label. Don't frame work the
-  candidate has done as something they're heading toward ("moving toward analytics engineering",
-  "aspiring data engineer"): if the vault shows the work, say they did it ("hands-on analytics
-  engineering experience: built reusable BigQuery datasets ..."), without claiming the job title.
+  still open with the posting's top asks rather than the base's label. Match the claim to the
+  evidence: a few months of SQL, QA and one ETL script backs "a focus on analytics engineering",
+  not "hands-on analytics engineering experience". Keep the facts a reader can check (the
+  posting's first required skill, named tools, what was automated) over impressions ("made data
+  reliable"), and prefer the verb that matches the work ("validated", not "made").
 - **Tense and stock shapes.** Work from a job that has ended is past tense, in the summary too
-  ("made", not "works across"); present tense only for what is still going on (a current project).
+  ("validated", not "validates"); present tense only for what is still going on (a current project).
   Template shapes like "works across X, from A to B" read as machine-written; say the plain thing.
-- **Say each thing once.** The summary positions the candidate for the role; it shouldn't restate
-  the bullets in their own words ("wrote BigQuery SQL daily to build reusable datasets" in both),
-  and the skills list doesn't need the same parenthetical detail a bullet already gives. Read the
-  page top to bottom and reword any phrase that appears twice.
+- **Say each thing once.** The summary can preview the strongest facts, but in fewer words than
+  the bullets, not the same sentence twice; the skills list doesn't need the same parenthetical
+  detail a bullet already gives. Read the page top to bottom and reword any phrase that appears
+  twice.
 - **Grades are usually noise.** A grade in brackets after a report or a course ("(87%)", "(A+)")
   confuses more than it helps; leave it out unless the posting asks for grades. The cGPA / Dean's
   List line is fine.
