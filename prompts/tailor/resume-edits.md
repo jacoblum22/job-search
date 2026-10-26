@@ -114,6 +114,10 @@ Use judgment.
   candidate has done as something they're heading toward ("moving toward analytics engineering",
   "aspiring data engineer"): if the vault shows the work, say they did it ("hands-on analytics
   engineering experience: built reusable BigQuery datasets ..."), without claiming the job title.
+- **Say each thing once.** The summary positions the candidate for the role; it shouldn't restate
+  the bullets in their own words ("wrote BigQuery SQL daily to build reusable datasets" in both),
+  and the skills list doesn't need the same parenthetical detail a bullet already gives. Read the
+  page top to bottom and reword any phrase that appears twice.
 - **Grades are usually noise.** A grade in brackets after a report or a course ("(87%)", "(A+)")
   confuses more than it helps; leave it out unless the posting asks for grades. The cGPA / Dean's
   List line is fine.
