@@ -134,6 +134,11 @@ role. If the vault has no `motivation.*` passages, keep movement 3 to one senten
 These aren't checks; they're what a good reviewer noticed on past letters (PointClickCare, Oct
 2026). Use judgment.
 
+- **State the fact; don't stage it.** A sentence that hands the posting's own words back as a
+  thesis about the candidate ("Turning recurring marketing reports into data people can trust is
+  work I did every day") signals relevance instead of showing it, and reads as machine-written
+  (humanizer: "staging instead of stating"). Lead with what happened: "At AlgaeCal I wrote
+  BigQuery SQL every day for the Marketing and Loyalty teams." Let the reader see the match.
 - **Lead with the best match for the job's main work.** If the posting's first responsibility is
   building pipelines or automating reporting, the proof paragraph should tell that story, even when
   the resume has a bullet for it. "Don't repeat the resume" means don't restate the bullet; tell
