@@ -134,6 +134,10 @@ role. If the vault has no `motivation.*` passages, keep movement 3 to one senten
 These aren't checks; they're what a good reviewer noticed on past letters (PointClickCare, Oct
 2026). Use judgment.
 
+- **No closing moral.** A sentence after an example that names what it showed ("AI speeds the
+  work up, and I check the result before anyone relies on it") repeats the point instead of adding
+  to it (humanizer: one-line closers). End the paragraph on the last concrete fact ("each one
+  read by hand"); keep a closing sentence only if it adds a new fact or consequence.
 - **State the fact; don't stage it.** A sentence that hands the posting's own words back as a
   thesis about the candidate ("Turning recurring marketing reports into data people can trust is
   work I did every day") signals relevance instead of showing it, and reads as machine-written
