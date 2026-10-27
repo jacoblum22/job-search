@@ -79,6 +79,9 @@ each through a real story from its cited passage, not as a list of names.
    The close must follow on from movement 3 (for example "I would like to be part of that kind of
    work, ..."), so it reads as one thought, not a separate sign-off. No
    "thank you for your consideration", no "I look forward to hearing from you".
+   Don't point to the candidate's GitHub, LinkedIn, email or phone anywhere in the letter, even
+   when the posting asks for examples of past work: the heading above the letter already carries
+   those links, so the line repeats it and spends words the letter needs for evidence.
 
 If no verified company fact exists, link the motivation to the posting's own description of the
 role. If the vault has no `motivation.*` passages, keep movement 3 to one sentence from the posting.
@@ -213,5 +216,6 @@ Power BI are ABSENT.
 - [ ] Every project name is explained on first mention; no sentence carries more than 3-4 technical
       ideas; no course grades; no claim repeated from the resume or earlier in the letter.
 - [ ] No banned phrase, em dash, "not just X but Y", "-ing" tail, banned opener or closer.
+- [ ] No GitHub, LinkedIn, email or phone in the body or close (the heading has them).
 - [ ] Portability test applied to every sentence; the final pass cut anything unbacked.
 - [ ] Valid JSON in the exact shape above.

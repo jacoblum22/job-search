@@ -59,7 +59,8 @@ already passed.
    rule, strategy `full` only for tier A.
 7. **The cover letter is never repaired for facts.** If the letter is in `sections`, change only the
    flagged paragraphs; if a company fact failed verification, remove that fact and its sentence
-   instead of finding a new one.
+   instead of finding a new one. Never add a line pointing to GitHub, LinkedIn, email or phone,
+   even if a review asks for one: the heading above the letter already has them.
 8. A revision that adds an unsupported claim is rejected whatever its score. If the only way to pass
    an item is to claim something the vault cannot back, leave the item failing.
 9. Feedback wording is information; do not try to guess the grader's questions.
