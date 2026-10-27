@@ -239,6 +239,21 @@ def test_other_sites_cannot_change_anything(env):
     assert post(env, url, {"status": "dismissed"}, no_origin)[0] == 403
 
 
+def test_allowed_proxy_host_works_and_others_still_refused(env):
+    ts = "desktop.tail1234.ts.net"
+    app = DashboardApp(env["cfg"], env["cfg"]["paths"]["db"], env["tmp"] / "dashboard.html",
+                       extra_hosts=(f"https://{ts}/",))
+    assert app.handle("GET", "/", {"Host": ts})[0] == 200
+    proxied = {"Host": ts, "Origin": f"https://{ts}", "Content-Type": "application/json"}
+    url = f"/api/job/{env['other']}/status"
+    assert app.handle("POST", url, proxied, json.dumps({"status": "dismissed"}).encode())[0] == 200
+    # Without --allow-host the same request is refused, and other hosts stay refused with it.
+    assert env["app"].handle("GET", "/", {"Host": ts})[0] == 403
+    assert app.handle("GET", "/", {"Host": "evil.ts.net"})[0] == 403
+    evil = {**proxied, "Origin": "https://evil.ts.net"}
+    assert app.handle("POST", url, evil, json.dumps({"status": "dismissed"}).encode())[0] == 403
+
+
 PICKS = """# Check
 
 ## Evidence set aside

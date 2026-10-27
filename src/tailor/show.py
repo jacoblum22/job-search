@@ -101,8 +101,8 @@ def show(app_dir: Path, cfg: dict[str, Any], *, passages: bool = False, posting:
         f"# {app.get('company')} - {app.get('title')} (job {app.get('job_id')})",
         f"folder: {app_dir}",
         f"status: {app.get('status')}; best round {app.get('best_round')}; base {app.get('base_id')}",
-        (f"resume from: {files['resume'].relative_to(app_dir) if files['resume'] else 'none'}; "
-         f"letter from: {files['letter'].relative_to(app_dir) if files['letter'] else 'none'}"),
+        (f"resume from: {files['resume'].relative_to(app_dir).as_posix() if files['resume'] else 'none'}; "
+         f"letter from: {files['letter'].relative_to(app_dir).as_posix() if files['letter'] else 'none'}"),
         "edit for a revision: humanize/resume.yaml and humanize/cover-letter.json (run `revise-start` first)",
     ]
     final = _final_files(app_dir)
