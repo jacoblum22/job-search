@@ -25,23 +25,42 @@ _WORD_TO_NUM = {
 # Negative lookahead: skip "years of age", "years old", "years or older", etc.
 _NOT_AGE = r"(?!s?\s+(?:of\s+age|old|young|or\s+older))"
 
+# "years", "year", or the "yrs"/"yr." abbreviation ("At least 5 yrs of professional experience").
+_YEAR = r"(?:year|yr)" + _NOT_AGE + r"s?\b\.?"
+# "5+", "5 plus", "three-plus"
+_PLUS = r"\s*(?:\+|-?\s*plus\b)?\s*"
+
 # Matches: "2-5 years", "2 to 5 years", "2–5 years"
 _RANGE_PATTERN = re.compile(
-    r"(\d+)\s*[-–to]+\s*(\d+)\s*(?:\+\s*)?year" + _NOT_AGE + r"s?",
+    r"(\d+)\s*[-–to]+\s*(\d+)" + _PLUS + _YEAR,
     re.IGNORECASE,
 )
 
 # Matches: "5+ years", "5 years", "minimum 5 years", "at least 5 years"
 _SINGLE_PATTERN = re.compile(
-    r"(?:minimum|at\s+least|over|more\s+than)?\s*(\d+)\s*\+?\s*year" + _NOT_AGE + r"s?",
+    r"(?:minimum|at\s+least|over|more\s+than)?\s*(\d+)" + _PLUS + _YEAR,
     re.IGNORECASE,
 )
 
 # Matches word-form: "five years", "three+ years"
 _WORD_PATTERN = re.compile(
-    r"(?:minimum|at\s+least|over|more\s+than)?\s*("
+    r"(?:minimum|at\s+least|over|more\s+than)?\s*\b("
     + "|".join(_WORD_TO_NUM.keys())
-    + r")\s*\+?\s*year" + _NOT_AGE + r"s?",
+    + r")" + _PLUS + _YEAR,
+    re.IGNORECASE,
+)
+
+# Degree-conditional requirements often drop the unit on the second number: "3+ years of
+# experience with a graduate degree, or 5+ with a bachelor's". The "or 5+ with a bachelor's"
+# half is still a years requirement, and it's the one that applies to a bachelor's holder.
+_DEGREE = (
+    r"(?:bachelor|undergrad|master|graduate|post-?graduate|ph\.?\s?d|doctor|"
+    r"b\.?\s?sc?\b|m\.?\s?sc?\b|b\.?a\b|m\.?a\b|mba\b|(?:university\s+|college\s+)?degree|diploma)"
+)
+_ELLIPTIC_PATTERN = re.compile(
+    r"(?:\bor\s+|\(\s*|;\s*|,\s*)(\d+|" + "|".join(_WORD_TO_NUM.keys()) + r")" + _PLUS
+    + r"(?:with|for|if\s+you\s+have)\s+"
+    + r"(?:(?:candidates|applicants|those|people)\s+(?:with|holding|who\s+have)\s+)?(?:an?\s+|the\s+)?(?:relevant\s+|related\s+)?" + _DEGREE,
     re.IGNORECASE,
 )
 
@@ -58,7 +77,7 @@ _CONTEXT_WINDOW = 80  # characters
 # A requirement line that never says "experience": "- 5+ years in P&C insurance analytics",
 # "3+ years working with SQL". It must open a list item, or carry a "+", and be followed by
 # what the years were spent on; company history ("35 years in business") isn't.
-_LINE_START = re.compile(r"(?:^|\n)[ \t]*(?:[-*•+▪◦·]|\d+[.)])?[ \t]*(?:minimum\s+|at\s+least\s+)?$", re.IGNORECASE)
+_LINE_START = re.compile(r"(?:^|\n)[ \t]*(?:[-*•+▪◦·]|\d+[.)])?[ \t]*(?:minimum(?:\s+of)?|at\s+least)?\s*$", re.IGNORECASE)
 _SPENT_ON = re.compile(
     r"\s+(?:of|in|as|working|doing|building|developing|leading|with|using|hands-on|professional|relevant)\b"
     r"(?!\s+(?:business|operation|history|the\s+(?:industry|market|community)|service"
@@ -115,6 +134,16 @@ def parse_min_years_experience(text: str) -> int | None:
         val = _WORD_TO_NUM.get(word)
         if val is not None:
             mins.append(val)
+
+    # "or 5+ with a bachelor's": the unit is implied by a years requirement just before it.
+    for m in _ELLIPTIC_PATTERN.finditer(text):
+        lead = text[max(0, m.start() - 200) : m.start()]
+        if not re.search(r"(?:year|yr)s?\b", lead, re.IGNORECASE):
+            continue
+        if not _EXPERIENCE_CONTEXT.search(text[max(0, m.start() - 200) : m.end() + _CONTEXT_WINDOW]):
+            continue
+        num = m.group(1).lower()
+        mins.append(int(num) if num.isdigit() else _WORD_TO_NUM[num])
 
     if not mins:
         return None
