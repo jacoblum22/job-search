@@ -341,9 +341,13 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
 
     # Jake, Oct 23 2026: more than `wide_gap` points under what the evidence allows isn't acceptable,
     # so while the best round is that far off and the last round still raised its ATS, the loop gets
-    # up to `max_rounds_wide_gap` drafts.
+    # up to `max_rounds_wide_gap` drafts. A wording gap under that is still open by Jake's ATS floor
+    # (repair until within 5 of the ceiling or 70), so it gets the same rounds while it gains (Nexthop
+    # new grad, Oct 27 2026: stopped at the 3-draft limit on ATS 65.5, 8.5 under the ceiling, after
+    # a round that gained 3.2).
     max_rounds = loop_cfg.get("max_rounds", 3)
-    if _wide_gap(best, loop_cfg) and (not prev or (best["ats"] or 0) > (_best(prev)["ats"] or 0)):
+    if ((_wide_gap(best, loop_cfg) or best["grade"].get("needs_ats_repair"))
+            and (not prev or (best["ats"] or 0) > (_best(prev)["ats"] or 0))):
         max_rounds = max(max_rounds, loop_cfg.get("max_rounds_wide_gap", 5))
     min_gain = loop_cfg.get("min_gain", 2.0)
     target = cfg.get("target_score", 80)

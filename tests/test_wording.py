@@ -82,3 +82,25 @@ def test_ms_alone_is_not_microsoft():
 
 def test_vague_words_are_not_equivalents():
     assert not wording.same("insights", "data analysis") and not wording.same("analytics", "data analysis")
+
+
+@pytest.mark.parametrize("words, text", [
+    ("optimizing", "Optimized for 16GB VRAM with gradient checkpointing"),
+    ("optimizing", "Whisper model size optimization"),
+    ("optimising", "optimized the query"),
+    ("automated", "monthly report automation"),
+    ("data validation", "validated the data validating each field"),
+])
+def test_verb_forms_back_each_other_for_truth_checks_only(words, text):
+    # Nexthop new grad, Oct 27 2026: "optimizing" found no passage though the vault says "Optimized".
+    assert wording.same(words, text)
+    assert not wording.ats(words, text)
+
+
+@pytest.mark.parametrize("words, text", [
+    ("marketing", "the market grew"),
+    ("state", "stated plainly"),
+    ("optimizing", "optimal settings"),
+])
+def test_verb_forms_stay_inside_their_family(words, text):
+    assert not wording.same(words, text)

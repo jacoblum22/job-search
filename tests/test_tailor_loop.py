@@ -450,10 +450,26 @@ def test_wide_gap_that_still_gains_gets_rounds_past_the_limit(tmp_path):
         _set_grade(app, n, ats_ceiling=75, needs_ats_repair=True)
     out = next_round(app, WIDE)
     assert out["action"] == "repair" and out["next_round"] == 4
-    # Without the wide gap the usual limit holds.
+    # Within the wording tolerance of the ceiling the usual limit holds.
     for n in (1, 2, 3):
-        _set_grade(app, n, ats_ceiling=62)
+        _set_grade(app, n, ats_ceiling=62, needs_ats_repair=False)
     (app / "drafts" / "r4" / "feedback.json").unlink()
+    assert next_round(app, WIDE)["action"] == "stop"
+
+
+def test_wording_gap_under_the_wide_gap_that_still_gains_gets_rounds(tmp_path):
+    # Nexthop new grad, Oct 27 2026: ATS 65.5 with 74 reachable (8.5 under, not "wide") stopped at
+    # 3 drafts though the last round gained 3.2; Jake's floor is within 5 of the ceiling or 70.
+    app = new_app(tmp_path)
+    for n, ats in ((1, 62.3), (2, 62.3), (3, 65.5)):
+        add_round(app, n, 60 + n, items=[item("must.r1", False, ["summary"])], ats=ats, feedback=["show SQL"])
+        _set_grade(app, n, ats_ceiling=74, needs_ats_repair=True)
+    out = next_round(app, WIDE)
+    assert out["action"] == "repair" and out["next_round"] == 4
+    # Once it stops gaining, the usual limit holds.
+    (app / "drafts" / "r4" / "feedback.json").unlink()
+    add_round(app, 4, 64, items=[item("must.r1", False, ["summary"])], ats=65.0, feedback=["show SQL"])
+    _set_grade(app, 4, ats_ceiling=74, needs_ats_repair=True)
     assert next_round(app, WIDE)["action"] == "stop"
 
 
