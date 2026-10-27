@@ -141,30 +141,21 @@ def build_letter_document(letter: dict[str, Any], contact: dict[str, Any], *, bo
     doc = Document()
     sec = doc.sections[0]
     sec.page_width, sec.page_height = Inches(8.5), Inches(11)
+    layout = resume_mod.Layout()
     sec.left_margin = sec.right_margin = Inches(1)
-    sec.top_margin = sec.bottom_margin = Inches(0.8)
+    sec.top_margin = Inches(layout.top_margin_in)
+    sec.bottom_margin = Inches(0.8)
     normal = doc.styles["Normal"]
     normal.font.name = resume_mod.FONT_NAME
     normal.font.size = Pt(body_pt)
 
-    p = resume_mod._paragraph(doc)
-    resume_mod._font(p.add_run(contact.get("name", "")), 16, bold=True)
-    p = resume_mod._paragraph(doc, space_after=14)
-    first = True
-    for key in ("location", "email", "phone", "linkedin", "github"):
-        value = contact.get(key)
-        if not value:
-            continue
-        if not first:
-            resume_mod._font(p.add_run(" | "), 9.5)
-        first = False
-        if key == "email":
-            resume_mod._hyperlink(p, "mailto:" + value, value, 9.5)
-        elif key in ("linkedin", "github"):
-            resume_mod._hyperlink(p, resume_mod._url(value), value, 9.5)
-        else:
-            resume_mod._font(p.add_run(value), 9.5)
-
+    # Same heading as the resume: centered, same sizes, and as wide as the resume's text block
+    # (its side margins are narrower), so the contact line stays on one line.
+    outdent = Inches(1 - layout.side_margin_in)
+    header = resume_mod.write_header(doc, contact, layout)
+    for p in header:
+        p.paragraph_format.left_indent = p.paragraph_format.right_indent = -outdent
+    header[-1].paragraph_format.space_after = Pt(14)
     p = resume_mod._paragraph(doc, space_after=10)
     resume_mod._font(p.add_run(today or date.today().strftime("%B %d, %Y").replace(" 0", " ")), body_pt)
     if letter.get("greeting"):
