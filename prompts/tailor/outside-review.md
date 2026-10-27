@@ -23,7 +23,8 @@ they be better?" as an experienced reviewer would. Be specific and honest. Thing
 - In the letter: is the strongest evidence for the job's main work there? Does any line undercut
   the candidate (reads as a confession or as blaming others)? Is the tense right for a job that has
   ended? Does it close by asking for a conversation? Is anything about the company odd or hard to
-  believe?
+  believe? The letter's heading carries the candidate's email, phone, LinkedIn and GitHub, so
+  don't suggest pointing to any of them in the body or close.
 - How the resume and letter fit together, and anything a screener comparing the two might flag.
 
 You don't know what the candidate can back up, so you may suggest adding a number or a detail; the
