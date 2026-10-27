@@ -68,13 +68,16 @@ already passed.
 ## Letter-only rounds
 
 When `feedback.json` has `"letter_only": true`, `sections` is `["letter"]`: the resume is already
-done and stays exactly as round `B` has it. Write `edits.json` as `{"edits": []}` and rewrite only
+done and stays exactly as round `B` has it. Write `edits.json` as `{"edits": []}` (no `strategy`:
+with no edits it isn't used, so don't look it up) and rewrite only
 the letter to answer the listed warnings and failed items (for a short letter, use the room for the skills the
 warning names, as rule 2 says: inside a story a paragraph already tells, never a sentence or
 paragraph of its own that only names the skill; if no story fits, add a fuller sentence to an
 existing story and leave the skill out). Soft skills listed in the failed items go in the same way,
 in the posting's own word: "teamwork" in the sentence about working through a design with two
 teammates, "communication" where the letter says the candidate explained results to other teams.
+`keep_soft` lists soft skills only the letter names now: when you reword a sentence, keep each of
+those words in it (`next-round` reports any the new letter dropped).
 Everything else in this prompt still applies to the letter.
 
 ## Output
