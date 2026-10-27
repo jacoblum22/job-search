@@ -23,7 +23,7 @@ from src.tailor.paths import resolve
 LOCKED_FIELDS = {
     "title", "company", "location", "dates", "school", "degree", "name", "url", "contact", "id",
 }
-ACTIONS = {"replace", "append", "remove", "reorder", "add_skill"}
+ACTIONS = {"replace", "append", "remove", "reorder", "add_skill", "add_entry", "remove_entry"}
 SECTIONS = {"summary", "skills", "experience", "projects", "education"}
 
 
@@ -153,7 +153,7 @@ def _check_length(value: str) -> None:
 
 def _apply_one(
     data: dict[str, Any], edit: dict[str, Any], index: dict[str, dict[str, Any]],
-    protected: set[str], sections: list[str] | None,
+    protected: set[str], sections: list[str] | None, library: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> tuple[Any, Any]:
     """Apply one edit to `data` in place; return (before, after) or raise _Reject."""
     path, action = edit.get("path"), edit.get("action")
@@ -228,9 +228,61 @@ def _apply_one(
         e.setdefault("bullets", []).append({"id": bid, "text": value, "sources": sources})
         return None, value
 
+    if action == "add_entry":
+        # A job or project from the entry library (entries.py): code copies its header, the edit
+        # writes its first bullet; more bullets follow as `append` edits.
+        if head not in ("experience", "projects") or len(parts) != 2:
+            raise _Reject("path not allowed for add_entry: expected <section>/<entry>")
+        if _entry(data, head, parts[1]) is not None:
+            raise _Reject("entry already in the resume")
+        header = ((library or {}).get(head) or {}).get(parts[1])
+        if header is None:
+            raise _Reject(f"no {head} entry {parts[1]!r} in the entry library")
+        value = _value_text(edit)
+        _check_length(value)
+        sources = _check_sources(edit, index, required=True)
+        entry = {**{k: copy.deepcopy(v) for k, v in header.items() if k != "vault"}, "bullets": [{"id": f"{parts[1]}.new-1", "text": value, "sources": sources}]}
+        items = data.setdefault(head, [])
+        after = edit.get("after")
+        pos = next((i + 1 for i, e in enumerate(items) if e.get("id") == after), len(items))
+        items.insert(pos, entry)
+        if head not in (data.get("order") or [head]):
+            data["order"] = list(data.get("order") or []) + [head]
+        return None, value
+
+    if action == "remove_entry":
+        if head != "projects" or len(parts) != 2:
+            raise _Reject("path not allowed for remove_entry: only projects/<entry> (jobs stay on the resume)")
+        e = _entry(data, head, parts[1])
+        if e is None:
+            raise _Reject("path does not resolve: " + path)
+        if any(f"{head}/{parts[1]}/{b.get('id')}" in protected for b in e.get("bullets") or []):
+            raise _Reject("protected: the entry has the only cover for a matched must-have")
+        data[head].remove(e)
+        return [b.get("text") for b in e.get("bullets") or []], None
+
+    if action == "remove" and head == "skills" and len(parts) == 2:
+        # A skills item a check flags must be removable in a repair round, or the critical stays to the
+        # end (Amazon ICQA, Oct 27 2026: a skills item added in round 1 was flagged in rounds 1 to 3).
+        g = _entry(data, "skills", parts[1])
+        if g is None:
+            raise _Reject("path does not resolve: " + path)
+        value = edit.get("value")
+        names = [value] if isinstance(value, str) else value
+        if not isinstance(names, list) or not names or not all(isinstance(v, str) and v.strip() for v in names):
+            raise _Reject("remove on a skills group needs the item (or a list of them) as value")
+        want = {norm(v) for v in names}
+        before = list(g["items"])
+        if want - {norm(x) for x in before}:
+            raise _Reject("skill not in the group")
+        g["items"] = [x for x in before if norm(x) not in want]
+        if not g["items"]:
+            raise _Reject("would leave the skills group empty")
+        return before, list(g["items"])
+
     if action == "remove":
         if head not in ("experience", "projects") or len(parts) != 3:
-            raise _Reject("path not allowed for remove: expected <section>/<entry>/<bullet>")
+            raise _Reject("path not allowed for remove: expected <section>/<entry>/<bullet> or skills/<group>")
         e = _entry(data, head, parts[1])
         bullets = (e or {}).get("bullets") or []
         node = next((b for b in bullets if b.get("id") == parts[2]), None)
@@ -257,8 +309,8 @@ def _apply_one(
             if g is None:
                 raise _Reject("path does not resolve: " + path)
             holder, key, getid = g, "items", lambda x: norm(x)
-        elif head == "skills" and len(parts) == 1:
-            holder, key, getid = data, "skills", lambda g: g.get("id")
+        elif head in ("skills", "projects") and len(parts) == 1:
+            holder, key, getid = data, head, lambda g: g.get("id")
         else:
             raise _Reject("path not allowed for reorder")
         current = holder.get(key) or []
@@ -337,6 +389,9 @@ def apply_edits(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
         data = copy.deepcopy(load_base(app_dir, cfg))
         sections = None
 
+    from src.tailor.entries import library as entry_library
+
+    lib = entry_library(cfg)
     applied: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     for edit in edits:
@@ -345,7 +400,7 @@ def apply_edits(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
             continue
         work = copy.deepcopy(data)
         try:
-            before, after = _apply_one(work, edit, index, protected, sections)
+            before, after = _apply_one(work, edit, index, protected, sections, lib)
         except _Reject as e:
             rejected.append({"edit": edit, "reason": str(e)})
             continue

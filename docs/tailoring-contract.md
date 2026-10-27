@@ -58,6 +58,7 @@ max 120 chars). Contents, in the order steps create them:
 | `drafts/r<N>/check.json` | code | 5 |
 | `drafts/r<N>/grade.json` | code | 6 |
 | `drafts/r<N>/feedback.json` | code (input to the repair round) | 7 |
+| `review/input.md`, `review/notes.md`, `review/response.json` | code, then a fresh reviewer, then Claude (the review round) | 7b |
 | `humanize/flags.json`, `humanize/patches.json` | code, then Claude | 8 |
 | `final/` resume + letter `.yaml/.json/.docx/.pdf`, `parse.json` | code | 9 |
 | `fit-notes.md`, `check.md` | code | 10 |
@@ -241,9 +242,13 @@ as a fit gap. A `jake` confirm for the same skill takes it off the list.
 ```
 
 Paths: `summary`; `<section>/<entry id>/<bullet id>` for bullets; `<section>/<entry id>` for
-`append` (new bullet, id `<entry>.new-<n>`); `skills/<group id>` for `add_skill` / `reorder`;
+`append` (new bullet, id `<entry>.new-<n>`); `skills/<group id>` for `add_skill` / `reorder` / `remove` (the item to drop as `value`);
 `<section>/<entry id>` with `action: "reorder"` and a list value of bullet ids. Actions:
-`replace | append | remove | reorder | add_skill`. **Never editable:** `title, company, location,
+`replace | append | remove | reorder | add_skill | add_entry | remove_entry`. `add_entry` on
+`experience/<id>` or `projects/<id>` brings in a job or project from the entry library
+(`src/tailor/entries.py`: every base's entries plus `materials/resumes/entries.yaml`); code copies its
+header, `value` + `sources` is its first bullet, optional `after` places it. `remove_entry` drops a
+project (never a job). `reorder` on `projects` orders the projects. **Never editable:** `title, company, location,
 dates, school, degree, name, url, contact`, any `id`, and `education` lines except coursework.
 Gates (all must pass or the edit is rejected with a reason): path allowed, path resolves, not
 locked, `replace.original` matches current text (case/whitespace-insensitive), `reorder` keeps
@@ -309,7 +314,9 @@ ceiling is under the floor), `needs_ats_repair` (under the target with backed ha
 or with the summary not yet opening with the plan's true job title, which an `ats.title` note asks for),
 `unused_terms` (backed hard skills not used word for word), `unused_soft_terms` (an `ats.soft`
 note that rides along with a repair round, for a line whose story shows them or for the letter;
-on its own it starts at most one letter-only round per best round, via `pending`)
+on its own it starts at most one letter-only round per best round, via `pending`),
+`letter_soft_terms` (backed soft skills only the letter names; a letter-only round's feedback lists
+them as `keep_soft`, and `next-round` names any the new letter dropped)
 and `unbacked_terms` (the posting asks, the vault can't back). Unused hard skills become an
 `ats.unused` gap and feedback line. While `needs_ats_repair` holds, `next-round` keeps repairing even
 on a small gain (up to the round limit); a fit gap gets no extra rounds, since that would only stuff

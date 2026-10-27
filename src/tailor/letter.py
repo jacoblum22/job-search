@@ -35,25 +35,6 @@ _GRADE = re.compile(
 )
 
 
-def _must_missing(app_dir: Path, req: dict[str, Any]) -> bool:
-    """Whether evidence.json has a `must` requirement the vault doesn't back at all, or a must term
-    in `absent` ("AWS, particularly SageMaker" is only partial when AWS is backed; SageMaker is missing)."""
-    path = app_dir / "evidence.json"
-    if not path.exists():
-        return True  # can't tell; don't warn
-    musts = [r for r in req.get("requirements") or [] if isinstance(r, dict) and r.get("kind") == "must"]
-    ev = read_json(path)
-    ids = {r.get("id") for r in musts}
-    if any(o.get("status") == "missing" and o.get("id") in ids
-           for o in (ev.get("requirements") or []) if isinstance(o, dict)):
-        return True
-    absent = {str(t).lower() for t in ev.get("absent") or []}
-    names = {str(n).lower() for r in musts for t in r.get("terms") or [] if isinstance(t, str)
-             for n in (t, taxonomy.canonical(t)) if n}
-    names |= {str(c).lower() for r in musts for c in r.get("canonical") or [] if isinstance(c, str)}
-    return bool(absent & names)
-
-
 def company_slug(company: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-")
 
@@ -227,8 +208,6 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
                  skills=named)
     if len(_KEEN.findall(full)) > 1:
         warn("keen_to_grow", "more than one 'keen to grow' style phrase")
-    elif _KEEN.search(full) and not _must_missing(app_dir, req):
-        warn("keen_not_must", "a 'keen to grow' style phrase, but no must-have is missing")
     for m in _GRADE.finditer(full):
         warn("course_grade", f"course grade used as evidence: {m.group(0)!r}", term=m.group(0))
     for i, p in enumerate(paras):

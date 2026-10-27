@@ -63,6 +63,9 @@ ISSUES = ("Automatic checks on the final resume and letter. Pick Keep if it's fi
           "you'll change it before applying. Remove only records your choice: edit the file yourself, then "
           "rerun the render and packet steps.")
 NOTES = "Things the pipeline already handled. Nothing to decide; they're here so you know."
+OUTSIDE = ("After the repair rounds, a fresh reviewer that never saw your vault read the posting, resume and "
+           "letter and gave notes. The last round acted on the ones your vault and rules allow. Nothing to "
+           "decide; the changes are in the resume and letter, and in Changes from the base.")
 
 # ---------------------------------------------------------------------------
 # Where in the resume
@@ -222,14 +225,18 @@ def jev_item(item: dict[str, Any], reqs: dict[str, dict], data: dict[str, Any] |
         need = r.get("text") or q
         degree = item.get("fit_gap") == ["degree"]
         head = (f"Must-have may not be met: \"{need}\". Jev doubts your degree fits it{sure}." if degree else
-                f"Must-have not clearly shown: \"{need}\". Jev said no bullet shows it with a named tool and scope{sure}.")
+                f"Must-have not clearly shown: \"{need}\". Jev said no bullet shows it"
+                f"{' with a named tool and scope' if 'names a tool' in q else ''}{sure}.")
         if r.get("quote") and r["quote"] != need:
             details.append(f"The posting says: \"{r['quote']}\"")
         if degree:
             details.append("Your degree can't be rewritten, so no repair round tried to fix this.")
             details.append("Judge: does your degree count as the field the posting asks for? If not, it's a gap to own.")
             return head, details
-        if item.get("fit_gap"):
+        if item.get("fit_gap") == ["years of experience"]:
+            details.append("Years of experience come from your dates, which no rewrite can change, so no repair "
+                           "round tried to fix this; it is part of the weaker fit.")
+        elif item.get("fit_gap"):
             details.append(f"Not in your vault: {', '.join(item['fit_gap'])}. The rest is already on the resume, so "
                            "no repair round tried to fix this; it is part of the weaker fit.")
         details.append("Judge: does any bullet show this? If not, it's a gap to own in the cover letter or interview.")
@@ -376,8 +383,6 @@ _ISSUES: dict[str, tuple[str, str]] = {
                              "Only claim familiarity you can back up."),
     "keen_to_grow": ("The letter says it's keen to learn or grow more than once.",
                      "Once reads as eager; more reads as inexperienced."),
-    "keen_not_must": ("The letter says you're keen to grow into something, but every must-have is covered.",
-                      "Only a missing must-have earns that line; otherwise it just reads as inexperienced."),
     "course_grade": ("The letter uses a course grade as evidence ({term}).",
                      "The work is the evidence; name what you built or did instead."),
     "no_company_fact": ("The letter doesn't mention a checked fact about the company.",

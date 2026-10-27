@@ -189,6 +189,22 @@ def test_repair_round_sections_and_letter_copy(tmp_path):
     assert res["letter_copied"] and (app / "drafts/r2/cover-letter.json").exists()
 
 
+def test_repair_round_can_remove_and_reword_a_skills_item(tmp_path):
+    # A skills item flagged in round 1 must be fixable in a repair round, not left to the end.
+    app, cfg = make_app(tmp_path)
+    write_edits(app, [{"path": "skills/skills.tools", "action": "add_skill", "value": "dbt models", "sources": ["northwind.dbt"]}])
+    apply_edits(app, 1, cfg)
+    (app / "drafts/r2").mkdir()
+    (app / "drafts/r2/feedback.json").write_text(json.dumps({"round": 2, "build_on": 1, "sections": ["skills/skills.tools"]}))
+    write_edits(app, [{"path": "skills/skills.tools", "action": "remove", "value": "DBT Models"},
+                      {"path": "skills/skills.tools", "action": "add_skill", "value": "dbt", "sources": ["northwind.dbt"]}], rnd=2)
+    res = apply_edits(app, 2, cfg)
+    assert res["rejected"] == [] and len(res["applied"]) == 2
+    assert load_resume(app / "drafts/r2/resume.yaml")["skills"][1]["items"] == ["Tableau", "Excel", "Git", "dbt"]
+    write_edits(app, [{"path": "skills/skills.tools", "action": "remove", "value": "Looker"}], rnd=2)
+    assert "not in the group" in apply_edits(app, 2, cfg)["rejected"][0]["reason"]
+
+
 def test_repair_round_needs_feedback(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [])
@@ -517,34 +533,13 @@ def test_letter_numbers_come_from_the_verified_quote_not_the_fact_paraphrase(tmp
     assert len(invented) == 1 and "900" in invented[0]
 
 
-def test_letter_keen_only_for_a_missing_must_and_no_grades(tmp_path):
+def test_letter_flags_course_grades(tmp_path):
     paras = [dict(p) for p in LETTER["paragraphs"]]
-    paras[1] = {**paras[1], "text": paras[1]["text"] + " I earned 88% in STAT 301 and am keen to grow into dbt."}
+    paras[1] = {**paras[1], "text": paras[1]["text"] + " I earned 88% in STAT 301."}
     app, cfg = make_app(tmp_path)
     put_draft(app, base_data(cfg))
     write_letter(app, with_(paragraphs=paras))
-    req = read_json(app / "requirements.json")
-    must = next(r["id"] for r in req["requirements"] if r["kind"] == "must")
-    write_json(app / "evidence.json", {"requirements": [{"id": must, "status": "covered"}]})
-    ws = codes(run_check(app, 1, cfg, None)["warnings"])
-    assert "keen_not_must" in ws and "course_grade" in ws
-    write_json(app / "evidence.json", {"requirements": [{"id": must, "status": "missing"}]})
-    assert "keen_not_must" not in codes(run_check(app, 1, cfg, None)["warnings"])
-
-
-def test_letter_keen_fits_a_partial_must_with_an_absent_term(tmp_path):
-    # "Power BI or Tableau" is partial when Tableau is backed, but Power BI is still missing.
-    paras = [dict(p) for p in LETTER["paragraphs"]]
-    paras[1] = {**paras[1], "text": paras[1]["text"] + " I would be keen to grow into Power BI."}
-    app, cfg = make_app(tmp_path)
-    put_draft(app, base_data(cfg))
-    write_letter(app, with_(paragraphs=paras))
-    write_json(app / "evidence.json", {"requirements": [{"id": "r1", "status": "covered"}, {"id": "r3", "status": "partial"}],
-                                       "absent": ["Power BI"]})
-    assert "keen_not_must" not in codes(run_check(app, 1, cfg, None)["warnings"])
-    write_json(app / "evidence.json", {"requirements": [{"id": "r1", "status": "covered"}, {"id": "r3", "status": "covered"}],
-                                       "absent": ["dbt"]})  # only a nice-to-have is absent
-    assert "keen_not_must" in codes(run_check(app, 1, cfg, None)["warnings"])
+    assert "course_grade" in codes(run_check(app, 1, cfg, None)["warnings"])
 
 
 def test_letter_skill_backed_by_a_plan_add_where_its_passage_is_cited(tmp_path):
@@ -853,3 +848,70 @@ def test_one_sentence_paragraph_that_only_names_a_listed_skill_is_flagged(tmp_pa
                                        "report the stakeholders reviewed.")
     write_letter(app, letter)
     assert not any(w["code"] == "skill_name_only" for w in run_check(app, 1, cfg, None)["warnings"])
+
+
+ETL = "Built an ETL pipeline in Python and Airflow that loaded survey data into BigQuery."
+
+
+def _with_library(tmp_path):
+    (tmp_path / "entries.yaml").write_text(yaml.safe_dump({"projects": [
+        {"id": "survey", "name": "Survey Loader", "context": "Personal project", "dates": "May 2026",
+         "url": "https://github.com/x/survey", "vault": "lab"}]}), encoding="utf-8")
+
+
+def test_add_entry_from_the_library_and_drop_a_project(tmp_path):
+    # Jake, Oct 25 2026: any base can bring in any story the vault has (House Finder for WiDS).
+    app, cfg = make_app(tmp_path)
+    _with_library(tmp_path)
+    write_edits(app, [
+        {"path": "projects/survey", "action": "add_entry", "value": ETL, "sources": ["lab.pipeline"]},
+        {"path": "projects/spam", "action": "remove_entry"},
+    ])
+    res = apply_edits(app, 1, cfg)
+    assert res["rejected"] == [] and len(res["applied"]) == 2
+    draft = load_resume(app / "drafts/r1/resume.yaml")
+    assert [e["id"] for e in draft["projects"]] == ["survey"]
+    entry = draft["projects"][0]
+    assert entry["name"] == "Survey Loader" and entry["dates"] == "May 2026" and "vault" not in entry
+    assert entry["bullets"] == [{"id": "survey.new-1", "text": ETL, "sources": ["lab.pipeline"]}]
+    assert validate(draft, require_sources=True) == []
+    cs = codes(run_check(app, 1, cfg, None)["criticals"])
+    assert "invented_project" not in cs and "locked_changed" not in cs
+
+
+def test_entry_library_lists_what_the_base_lacks(tmp_path):
+    from src.tailor.entries import available, library
+
+    app, cfg = make_app(tmp_path)
+    _with_library(tmp_path)
+    lib = library(cfg)
+    assert "survey" in lib["projects"] and "spam" in lib["projects"]
+    assert lib["projects"]["spam"]["vault"] == "proj"  # the file its bullets cite
+    base = base_data(cfg)
+    assert available(cfg, base) == [{"section": "projects", "id": "survey", "label": "Survey Loader",
+                                     "dates": "May 2026", "vault": "lab"}]
+
+
+@pytest.mark.parametrize("edit,reason", [
+    ({"path": "projects/ghost", "action": "add_entry", "value": ETL, "sources": ["lab.pipeline"]}, "entry library"),
+    ({"path": "projects/spam", "action": "add_entry", "value": ETL, "sources": ["lab.pipeline"]}, "already in the resume"),
+    ({"path": "projects/survey", "action": "add_entry", "value": ETL, "sources": []}, "at least one source"),
+    ({"path": "experience/northwind", "action": "remove_entry"}, "jobs stay"),
+])
+def test_entry_gate_rejections(tmp_path, edit, reason):
+    app, cfg = make_app(tmp_path)
+    _with_library(tmp_path)
+    write_edits(app, [edit])
+    res = apply_edits(app, 1, cfg)
+    assert res["applied"] == [] and reason in res["rejected"][0]["reason"], res["rejected"]
+
+
+def test_reorder_projects(tmp_path):
+    app, cfg = make_app(tmp_path)
+    _with_library(tmp_path)
+    write_edits(app, [
+        {"path": "projects/survey", "action": "add_entry", "value": ETL, "sources": ["lab.pipeline"]},
+        {"path": "projects", "action": "reorder", "value": ["survey", "spam"]},
+    ])
+    assert apply_edits(app, 1, cfg)["rejected"] == []
+    assert [e["id"] for e in load_resume(app / "drafts/r1/resume.yaml")["projects"]] == ["survey", "spam"]

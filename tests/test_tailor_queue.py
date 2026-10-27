@@ -159,6 +159,22 @@ def test_packet_and_approve_gate(cfg):
         record_outcome(d, cfg, "bogus")
 
 
+def test_fit_notes_count_the_plans_evidence_adds(cfg):
+    # REW.ca, Oct 23 2026: fit-notes listed a term as not backed (and as interview prep) while
+    # check.md and the grade counted the plan's match for it.
+    _, d = _packet_app(cfg)
+    ev = json.loads((d / "evidence.json").read_text())
+    ev.update(present=["SQL", "dbt"], absent=["Looker"],
+              terms=[{"term": "Looker", "canonical": "Looker", "passages": [], "related": [], "in_base": {}}])
+    appdir.write_json(d / "evidence.json", ev)
+    appdir.write_json(d / "plan.json", {"base_id": "data-analyst",
+                                        "evidence_adds": [{"term": "Looker", "passage": "a.dash"}]})
+    run_packet(d, cfg)
+    notes = (d / "fit-notes.md").read_text()
+    assert "- Can be added (backed by the vault): dbt, Looker" in notes
+    assert "- Not backed by the vault: none" in notes and "Term not in your record: Looker" not in notes
+
+
 def test_packet_criticals_and_missing_inputs(cfg):
     jid, d = _packet_app(cfg)
     chk = d / "drafts" / "r1" / "check.json"
@@ -387,3 +403,16 @@ def test_limit_zero_queues_nothing_without_touching_the_database(tmp_path):
     from src.tailor.queue import run_queue
 
     assert run_queue({"paths": {"db": str(tmp_path / "missing" / "jobs.db")}}, limit=0) == []
+
+
+def test_packet_lists_what_the_review_round_did_with_each_note(cfg):
+    _, d = _packet_app(cfg)
+    appdir.write_json(d / "review" / "response.json", [
+        {"note": "Summary names the Loyalty team", "action": "changed", "why": "now says business teams"},
+        {"note": "Quantify the Apps Script time saved", "action": "left", "why": "no number in the vault"}])
+    run_packet(d, cfg)
+    check = (d / "check.md").read_text()
+    section = check.split("## Outside review")[1]
+    assert "- Changed: Summary names the Loyalty team: now says business teams" in section
+    assert "- Left as is: Quantify the Apps Script time saved: no number in the vault" in section
+    assert check.index("## Remaining issues") < check.index("## Outside review")  # read-only, after the buttons

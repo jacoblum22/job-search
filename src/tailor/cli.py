@@ -98,11 +98,99 @@ def evidence(app_dir):
 @main.command()
 @click.argument("ids", nargs=-1, required=True)
 def passages(ids):
-    """Print vault passages by id (instead of searching vault-index.json)."""
+    """Print vault passages by id (instead of searching vault-index.json). An id ending in ".*"
+    (`vhf.*`) prints every claim passage of that vault file."""
     from src.tailor.sources import load_index
 
     index = load_index(load_config())
-    _out({i: (index[i].get("text") if i in index else None) for i in ids})
+    out = {}
+    for i in ids:
+        if i.endswith(".*"):
+            pre = i[:-1]
+            out.update({k: p.get("text") for k, p in index.items()
+                        if k.startswith(pre) and p.get("use", "claim") == "claim"})
+        else:
+            out[i] = index[i].get("text") if i in index else None
+    _out(out)
+
+
+@main.command()
+@click.argument("query")
+def why(query):
+    """One application's status and what is left to review: a job id or words from the folder name."""
+    from src.tailor.why import find, summarize
+
+    cfg = load_config()
+    folders = find(cfg, query)
+    if not folders:
+        raise TailorError(f"no application folder matches {query!r}")
+    _out([summarize(f, cfg) for f in folders])
+
+
+def _one_app(cfg, query: str) -> Path:
+    """An application folder from a path, a job id or words from its folder name; exactly one."""
+    from src.tailor.why import find
+
+    if Path(query).is_dir():
+        return Path(query)
+    folders = find(cfg, query)
+    if len(folders) != 1:
+        names = ", ".join(f.name for f in folders) or "none"
+        raise TailorError(f"{query!r} matches {len(folders)} application folders ({names}); be more specific")
+    return folders[0]
+
+
+@main.command()
+@click.argument("query")
+@click.option("--passages", is_flag=True, help="Print each bullet's cited vault passages under it")
+@click.option("--posting", is_flag=True, help="Print the posting too")
+def show(query, passages, posting):
+    """The shipped resume and letter as plain text, with bullet ids and sources: a job id, folder words or path."""
+    from src.tailor.show import show as do_show
+
+    cfg = load_config()
+    click.echo(do_show(_one_app(cfg, query), cfg, passages=passages, posting=posting))
+
+
+@main.command()
+@click.argument("terms", nargs=-1, required=True)
+@click.option("--claims-only", is_flag=True, help="Skip interview-only and guidance passages")
+def vault(terms, claims_only):
+    """Vault passages containing every term (case-blind; 'Docker' also finds 'Dockerfile')."""
+    from src.tailor.show import vault as search
+
+    _out(search(load_config(), list(terms), claims_only=claims_only))
+
+
+@main.command()
+@click.argument("pattern")
+@click.option("--status", "statuses", multiple=True,
+              help="Only applications with this status or outcome (repeatable), e.g. --status applied")
+def sent(pattern, statuses):
+    """Search every application's shipped resume and letter (regex, case-blind): what did I already say?"""
+    from src.tailor.show import sent as search
+
+    _out(search(load_config(), pattern, statuses=list(statuses) or None))
+
+
+@main.command("revise-start")
+@click.argument("query")
+def revise_start_cmd(query):
+    """Before hand edits: save final/ as previous-version-<date>/ and set up humanize/ as the copy to edit."""
+    from src.tailor.revise import revise_start
+
+    _out(revise_start(_one_app(load_config(), query)))
+
+
+@main.command("revise-done")
+@click.argument("query")
+@click.option("--note", required=True, help="What changed, for the app history")
+def revise_done_cmd(query, note):
+    """After hand edits: render, phrase scan, recheck and regrade (nothing written but final/), log the edit."""
+    from src.tailor.revise import revise_done
+
+    cfg = load_config()
+    _out(revise_done(_one_app(cfg, query), cfg, note))
 
 
 @main.command()
@@ -155,6 +243,26 @@ def next_round_cmd(app_dir):
     from src.tailor.loop import next_round
 
     _out(next_round(app_dir, load_config()))
+
+
+@main.command("review-input")
+@APP
+def review_input_cmd(app_dir):
+    """Step 7b: write review/input.md (posting, best resume, letter) for the outside reviewer."""
+    from src.tailor.outside import review_input
+
+    _out(review_input(app_dir))
+
+
+@main.command("review-round")
+@APP
+def review_round_cmd(app_dir):
+    """Step 7b: after review/notes.md is written, ask for one round that acts on it."""
+    from src.tailor.outside import review_round
+
+    fb = review_round(app_dir)
+    _out({"action": "repair", "next_round": fb["round"], "build_on": fb["build_on"]} if fb
+         else {"action": "stop", "reason": "no notes, a round is already pending, or the review round was done"})
 
 
 @main.command("humanize-flags")
@@ -241,7 +349,7 @@ def pending():
         except ValueError:
             shown = str(folder)
         out.append({"app": shown, "round": rnd, "build_on": fb.get("build_on"),
-                    "kind": "letter" if fb.get("letter_only") else "repair"})
+                    "kind": "letter" if fb.get("letter_only") else "review" if fb.get("review") else "repair"})
     _out(out)
 
 

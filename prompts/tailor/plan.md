@@ -40,6 +40,15 @@ plan cannot change them.
    drop to make room. **Never** list a path in `protected_paths` (it is the only cover for a matched
    must-have), and never an entry's only bullet (`apply-edits` refuses to remove it). Same count or
    fewer than `swap_in`.
+4b. **Whole jobs and projects (`swap_entries`).** The base is a starting point, not a limit:
+   `plan.json` `entry_library` lists every job and project from the other bases and the vault that
+   this base doesn't have (with its vault file prefix; `passages <prefix>.*` prints that file's
+   passages). Judge every story the vault has against this posting. When one of them would show the
+   posting's main work better than a project the base carries (a scheduled pipeline for a pipeline
+   role, rather than a model-comparison datathon), plan the swap:
+   `{"add": "projects/vhf", "drop": "projects/wids"}` (`drop` may be null when there's room).
+   Only projects can be dropped; jobs always stay. Never drop a project holding a path in
+   `protected_paths`. Use judgment: two near-identical projects side by side read as padding.
 5. **`skills_order`**: the base's skills group ids, reordered so the groups holding tier-1 and `must`
    terms come first. Use only ids that exist in the base; include all of them exactly once.
 6. Do not plan anything for terms in `absent` (unless you add evidence for one under rule 9). They
@@ -71,6 +80,7 @@ Merge these keys into `plan.json` (keep every existing key unchanged):
 ```json
 {"headline": "Data analyst | null", "summary_angle": "...",
  "swap_in": ["passage.id"], "swap_out": ["section/entry/bullet-id"],
+ "swap_entries": [{"add": "projects/vhf", "drop": "projects/wids"}],
  "skills_order": ["skills.languages", "skills.tools"],
  "evidence_drops": [{"term": "Microsoft Access", "passage": "firmament.oauth-2-0",
                      "reason": "Mentions OAuth access tokens, not Microsoft Access"}],
@@ -105,6 +115,7 @@ shows analyst work; "Junior" is dropped because it is a level, not the work.
 - [ ] `summary_angle` is one sentence with no flattery and no claim outside the vault.
 - [ ] Every `swap_in` id exists in the index; no `swap_out` path is in `protected_paths`.
 - [ ] `skills_order` lists each base group id exactly once.
+- [ ] I weighed every entry in `entry_library`, not just the base's own jobs and projects.
 - [ ] Nothing from `absent` appears anywhere in the plan, except terms I backed in `evidence_adds`.
 - [ ] I read the passage behind every term and `swap_in` I rely on; false matches are in
       `evidence_drops` and nothing in the plan leans on them.
