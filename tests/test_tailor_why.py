@@ -49,7 +49,10 @@ def test_summary_says_what_set_the_status(tmp_path):
     app = _app(tmp_path)
     out = why.summarize(app, _cfg(tmp_path))
     assert out["status"] == "needs_fixes" and out["job_id"] == 904
-    assert len(out["why_status"]) == 1 and out["why_status"][0].startswith("Critical: Skills list (Tools)")
+    # No vault in this folder, so the fresh check fails and the run's critical is shown as such.
+    assert len(out["why_status"]) == 1
+    assert out["why_status"][0].startswith("Critical at the run (not re-checked): Skills list (Tools)")
+    assert "a fresh check failed" in out["checks_from"]
     assert "Microsoft Office" in out["why_status"][0]
     assert out["warnings"][0].startswith("Skills list: R is in your skills list")
     assert out["gate_flags"] and out["open_review_items"] == 1

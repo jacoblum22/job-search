@@ -101,7 +101,9 @@ def summarize(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     data = _shipped(app_dir, rd)
 
     criticals = check.get("criticals") or []
-    reasons = [f"Critical: {h}" for h in _say(criticals, data)]
+    # Without a fresh check (a shell without the project's packages), say the criticals are the run's.
+    label = "Critical" if checks_from.startswith("checked again") or not check else "Critical at the run (not re-checked)"
+    reasons = [f"{label}: {h}" for h in _say(criticals, data)]
     ats = (grade.get("ats") or {}).get("total")
     ceiling = grade.get("ats_ceiling")
     wide = float((cfg.get("loop") or {}).get("wide_gap", 10))
