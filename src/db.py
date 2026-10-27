@@ -263,17 +263,20 @@ def set_job_status(conn: sqlite3.Connection, job_id: int, status: str) -> int:
     return n
 
 
-def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+def grouped_jobs(conn: sqlite3.Connection, only_ids: set[int] | None = None) -> list[dict[str, Any]]:
     """Group raw job rows by dedup_group_id for display (dashboard/export).
 
     The same real-world posting can have multiple raw rows (one per source
     that reported it). This picks the row with the longest description as
     the primary display record per group, and aggregates which sources/URLs
-    saw it. Sorted newest-first by first_seen.
+    saw it. Sorted newest-first by first_seen. With `only_ids`, only the groups
+    holding one of those job ids are built (the dashboard refreshing a few rows).
     """
     groups: dict[str, list[sqlite3.Row]] = {}
     for row in all_jobs(conn):
         groups.setdefault(row["dedup_group_id"], []).append(row)
+    if only_ids is not None:
+        groups = {g: ms for g, ms in groups.items() if any(m["id"] in only_ids for m in ms)}
 
     result: list[dict[str, Any]] = []
     for group_id, members in groups.items():

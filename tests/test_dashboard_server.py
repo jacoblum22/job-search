@@ -223,6 +223,24 @@ def test_status_for_a_job_without_application(env):
     assert post(env, f"/api/job/{env['other']}/status", {"status": "bogus"})[0] == 409
 
 
+def test_rows_endpoint_returns_only_the_changed_rows_fresh(env):
+    jid, other = env["jid"], env["other"]
+    assert post(env, f"/api/job/{other}/status", {"status": "dismissed"})[0] == 200
+    status, data = get(env, f"/api/rows?ids={other}")
+    assert status == 200 and [r["id"] for r in data["rows"]] == [other]
+    assert data["rows"][0]["status"] == "dismissed" and "description" not in data["rows"][0]
+    # Same shape as the rows the page was built with.
+    full = json.loads(render_dashboard(connect(env["cfg"]["paths"]["db"]), server=True)
+                      .split('<script id="jobs-data" type="application/json">')[1].split("</script>")[0])
+    assert data["rows"][0] == next(r for r in full if r["id"] == other)
+    status, data = get(env, f"/api/rows?ids={jid},{other}")
+    assert sorted(r["id"] for r in data["rows"]) == sorted([jid, other])
+    assert next(r for r in data["rows"] if r["id"] == jid)["app"]["status"] == "ready_for_review"
+    assert get(env, "/api/rows")[0] == 400
+    assert get(env, "/api/rows?ids=abc")[0] == 400
+    assert get(env, "/api/rows?ids=99999")[1] == {"rows": []}
+
+
 def test_needs_fixes_cannot_be_approved(env):
     appdir.log(env["dir"], "packet", status="needs_fixes")
     text = CHECK.replace("[ ]", "[x]")

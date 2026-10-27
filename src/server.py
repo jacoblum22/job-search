@@ -21,8 +21,9 @@ import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs
 
-from src.dashboard import app_summary, generate_dashboard, render_dashboard
+from src.dashboard import app_summary, dashboard_rows, generate_dashboard, render_dashboard
 from src.db import JOB_STATUSES, connect, set_job_status
 from src.posting_status import closed_reason, due_date, seen_date
 from src.retention import posted_on
@@ -77,10 +78,10 @@ class DashboardApp:
         headers = {k.lower(): v for k, v in headers.items()}
         if headers.get("host") not in self.hosts:
             return self._error("unknown host", 403)
-        path = path.split("?", 1)[0]
+        path, _, query = path.partition("?")
         try:
             if method == "GET":
-                return self._get(path)
+                return self._get(path, query)
             if method == "POST":
                 if headers.get("origin") not in self.origins:
                     return self._error("cross-site request refused", 403)
@@ -97,7 +98,7 @@ class DashboardApp:
 
     # --- reads ----------------------------------------------------------
 
-    def _get(self, path: str) -> Response:
+    def _get(self, path: str, query: str = "") -> Response:
         if path in ("/", "/index.html"):
             conn = self._conn()
             try:
@@ -106,6 +107,8 @@ class DashboardApp:
                 conn.close()
         if path == "/api/tailoring":
             return self._json(self.runner.status())
+        if path == "/api/rows":
+            return self._rows(query)
         m = _JOB.match(path)
         if not m:
             return self._error("not found", 404)
@@ -117,6 +120,18 @@ class DashboardApp:
         if path.startswith("/job/") and rest.startswith("/file/"):
             return self._file(job_id, rest.removeprefix("/file/"))
         return self._error("not found", 404)
+
+    def _rows(self, query: str) -> Response:
+        """Fresh dashboard rows for the jobs a details page changed (?ids=12,40), so going
+        back to the dashboard updates those rows without rebuilding the whole page."""
+        ids = {int(i) for v in parse_qs(query).get("ids", []) for i in v.split(",") if i.strip().isdigit()}
+        if not ids:
+            return self._error("send ids")
+        conn = self._conn()
+        try:
+            return self._json({"rows": dashboard_rows(conn, ids)})
+        finally:
+            conn.close()
 
     def _app_for(self, conn: sqlite3.Connection, job_id: int) -> tuple[sqlite3.Row | None, dict | None]:
         job = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
@@ -335,15 +350,23 @@ DETAILS_PAGE = r"""<!DOCTYPE html>
 </div>
 <script>
 // Coming from the dashboard, going back reuses the page the browser kept (instant, same scroll and
-// filters) instead of building it again. A change made here marks it stale so it reloads once.
+// filters) instead of building it again. A change made here marks the job stale so that row updates.
 document.getElementById('back').addEventListener('click', e => {
   let fromDashboard = false;
   try { fromDashboard = new URL(document.referrer).origin === location.origin
         && new URL(document.referrer).pathname === '/'; } catch (_) {}
   if (fromDashboard && history.length > 1) { e.preventDefault(); history.back(); }
 });
-function markDashboardStale() { try { sessionStorage.setItem('dashboardStale', '1'); } catch (_) {} }
 const jobId = location.pathname.split('/')[2];
+// Which jobs changed here; the dashboard refetches just those rows when you go back.
+function markDashboardStale() {
+  try {
+    let ids = JSON.parse(sessionStorage.getItem('dashboardStale') || '[]');
+    if (!Array.isArray(ids)) ids = [];
+    if (!ids.includes(jobId)) ids.push(jobId);
+    sessionStorage.setItem('dashboardStale', JSON.stringify(ids));
+  } catch (_) {}
+}
 const root = document.getElementById('root');
 const msgEl = document.getElementById('msg');
 let data = null;
