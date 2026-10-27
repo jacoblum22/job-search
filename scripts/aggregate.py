@@ -108,6 +108,20 @@ def _acquire_lock() -> bool:
         return _acquire_lock()
 
 
+def _wait_for_lock(wait_seconds: float, poll_seconds: float = 15) -> bool:
+    """Take the lock, waiting up to wait_seconds for a run already holding it to finish.
+
+    The tailoring task scrapes before it picks jobs; if the 10-minute email check or a
+    scheduled full run is mid-way, waiting for it beats skipping the scrape.
+    """
+    deadline = time.monotonic() + wait_seconds
+    while not _acquire_lock():
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(poll_seconds)
+    return True
+
+
 def _release_lock() -> None:
     LOCK_PATH.unlink(missing_ok=True)
 
@@ -393,6 +407,8 @@ def run(
 @click.option("--skip-ats", is_flag=True, help="Skip Greenhouse/Lever/Ashby/SmartRecruiters/Workable boards this run")
 @click.option("--skip-email", is_flag=True, help="Skip LinkedIn/Indeed/Glassdoor email alerts this run")
 @click.option("--workday-limit", type=int, default=0, help="Max jobs per Workday source (0 = all)")
+@click.option("--wait-lock", type=int, default=0,
+              help="If another run holds the lock, wait up to this many seconds for it (exit 3 if it never frees)")
 @click.option("--verbose", "-v", is_flag=True)
 def main(
     config_path: Path,
@@ -405,6 +421,7 @@ def main(
     workday_limit: int,
     boards_path: Path,
     skip_ats: bool,
+    wait_lock: int,
     verbose: bool,
 ) -> None:
     """Aggregate jobs from all configured sources into the DB + dashboard + xlsx."""
@@ -423,7 +440,11 @@ def main(
     # httpx INFO logs include the full URL, which embeds Adzuna app_key.
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-    if not _acquire_lock():
+    if wait_lock > 0:
+        if not _wait_for_lock(wait_lock):
+            log.warning("Another aggregate.py run still held the lock after %ds — skipping this run", wait_lock)
+            raise SystemExit(3)
+    elif not _acquire_lock():
         log.warning("Another aggregate.py run is already in progress — skipping this run")
         return
     try:

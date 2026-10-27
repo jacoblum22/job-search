@@ -3,6 +3,11 @@
 # Claude drafts a resume and cover letter for the best new A-tier jobs and stops
 # at "Ready for review" on the dashboard. It never applies, sends, commits or pushes.
 #
+# Before picking jobs it runs a full scrape (scripts/aggregate.py, every source) so the queue
+# sees today's postings; the queue then rescores every job. -NoScrape skips the scrape, and
+# -JobId / -ResumeOnly runs never scrape since they don't pick new jobs. If the scrape fails
+# the run still tailors from the jobs already in jobs.db and logs why.
+#
 # Test on one job:   .\scripts\run_tailoring.ps1 -Limit 1   (or -JobId 812)
 # Normal daily run:  .\scripts\run_tailoring.ps1            (tailor.daily_cap jobs)
 # Waiting rounds only (repair or letter rounds on applications up for review, no new jobs):
@@ -15,6 +20,7 @@ param(
     [int]$Limit = 0,
     [double]$MaxBudgetUsd = 0,
     [switch]$NoReview,
+    [switch]$NoScrape,
     [switch]$ResumeOnly
 )
 
@@ -53,6 +59,40 @@ Log "Starting tailoring run ($mode); transcript $transcript"
 if (-not (Add-UvToPath)) { Log "ERROR: uv not found on PATH or in the usual install folders; nothing ran"; exit 1 }
 
 uv sync -q 2>&1 | Out-Null
+
+# Fresh postings first. Start-Process with file redirection, not a pipe: PowerShell 5.1 turns
+# Python's stderr log lines into errors when piped (see run_full_aggregate.ps1).
+if (-not $NoScrape -and -not $ResumeOnly -and $JobId -le 0) {
+    $scrapeLog = Join-Path $projectRoot "logs\full_aggregate.log"
+    $stdoutTmp = Join-Path $env:TEMP "job-tailoring-scrape-stdout.log"
+    $stderrTmp = Join-Path $env:TEMP "job-tailoring-scrape-stderr.log"
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Starting full aggregation (before tailoring)" | Add-Content $scrapeLog
+    Log "Scraping every source before picking jobs (log: logs\full_aggregate.log)"
+    $scrapeStart = Get-Date
+    try {
+        # --wait-lock: if the email check or a scheduled full run is mid-way, wait for it
+        # (up to 30 min) instead of skipping the scrape.
+        $proc = Start-Process -FilePath (Join-Path $projectRoot ".venv\Scripts\python.exe") `
+            -ArgumentList "scripts/aggregate.py", "--wait-lock", "1800" `
+            -WorkingDirectory $projectRoot `
+            -RedirectStandardOutput $stdoutTmp -RedirectStandardError $stderrTmp `
+            -NoNewWindow -Wait -PassThru
+        $code = $proc.ExitCode
+    } catch {
+        $code = "not started: $($_.Exception.Message)"
+    }
+    Get-Content $stdoutTmp, $stderrTmp -ErrorAction SilentlyContinue | Add-Content $scrapeLog
+    Remove-Item $stdoutTmp, $stderrTmp -ErrorAction SilentlyContinue
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Done (exit code $code)" | Add-Content $scrapeLog
+    $mins = ((Get-Date) - $scrapeStart).TotalMinutes
+    if ($code -eq 0) {
+        Log ("Scrape finished in {0:N0} min" -f $mins)
+    } elseif ($code -eq 3) {
+        Log "WARNING: another scrape held the lock for 30 min; tailoring from the jobs already in jobs.db"
+    } else {
+        Log ("WARNING: scrape failed (exit code {0}) after {1:N0} min; tailoring from the jobs already in jobs.db" -f $code, $mins)
+    }
+}
 
 # The prompt is everything between the two markers in the runbook.
 $doc = Get-Content (Join-Path $projectRoot "docs\tailoring-runbook.md") -Raw -Encoding UTF8

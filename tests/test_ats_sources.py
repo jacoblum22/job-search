@@ -241,3 +241,29 @@ def test_dashboard_refreshes_after_each_source(tmp_path, monkeypatch):
     # Drawn once after each source is saved (1 job, then 2), then once at the end.
     assert jobs_per_redraw == [1, 2, 2]
     assert "Data Analyst second" in dashboard.read_text(encoding="utf-8")
+
+
+def test_wait_lock_takes_the_lock_once_the_other_run_finishes(tmp_path, monkeypatch):
+    module = _aggregate_module()
+    lock = tmp_path / ".aggregate.lock"
+    monkeypatch.setattr(module, "LOCK_PATH", lock)
+    lock.write_text("123")
+    sleeps = []
+
+    def other_run_finishes(seconds):
+        sleeps.append(seconds)
+        lock.unlink()
+
+    monkeypatch.setattr(module.time, "sleep", other_run_finishes)
+    assert module._wait_for_lock(60, poll_seconds=5)
+    assert sleeps == [5] and lock.read_text() != "123"
+
+
+def test_wait_lock_gives_up_while_a_fresh_lock_is_held(tmp_path, monkeypatch):
+    module = _aggregate_module()
+    lock = tmp_path / ".aggregate.lock"
+    monkeypatch.setattr(module, "LOCK_PATH", lock)
+    lock.write_text("123")
+    monkeypatch.setattr(module.time, "sleep", lambda s: None)
+    assert not module._wait_for_lock(0)
+    assert lock.read_text() == "123"
