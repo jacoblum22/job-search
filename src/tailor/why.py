@@ -32,7 +32,7 @@ def find(cfg: dict[str, Any], query: str) -> list[Path]:
             try:
                 if int(appdir.load_app(f).get("job_id") or 0) == int(q):
                     out.append(f)
-            except Exception:  # noqa: BLE001 - a broken folder doesn't stop the search
+            except Exception:  # noqa: BLE001, S112 - a broken folder doesn't stop the search
                 continue
         return out
     words = [w for w in re.split(r"\W+", q.lower()) if w]
@@ -71,7 +71,7 @@ def review_notes(cfg: dict[str, Any], app: dict[str, Any], newest: int = 3) -> l
                 continue
             body = []
             for nxt in lines[i + 1:]:
-                if nxt.startswith("- ") or nxt.startswith("  "):
+                if nxt.startswith(("- ", "  ")):
                     body.append(nxt.strip()[2:] if nxt.startswith("- ") else nxt.strip())
                 elif nxt.strip() == "" and not body:
                     continue
