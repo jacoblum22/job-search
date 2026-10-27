@@ -1,6 +1,6 @@
 import pytest
 
-from src.experience import parse_min_years_experience
+from src.experience import YearsAsk, parse_min_years_experience, parse_years_ask
 
 
 @pytest.mark.parametrize(
@@ -91,3 +91,28 @@ def test_full_time_phrasings(text, years):
 )
 def test_new_forms_do_not_overmatch(text):
     assert parse_min_years_experience(text) is None
+
+
+@pytest.mark.parametrize(
+    "text, required, preferred",
+    [
+        ("Requirements:\n- 2+ years of experience with SQL\n", 2, None),
+        ("Preferred Qualifications:\n- 3+ years of experience with SQL\n", None, 3),
+        ("- 1+ years of experience with SQL\n- 3+ years of Python experience is an asset\n", 1, 3),
+        ("Bachelor's degree. 2 years of relevant experience preferred.", None, 2),
+        ("No years mentioned here.", None, None),
+    ],
+)
+def test_years_ask_splits_required_and_preferred(text, required, preferred):
+    assert parse_years_ask(text) == YearsAsk(required, preferred)
+
+
+def test_preference_cue_after_semicolon_covers_only_its_part():
+    text = "Qualifications\n- 5+ years as a Systems Analyst; 4+ years of testing experience preferred\n"
+    assert parse_years_ask(text) == YearsAsk(5, 4)
+
+
+def test_preference_cue_on_a_later_comma_part_isnt_about_the_years():
+    text = "What We're Looking For\n* 5+ years of experience in data analytics, ideally within a SaaS company.\n"
+    assert parse_years_ask(text) == YearsAsk(5, None)
+    assert parse_years_ask("Ideally, 2+ years of experience with SQL.") == YearsAsk(None, 2)

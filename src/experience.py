@@ -7,6 +7,7 @@ years penalty.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 # Patterns like "5+ years", "5 years", "five years"
 _WORD_TO_NUM = {
@@ -96,6 +97,47 @@ def _has_experience_context(haystack: str, start: int, end: int) -> bool:
     return "+" in haystack[start:end] or bool(_LINE_START.search(lead))
 
 
+def _year_asks(text: str) -> list[tuple[int, int]]:
+    """Every years-of-experience ask in `text`, as (years, position)."""
+    asks: list[tuple[int, int]] = []
+
+    # Check ranges first (they should take priority over single matches)
+    for m in _RANGE_PATTERN.finditer(text):
+        if _has_experience_context(text, m.start(), m.end()):
+            asks.append((int(m.group(1)), m.start()))
+
+    # Blank out range matches to avoid double-counting (same length, so positions still line up)
+    cleaned = _RANGE_PATTERN.sub(lambda m: " " * len(m.group(0)), text)
+
+    for m in _SINGLE_PATTERN.finditer(cleaned):
+        if not _has_experience_context(cleaned, m.start(), m.end()):
+            continue
+        val = int(m.group(1))
+        # Check if this was in a "more than X" or "over X" context
+        full = m.group(0).lower()
+        if "over" in full or "more than" in full:
+            val += 1
+        asks.append((val, m.start(1)))
+
+    for m in _WORD_PATTERN.finditer(cleaned):
+        if not _has_experience_context(cleaned, m.start(), m.end()):
+            continue
+        val = _WORD_TO_NUM.get(m.group(1).lower())
+        if val is not None:
+            asks.append((val, m.start(1)))
+
+    # "or 5+ with a bachelor's": the unit is implied by a years requirement just before it.
+    for m in _ELLIPTIC_PATTERN.finditer(text):
+        lead = text[max(0, m.start() - 200) : m.start()]
+        if not re.search(r"(?:year|yr)s?\b", lead, re.IGNORECASE):
+            continue
+        if not _EXPERIENCE_CONTEXT.search(text[max(0, m.start() - 200) : m.end() + _CONTEXT_WINDOW]):
+            continue
+        num = m.group(1).lower()
+        asks.append((int(num) if num.isdigit() else _WORD_TO_NUM[num], m.start(1)))
+    return asks
+
+
 def parse_min_years_experience(text: str) -> int | None:
     """Extract the minimum years of experience required from description text.
 
@@ -107,48 +149,58 @@ def parse_min_years_experience(text: str) -> int | None:
     years" elsewhere in the text (company history, warranties, etc.) is not
     treated as an experience requirement.
     """
-    mins: list[int] = []
-
-    # Check ranges first (they should take priority over single matches)
-    for m in _RANGE_PATTERN.finditer(text):
-        if _has_experience_context(text, m.start(), m.end()):
-            mins.append(int(m.group(1)))
-
-    # Remove range matches from text to avoid double-counting
-    cleaned = _RANGE_PATTERN.sub("", text)
-
-    for m in _SINGLE_PATTERN.finditer(cleaned):
-        if not _has_experience_context(cleaned, m.start(), m.end()):
-            continue
-        val = int(m.group(1))
-        # Check if this was in a "more than X" or "over X" context
-        full = m.group(0).lower()
-        if "over" in full or "more than" in full:
-            val += 1
-        mins.append(val)
-
-    for m in _WORD_PATTERN.finditer(cleaned):
-        if not _has_experience_context(cleaned, m.start(), m.end()):
-            continue
-        word = m.group(1).lower()
-        val = _WORD_TO_NUM.get(word)
-        if val is not None:
-            mins.append(val)
-
-    # "or 5+ with a bachelor's": the unit is implied by a years requirement just before it.
-    for m in _ELLIPTIC_PATTERN.finditer(text):
-        lead = text[max(0, m.start() - 200) : m.start()]
-        if not re.search(r"(?:year|yr)s?\b", lead, re.IGNORECASE):
-            continue
-        if not _EXPERIENCE_CONTEXT.search(text[max(0, m.start() - 200) : m.end() + _CONTEXT_WINDOW]):
-            continue
-        num = m.group(1).lower()
-        mins.append(int(num) if num.isdigit() else _WORD_TO_NUM[num])
-
-    if not mins:
-        return None
-
+    asks = _year_asks(text)
     # Return the maximum minimum found (the strictest stated requirement)
     # This avoids false positives from things like "1 year warranty" when
     # the actual requirement is "5 years experience"
-    return max(mins)
+    return max(v for v, _ in asks) if asks else None
+
+
+@dataclass(frozen=True)
+class YearsAsk:
+    """Years a posting asks for, split by whether it requires them or only prefers them."""
+
+    required: int | None  # strictest ask outside nice-to-have parts
+    preferred: int | None  # strictest ask under "Preferred"/"Assets" or with a cue ("an asset")
+
+
+def _is_preferred(sections, pos: int) -> bool:
+    """Under a nice-to-have heading, or with a cue in the same part of the line: in
+    "5+ years as a Systems Analyst; 4+ years of testing preferred" only the 4 is preferred,
+    and "5+ years in analytics, ideally within SaaS" prefers SaaS, not the years."""
+    from src.posting_sections import _CUE
+
+    if sections.kind(pos) != "preferred":
+        return False
+    text = sections.text
+    a = max(text.rfind(";", 0, pos), text.rfind("\n", 0, pos)) + 1
+    ends = [i for i in (text.find(";", pos), text.find("\n", pos)) if i >= 0]
+    b = min(ends) if ends else len(text)
+    # The cue sits before the years ("Preferred: ... 6+ years") or in the same comma-part;
+    # "5+ years in analytics, ideally within SaaS" prefers SaaS, not the years.
+    comma = text.find(",", pos, b)
+    if _CUE.search(text[a : b if comma < 0 else comma]):
+        return True
+    heading = "other"
+    for start, kind in sections.marks:
+        if start > pos:
+            break
+        if kind != "unknown":
+            heading = kind
+    return heading == "preferred"
+
+
+def parse_years_ask(text: str) -> YearsAsk:
+    """Like parse_min_years_experience, but a nice-to-have ask ("2+ years of SQL is an
+    asset", a "Preferred Qualifications" list) is kept apart from a required one."""
+    from src.posting_sections import Sections, to_markdown
+
+    md = to_markdown(text)
+    asks = _year_asks(md)
+    if not asks:
+        return YearsAsk(None, None)
+    sections = Sections(md)
+    pref_at = [_is_preferred(sections, pos) for _, pos in asks]
+    req = [v for (v, _), p in zip(asks, pref_at) if not p]
+    pref = [v for (v, _), p in zip(asks, pref_at) if p]
+    return YearsAsk(max(req) if req else None, max(pref) if pref else None)

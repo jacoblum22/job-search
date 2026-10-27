@@ -3,14 +3,16 @@
 A points system, tuned by the `score:` section of config/settings.yaml:
 
   + title matches a target role family (best match only)
-  + title / description say the job is entry-level
+  + title / description say the job is entry-level, more when the posting
+    says new grads or people without experience can apply
   + description mentions skills Jake has evidence for (capped), more when
     it asks for a key combo (Python + SQL) or names nothing he lacks
   - description asks for tools Jake's experience vault doesn't show (capped;
     src/vault_gaps.py: "or" lists count once, nice-to-haves count less, text
     about the employer doesn't count). Without the vault index (a fresh clone)
     this falls back to the hand-kept gap list in settings.yaml.
-  - title says senior / level II-III or intern, or the posting asks for 3-5 years
+  - title says senior / level II-III or intern, or the posting requires 1-5
+    years (more per year; years only preferred cost half)
 
 Some things are hard skips rather than penalties (more than 5 years
 required, wrong-field title, US residence required, a PhD or
@@ -32,7 +34,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 
-from src.experience import parse_min_years_experience
+from src.experience import parse_years_ask
 from src.location_filter import classify_location
 from src.vault_gaps import Vault, find_gaps, load_vault
 
@@ -155,6 +157,18 @@ def _any_match(text: str, key: str) -> bool:
     return any(_phrase_re(alt.strip()).search(text) for alt in key.split("|"))
 
 
+# "No new grads", "not suitable for recent graduates": a negation just before the phrase.
+_NEGATED = re.compile(r"\b(?:not?|isn't|aren't|nor|without)\s+(?:[\w/-]+\s+){0,3}$", re.IGNORECASE)
+
+
+def _open_to_new_grads(description: str, patterns: list[str]) -> str | None:
+    for pattern in patterns:
+        for m in re.finditer(pattern, description, re.IGNORECASE):
+            if not _NEGATED.search(description[max(0, m.start() - 40) : m.start()]):
+                return m.group(0)
+    return None
+
+
 def score_job(
     *,
     title: str,
@@ -163,15 +177,19 @@ def score_job(
     years_experience: int | None,
     cfg: dict[str, Any],
     vault: Vault | None = None,
+    years_preferred: int | None = None,
 ) -> ScoreResult:
+    """`years_experience` is the years the posting requires; `years_preferred` the years it
+    only asks for as a nice-to-have ("2+ years is an asset"), which cost less."""
     title = title or ""
     description = description or ""
     reasons: list[str] = []
 
     # ── Hard skips ────────────────────────────────────────────────────
     skip_years = cfg.get("skip_years_over", 5)
-    if years_experience is not None and years_experience > skip_years:
-        return ScoreResult(None, "skip", [f"asks for {years_experience}+ years"])
+    strictest = max((y for y in (years_experience, years_preferred) if y is not None), default=None)
+    if strictest is not None and strictest > skip_years:
+        return ScoreResult(None, "skip", [f"asks for {strictest}+ years"])
 
     hit = _first_match(title, cfg.get("skip_title_terms") or [])
     if hit:
@@ -245,7 +263,8 @@ def score_job(
     # asks for 2 years or less means it, whatever the title's level says.
     level_title = _YEARS_IN_TITLE_RE.sub(" ", title)
     title_rules = seniority.get("title_penalties") or []
-    if years_experience is not None and years_experience <= 2:
+    stated_years = years_experience if years_experience is not None else years_preferred
+    if stated_years is not None and stated_years <= 2:
         title_rules = []
     for rule in title_rules:
         hit = _first_match(level_title, rule.get("keywords") or [])
@@ -260,13 +279,33 @@ def score_job(
         score += intern["points"]
         reasons.append(f"{intern['points']} internship ({hit})")
 
-    if years_experience is not None:
+    def years_points(years: int) -> int:
         for rule in seniority.get("years_penalties") or []:
-            if rule["min"] <= years_experience <= rule["max"]:
-                score += rule["points"]
-                sign = "+" if rule["points"] >= 0 else ""
-                reasons.append(f"{sign}{rule['points']} asks for {years_experience} years")
-                break
+            if rule["min"] <= years <= rule["max"]:
+                return rule["points"]
+        return 0
+
+    # Required years count in full; years only preferred count a fraction, and only as a
+    # penalty. With both, whichever costs more counts.
+    years_options = []
+    if years_experience is not None:
+        years_options.append((years_points(years_experience), f"asks for {years_experience} years"))
+    if years_preferred is not None and (years_experience is None or years_preferred > years_experience):
+        pts = min(0, round(years_points(years_preferred) * seniority.get("preferred_years_factor", 0.5)))
+        years_options.append((pts, f"prefers {years_preferred} years (not required)"))
+    if years_options:
+        pts, why = min(years_options)
+        if pts:
+            score += pts
+            reasons.append(f"{'+' if pts > 0 else ''}{pts} {why}")
+
+    # Says outright that new grads or people without experience can apply.
+    open_cfg = cfg.get("new_grad_open") or {}
+    if open_cfg and (years_experience is None or years_experience <= open_cfg.get("max_required_years", 1)):
+        hit = _open_to_new_grads(description, open_cfg.get("patterns") or [])
+        if hit:
+            score += open_cfg["points"]
+            reasons.append(f"+{open_cfg['points']} open to new grads (\"{hit}\")")
 
     if masters and masters[0] == "optional" and masters_cfg.get("optional_points"):
         pts = masters_cfg["optional_points"]
@@ -367,7 +406,9 @@ def rescore_all(
         desc = row[2] or ""
         # Re-parse: years_experience is stored from the description at insert
         # time and goes stale once enrichment fills in the full posting.
-        years = parse_min_years_experience(desc) if desc else row[4]
+        ask = parse_years_ask(desc) if desc else None
+        years = ask.required if ask else row[4]
+        years_pref = ask.preferred if ask else None
         # Same for a location that names only the country: the full description says where.
         category = classify_location(row[5] or "", row[6] or "", desc)
         result = score_job(
@@ -375,6 +416,7 @@ def rescore_all(
             description=desc,
             location_category=category,
             years_experience=years,
+            years_preferred=years_pref,
             cfg=cfg,
             vault=vault,
         )
