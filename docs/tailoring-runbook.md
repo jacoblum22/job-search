@@ -239,3 +239,12 @@ summary; read it before continuing.
 To redo a step, rerun its command; code steps overwrite their own outputs. To redo a Claude step,
 overwrite its JSON file and rerun the command after it. Delete a later round's folder
 (`drafts/r2`, ...) if you want to restart the repair loop.
+
+## Why does an application need fixes?
+
+`uv run python -m src.tailor why <job id or words from the folder name>` prints one application's
+state in a single read: what set its status (each critical, or a wide ATS gap), the code checks run
+again on the resume that ships (so a hand fix or a later code fix shows up), Jev's flags, the gate
+flags, how many check.md items still need a decision, the last pipeline steps, and what the latest
+run reviews said about it. Nothing is written. For example `uv run python -m src.tailor why 904` or
+`uv run python -m src.tailor why "amazon icqa"`.

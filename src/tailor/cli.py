@@ -106,6 +106,19 @@ def passages(ids):
 
 
 @main.command()
+@click.argument("query")
+def why(query):
+    """One application's status and what is left to review: a job id or words from the folder name."""
+    from src.tailor.why import find, summarize
+
+    cfg = load_config()
+    folders = find(cfg, query)
+    if not folders:
+        raise TailorError(f"no application folder matches {query!r}")
+    _out([summarize(f, cfg) for f in folders])
+
+
+@main.command()
 @APP
 def base(app_dir):
     """Step 3 (code part): pick the base resume and score candidate bullets."""

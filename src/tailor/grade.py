@@ -23,7 +23,7 @@ from typing import Any
 from src.experience import parse_min_years_experience
 from src.resume import iter_bullets, load_resume
 from src.tailor import TailorError, rejects, taxonomy, wording
-from src.tailor.appdir import log, read_json, round_dir, write_json
+from src.tailor.appdir import humanized, load_app, log, read_json, round_dir, write_json
 from src.tailor.evidence import degree_level
 from src.tailor.jev import Question, strip_identity
 
@@ -549,7 +549,9 @@ def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | No
     old = read_json(d / "grade.json")
     req = read_json(app_dir / "requirements.json")
     evidence = graded_evidence(app_dir, cfg, req)
-    data = load_resume(d / "resume.yaml")
+    # The resume that ships (the humanized copy, or one fixed by hand there) when this is the best round.
+    shipped = humanized(app_dir, "resume.yaml") if int(load_app(app_dir).get("best_round") or 0) == rnd else None
+    data = load_resume(shipped or d / "resume.yaml")
     ats = ats_score(data, req, evidence, cfg, title_ok(app_dir))
     ats.pop("_repeated", None)
     items = old.get("checklist") or []

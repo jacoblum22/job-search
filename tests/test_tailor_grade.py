@@ -220,6 +220,27 @@ def test_regrade_scores_the_ats_again_under_todays_rules(tmp_path):
     assert regrade(app, 2, CFG) is None
 
 
+def test_regrade_scores_the_resume_that_ships(tmp_path):
+    # Amazon ICQA, Oct 27 2026: a line fixed by hand in the humanized copy kept the draft's ATS.
+    from src.tailor.grade import regrade
+    app = make_app(tmp_path)
+    fresh = run_grade(app, 1, CFG, FakeJev({}))
+    shipped = base()
+    shipped["summary"]["text"] = "Analyst."
+    for e in shipped["experience"]:
+        for b in e.get("bullets") or []:
+            b["text"] = "Did work."
+    (app / "humanize").mkdir()
+    (app / "humanize" / "resume.yaml").write_text(yaml.safe_dump(shipped, sort_keys=False), encoding="utf-8")
+    write_json(app / "humanize" / "round.json", {"round": 1})
+    write_json(app / "app.json", {"company": "Contoso Retail", "history": [], "best_round": 1})
+    assert regrade(app, 1, CFG)["ats"]["total"] < fresh["ats"]["total"]
+    # A humanized copy from another round isn't this round's resume.
+    write_json(app / "humanize" / "round.json", {"round": 2})
+    write_json(app / "app.json", {"company": "Contoso Retail", "history": [], "best_round": 2})
+    assert regrade(app, 1, CFG)["ats"] == fresh["ats"]
+
+
 def test_run_grade_without_jev_marks_everything_unchecked(tmp_path):
     app = make_app(tmp_path)
     out = run_grade(app, 1, CFG, FakeJev({}))
