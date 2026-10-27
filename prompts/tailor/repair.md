@@ -32,7 +32,9 @@ already passed.
    a skill to the list unless a bullet or the letter shows it; for `skill_only_in_list`, show it in
    a bullet the vault backs, or in the letter's proof paragraph through a real story from a cited
    passage when no bullet has room (woven into a sentence the story already needs, not a new
-   sentence that only names it), or take it out of the list.
+   sentence that only names it), or take it out of the list (a `remove` edit on `skills/<group id>`
+   with the item as `value`). A critical on a skills item is fixed the same way: `remove` the item,
+   then `add_skill` it in the vault's wording if the critical names one.
 3. **An unsourced number is removed, or replaced with a number the cited passage actually states.**
    Never reword around it ("roughly a third", "dozens"), never swap it for another invented figure.
 4. **"Use the posting's own words for these terms"** (the ATS item): work each listed term into a

@@ -24,6 +24,7 @@ from src.experience import parse_min_years_experience
 from src.resume import iter_bullets, load_resume
 from src.tailor import TailorError, rejects, taxonomy, wording
 from src.tailor.appdir import log, read_json, round_dir, write_json
+from src.tailor.checks import supported_years
 from src.tailor.evidence import degree_level
 from src.tailor.jev import Question, strip_identity
 
@@ -354,6 +355,12 @@ def _is_degree(r: dict[str, Any]) -> bool:
     return degree_level(f"{r.get('text', '')} {r.get('quote', '')}") is not None
 
 
+def _is_soft(r: dict[str, Any]) -> bool:
+    """Every term of the requirement is a soft skill ("empathy with customers")."""
+    terms = r.get("terms") or []
+    return bool(terms) and all(taxonomy.category(taxonomy.canonical(t) or "") == "Soft skills" for t in terms)
+
+
 # "Computer Science or a related field", "or equivalent", "a quantitative discipline"...
 _OPEN_FIELD = re.compile(r"\brelated\b|\bequivalent\b|\bsimilar\b|\bquantitative\b|\btechnical (?:field|discipline)", re.I)
 
@@ -414,6 +421,10 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
         if r.get("kind") == "must" and _is_degree(r):
             # A degree is shown by the education section, not by a bullet that names a tool.
             add(f"must.{r['id']}", f"Does the resume's education meet this requirement: {r.get('text') or _req_label(r)}?", req_id=r["id"])
+        elif r.get("kind") == "must" and _is_soft(r):
+            # A soft skill is shown by the work a bullet describes, not by a tool it names (Pacific Reach,
+            # Oct 27 2026: a soft-skill must-have failed a tool-and-scope question every round).
+            add(f"must.{r['id']}", f"Does a resume bullet show {r.get('text') or _req_label(r)} through the work it describes?", req_id=r["id"])
         elif r.get("kind") == "must":
             add(f"must.{r['id']}", f"Is {r.get('text') or _req_label(r)} backed by a resume bullet that names a tool and a scope?", req_id=r["id"])
     title = str(req.get("title") or "").strip()
@@ -503,7 +514,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         if it["id"].startswith("must."):
             r = must_reqs[meta[it["id"]]["req_id"]]
             it["sections"] = _must_sections(data, {p for e in evidence.get("requirements") or [] if e.get("id") == r["id"] for p in e.get("passages") or []})
-    _mark_fit_gaps(items, must_reqs, evidence, text, cfg)
+    _mark_fit_gaps(items, must_reqs, evidence, text, cfg, data)
 
     rate = sum(p_pass(it) for it in items) / len(items) if items else 1.0
     score = round(0.6 * ats["total"] + 0.4 * rate * 100, 1)
@@ -632,7 +643,7 @@ def ats_gap_lines(gap: dict[str, Any], evidence: dict[str, Any], data: dict[str,
     return out
 
 
-def _mark_fit_gaps(items, must_reqs, evidence, text, cfg) -> None:
+def _mark_fit_gaps(items, must_reqs, evidence, text, cfg, data) -> None:
     """Tag a failed must-have whose only missing terms are ones the vault doesn't back.
 
     Jev judges the whole requirement ("Python and C#/.NET"), so a real gap fails it even when
@@ -649,8 +660,11 @@ def _mark_fit_gaps(items, must_reqs, evidence, text, cfg) -> None:
             # The degree comes from the locked education entry, which no rewrite can change.
             it["fit_gap"] = ["degree"]
             continue
-        if not terms and any(parse_min_years_experience(str(r.get(k) or "")) for k in ("quote", "text")):
-            # Years of experience come from the dates, which no rewrite can change.
+        years = max((parse_min_years_experience(str(r.get(k) or "")) or 0 for k in ("quote", "text")), default=0)
+        if years and (not terms or years > supported_years(data)):
+            # Years of experience come from the dates, which no rewrite can change. A named role or
+            # tool doesn't change that (Amazon ICQA, Oct 27 2026: a years must-have that named a role
+            # was sent back to repair every round, beyond what the dates cover).
             it["fit_gap"] = ["years of experience"]
             continue
         unbacked = [t for t in terms if not _is_backed(t, backed)]

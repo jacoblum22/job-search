@@ -8,9 +8,9 @@ next. They now all build their pattern here.
 
 Two strictness levels:
 
-- `same(words, text)`: for truth checks. Plurals, hyphen/space and US/British
-  spelling don't change the wording: the vault's "data modelling" backs a
-  draft's "data modeling".
+- `same(words, text)`: for truth checks. Plurals, hyphen/space, US/British
+  spelling and "MS" for "Microsoft" don't change the wording: the vault's
+  "data modelling" backs a draft's "data modeling".
   Wordings in one `EQUIVALENTS` group also count as the same: they name one thing
   ("KPIs" and "metrics"), so the vault saying one backs a draft saying the other.
 - `ats(words, text)`: for the ATS score. Plurals and hyphen/space still count
@@ -46,6 +46,18 @@ def us_spelling(text: str) -> str:
     return text
 
 
+# "MS" is short for "Microsoft" only in front of a Microsoft product ("MS Office", "MS Excel"); an
+# "MS in Statistics" is a degree. Amazon ICQA, Oct 27 2026: a product spelled out in the vault didn't
+# back the same product abbreviated in a draft.
+_MS = re.compile(r"\bMS(?=[\s\-]+(?:Office|Excel|Word|PowerPoint|Outlook|Access|Teams|Project|Visio|SharePoint"
+                 r"|SQL|Azure|Dynamics|Power\s*BI|365)\b)", re.I)
+
+
+def _blind(text: str) -> str:
+    """`text` as `same` compares it: US spelling, and "MS" spelled out before a Microsoft product."""
+    return _MS.sub("Microsoft", us_spelling(text))
+
+
 def _last_word(word: str) -> str:
     """Pattern for a phrase's last word that also matches its singular/plural."""
     if len(word) >= 2 and word.isalpha() and word.isupper():
@@ -66,7 +78,7 @@ def pattern(words: str, spelling_blind: bool = False) -> re.Pattern[str]:
     """Compiled whole-phrase pattern for `words` (see the module docstring)."""
     words = words.strip()
     if spelling_blind:
-        words = us_spelling(words)
+        words = _blind(words)
     parts = re.split(r"[\s\-]+", words)
     body = _JOIN.join([re.escape(p) for p in parts[:-1]] + [_last_word(parts[-1])])
     return re.compile(_EDGE_BEFORE + body + _EDGE_AFTER, re.I)
@@ -81,7 +93,7 @@ EQUIVALENTS = [
 
 
 def _equivalents(words: str) -> list[str]:
-    key = us_spelling(words.strip()).lower()
+    key = _blind(words.strip()).lower()
     for group in EQUIVALENTS:
         if any(pattern(g, True).fullmatch(key) for g in group):
             return list(group)
@@ -93,7 +105,7 @@ def same(words: str, text: str) -> bool:
     the same `EQUIVALENTS` group counts too."""
     if not words.strip():
         return False
-    text = us_spelling(text)
+    text = _blind(text)
     return any(pattern(w, True).search(text) for w in [words, *_equivalents(words)])
 
 

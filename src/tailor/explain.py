@@ -222,14 +222,18 @@ def jev_item(item: dict[str, Any], reqs: dict[str, dict], data: dict[str, Any] |
         need = r.get("text") or q
         degree = item.get("fit_gap") == ["degree"]
         head = (f"Must-have may not be met: \"{need}\". Jev doubts your degree fits it{sure}." if degree else
-                f"Must-have not clearly shown: \"{need}\". Jev said no bullet shows it with a named tool and scope{sure}.")
+                f"Must-have not clearly shown: \"{need}\". Jev said no bullet shows it"
+                f"{' with a named tool and scope' if 'names a tool' in q else ''}{sure}.")
         if r.get("quote") and r["quote"] != need:
             details.append(f"The posting says: \"{r['quote']}\"")
         if degree:
             details.append("Your degree can't be rewritten, so no repair round tried to fix this.")
             details.append("Judge: does your degree count as the field the posting asks for? If not, it's a gap to own.")
             return head, details
-        if item.get("fit_gap"):
+        if item.get("fit_gap") == ["years of experience"]:
+            details.append("Years of experience come from your dates, which no rewrite can change, so no repair "
+                           "round tried to fix this; it is part of the weaker fit.")
+        elif item.get("fit_gap"):
             details.append(f"Not in your vault: {', '.join(item['fit_gap'])}. The rest is already on the resume, so "
                            "no repair round tried to fix this; it is part of the weaker fit.")
         details.append("Judge: does any bullet show this? If not, it's a gap to own in the cover letter or interview.")
