@@ -116,3 +116,44 @@ def test_preference_cue_on_a_later_comma_part_isnt_about_the_years():
     text = "What We're Looking For\n* 5+ years of experience in data analytics, ideally within a SaaS company.\n"
     assert parse_years_ask(text) == YearsAsk(5, None)
     assert parse_years_ask("Ideally, 2+ years of experience with SQL.") == YearsAsk(None, 2)
+
+
+@pytest.mark.parametrize(
+    "text, years",
+    [
+        # VCH Business Advisor, Data and Analytics (job 1221): scored A 82 with no years penalty.
+        ("Bachelor's degree in Data Science or related field, with a minimum of three (3) years’ "
+         "recent, related experience in data analysis", 3),
+        ("plus at least one (1) years’ experience as a Data Engineer", 1),
+        ("3 (three) years of experience in SQL", 3),
+        ("Diploma plus three to four (3-4) years' recent, related experience", 3),
+        ("plus five (5) to seven (7) years of related experience in decision support", 5),
+        ("A minimum of one to two (1-2) years recent related experience", 1),
+        ("• 2-4 (max) years of experience in data analysis", 2),
+        ("* Two to five years of experience in project reporting", 2),
+        ("* Two or more years’ experience working in drug discovery", 2),
+        ("* 3 or more years of professional software development experience", 3),
+        ("* Minimum 2**+ years** professional working experience as a **Data Engineer**", 2),
+        ("- **3+ years** in data analytics.", 3),
+        ("* 10​+ years of experience in ASIC Design Verification", 10),
+    ],
+)
+def test_spelled_bracketed_and_formatted_numbers(text, years):
+    assert parse_min_years_experience(text) == years
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Serving one (1) million residents for over twenty years",
+        "Compensation: $70,000 to $85,000 per year, based on experience",
+        "In this two-year program you will gain meaningful work experience",
+    ],
+)
+def test_folding_numbers_does_not_overmatch(text):
+    assert parse_min_years_experience(text) is None
+
+
+def test_bracketed_years_keep_their_section():
+    text = "Requirements\n- Two (2) years of experience with SQL\n\nAssets\n- Three (3) years of Tableau experience"
+    assert parse_years_ask(text) == YearsAsk(required=2, preferred=3)

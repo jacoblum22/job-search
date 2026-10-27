@@ -28,8 +28,8 @@ _NOT_AGE = r"(?!s?\s+(?:of\s+age|old|young|or\s+older))"
 
 # "years", "year", or the "yrs"/"yr." abbreviation ("At least 5 yrs of professional experience").
 _YEAR = r"(?:year|yr)" + _NOT_AGE + r"s?\b\.?"
-# "5+", "5 plus", "three-plus"
-_PLUS = r"\s*(?:\+|-?\s*plus\b)?\s*"
+# "5+", "5 plus", "three-plus", "3 or more"
+_PLUS = r"\s*(?:\+|-?\s*plus\b|or\s+(?:more|greater)\b)?\s*"
 
 # Matches: "2-5 years", "2 to 5 years", "2–5 years"
 _RANGE_PATTERN = re.compile(
@@ -97,9 +97,28 @@ def _has_experience_context(haystack: str, start: int, end: int) -> bool:
     return "+" in haystack[start:end] or bool(_LINE_START.search(lead))
 
 
+# Postings write the same number many ways; _fold rewrites them into digits first, padded to
+# the same length so positions still line up with the posting's sections:
+#   "three (3) years'", "3 (three) years", "three to four (3-4) years'" (BC public sector),
+#   "2-4 (max) years", "Minimum 2**+ years**" (markdown bold), "10\u200b+ years".
+_NUM_WORD = re.compile(r"\b(" + "|".join(_WORD_TO_NUM.keys()) + r")\b", re.IGNORECASE)
+_NUM_SPAN = r"\d+(?:\s*(?:-|–|to)\s*\d+)?"
+_BRACKETED = re.compile(
+    r"(" + _NUM_SPAN + r")\s*\(\s*(?:" + _NUM_SPAN + r"|max(?:imum)?|min(?:imum)?)\s*\)",
+    re.IGNORECASE,
+)
+
+
+def _fold(text: str) -> str:
+    text = text.replace("**", "  ").replace("\u200b", " ")
+    text = _NUM_WORD.sub(lambda m: str(_WORD_TO_NUM[m.group(1).lower()]).ljust(len(m.group(0))), text)
+    return _BRACKETED.sub(lambda m: m.group(1).ljust(len(m.group(0))), text)
+
+
 def _year_asks(text: str) -> list[tuple[int, int]]:
     """Every years-of-experience ask in `text`, as (years, position)."""
     asks: list[tuple[int, int]] = []
+    text = _fold(text)
 
     # Check ranges first (they should take priority over single matches)
     for m in _RANGE_PATTERN.finditer(text):
