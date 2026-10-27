@@ -17,7 +17,6 @@ from pathlib import Path
 from src.db import grouped_jobs
 from src.search_match import INTERNSHIP_TITLE_RE as _INTERNSHIP_RE
 from src.tailor import store
-from src.tailor.paths import ROOT
 
 _APP_LABELS = {
     "shortlisted": "Drafting",
@@ -657,9 +656,7 @@ def app_summary(app: dict) -> dict:
     flags = [_FLAG_LABELS.get(f, f.replace("_", " ")) for f in app.get("review_flags") or []]
     if app.get("flagged"):
         flags.append("Gate flag")
-    folder = Path(app.get("folder") or "")
-    if app.get("folder") and not folder.is_absolute():
-        folder = ROOT / folder
+    folder = store.folder_path(app.get("folder"))
     final = folder / "final"
     check = folder / "check.md"
     return {

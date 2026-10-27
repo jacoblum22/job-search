@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 from src.tailor.appdir import now
+from src.tailor.paths import ROOT
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS applications (
@@ -89,12 +90,45 @@ def mark_applied(conn: sqlite3.Connection, job_id: int) -> None:
     set_job_status(conn, job_id, "applied")
 
 
+def stored_folder(folder: Path) -> str:
+    """How a folder is written to the table: relative to the repo root when it is inside it, so
+    the row still points at the folder after the repo moves to another computer or user."""
+    try:
+        return Path(folder).resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return str(folder)
+
+
+def folder_path(value: str | None) -> Path:
+    """The application folder a row's `folder` names, on this computer.
+
+    Relative values are under the repo root. Rows written before folders were stored relative
+    hold an absolute path from wherever the run happened (C:\\Users\\jacob\\job-search\\... on the
+    laptop); when that path doesn't exist here, the same materials/... path under this repo root
+    is used instead."""
+    if not value:
+        return Path()
+    p = Path(value)
+    if not p.is_absolute() and not PureWindowsPath(value).is_absolute():
+        return ROOT / p
+    if p.exists():
+        return p
+    pure = PureWindowsPath(value) if "\\" in value else PurePosixPath(value)
+    parts = list(pure.parts)
+    for i in range(len(parts) - 1, 0, -1):
+        if parts[i - 1].lower() == "materials":
+            moved = ROOT.joinpath(*parts[i - 1:])
+            if moved.exists():
+                return moved
+    return p
+
+
 def upsert_app(conn: sqlite3.Connection, app: dict[str, Any], folder: Path) -> None:
     """Insert or refresh the row for `app` (an app.json dict). Keeps any recorded outcome."""
     gate = app.get("gate") or {}
     row = {
         "job_id": app["job_id"],
-        "folder": str(folder),
+        "folder": stored_folder(folder),
         "status": app.get("status", "shortlisted"),
         "tier": app.get("tier"),
         "score": app.get("score"),

@@ -307,7 +307,6 @@ def _open_folders(cfg) -> list[Path]:
     """Application folders still waiting on review: not approved, applied or dismissed."""
     from src.db import connect
     from src.tailor import store
-    from src.tailor.paths import ROOT
 
     conn = connect(resolve(cfg, "db"))
     try:
@@ -318,9 +317,7 @@ def _open_folders(cfg) -> list[Path]:
         conn.close()
     out = []
     for a in apps:
-        folder = Path(a.get("folder") or "")
-        if not folder.is_absolute():
-            folder = ROOT / folder
+        folder = store.folder_path(a.get("folder"))
         if (folder / "app.json").exists():
             out.append(folder)
     return out
