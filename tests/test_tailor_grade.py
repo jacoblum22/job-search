@@ -259,6 +259,17 @@ def test_failed_items_become_feedback_without_question_text(tmp_path):
     assert "Rivera" not in jev.calls[0][0]
 
 
+def test_letter_specific_is_not_met_by_the_company_name_alone(tmp_path):
+    # A repair that only wrote the company's name into the letter passed "something specific to
+    # <company>?" (Oct 25 2026). The question and its repair line ask for a fact only it has.
+    app = make_app(tmp_path)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "letter.specific" else 0.8))
+    item = next(it for it in out["checklist"] if it["id"] == "letter.specific")
+    assert "aside its name" in item["question"] and "named product" in item["question"]
+    line = next(f for f in out["feedback"] if "Contoso Retail" in f)
+    assert "verified company facts" in line and "name doesn't count" in line
+
+
 def test_unshown_must_feedback_names_only_backed_terms(tmp_path):
     # "Looker" comes first but the vault can't back it; repair must only be asked for dbt.
     app = make_app(tmp_path)

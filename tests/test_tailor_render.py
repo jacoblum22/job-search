@@ -334,6 +334,32 @@ def test_fetch_page_refuses_job_boards_and_profile_sites(tmp_path, monkeypatch):
             fetch_page(tmp_path, url)
 
 
+def test_review_directory_facts_are_not_verified(tmp_path, monkeypatch):
+    # A clinic directory's star rating verified as a company fact (Oct 25 2026): fetch refuses
+    # review directories, and verify drops a fact from such a page even when it was saved earlier.
+    import httpx
+
+    from src.tailor.company import fetch_page
+
+    monkeypatch.setattr(httpx, "get", lambda url, **kw: (_ for _ in ()).throw(AssertionError("no download")))
+    with pytest.raises(TailorError, match="job board, profile or social site"):
+        fetch_page(tmp_path, "https://medimap.ca/clinic/acme-clinic")
+    pages = tmp_path / "pages"
+    pages.mkdir()
+    (pages / "1.txt").write_text("URL: https://www.ratemds.com/clinic/acme\n\n4.9/5 Average Rating\n", encoding="utf-8")
+    (pages / "2.txt").write_text("URL: https://acme.example/about\n\nAcme runs three clinics.\n", encoding="utf-8")
+    (tmp_path / "facts.json").write_text(json.dumps([
+        {"id": "f1", "fact": "Rated 4.9", "quote": "4.9/5 Average Rating", "page": 1, "read": "2026-10-25"},
+        {"id": "f2", "fact": "Three clinics", "quote": "Acme runs three clinics", "page": 2, "read": "2026-10-25"},
+        {"id": "f3", "fact": "Three clinics", "quote": "Acme runs three clinics", "page": 2, "read": "2026-10-25",
+         "url": "https://www.yelp.com/biz/acme"},
+    ]), encoding="utf-8")
+    by_id = {f["id"]: f for f in verify_company(tmp_path)["facts"]}
+    assert not by_id["f1"]["verified"] and "ratemds" in by_id["f1"]["reason"]
+    assert by_id["f2"]["verified"]
+    assert not by_id["f3"]["verified"] and "yelp" in by_id["f3"]["reason"]
+
+
 def test_fetch_page_stops_at_the_page_budget(tmp_path, monkeypatch):
     import httpx
 

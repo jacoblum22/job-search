@@ -431,7 +431,12 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
     if title:
         add("top_third", f"Does the top third of the resume match {_a(title)} role?", sections=["summary"])
     if letter is not None:
-        add("letter.specific", f"Does the letter name something specific to {company or 'the company'}?", sections=["letter"])
+        # The company's name alone doesn't count: a repair that only added the name passed this
+        # (Vancouver Psychology Centre, Oct 25 2026). The rules file asks for a fact only true of
+        # this employer.
+        add("letter.specific", f"Leaving aside its name, does the letter state a fact that is true only of "
+            f"{company or 'the company'} (a number, or a named product, project, launch or event), not one "
+            "that any similar employer could share?", sections=["letter"])
         # One question each, about the one sentence, so a doubt about either is clear.
         opener, closer = _first_last_sentences(letter)
         if opener:
@@ -722,7 +727,9 @@ def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeate
         elif iid == "top_third":
             sentences.append(f"Rewrite the summary so the top of the resume reads as {_a(req.get('title') or 'target')} role.")
         elif iid == "letter.specific":
-            sentences.append(f"Name one concrete fact about {req.get('company') or 'the company'} from the posting in the letter.")
+            sentences.append(f"Name one fact only true of {req.get('company') or 'the company'} (a number, or a named "
+                             "product, project, launch or event) from the posting or the verified company facts "
+                             "in the letter; adding the company's name doesn't count.")
         elif iid == "letter.opener":
             sentences.append("The letter's first sentence could open any letter; start with something specific to this role.")
         elif iid == "letter.closer":
