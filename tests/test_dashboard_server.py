@@ -13,6 +13,7 @@ from src.retention import delete_expired, prune
 from src.server import DashboardApp
 from src.tailor import TailorError, appdir, review, store
 from src.tailor.paths import load_config
+from src.tailor_runner import TailoringRunner
 
 CHECK = """# Check
 
@@ -313,3 +314,44 @@ def test_rebuilt_check_md_keeps_decisions_already_made():
     assert "- [x] Reviewed  ATS 59.0" in out
     assert "- [ ] Keep  - [x] Remove  skill_only_in_list" in out
     assert "- [ ] Keep  - [ ] Remove  a new issue" in out  # new lines start undecided
+
+
+class FakeProc:
+    def __init__(self):
+        self.done = False
+
+    def poll(self):
+        return 0 if self.done else None
+
+
+def test_run_tailoring_button_starts_one_run_at_a_time(env):
+    launched = []
+
+    def launch(root, limit):
+        launched.append(limit)
+        return FakeProc()
+
+    task = {"running": False}
+    (env["tmp"] / "logs").mkdir()
+    (env["tmp"] / "logs" / "tailoring.log").write_text("[2026-10-27 09:40:00] Done\n", encoding="utf-8")
+    runner = TailoringRunner(env["tmp"], launch=launch, task_running=lambda: task["running"])
+    app = DashboardApp(env["cfg"], env["cfg"]["paths"]["db"], env["tmp"] / "dashboard.html", runner=runner)
+    env = {**env, "app": app}
+
+    assert 'id="runBox"' in get(env, "/")[1].decode()
+    status, data = get(env, "/api/tailoring")
+    assert status == 200 and data["running"] is False and data["last_log"] == "[2026-10-27 09:40:00] Done"
+    assert post(env, "/api/tailoring", {"limit": 0})[0] == 409
+    assert post(env, "/api/tailoring", {"limit": "three"})[0] == 409
+    status, data = post(env, "/api/tailoring", {"limit": 3})
+    assert status == 200 and data["result"]["running"] is True and data["result"]["limit"] == 3
+    # A second press while it runs starts nothing.
+    assert post(env, "/api/tailoring", {"limit": 2})[0] == 409
+    runner._proc.done = True
+    # Nor while the scheduled 9:00 task is running.
+    task["running"] = True
+    assert get(env, "/api/tailoring")[1]["by"] == "scheduled task"
+    assert post(env, "/api/tailoring", {"limit": 2})[0] == 409
+    assert launched == [3]
+    # Another site can't press it.
+    assert post(env, "/api/tailoring", {"limit": 1}, {**POST, "Origin": "https://evil.example"})[0] == 403
