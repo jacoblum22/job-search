@@ -401,3 +401,27 @@ def test_details_page_reads_check_md_after_the_repo_moved(env, monkeypatch):
     assert data["app"]["open_items"] > 0
     assert data["app"]["files"] == ["Jake Resume - VCH.pdf"]
     assert data["app"]["folder"] == str(moved)
+
+
+def test_run_started_before_a_server_restart_still_counts(env):
+    """The dashboard server forgets the run it started when it restarts; run_tailoring.ps1's
+    run file keeps the button from starting a second run alongside it."""
+    alive = {41: True}
+    (env["tmp"] / "logs").mkdir()
+    run_file = env["tmp"] / "logs" / "tailoring.run.json"
+    run_file.write_text('﻿{"pid":41,"started":"2026-10-27T15:38:56-07:00","limit":3,"mode":"limit 3"}',
+                        encoding="utf-8")
+    launched = []
+    runner = TailoringRunner(env["tmp"], launch=lambda root, n: launched.append(n),
+                             task_running=lambda: False, pid_alive=lambda pid: alive.get(pid, False))
+    app = DashboardApp(env["cfg"], env["cfg"]["paths"]["db"], env["tmp"] / "dashboard.html", runner=runner)
+    env = {**env, "app": app}
+    data = get(env, "/api/tailoring")[1]
+    assert data["running"] is True and data["by"] == "script"
+    assert data["limit"] == 3 and data["started"] == "2026-10-27T15:38:56-07:00"
+    assert post(env, "/api/tailoring", {"limit": 2})[0] == 409
+    # A crashed run leaves the file behind; a dead PID doesn't block the next run.
+    alive[41] = False
+    assert get(env, "/api/tailoring")[1]["running"] is False
+    assert post(env, "/api/tailoring", {"limit": 2})[0] == 200
+    assert launched == [2]

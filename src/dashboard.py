@@ -265,8 +265,9 @@ if (SERVER) {
     btn.disabled = s.running;
     limitEl.max = s.max;
     if (s.running) {
-      const what = s.by === 'dashboard' ? `Tailoring ${s.limit} job${s.limit === 1 ? '' : 's'} (started ${new Date(s.started).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})})`
-                                        : 'The 9:00 tailoring task is running';
+      const at = s.started ? ` (started ${new Date(s.started).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})})` : '';
+      const what = s.by === 'scheduled task' ? 'The 9:00 tailoring task is running'
+                 : s.limit ? `Tailoring ${s.limit} job${s.limit === 1 ? '' : 's'}${at}` : `A tailoring run is going${at}`;
       state.textContent = `${what}. It scrapes first, then drafts each job, so it takes a while.` + (s.last_log ? ` Last: ${s.last_log}` : '');
     } else {
       state.textContent = s.last_log ? `Last run: ${s.last_log}` : '';
