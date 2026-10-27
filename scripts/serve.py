@@ -3,8 +3,13 @@ approve, and record outcomes from the browser.
 
     uv run python scripts/serve.py            # http://127.0.0.1:8765, opens the browser
     uv run python scripts/serve.py --port 9000 --no-browser
+    uv run python scripts/serve.py --no-browser --allow-host desktop.tailnet.ts.net
 
-Listens on 127.0.0.1 only; stop it with Ctrl+C. dashboard.html is rewritten after
+Listens on 127.0.0.1 only; stop it with Ctrl+C. To open it from your other devices,
+run `tailscale serve --bg 8765` on this PC and pass the address it prints as
+--allow-host (requests naming any other host are refused).
+
+dashboard.html is rewritten after
 every change, so the plain file stays current too.
 """
 
@@ -60,9 +65,13 @@ def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
 @click.command()
 @click.option("--port", default=8765, show_default=True)
 @click.option("--no-browser", is_flag=True, help="Don't open the dashboard in a browser")
-def main(port: int, no_browser: bool) -> None:
+@click.option("--allow-host", "allow_hosts", multiple=True, metavar="HOST",
+              help="Also accept this host name, e.g. the address `tailscale serve` gives "
+                   "(desktop.tailnet.ts.net). Repeatable.")
+def main(port: int, no_browser: bool, allow_hosts: tuple[str, ...]) -> None:
     cfg = load_config()
-    app = DashboardApp(cfg, resolve(cfg, "db"), PROJECT_ROOT / "dashboard.html", port=port)
+    app = DashboardApp(cfg, resolve(cfg, "db"), PROJECT_ROOT / "dashboard.html", port=port,
+                       extra_hosts=allow_hosts)
     server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app))
     url = f"http://127.0.0.1:{port}/"
     click.echo(f"Dashboard at {url} (Ctrl+C to stop)")

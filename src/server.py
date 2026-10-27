@@ -3,7 +3,9 @@ tick check.md, approve, and record what happened, without the command line.
 
 Run with `uv run python scripts/serve.py`. It listens on 127.0.0.1 only. Requests
 that change anything must be JSON from the page itself (same Origin and Host), so
-another website open in the browser can't press its buttons.
+another website open in the browser can't press its buttons. A proxy in front of it
+(`tailscale serve`, for opening it from another of your devices) sends its own host
+name, which is accepted only when named with `--allow-host`.
 
 `DashboardApp.handle` does the work and returns (status, content type, body), so
 tests call it directly without a socket.
@@ -34,12 +36,18 @@ _SERVABLE = {".pdf", ".docx", ".md", ".json", ".yaml"}
 
 class DashboardApp:
     def __init__(self, cfg: dict[str, Any], db_path: Path, dashboard_path: Path | None = None,
-                 port: int = 8765) -> None:
+                 port: int = 8765, extra_hosts: tuple[str, ...] = ()) -> None:
         self.cfg = cfg
         self.db_path = Path(db_path)
         self.dashboard_path = dashboard_path
         self.origins = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
         self.hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
+        # A proxy's host name ("desktop.tailnet.ts.net"), reached over https on port 443.
+        for host in extra_hosts:
+            host = host.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/")
+            if host:
+                self.hosts.add(host)
+                self.origins.add(f"https://{host}")
 
     # --- plumbing -------------------------------------------------------
 
