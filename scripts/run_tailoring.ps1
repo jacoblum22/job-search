@@ -55,8 +55,17 @@ if ($ResumeOnly) {
     $mode = "daily cap"
 }
 Log "Starting tailoring run ($mode); transcript $transcript"
+# While this file names a live process, the dashboard shows the run and won't start another,
+# even after the dashboard server restarts (src/tailor_runner.py). Removed when the run ends.
+$runFile = Join-Path $projectRoot "logs\tailoring.run.json"
+@{ pid = $PID; started = (Get-Date -Format "yyyy-MM-ddTHH:mm:sszzz"); limit = $Limit; mode = $mode } |
+    ConvertTo-Json -Compress | Set-Content $runFile -Encoding UTF8
 . (Join-Path $PSScriptRoot "uv_path.ps1")
-if (-not (Add-UvToPath)) { Log "ERROR: uv not found on PATH or in the usual install folders; nothing ran"; exit 1 }
+if (-not (Add-UvToPath)) {
+    Log "ERROR: uv not found on PATH or in the usual install folders; nothing ran"
+    Remove-Item $runFile -ErrorAction SilentlyContinue
+    exit 1
+}
 
 uv sync -q 2>&1 | Out-Null
 
@@ -138,3 +147,4 @@ Log "Done"
 if (-not $NoReview -and -not ($result -and $result.result -match "Nothing new to tailor")) {
     & (Join-Path $PSScriptRoot "run_tailoring_review.ps1") -Transcript $transcript
 }
+Remove-Item $runFile -ErrorAction SilentlyContinue

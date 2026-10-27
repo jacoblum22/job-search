@@ -7,6 +7,7 @@ task counts as a run too, so the button never starts a second run beside it.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from collections.abc import Callable
@@ -45,12 +46,28 @@ def _task_running() -> bool:
     return '"Running"' in out
 
 
+def _pid_alive(pid: int) -> bool:
+    """Is process `pid` a running PowerShell (the run_tailoring.ps1 wrapper)? The image-name
+    check keeps a reused PID from a crashed run from counting."""
+    if os.name != "nt":
+        return False
+    try:
+        out = subprocess.run(["tasklist", "/FI", f"PID eq {int(pid)}", "/FO", "CSV", "/NH"],
+                             capture_output=True, text=True, timeout=10, check=False,
+                             creationflags=_NO_WINDOW).stdout
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return False
+    return f'"{int(pid)}"' in out and "powershell" in out.lower()
+
+
 class TailoringRunner:
     def __init__(self, root: Path = ROOT, launch: Callable[[Path, int], Any] = _launch,
-                 task_running: Callable[[], bool] = _task_running) -> None:
+                 task_running: Callable[[], bool] = _task_running,
+                 pid_alive: Callable[[int], bool] = _pid_alive) -> None:
         self.root = Path(root)
         self._launch = launch
         self._task_running = task_running
+        self._pid_alive = pid_alive
         self._proc: Any = None
         self._started: str | None = None
         self._limit: int | None = None
@@ -66,11 +83,26 @@ class TailoringRunner:
         lines = [line.strip() for line in tail.splitlines() if line.strip()]
         return lines[-1] if lines else ""
 
+    def _run_file(self) -> dict[str, Any] | None:
+        """logs/tailoring.run.json, written by run_tailoring.ps1 while it runs, when the process
+        it names is still alive. It finds a run this server didn't start or no longer remembers
+        (the server restarted mid-run, or the run was started by hand)."""
+        try:
+            data = json.loads((self.root / "logs" / "tailoring.run.json").read_text(encoding="utf-8-sig"))
+            return data if self._pid_alive(int(data["pid"])) else None
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
     def status(self) -> dict[str, Any]:
         ours = self._proc is not None and self._proc.poll() is None
-        by = "dashboard" if ours else "scheduled task" if self._task_running() else None
-        return {"running": by is not None, "by": by,
-                "started": self._started if ours else None, "limit": self._limit if ours else None,
+        started, limit = (self._started, self._limit) if ours else (None, None)
+        by = "dashboard" if ours else None
+        if by is None and self._task_running():
+            by = "scheduled task"
+        if by is None and (run := self._run_file()):
+            by = "script"
+            started, limit = run.get("started"), run.get("limit") or None
+        return {"running": by is not None, "by": by, "started": started, "limit": limit,
                 "max": MAX_JOBS, "last_log": self._last_log_line()}
 
     def start(self, limit: Any) -> dict[str, Any]:
