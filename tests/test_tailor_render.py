@@ -134,6 +134,14 @@ def test_fit_to_page_already_fits():
     assert dropped == [] and pages == 1
 
 
+def test_hyphen_breaks_finds_words_split_at_line_end():
+    from src.tailor.parsecheck import hyphen_breaks
+
+    text = "Data: pandas, scikit-\nlearn, SQLite\nfixed a stale column and hand- \nentered numbers\nstar-schema design - \nNext"
+    assert hyphen_breaks(text) == ["scikit-learn", "hand-entered"]
+    assert hyphen_breaks("star-schema and third-party\nsources") == []
+
+
 # ----- render + parse check (need LibreOffice) -----
 
 
