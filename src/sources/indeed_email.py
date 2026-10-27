@@ -245,5 +245,6 @@ def _job(
         location=location,
         url=url,
         description=description,
+        posted_date=msg.internal_date.date().isoformat(),  # alerts go out within a day of posting
         raw={"gmail_message_id": msg.id, "subject": msg.subject},
     )

@@ -18,6 +18,7 @@ from src.experience import parse_min_years_experience
 from src.location_filter import classify_location
 from src.posting_status import closed_reason, due_date, seen_date
 from src.reflow import reflow
+from src.retention import posted_on
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -130,11 +131,18 @@ def upsert_job(conn: sqlite3.Connection, job: Job) -> tuple[int, bool]:
 
     if existing:
         existing_row = conn.execute(
-            "SELECT description FROM jobs WHERE id = ?", (existing["id"],)
+            "SELECT description, posted_date FROM jobs WHERE id = ?", (existing["id"],)
         ).fetchone()
         old_desc = (existing_row["description"] if existing_row else "") or ""
         new_desc = job.description or ""
         description = new_desc if len(new_desc) >= len(old_desc) else old_desc
+        # An alert email's date stands in for the posted date; a later alert for the
+        # same job isn't a new posting, so it keeps the first email's date.
+        posted_date = job.posted_date
+        if existing_row and existing_row["posted_date"] and (
+            not posted_date or (job.raw or {}).get("gmail_message_id")
+        ):
+            posted_date = existing_row["posted_date"]
         conn.execute(
             """
             UPDATE jobs SET
@@ -157,7 +165,7 @@ def upsert_job(conn: sqlite3.Connection, job: Job) -> tuple[int, bool]:
                 job.location,
                 description,
                 job.url,
-                job.posted_date,
+                posted_date,
                 job.years_experience,
                 job.location_category,
                 json.dumps(job.raw) if job.raw is not None else None,
@@ -284,6 +292,10 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         # Sources can disagree; the later deadline is the safe read, as in deadline().
         due = max((d for m in members if (d := due_date(
             m["description"] or "", seen_date(m["first_seen"]), m["raw"]))), default=None)
+        # When it was first posted: the earliest date any source gives, else the day we first saw it.
+        posted = min((p for m in members if (p := posted_on(
+            m["posted_date"], m["raw"], seen_date(m["last_seen"])))), default=None)
+        first_seen = min(m["first_seen"] for m in members)
         result.append(
             {
                 "dedup_group_id": group_id,
@@ -304,7 +316,9 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
                 "score": primary["score"],
                 "score_reasons": primary["score_reasons"],
                 "posted_date": primary["posted_date"],
-                "first_seen": min(m["first_seen"] for m in members),
+                "posted": posted.isoformat() if posted else first_seen[:10],
+                "posted_given": posted is not None,
+                "first_seen": first_seen,
                 "last_seen": max(m["last_seen"] for m in members),
             }
         )

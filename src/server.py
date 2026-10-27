@@ -22,6 +22,7 @@ from typing import Any
 from src.dashboard import app_summary, generate_dashboard, render_dashboard
 from src.db import JOB_STATUSES, connect, set_job_status
 from src.posting_status import closed_reason, due_date, seen_date
+from src.retention import posted_on
 from src.tailor import TailorError, rejects, review, store
 from src.tailor.packet import OUTCOMES, approve, record_outcome
 
@@ -123,20 +124,22 @@ class DashboardApp:
         conn = self._conn()
         try:
             job, app = self._app_for(conn, job_id)
-            group = conn.execute("SELECT description, first_seen, raw FROM jobs WHERE dedup_group_id = "
+            group = conn.execute("SELECT description, first_seen, raw, posted_date, last_seen FROM jobs WHERE dedup_group_id = "
                                  "(SELECT dedup_group_id FROM jobs WHERE id = ?)", (job_id,)).fetchall()
         finally:
             conn.close()
         if job is None:
             return self._error("no such job", 404)
-        closed = next((c for d, seen, raw in group
+        closed = next((c for d, seen, raw, *_ in group
                        if (c := closed_reason(d or "", seen=seen_date(seen), raw=raw))), None)
-        due = max((x for d, seen, raw in group if (x := due_date(d or "", seen_date(seen), raw))), default=None)
+        due = max((x for d, seen, raw, *_ in group if (x := due_date(d or "", seen_date(seen), raw))), default=None)
+        posted = min((p for _, _, raw, pd, last in group if (p := posted_on(pd, raw, seen_date(last)))), default=None)
         out: dict[str, Any] = {
             "job": {k: job[k] for k in ("id", "title", "company", "location", "url", "status", "tier", "score",
                                         "score_reasons", "posted_date", "first_seen", "description", "source")},
             "closed": closed,
             "deadline": due.isoformat() if due else None,
+            "posted": posted.isoformat() if posted else None,
             "job_statuses": list(JOB_STATUSES),
             "outcomes": list(OUTCOMES),
             "app": None,
@@ -497,11 +500,11 @@ function dueLine(iso) {
 }
 
 function render() {
-  const {job, app, closed, deadline} = data;
+  const {job, app, closed, deadline, posted} = data;
   document.title = `${job.title} · ${job.company}`;
   let h = `<h1>${esc(job.title)}</h1>
     <div class="meta">${esc(job.company)} · ${esc(job.location)} · Tier ${esc(job.tier)} ${job.score ?? ''}
-    · posted ${esc(job.posted_date || job.first_seen || '')}</div>
+    · ${posted ? `posted ${esc(posted)}` : `first seen ${esc((job.first_seen || '').slice(0, 10))}`}</div>
     ${closed ? `<div class="meta" style="color:#e07070;margin-top:6px">${esc(closed)}: this posting no longer takes applications.</div>` : ''}
     ${!closed && deadline ? dueLine(deadline) : ''}
     <div class="row" style="margin-top:8px">`;

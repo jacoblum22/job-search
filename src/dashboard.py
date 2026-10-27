@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import sqlite3
 from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 from html import escape
 from pathlib import Path
 
@@ -216,7 +215,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
       <th data-key="deadline_sort" title="Red: 3 days or less left. Amber: a week or less.">Deadline</th>
       <th data-key="years_experience">Years Exp</th>
       <th data-key="sourcesStr">Sources</th>
-      <th data-key="posted_sort">Posted</th>
+      <th data-key="posted" title="When the job was first posted. Grey: the posting gives no date, so this is the day it was first seen.">Posted</th>
       <th data-key="first_seen">First Seen</th>
     </tr>
   </thead>
@@ -255,6 +254,7 @@ for (const s of allSources) {
 }
 
 let sortKey = 'score_sort', sortDir = -1;
+const NEWEST_FIRST = new Set(['posted', 'first_seen']);
 // The page auto-reloads, so keep the chosen tab in the URL hash.
 let activeTab = {'#internships': 'internship', '#stats': 'stats'}[location.hash] || 'fulltime';
 
@@ -521,7 +521,7 @@ function render() {
       <td class="due">${dueCell(j)}</td>
       <td>${j.years_experience ?? ''}</td>
       <td>${srcBadges}</td>
-      <td>${escapeHtml(j.posted_date)}</td>
+      <td class="due">${postedCell(j)}</td>
       <td>${escapeHtml(j.first_seen)}</td>
     </tr>`;
   }).join('');
@@ -532,6 +532,15 @@ function daysLeft(iso) {
   const [y, m, d] = iso.split('-').map(Number);
   const now = new Date();
   return Math.round((new Date(y, m - 1, d) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
+}
+
+// When it was first posted, with its age; grey when that's only the day it was first seen.
+function postedCell(j) {
+  const ago = -daysLeft(j.posted);
+  const age = ago <= 0 ? 'today' : `${ago}d ago`;
+  return j.posted_given
+    ? `${escapeHtml(j.posted)} <span class="muted">${age}</span>`
+    : `<span class="muted" title="The posting gives no date; first seen ${escapeHtml(j.posted)}">${escapeHtml(j.posted)} (seen)</span>`;
 }
 
 // The posting's deadline: red with 3 days or less left, amber within a week.
@@ -549,7 +558,8 @@ function dueCell(j) {
 document.querySelectorAll('th[data-key]').forEach(th => {
   th.addEventListener('click', () => {
     const key = th.dataset.key;
-    if (sortKey === key) { sortDir *= -1; } else { sortKey = key; sortDir = 1; }
+    // Dates open newest first; everything else ascending.
+    if (sortKey === key) { sortDir *= -1; } else { sortKey = key; sortDir = NEWEST_FIRST.has(key) ? -1 : 1; }
     render();
   });
 });
@@ -582,26 +592,6 @@ render();
 </body>
 </html>
 """
-
-
-def _sort_date(posted: str | None, first_seen: str | None) -> str:
-    """Normalize the mixed posted_date formats (ISO, 'YYYY-MM-DD', RFC 2822) to
-    a UTC ISO string for sorting; jobs with no posted date fall back to when
-    they were first seen."""
-    for value in (posted, first_seen):
-        if not value:
-            continue
-        try:
-            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            try:
-                dt = parsedate_to_datetime(value)
-            except (TypeError, ValueError):
-                continue
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc).isoformat()
-    return ""
 
 
 def _file_uri(path: Path) -> str:
@@ -654,7 +644,6 @@ def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
                     and r.get("status") != "dismissed" else 99)
         # Soonest first when sorted ascending; postings that give no deadline go last.
         r["deadline_sort"] = r.get("deadline") or "9999-12-31"
-        r["posted_sort"] = _sort_date(r.get("posted_date"), r.get("first_seen"))
         r["job_type"] = "internship" if _INTERNSHIP_RE.search(r["title"]) else "fulltime"
         # Skipped / never-scored rows sort below every real score.
         r["score_sort"] = r["score"] if r.get("score") is not None else -9999

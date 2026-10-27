@@ -54,7 +54,7 @@ def generate_xlsx(conn: sqlite3.Connection, output_path: str | Path) -> Path:
                 row["tier"] or "",
                 row["years_experience"] if row["years_experience"] is not None else "",
                 ", ".join(row["sources"]),
-                row["posted_date"] or "",
+                row["posted"] if row["posted_given"] else "",
                 row["first_seen"],
                 row["last_seen"],
                 primary_url,

@@ -120,6 +120,7 @@ def _build_job(job_id: str, title_anchor, msg: EmailMessage) -> Job:
         company=company,
         location=location,
         url=f"https://www.linkedin.com/jobs/view/{job_id}/",
+        posted_date=msg.internal_date.date().isoformat(),  # alerts go out within a day of posting
         raw={"gmail_message_id": msg.id, "subject": msg.subject},
     )
 
@@ -158,6 +159,7 @@ def _parse_plaintext(msg: EmailMessage) -> list[Job]:
                 company="",
                 location="",
                 url=f"https://www.linkedin.com/jobs/view/{job_id}/",
+                posted_date=msg.internal_date.date().isoformat(),  # alerts go out within a day of posting
                 raw={"gmail_message_id": msg.id, "subject": msg.subject},
             )
         )
