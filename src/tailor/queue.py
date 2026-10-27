@@ -7,11 +7,12 @@ and sinks to the bottom of its tier, but is never dropped.
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 from src.posting_status import closed_reason, seen_date
+from src.retention import posted_on
 from src.tailor import TailorError, appdir, store
 from src.tailor.jev import Answer, Question, strip_identity
 from src.tailor.paths import resolve
@@ -132,6 +133,18 @@ def _eligible(conn, cfg: dict[str, Any], job_ids: list[int] | None) -> list[Any]
     return list(best.values())
 
 
+def _posted_days(conn) -> dict[str, date]:
+    """When each dedup group was first posted: the earliest date any of its postings
+    gives, else the day it was first seen (as on the dashboard)."""
+    out: dict[str, date] = {}
+    for g, posted, raw, first, last in conn.execute(
+            "SELECT dedup_group_id, posted_date, raw, first_seen, last_seen FROM jobs"):
+        day = posted_on(posted, raw, seen_date(last)) or seen_date(first)
+        if day and (g not in out or day < out[g]):
+            out[g] = day
+    return out
+
+
 def _flags(answers: list[Answer], gate: dict[str, Any]) -> list[dict[str, Any]]:
     score_fail = gate.get("score_fail", 1)
     thr = gate.get("yes_threshold", 0.5)
@@ -180,7 +193,17 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
 
             rescore_all(conn, _settings().get("score") or {})
         rows = _eligible(conn, cfg, job_ids)
-        rows.sort(key=lambda r: (tier_pos.get(r["tier"], len(tiers)), -(r["score"] or 0), r["id"]))
+        # Within a tier, postings from the last `fresh_days` go first (an old one may have
+        # closed already), then by score, then newest.
+        posted = _posted_days(conn)
+        fresh_since = date.today() - timedelta(days=int(cfg.get("fresh_days", 14)))
+
+        def order(r, flagged: bool = False) -> tuple:
+            day = posted.get(r["dedup_group_id"]) or date.min
+            return (tier_pos.get(r["tier"], len(tiers)), flagged, day < fresh_since,
+                    -(r["score"] or 0), -day.toordinal(), r["id"])
+
+        rows.sort(key=order)
         if not job_ids:
             # Jev only needs to look at enough candidates to fill the cap with room to reorder.
             rows = rows[: int(gate.get("max_candidates", max(limit * 5, 20)))]
@@ -200,8 +223,7 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
                      f"{posting}\n\nRESUME\n{resume}")
             answers = jev.ask(state, [q for q, _ in GATE_QUESTIONS])
             entries.append((r, _flags(answers, gate), base_id or None))
-        entries.sort(key=lambda e: (tier_pos.get(e[0]["tier"], len(tiers)), bool(e[1]),
-                                    -(e[0]["score"] or 0), e[0]["id"]))
+        entries.sort(key=lambda e: order(e[0], bool(e[1])))
         if not job_ids:
             entries = entries[:limit]
         apps_root = resolve(cfg, "applications")

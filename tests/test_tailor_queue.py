@@ -56,6 +56,26 @@ def test_flagged_sinks_within_tier_only(cfg):
     assert not appdir.load_app(out[0])["gate"]["flagged"]
 
 
+def test_recent_postings_go_first_within_a_tier(cfg):
+    from datetime import date, timedelta
+
+    old = add(cfg, "o1", "Old high score", "A", 95)
+    new = add(cfg, "n1", "New lower score", "A", 70)
+    newer = add(cfg, "n2", "Newest lower score", "A", 70)
+    unknown = add(cfg, "u1", "No date, seen today", "A", 60)
+    add(cfg, "b1", "B fresh", "B", 99)
+    conn = connect(cfg["paths"]["db"])
+    day = lambda n: (date.today() - timedelta(days=n)).isoformat()
+    for jid, posted in [(old, day(25)), (new, day(5)), (newer, day(1)), (unknown, None)]:
+        conn.execute("UPDATE jobs SET posted_date = ? WHERE id = ?", (posted, jid))
+    conn.execute("UPDATE jobs SET posted_date = ? WHERE external_id = 'b1'", (day(1),))
+    conn.commit()
+    conn.close()
+    out = run_queue(cfg, limit=5, jev=FakeJev(GOOD))
+    assert titles(out) == ["Newest lower score", "New lower score", "No date, seen today",
+                           "Old high score", "B fresh"]
+
+
 def test_yes_no_sides_and_unchecked(cfg):
     add(cfg, "a1", "Needs PhD", "A", 80)
     out = run_queue(cfg, jev=FakeJev({**GOOD, "requires_phd": 0.9, "is_coop": None}))

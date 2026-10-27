@@ -622,6 +622,7 @@ tailor:
   daily_cap: 3           # application folders created per run
   tiers: [A]             # eligible tiers, in queue order (Jake: the daily run tailors A-tier only)
   min_description_chars: 1000
+  fresh_days: 14         # within a tier, jobs posted in the last N days are drafted first (old ones may have closed)
   gate:
     # A Jev answer fails when a 0-3 score is <= score_fail or a yes/no probability
     # is on the wrong side of yes_threshold. Failing or unanswered questions only
