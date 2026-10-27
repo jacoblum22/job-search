@@ -129,10 +129,7 @@ class DashboardApp:
         return job, app
 
     def _folder(self, app: dict) -> Path:
-        from src.tailor.paths import ROOT
-
-        p = Path(app["folder"])
-        return p if p.is_absolute() else ROOT / p
+        return store.folder_path(app["folder"])
 
     def _details(self, job_id: int) -> Response:
         conn = self._conn()

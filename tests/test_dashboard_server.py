@@ -355,3 +355,49 @@ def test_run_tailoring_button_starts_one_run_at_a_time(env):
     assert launched == [3]
     # Another site can't press it.
     assert post(env, "/api/tailoring", {"limit": 1}, {**POST, "Origin": "https://evil.example"})[0] == 403
+
+
+# --- folders after the repo moves -------------------------------------------
+
+
+def test_folder_stored_relative_to_repo_root(tmp_path, monkeypatch):
+    monkeypatch.setattr(store, "ROOT", tmp_path)
+    inside = tmp_path / "materials" / "applications" / "2026-10-27 VCH - Advisor"
+    assert store.stored_folder(inside) == "materials/applications/2026-10-27 VCH - Advisor"
+    assert store.folder_path("materials/applications/2026-10-27 VCH - Advisor") == inside
+    outside = tmp_path.parent / "elsewhere"
+    assert store.stored_folder(outside) == str(outside)
+
+
+def test_folder_from_another_computer_is_found_under_this_root(tmp_path, monkeypatch):
+    monkeypatch.setattr(store, "ROOT", tmp_path)
+    name = "2026-10-27 VCH - Advisor"
+    moved = tmp_path / "materials" / "applications" / name
+    moved.mkdir(parents=True)
+    old = "C:\\Users\\jacob\\job-search\\materials\\applications\\" + name
+    assert store.folder_path(old) == moved
+    assert store.folder_path("/home/jacob/job-search/materials/applications/" + name) == moved
+    # Nothing here by that name: the stored path is returned as it was.
+    gone = "C:\\Users\\jacob\\job-search\\materials\\applications\\2026-01-01 Gone - Job"
+    assert str(store.folder_path(gone)).endswith("2026-01-01 Gone - Job")
+    assert not store.folder_path(gone).exists()
+
+
+def test_details_page_reads_check_md_after_the_repo_moved(env, monkeypatch):
+    """Rows written on the laptop hold C:\\Users\\jacob\\... paths; on the desktop the review page
+    must still find check.md and the final files."""
+    monkeypatch.setattr(store, "ROOT", env["tmp"])
+    name = env["dir"].name
+    moved = env["tmp"] / "materials" / "applications" / name
+    moved.parent.mkdir(parents=True)
+    env["dir"].rename(moved)
+    conn = connect(env["cfg"]["paths"]["db"])
+    store.set_status(conn, env["jid"], "ready_for_review",
+                     folder="C:\\Users\\jacob\\job-search\\materials\\applications\\" + name)
+    conn.close()
+    status, data = get(env, f"/api/job/{env['jid']}")
+    assert status == 200
+    assert data["app"]["check"] is not None
+    assert data["app"]["open_items"] > 0
+    assert data["app"]["files"] == ["Jake Resume - VCH.pdf"]
+    assert data["app"]["folder"] == str(moved)
