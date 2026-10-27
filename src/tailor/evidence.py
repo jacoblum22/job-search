@@ -117,8 +117,9 @@ _DEGREE = {
 }
 _LEVELS = ["bachelor", "master", "phd"]
 # A degree named without a level ("Degree in CS, engineering or a related field", "a university
-# degree") asks for the first one; "a high degree of accuracy" is no degree.
-_ANY_DEGREE = re.compile(r"\bdegree\b(?!\s+of\b)", re.IGNORECASE)
+# degree") asks for the first one; "a high degree of accuracy", "a 360-degree view" and "to some
+# degree" are no degree.
+_ANY_DEGREE = re.compile(r"(?<![\d-])(?<!\bsome )(?<!\bto a )\bdegree\b(?!\s+of\b)", re.IGNORECASE)
 
 
 def degree_level(text: str) -> str | None:

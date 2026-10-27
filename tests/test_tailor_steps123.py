@@ -583,6 +583,9 @@ def test_degree_of_is_not_a_degree():
     from src.tailor.evidence import degree_level
     assert degree_level("A high degree of accuracy in reporting") is None
     assert degree_level("University degree in Computer Science") == "bachelor"
+    assert degree_level("Build a 360-degree view of the customer") is None
+    assert degree_level("Comfortable, to a degree, with ambiguity") is None
+    assert degree_level("Requires a degree in Statistics") == "bachelor"
 
 
 def test_synonym_only_requirement_is_partial(env):
