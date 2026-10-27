@@ -247,6 +247,34 @@ def _url(value: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def write_header(doc, contact: dict[str, Any], layout: Layout, *, name: str = "") -> list:
+    """Centered name and contact line; the letter reuses it so both documents share one heading."""
+    p = _paragraph(doc)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _font(p.add_run(contact.get("name") or name), layout.name_pt, bold=True)
+    paras = [p]
+
+    p = _paragraph(doc, space_after=2)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    size = layout.contact_pt
+    first = True
+    for key in ("location", "email", "phone", "linkedin", "github"):
+        value = contact.get(key, "")
+        if not value:
+            continue
+        if not first:
+            _font(p.add_run(" | "), size)
+        first = False
+        if key == "email":
+            _hyperlink(p, "mailto:" + value, value, size)
+        elif key in ("linkedin", "github"):
+            _hyperlink(p, _url(value), value, size)
+        else:
+            _font(p.add_run(value), size)
+    paras.append(p)
+    return paras
+
+
 class _Renderer:
     def __init__(self, data: dict[str, Any], contact: dict[str, str]):
         self.data = data
@@ -276,30 +304,7 @@ class _Renderer:
         return self.doc
 
     def _header(self) -> None:
-        p = _paragraph(self.doc)
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        _font(p.add_run(self.contact.get("name") or self.data.get("name", "")), self.layout.name_pt, bold=True)
-
-        p = _paragraph(self.doc, space_after=2)
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        size = self.layout.contact_pt
-        parts = [
-            (k, self.contact.get(k, ""))
-            for k in ("location", "email", "phone", "linkedin", "github")
-        ]
-        first = True
-        for key, value in parts:
-            if not value:
-                continue
-            if not first:
-                _font(p.add_run(" | "), size)
-            first = False
-            if key == "email":
-                _hyperlink(p, "mailto:" + value, value, size)
-            elif key in ("linkedin", "github"):
-                _hyperlink(p, _url(value), value, size)
-            else:
-                _font(p.add_run(value), size)
+        write_header(self.doc, self.contact, self.layout, name=self.data.get("name", ""))
 
     def _heading(self, key: str) -> None:
         p = _paragraph(self.doc, space_before=self.layout.section_space_pt, space_after=2)

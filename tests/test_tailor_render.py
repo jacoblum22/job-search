@@ -15,7 +15,7 @@ from src import resume as resume_mod
 from src.tailor import TailorError
 from src.tailor.company import company_dir, company_slug, is_stale, verify_company
 from src.tailor.parsecheck import parse_check
-from src.tailor.render import drop_order, fit_to_page, run_render
+from src.tailor.render import build_letter_document, drop_order, fit_to_page, run_render
 
 FIX = Path(__file__).parent / "fixtures" / "tailor"
 needs_soffice = pytest.mark.skipif(
@@ -395,3 +395,19 @@ def test_file_name_title_keeps_whole_words_and_drops_brackets():
     assert _short_title("Data Engineer (12 Month Contract)") == "Data Engineer"
     assert _short_title("Senior Data-Driven Experimentation and Machine Learning Platform Engineer for Payments") == \
         "Senior Data-Driven Experimentation and Machine Learning"
+
+
+def test_letter_heading_matches_resume():
+    """The letter reuses the resume's centered heading, as wide as the resume's text block."""
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Inches
+
+    doc = build_letter_document({"greeting": "Hi,", "paragraphs": ["Body."]}, CONTACT, today="October 1, 2026")
+    name, line = doc.paragraphs[0], doc.paragraphs[1]
+    assert name.text == "Alex Rivera"
+    assert "604-555-0100" in line.text
+    layout = resume_mod.Layout()
+    for p in (name, line):
+        assert p.alignment == WD_ALIGN_PARAGRAPH.CENTER
+        assert p.paragraph_format.left_indent == -Inches(1 - layout.side_margin_in)
+    assert name.runs[0].font.size.pt == layout.name_pt
