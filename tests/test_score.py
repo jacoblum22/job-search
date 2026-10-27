@@ -105,13 +105,13 @@ def test_rescore_all_cache_skips_unchanged_rows(tmp_path, monkeypatch):
 
 INTEGRATION_ENGINEER = (
     "Configure integrations for enterprise customers and troubleshoot tickets. "
-    "1+ years of experience with Python. 1+ years of experience with SQL. "
+    "Experience with Python. Experience with SQL. "
     "Familiar with Git & Docker. Bachelor's degree in Computer Science. "
 ) * 3
 
 
 def test_technical_title_backed_by_skills_ranks_a():
-    r = _score("Integration Engineer", INTEGRATION_ENGINEER, years=1)
+    r = _score("Integration Engineer", INTEGRATION_ENGINEER)
     assert r.tier == "A"
     assert any("technical title" in x for x in r.reasons)
     assert any("python + sql" in x for x in r.reasons)
@@ -212,11 +212,79 @@ def test_bachelors_or_masters_costs_nothing():
         assert _score("Data Analyst", f"{line}\n{desc}").score == base, line
 
 
-def test_two_years_is_neutral():
+def test_each_required_year_costs_more():
     desc = "python sql " * 40
-    none = _score("Data Analyst", desc, years=None)
-    assert _score("Data Analyst", desc, years=2).score == none.score
-    assert _score("Data Analyst", desc, years=1).score == none.score + 5
+    none = _score("Data Analyst", desc, years=None).score
+    scores = [_score("Data Analyst", desc, years=y).score for y in range(6)]
+    assert scores[0] > none  # "0-2 years" says no experience needed
+    assert none > scores[1] > scores[2] > scores[3] > scores[4] > scores[5]
+
+
+def _score_pref(title, description, years=None, preferred=None):
+    return score_job(title=title, description=description, location_category="vancouver",
+                     years_experience=years, years_preferred=preferred, cfg=CFG)
+
+
+def test_preferred_years_cost_less_than_required():
+    desc = "python sql " * 40
+    none = _score("Data Analyst", desc).score
+    required = _score_pref("Data Analyst", desc, years=3).score
+    preferred = _score_pref("Data Analyst", desc, preferred=3)
+    assert required < preferred.score < none
+    assert any("prefers 3 years (not required)" in x for x in preferred.reasons)
+    # Preferring fewer years than required adds nothing; preferring more counts only if it costs more.
+    assert _score_pref("Data Analyst", desc, years=3, preferred=1).score == required
+    assert _score_pref("Data Analyst", desc, years=1, preferred=5).score < _score_pref("Data Analyst", desc, years=1).score
+    # A preferred 0 is no bonus.
+    assert _score_pref("Data Analyst", desc, preferred=0).score == none
+
+
+def test_preferred_years_dont_cap_tier():
+    desc = "SQL BigQuery Looker dashboards python pandas " * 20
+    assert _score_pref("Data Analyst", desc, years=5).tier == "D"
+    assert _score_pref("Data Analyst", desc, preferred=5).tier != "D"
+
+
+def test_open_to_new_grads_bonus():
+    desc = "python sql " * 40
+    base = _score("Data Analyst", desc).score
+    for line in [
+        "New grads welcome to apply!",
+        "Ideal for recent university graduates.",
+        "No prior experience required; we will train you.",
+        "Experience is not required.",
+        "0-2 years of experience in analytics.",
+        "Open to students graduating in 2026.",
+    ]:
+        r = _score("Data Analyst", f"{line}\n{desc}")
+        assert r.score > base, line
+        assert any("open to new grads" in x for x in r.reasons), line
+    for line in [
+        "This role is not suitable for new grads.",
+        "No new graduates please.",
+        "Graduated from an accredited university.",
+    ]:
+        r = _score("Data Analyst", f"{line}\n{desc}")
+        assert not any("open to new grads" in x for x in r.reasons), line
+
+
+def test_no_new_grad_bonus_when_posting_requires_years():
+    desc = "New grads welcome.\n" + "python sql " * 40
+    assert any("open to new grads" in x for x in _score("Data Analyst", desc, years=1).reasons)
+    assert not any("open to new grads" in x for x in _score("Data Analyst", desc, years=2).reasons)
+
+
+def test_rescore_splits_required_and_preferred_years(tmp_path):
+    conn = connect(tmp_path / "jobs.db")
+    base = "Analyze data with SQL and Python. " * 20
+    upsert_job(conn, Job("x", "1", "Data Analyst", "Acme", "Vancouver, BC",
+                         base + "\nRequirements:\n- 3+ years of experience in analytics\n"))
+    upsert_job(conn, Job("x", "2", "Data Analyst", "Beta", "Vancouver, BC",
+                         base + "\nNice to have:\n- 3+ years of experience in analytics\n"))
+    rescore_all(conn, CFG)
+    rows = dict(conn.execute("SELECT external_id, score_reasons FROM jobs").fetchall())
+    assert "asks for 3 years" in rows["1"]
+    assert "prefers 3 years (not required)" in rows["2"]
 
 
 def test_rescore_reads_where_a_country_only_job_is(tmp_path):
@@ -254,3 +322,7 @@ def test_optional_language_not_skipped():
         "* Excellent written and verbal communication skills in English.",
     ]:
         assert _score("Data Analyst", line + "\n" + desc).tier != "skip", line
+
+
+def test_over_five_years_preferred_still_skipped():
+    assert _score_pref("Data Scientist", "python " * 50, years=4, preferred=6).tier == "skip"
