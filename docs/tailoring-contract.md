@@ -241,7 +241,7 @@ as a fit gap. A `jake` confirm for the same skill takes it off the list.
 ```
 
 Paths: `summary`; `<section>/<entry id>/<bullet id>` for bullets; `<section>/<entry id>` for
-`append` (new bullet, id `<entry>.new-<n>`); `skills/<group id>` for `add_skill` / `reorder`;
+`append` (new bullet, id `<entry>.new-<n>`); `skills/<group id>` for `add_skill` / `reorder` / `remove` (the item to drop as `value`);
 `<section>/<entry id>` with `action: "reorder"` and a list value of bullet ids. Actions:
 `replace | append | remove | reorder | add_skill`. **Never editable:** `title, company, location,
 dates, school, degree, name, url, contact`, any `id`, and `education` lines except coursework.

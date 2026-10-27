@@ -228,9 +228,28 @@ def _apply_one(
         e.setdefault("bullets", []).append({"id": bid, "text": value, "sources": sources})
         return None, value
 
+    if action == "remove" and head == "skills" and len(parts) == 2:
+        # A skills item a check flags must be removable in a repair round, or the critical stays to the
+        # end (Amazon ICQA, Oct 27 2026: a skills item added in round 1 was flagged in rounds 1 to 3).
+        g = _entry(data, "skills", parts[1])
+        if g is None:
+            raise _Reject("path does not resolve: " + path)
+        value = edit.get("value")
+        names = [value] if isinstance(value, str) else value
+        if not isinstance(names, list) or not names or not all(isinstance(v, str) and v.strip() for v in names):
+            raise _Reject("remove on a skills group needs the item (or a list of them) as value")
+        want = {norm(v) for v in names}
+        before = list(g["items"])
+        if want - {norm(x) for x in before}:
+            raise _Reject("skill not in the group")
+        g["items"] = [x for x in before if norm(x) not in want]
+        if not g["items"]:
+            raise _Reject("would leave the skills group empty")
+        return before, list(g["items"])
+
     if action == "remove":
         if head not in ("experience", "projects") or len(parts) != 3:
-            raise _Reject("path not allowed for remove: expected <section>/<entry>/<bullet>")
+            raise _Reject("path not allowed for remove: expected <section>/<entry>/<bullet> or skills/<group>")
         e = _entry(data, head, parts[1])
         bullets = (e or {}).get("bullets") or []
         node = next((b for b in bullets if b.get("id") == parts[2]), None)

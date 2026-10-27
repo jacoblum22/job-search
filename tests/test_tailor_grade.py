@@ -395,6 +395,41 @@ def test_failed_years_requirement_is_a_fit_gap(tmp_path):
     assert not any("software development" in f for f in out["feedback"])
 
 
+def test_years_beyond_the_dates_are_a_fit_gap_even_with_a_named_skill(tmp_path):
+    # Amazon ICQA, Oct 27 2026: a years must-have beyond the dates went back to repair every round,
+    # because the requirement named a term.
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][0] = {**r["requirements"][0], "text": "5+ years of SQL",
+                            "quote": "5+ years of experience writing SQL"}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r1" else 0.8))
+    item = next(it for it in out["checklist"] if it["id"] == "must.r1")
+    assert item["fit_gap"] == ["years of experience"]
+    assert not any(f.startswith("Must-have SQL") for f in out["feedback"])
+    # Years the dates do cover (the fixture's "1-2 years") leave it to repair as before.
+    r["requirements"][0] = {**r["requirements"][0], "text": "SQL", "quote": "1-2 years of experience with SQL"}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r1" else 0.8))
+    assert "fit_gap" not in next(it for it in out["checklist"] if it["id"] == "must.r1")
+
+
+def test_soft_must_is_not_asked_for_a_tool(tmp_path):
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "Empathy with store teams", "terms": ["empathy"]}
+    write_json(app / "requirements.json", r)
+    asked = {}
+
+    def answers(state, q):
+        asked[q.id] = q.text
+        return 0.8
+
+    run_grade(app, 1, CFG, FakeJev(answers))
+    assert "names a tool" not in asked["must.r2"] and "work it describes" in asked["must.r2"]
+    assert "names a tool" in asked["must.r1"]
+
+
 def test_degree_requirement_is_asked_about_education_and_never_repaired(tmp_path):
     app = make_app(tmp_path)
     r = json.loads((app / "requirements.json").read_text())

@@ -189,6 +189,22 @@ def test_repair_round_sections_and_letter_copy(tmp_path):
     assert res["letter_copied"] and (app / "drafts/r2/cover-letter.json").exists()
 
 
+def test_repair_round_can_remove_and_reword_a_skills_item(tmp_path):
+    # A skills item flagged in round 1 must be fixable in a repair round, not left to the end.
+    app, cfg = make_app(tmp_path)
+    write_edits(app, [{"path": "skills/skills.tools", "action": "add_skill", "value": "dbt models", "sources": ["northwind.dbt"]}])
+    apply_edits(app, 1, cfg)
+    (app / "drafts/r2").mkdir()
+    (app / "drafts/r2/feedback.json").write_text(json.dumps({"round": 2, "build_on": 1, "sections": ["skills/skills.tools"]}))
+    write_edits(app, [{"path": "skills/skills.tools", "action": "remove", "value": "DBT Models"},
+                      {"path": "skills/skills.tools", "action": "add_skill", "value": "dbt", "sources": ["northwind.dbt"]}], rnd=2)
+    res = apply_edits(app, 2, cfg)
+    assert res["rejected"] == [] and len(res["applied"]) == 2
+    assert load_resume(app / "drafts/r2/resume.yaml")["skills"][1]["items"] == ["Tableau", "Excel", "Git", "dbt"]
+    write_edits(app, [{"path": "skills/skills.tools", "action": "remove", "value": "Looker"}], rnd=2)
+    assert "not in the group" in apply_edits(app, 2, cfg)["rejected"][0]["reason"]
+
+
 def test_repair_round_needs_feedback(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [])

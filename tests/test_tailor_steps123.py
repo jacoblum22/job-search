@@ -568,6 +568,8 @@ def test_unknown_term_rejected_by_jev(env):
     ("Bachelor's degree in Statistics or a related field", "covered"),
     ("Bachelor's or Master's degree in a quantitative field", "covered"),
     ("Master's degree in Statistics required", "missing"),
+    # No level named: a degree is a Bachelor's (Pacific Reach, Oct 27 2026: read as no degree requirement).
+    ("Degree in CS, engineering, economics or a related quantitative field", "covered"),
 ])
 def test_degree_requirement(env, quote, status):
     cfg, app = env
@@ -575,6 +577,15 @@ def test_degree_requirement(env, quote, status):
     r = run_evidence(app, cfg, FakeJev(lambda s, q: 0.9))["requirements"][0]
     assert r["status"] == status and r["method"] == "degree"
     assert r["passages"] == (["course.degree"] if status == "covered" else [])
+
+
+def test_degree_of_is_not_a_degree():
+    from src.tailor.evidence import degree_level
+    assert degree_level("A high degree of accuracy in reporting") is None
+    assert degree_level("University degree in Computer Science") == "bachelor"
+    assert degree_level("Build a 360-degree view of the customer") is None
+    assert degree_level("Comfortable, to a degree, with ambiguity") is None
+    assert degree_level("Requires a degree in Statistics") == "bachelor"
 
 
 def test_synonym_only_requirement_is_partial(env):
