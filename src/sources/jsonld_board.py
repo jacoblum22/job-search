@@ -182,7 +182,7 @@ def fetch_jsonld_board_jobs(boards: list, *, search: dict | None = None, client:
                 location = posting_location(post)
                 description = to_markdown(post.get("description"), escaped="&lt;" in (post.get("description") or ""))
                 posted = (post.get("datePosted") or "")[:10] or None
-                raw = {"employmentType": post.get("employmentType")}
+                raw = {"employmentType": post.get("employmentType"), "validThrough": post.get("validThrough")}
             elif board.get("kind") == "html" and page:
                 post = parse_html_posting(page, board)
                 location, description, posted, raw = title_location, post["description"], None, {}

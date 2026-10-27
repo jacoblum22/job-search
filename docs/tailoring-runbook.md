@@ -254,3 +254,36 @@ summary; read it before continuing.
 To redo a step, rerun its command; code steps overwrite their own outputs. To redo a Claude step,
 overwrite its JSON file and rerun the command after it. Delete a later round's folder
 (`drafts/r2`, ...) if you want to restart the repair loop.
+
+## Why does an application need fixes?
+
+`uv run python -m src.tailor why <job id or words from the folder name>` prints one application's
+state in a single read: what set its status (each critical, or a wide ATS gap), the code checks run
+again on the resume that ships (so a hand fix or a later code fix shows up), Jev's flags, the gate
+flags, how many check.md items still need a decision, the last pipeline steps, and what the latest
+run reviews said about it. Nothing is written. For example `uv run python -m src.tailor why 904` or
+`uv run python -m src.tailor why "amazon icqa"`.
+
+## Reading or revising a packet by hand
+
+Every command takes a job id, words from the folder name, or the folder path.
+
+- `show <app>` prints the resume and letter that ship (final/, else humanize/, else the best
+  round) as plain text, each bullet tagged with its id and cited passages, plus the final/ files
+  and their page counts. `--passages` prints each cited passage under its bullet; `--posting`
+  adds the posting. A pdf in final/ that the last render didn't write is called out, since it
+  could get uploaded by mistake.
+- `vault <words...>` lists the vault passages containing every word (case-blind; "docker" also
+  finds "Dockerfile"). `--claims-only` skips interview-only and guidance passages. Use it to check
+  whether outside feedback is true before applying it.
+- `sent <regex>` searches every application's shipped resume and letter, e.g.
+  `sent "\d\+ third-party" --status applied` to see what earlier applications already claimed.
+- `revise-start <app>` saves final/ as previous-version-<date>/ and makes humanize/ hold the
+  copy to edit. Edit `humanize/resume.yaml` and `humanize/cover-letter.json` only: render,
+  recheck and regrade all read those, and a render overwrites final/.
+- `revise-done <app> --note "what changed"` renders, reports pages, parse problems, bullets the
+  page fit dropped, AI-sounding phrases, criticals and ATS (nothing but final/ is written), and
+  logs the note. It keeps the status (an applied or approved application stays so) unless the
+  parse fails; run `packet` for a fresh review page.
+
+These run on the device VM too: render falls back to difflib when rapidfuzz isn't installed.

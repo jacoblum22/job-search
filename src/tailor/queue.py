@@ -119,9 +119,9 @@ def _eligible(conn, cfg: dict[str, Any], job_ids: list[int] | None) -> list[Any]
     ).fetchall()
     # A posting that says it's filled internally or whose deadline has passed is
     # never drafted; one closed copy closes the whole group.
-    closed = {g for g, desc, seen in conn.execute(
-        "SELECT dedup_group_id, description, first_seen FROM jobs")
-        if closed_reason(desc or "", seen=seen_date(seen))}
+    closed = {g for g, desc, seen, raw in conn.execute(
+        "SELECT dedup_group_id, description, first_seen, raw FROM jobs")
+        if closed_reason(desc or "", seen=seen_date(seen), raw=raw)}
     best: dict[str, Any] = {}
     for r in rows:
         if r["dedup_group_id"] in closed:

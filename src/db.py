@@ -280,10 +280,10 @@ def grouped_jobs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
                 None,
             )
         closed = next((c for m in members if (c := closed_reason(
-            m["description"] or "", seen=seen_date(m["first_seen"])))), None)
+            m["description"] or "", seen=seen_date(m["first_seen"]), raw=m["raw"]))), None)
         # Sources can disagree; the later deadline is the safe read, as in deadline().
         due = max((d for m in members if (d := due_date(
-            m["description"] or "", seen_date(m["first_seen"])))), default=None)
+            m["description"] or "", seen_date(m["first_seen"]), m["raw"]))), default=None)
         result.append(
             {
                 "dedup_group_id": group_id,

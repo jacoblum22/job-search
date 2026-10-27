@@ -135,11 +135,13 @@ Use judgment.
 ## Allowed edits
 
 Paths: `summary`; `<section>/<entry id>/<bullet id>` for bullets; `<section>/<entry id>` for
-`append` (new bullet), `reorder`, `add_entry` or `remove_entry`; `skills/<group id>` for `add_skill` or `reorder`.
+`append` (new bullet), `reorder`, `add_entry` or `remove_entry`; `skills/<group id>` for `add_skill`, `remove` or `reorder`.
 Actions: `replace | append | remove | reorder | add_skill | add_entry | remove_entry`.
 
 - `replace`: needs `original` (the current text exactly) and `value`.
 - `append`: new bullet; `value` is the text.
+- `remove`: on a bullet path, drops the bullet; on `skills/<group id>`, `value` is the item to drop
+  (as the list has it). To reword a skills item, `remove` it and `add_skill` the new wording.
 - `reorder`: `value` is a list of the same bullet ids (or skills items) in a new order, nothing added
   or dropped.
 - `add_entry`: path `experience/<id>` or `projects/<id>` for an entry in `plan.json`

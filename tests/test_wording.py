@@ -64,5 +64,21 @@ def test_equivalent_wordings_back_each_other(words, text):
     assert not wording.ats(words, text)
 
 
+@pytest.mark.parametrize("words, text", [
+    ("MS Office", "Kept the shift rota in Microsoft Office"),
+    ("Microsoft Excel", "Built reports in MS Excel"),
+    ("MS-Office", "Microsoft Office (Word, Excel)"),
+])
+def test_ms_is_microsoft_before_a_microsoft_product(words, text):
+    # Amazon ICQA, Oct 27 2026: a product spelled out in the vault didn't back it abbreviated.
+    assert wording.same(words, text) and _wording_in(words, text)
+    assert not wording.ats(words, text)
+
+
+def test_ms_alone_is_not_microsoft():
+    assert not wording.same("Microsoft", "MS in Statistics")
+    assert not wording.same("MS Office", "Microsoft Teams")
+
+
 def test_vague_words_are_not_equivalents():
     assert not wording.same("insights", "data analysis") and not wording.same("analytics", "data analysis")

@@ -12,7 +12,11 @@ from pathlib import Path
 from typing import Any
 
 import pdfplumber
-from rapidfuzz import fuzz
+
+try:
+    from rapidfuzz import fuzz
+except ImportError:  # the device VM on Jake's PC has no rapidfuzz and can't install it
+    fuzz = None
 
 from src.resume import DEFAULT_ORDER, SECTION_TITLES, iter_bullets
 
@@ -36,6 +40,26 @@ def _read(pdf_path: Path) -> tuple[str, int]:
     return "\n".join(pages), len(pages)
 
 
+def _partial_end(want: str, hay: str) -> int | None:
+    """Where the best near-exact (FUZZ_MIN) match of `want` inside `hay` ends, or None."""
+    if fuzz is not None:
+        hit = fuzz.partial_ratio_alignment(want, hay, score_cutoff=FUZZ_MIN)
+        return hit.dest_end if hit is not None else None
+    # Fallback: line `want` up on its longest shared block, then score windows around it.
+    from difflib import SequenceMatcher
+
+    block = SequenceMatcher(None, want, hay, autojunk=False).find_longest_match(0, len(want), 0, len(hay))
+    if not block.size:
+        return None
+    best, end = 0.0, None
+    for start in range(max(0, block.b - block.a - 5), max(0, block.b - block.a) + 6):
+        window = hay[start:start + len(want)]
+        score = SequenceMatcher(None, want, window, autojunk=False).ratio() * 100
+        if score > best:
+            best, end = score, start + len(window)
+    return end if best >= FUZZ_MIN else None
+
+
 def _round_trip(items: list[tuple[str, str]], text: str) -> list[dict[str, Any]]:
     """Find each (label, wanted) in `text`, in order. Returns the failures."""
     squashed = _squash(text)
@@ -49,11 +73,11 @@ def _round_trip(items: list[tuple[str, str]], text: str) -> list[dict[str, Any]]
         if exact >= 0:
             cursor = exact + len(want)
             continue
-        hit = fuzz.partial_ratio_alignment(want, squashed[cursor:], score_cutoff=FUZZ_MIN)
-        if hit is not None:
-            cursor += hit.dest_end
+        end = _partial_end(want, squashed[cursor:])
+        if end is not None:
+            cursor += end
             continue
-        anywhere = fuzz.partial_ratio(want, squashed, score_cutoff=FUZZ_MIN)
+        anywhere = _partial_end(want, squashed) is not None
         reason = "out of order" if anywhere else "missing"
         failures.append({"item": label, "text": str(wanted)[:80], "reason": reason})
     return failures

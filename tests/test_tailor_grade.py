@@ -220,6 +220,27 @@ def test_regrade_scores_the_ats_again_under_todays_rules(tmp_path):
     assert regrade(app, 2, CFG) is None
 
 
+def test_regrade_scores_the_resume_that_ships(tmp_path):
+    # Amazon ICQA, Oct 27 2026: a line fixed by hand in the humanized copy kept the draft's ATS.
+    from src.tailor.grade import regrade
+    app = make_app(tmp_path)
+    fresh = run_grade(app, 1, CFG, FakeJev({}))
+    shipped = base()
+    shipped["summary"]["text"] = "Analyst."
+    for e in shipped["experience"]:
+        for b in e.get("bullets") or []:
+            b["text"] = "Did work."
+    (app / "humanize").mkdir()
+    (app / "humanize" / "resume.yaml").write_text(yaml.safe_dump(shipped, sort_keys=False), encoding="utf-8")
+    write_json(app / "humanize" / "round.json", {"round": 1})
+    write_json(app / "app.json", {"company": "Contoso Retail", "history": [], "best_round": 1})
+    assert regrade(app, 1, CFG)["ats"]["total"] < fresh["ats"]["total"]
+    # A humanized copy from another round isn't this round's resume.
+    write_json(app / "humanize" / "round.json", {"round": 2})
+    write_json(app / "app.json", {"company": "Contoso Retail", "history": [], "best_round": 2})
+    assert regrade(app, 1, CFG)["ats"] == fresh["ats"]
+
+
 def test_run_grade_without_jev_marks_everything_unchecked(tmp_path):
     app = make_app(tmp_path)
     out = run_grade(app, 1, CFG, FakeJev({}))
@@ -257,6 +278,17 @@ def test_failed_items_become_feedback_without_question_text(tmp_path):
         assert it["question"] not in out["feedback"] and "backed by a resume bullet" not in fb
     # the state sent to Jev has the name removed
     assert "Rivera" not in jev.calls[0][0]
+
+
+def test_letter_specific_is_not_met_by_the_company_name_alone(tmp_path):
+    # A repair that only wrote the company's name into the letter passed "something specific to
+    # <company>?" (Oct 25 2026). The question and its repair line ask for a fact only it has.
+    app = make_app(tmp_path)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "letter.specific" else 0.8))
+    item = next(it for it in out["checklist"] if it["id"] == "letter.specific")
+    assert "aside its name" in item["question"] and "named product" in item["question"]
+    line = next(f for f in out["feedback"] if "Contoso Retail" in f)
+    assert "verified company facts" in line and "name doesn't count" in line
 
 
 def test_unshown_must_feedback_names_only_backed_terms(tmp_path):
@@ -393,6 +425,41 @@ def test_failed_years_requirement_is_a_fit_gap(tmp_path):
     item = next(it for it in out["checklist"] if it["id"] == "must.r2")
     assert item["fit_gap"] == ["years of experience"]
     assert not any("software development" in f for f in out["feedback"])
+
+
+def test_years_beyond_the_dates_are_a_fit_gap_even_with_a_named_skill(tmp_path):
+    # Amazon ICQA, Oct 27 2026: a years must-have beyond the dates went back to repair every round,
+    # because the requirement named a term.
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][0] = {**r["requirements"][0], "text": "5+ years of SQL",
+                            "quote": "5+ years of experience writing SQL"}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r1" else 0.8))
+    item = next(it for it in out["checklist"] if it["id"] == "must.r1")
+    assert item["fit_gap"] == ["years of experience"]
+    assert not any(f.startswith("Must-have SQL") for f in out["feedback"])
+    # Years the dates do cover (the fixture's "1-2 years") leave it to repair as before.
+    r["requirements"][0] = {**r["requirements"][0], "text": "SQL", "quote": "1-2 years of experience with SQL"}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r1" else 0.8))
+    assert "fit_gap" not in next(it for it in out["checklist"] if it["id"] == "must.r1")
+
+
+def test_soft_must_is_not_asked_for_a_tool(tmp_path):
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "Empathy with store teams", "terms": ["empathy"]}
+    write_json(app / "requirements.json", r)
+    asked = {}
+
+    def answers(state, q):
+        asked[q.id] = q.text
+        return 0.8
+
+    run_grade(app, 1, CFG, FakeJev(answers))
+    assert "names a tool" not in asked["must.r2"] and "work it describes" in asked["must.r2"]
+    assert "names a tool" in asked["must.r1"]
 
 
 def test_degree_requirement_is_asked_about_education_and_never_repaired(tmp_path):

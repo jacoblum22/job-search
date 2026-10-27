@@ -2,7 +2,9 @@ from datetime import date
 
 import pytest
 
-from src.posting_status import closed_reason, deadline
+import json
+
+from src.posting_status import closed_reason, deadline, due_date, raw_deadline
 
 TODAY = date(2026, 10, 20)
 SEEN = date(2026, 10, 1)
@@ -21,6 +23,17 @@ SEEN = date(2026, 10, 1)
     ("Deadline for applications is on November 8, 2026 at 11:59 PM PST.", date(2026, 11, 8)),
     ("Applications accepted until Oct 21, 2026", date(2026, 10, 21)),
     ("Application deadline: October 30", date(2026, 10, 30)),               # no year: after first seen
+    ("Applications for this position will be accepted until **Oct. 15, 2026** **Expo", date(2026, 10, 15)),
+    ("Business UnitRegular, Full timeClosing Date: October 23, 2026  The", date(2026, 10, 23)),  # flattened page
+    ("Open until filled (expires Dec 31, 2026)", date(2026, 12, 31)),
+    ("Application window expected to close 11/14/2026.", date(2026, 11, 14)),
+    ("regular posting (APTPUO) · **Apply before 2026-11-07** **Pay:**", date(2026, 11, 7)),
+    ("Our application deadline is 40 days from the date of posting.", date(2026, 11, 10)),  # from first seen
+    ("- Application deadline 40 days from posting.", date(2026, 11, 10)),
+    ("Show how to apply  ### Advertised until  2026-10-29  **Important notice", date(2026, 10, 29)),  # Job Bank
+    ("We're accepting applications now through end of day onFriday, October 2, 2026.", date(2026, 10, 2)),
+    ("* August 2026 – Application Window Opens  * November 30, 2026\u00a0– Application Window Closes",
+     date(2026, 11, 30)),
 ])
 def test_reads_the_deadline(text, end):
     assert deadline(text, SEEN) == end
@@ -31,6 +44,9 @@ def test_reads_the_deadline(text, end):
     "The internal job posting expires on October 2, 2026 and will no longer be accessible.",
     "Job End Date\n\nAugust 31, 2027",
     "Review of applications will begin on October 1, 2026.",
+    "the internal job posting will no longer be accessible after the expiry date of October 23, 2026.",
+    "Temporary, Full-Time (Until December 27, 2027) Salary",
+    "Investigates incorrect invoices and expiry dates of contracts. Start May 2027.",
 ])
 def test_ignores_dates_that_are_not_the_closing_date(text):
     assert deadline(text, SEEN) is None
@@ -54,3 +70,23 @@ def test_filled_internally():
 
 def test_open_posting():
     assert closed_reason("SQL and dashboards. Apply by November 30, 2026.", TODAY) is None
+
+
+@pytest.mark.parametrize("raw, end", [
+    ({"jobPostingInfo": {"endDate": "2026-10-19"}, "similarJobs": [{"endDate": "2026-12-01"}]}, date(2026, 10, 19)),
+    ({"postingExpiryTimestampUTC": "2026-10-31T03:59:00+00:00"}, date(2026, 10, 30)),  # Dayforce, Pacific time
+    ({"validThrough": "2026-11-30T00:00:00-05:00"}, date(2026, 11, 30)),
+    ({"closes": "2026-11-05"}, date(2026, 11, 5)),
+    ({"expiryDate": 1793836800}, date(2026, 11, 5)),  # Unix seconds
+    ({"postingExpiryTimestampUTC": None}, None),
+    ({"id": 1}, None),
+])
+def test_reads_the_closing_date_in_source_data(raw, end):
+    assert raw_deadline(json.dumps(raw)) == end
+
+
+def test_source_data_deadline_closes_the_posting():
+    raw = json.dumps({"jobPostingInfo": {"endDate": "2026-10-19"}})
+    assert due_date("SQL and dashboards.", SEEN, raw) == date(2026, 10, 19)
+    assert closed_reason("SQL and dashboards.", TODAY, SEEN, raw) == "Closed Oct 19, 2026"
+    assert closed_reason("SQL and dashboards.", TODAY, SEEN, None) is None

@@ -463,7 +463,24 @@ score:
     title_points: 15
     title_keywords: ["junior", "jr.", "jr", "entry level", "entry-level", "new grad", "new graduate", "graduate", "associate", "level i", "level 1", "i"]
     description_points: 8
-    description_keywords: ["new grad", "new graduate", "recent graduate", "recent graduates", "entry-level", "entry level", "early career", "early-career", "0-2 years", "0–2 years", "1-2 years", "1+ years", "no experience required"]
+    # New-grad and no-experience wording has its own bonus (new_grad_open below)
+    description_keywords: ["entry-level", "entry level", "early career", "early-career"]
+
+  # The posting says outright that new grads or people without experience can
+  # apply. Counts on top of an entry-level title, but not when the posting
+  # also requires more than max_required_years.
+  new_grad_open:
+    points: 10
+    max_required_years: 1
+    patterns:
+      - "\\bnew grad(?:uate)?s?\\b"
+      - "\\brecent (?:university |college |post-?secondary )?grad(?:uate)?s?\\b"
+      - "\\b(?:graduating|graduated) (?:in|within|between|this)\\b"
+      - "\\bno (?:prior |previous |professional |work |industry |related )?experience (?:is )?(?:required|necessary|needed)"
+      - "\\bexperience (?:is )?not (?:required|necessary|needed)"
+      - "\\b(?:0|zero)\\s*(?:[-–]|to)\\s*[1-3]\\+?\\s*(?:years?|yrs?)\\b"
+      - "\\b(?:0|zero)\\+?\\s*(?:years?|yrs?)\\b"
+      - "\\bless than (?:1|one|a) years?\\b"
 
   seniority:
     title_penalties:          # first match only
@@ -471,11 +488,18 @@ score:
         points: -25
       - keywords: ["ii", "2", "level 2", "level ii", "intermediate"]
         points: -10
-    years_penalties:          # by minimum years the posting asks for
-      - {min: 0, max: 1, points: 5}   # 2 years is neutral (no rule)
-      - {min: 3, max: 3, points: -8}
-      - {min: 4, max: 4, points: -25}
-      - {min: 5, max: 5, points: -40}
+    # By minimum years the posting requires. Jake graduated May 2026 with
+    # ~4 months of work, so even 1 year costs a little.
+    years_penalties:
+      - {min: 0, max: 0, points: 8}   # "0-2 years": says no experience needed
+      - {min: 1, max: 1, points: -3}
+      - {min: 2, max: 2, points: -8}
+      - {min: 3, max: 3, points: -16}
+      - {min: 4, max: 4, points: -28}
+      - {min: 5, max: 99, points: -40}
+    # Years only preferred ("2+ years is an asset", under "Preferred
+    # Qualifications") cost this fraction of the required-years penalty
+    preferred_years_factor: 0.5
   # Asking for this many years puts a job in tier D whatever its score
   tier_d_years: 5
 

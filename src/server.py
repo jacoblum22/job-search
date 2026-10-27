@@ -123,14 +123,15 @@ class DashboardApp:
         conn = self._conn()
         try:
             job, app = self._app_for(conn, job_id)
-            group = conn.execute("SELECT description, first_seen FROM jobs WHERE dedup_group_id = "
+            group = conn.execute("SELECT description, first_seen, raw FROM jobs WHERE dedup_group_id = "
                                  "(SELECT dedup_group_id FROM jobs WHERE id = ?)", (job_id,)).fetchall()
         finally:
             conn.close()
         if job is None:
             return self._error("no such job", 404)
-        closed = next((c for d, seen in group if (c := closed_reason(d or "", seen=seen_date(seen)))), None)
-        due = max((x for d, seen in group if (x := due_date(d or "", seen_date(seen)))), default=None)
+        closed = next((c for d, seen, raw in group
+                       if (c := closed_reason(d or "", seen=seen_date(seen), raw=raw))), None)
+        due = max((x for d, seen, raw in group if (x := due_date(d or "", seen_date(seen), raw))), default=None)
         out: dict[str, Any] = {
             "job": {k: job[k] for k in ("id", "title", "company", "location", "url", "status", "tier", "score",
                                         "score_reasons", "posted_date", "first_seen", "description", "source")},

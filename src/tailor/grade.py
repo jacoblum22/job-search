@@ -24,6 +24,7 @@ from src.experience import parse_min_years_experience
 from src.resume import iter_bullets, load_resume
 from src.tailor import TailorError, rejects, taxonomy, wording
 from src.tailor.appdir import log, read_json, round_dir, write_json
+from src.tailor.checks import supported_years
 from src.tailor.evidence import degree_level
 from src.tailor.jev import Question, strip_identity
 
@@ -354,6 +355,12 @@ def _is_degree(r: dict[str, Any]) -> bool:
     return degree_level(f"{r.get('text', '')} {r.get('quote', '')}") is not None
 
 
+def _is_soft(r: dict[str, Any]) -> bool:
+    """Every term of the requirement is a soft skill ("empathy with customers")."""
+    terms = r.get("terms") or []
+    return bool(terms) and all(taxonomy.category(taxonomy.canonical(t) or "") == "Soft skills" for t in terms)
+
+
 # "Computer Science or a related field", "or equivalent", "a quantitative discipline"...
 _OPEN_FIELD = re.compile(r"\brelated\b|\bequivalent\b|\bsimilar\b|\bquantitative\b|\btechnical (?:field|discipline)", re.I)
 
@@ -414,13 +421,22 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
         if r.get("kind") == "must" and _is_degree(r):
             # A degree is shown by the education section, not by a bullet that names a tool.
             add(f"must.{r['id']}", f"Does the resume's education meet this requirement: {r.get('text') or _req_label(r)}?", req_id=r["id"])
+        elif r.get("kind") == "must" and _is_soft(r):
+            # A soft skill is shown by the work a bullet describes, not by a tool it names (Pacific Reach,
+            # Oct 27 2026: a soft-skill must-have failed a tool-and-scope question every round).
+            add(f"must.{r['id']}", f"Does a resume bullet show {r.get('text') or _req_label(r)} through the work it describes?", req_id=r["id"])
         elif r.get("kind") == "must":
             add(f"must.{r['id']}", f"Is {r.get('text') or _req_label(r)} backed by a resume bullet that names a tool and a scope?", req_id=r["id"])
     title = str(req.get("title") or "").strip()
     if title:
         add("top_third", f"Does the top third of the resume match {_a(title)} role?", sections=["summary"])
     if letter is not None:
-        add("letter.specific", f"Does the letter name something specific to {company or 'the company'}?", sections=["letter"])
+        # The company's name alone doesn't count: a repair that only added the name passed this
+        # (Vancouver Psychology Centre, Oct 25 2026). The rules file asks for a fact only true of
+        # this employer.
+        add("letter.specific", f"Leaving aside its name, does the letter state a fact that is true only of "
+            f"{company or 'the company'} (a number, or a named product, project, launch or event), not one "
+            "that any similar employer could share?", sections=["letter"])
         # One question each, about the one sentence, so a doubt about either is clear.
         opener, closer = _first_last_sentences(letter)
         if opener:
@@ -503,7 +519,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         if it["id"].startswith("must."):
             r = must_reqs[meta[it["id"]]["req_id"]]
             it["sections"] = _must_sections(data, {p for e in evidence.get("requirements") or [] if e.get("id") == r["id"] for p in e.get("passages") or []})
-    _mark_fit_gaps(items, must_reqs, evidence, text, cfg)
+    _mark_fit_gaps(items, must_reqs, evidence, text, cfg, data)
 
     rate = sum(p_pass(it) for it in items) / len(items) if items else 1.0
     score = round(0.6 * ats["total"] + 0.4 * rate * 100, 1)
@@ -530,6 +546,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         "unused_terms": gap["unused"],
         "title_missing": gap["title_missing"],
         "unused_soft_terms": gap["unused_soft"],
+        "letter_soft_terms": gap["letter_soft"],
         "unbacked_terms": gap["unbacked"],
     }
     write_json(d / "grade.json", result)
@@ -549,7 +566,11 @@ def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | No
     old = read_json(d / "grade.json")
     req = read_json(app_dir / "requirements.json")
     evidence = graded_evidence(app_dir, cfg, req)
-    data = load_resume(d / "resume.yaml")
+    from src.tailor.appdir import humanized, load_app
+
+    # The resume that ships (the humanized copy, or one fixed by hand there) when this is the best round.
+    shipped = humanized(app_dir, "resume.yaml") if int(load_app(app_dir).get("best_round") or 0) == rnd else None
+    data = load_resume(shipped or d / "resume.yaml")
     ats = ats_score(data, req, evidence, cfg, title_ok(app_dir))
     ats.pop("_repeated", None)
     items = old.get("checklist") or []
@@ -568,7 +589,8 @@ def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | No
             "ats_floor": gap["floor"], "below_floor": ats["total"] < gap["floor"], "ats_ceiling": gap["ceiling"],
             "ats_target": gap["target"], "fit_gap": gap["fit_gap"], "needs_ats_repair": gap["needs_repair"],
             "unused_terms": gap["unused"],
-        "title_missing": gap["title_missing"], "unused_soft_terms": gap["unused_soft"], "unbacked_terms": gap["unbacked"]}
+        "title_missing": gap["title_missing"], "unused_soft_terms": gap["unused_soft"], "unbacked_terms": gap["unbacked"],
+            "letter_soft_terms": gap["letter_soft"]}
 
 
 def unsaid_soft(gap: dict[str, Any], items: list[dict[str, Any]], req: dict[str, Any],
@@ -581,6 +603,9 @@ def unsaid_soft(gap: dict[str, Any], items: list[dict[str, Any]], req: dict[str,
     shown = {str(t).lower() for it in items if it["id"].startswith("must.") and it.get("passed") is True
              for t in must.get(it["id"][5:], {}).get("terms") or []}
     said = letter_text(letter)
+    # The ones only the letter names: a letter round must keep them (REW.ca, Oct 23 2026: rewording
+    # a sentence for "teamwork" dropped "knowledge sharing").
+    gap["letter_soft"] = [t for t in gap["unused_soft"] if t.lower() not in shown and wording.same(t, said)]
     gap["unused_soft"] = [t for t in gap["unused_soft"] if t.lower() not in shown and not wording.same(t, said)]
 
 
@@ -632,7 +657,7 @@ def ats_gap_lines(gap: dict[str, Any], evidence: dict[str, Any], data: dict[str,
     return out
 
 
-def _mark_fit_gaps(items, must_reqs, evidence, text, cfg) -> None:
+def _mark_fit_gaps(items, must_reqs, evidence, text, cfg, data) -> None:
     """Tag a failed must-have whose only missing terms are ones the vault doesn't back.
 
     Jev judges the whole requirement ("Python and C#/.NET"), so a real gap fails it even when
@@ -649,8 +674,11 @@ def _mark_fit_gaps(items, must_reqs, evidence, text, cfg) -> None:
             # The degree comes from the locked education entry, which no rewrite can change.
             it["fit_gap"] = ["degree"]
             continue
-        if not terms and any(parse_min_years_experience(str(r.get(k) or "")) for k in ("quote", "text")):
-            # Years of experience come from the dates, which no rewrite can change.
+        years = max((parse_min_years_experience(str(r.get(k) or "")) or 0 for k in ("quote", "text")), default=0)
+        if years and (not terms or years > supported_years(data)):
+            # Years of experience come from the dates, which no rewrite can change. A named role or
+            # tool doesn't change that (Amazon ICQA, Oct 27 2026: a years must-have that named a role
+            # was sent back to repair every round, beyond what the dates cover).
             it["fit_gap"] = ["years of experience"]
             continue
         unbacked = [t for t in terms if not _is_backed(t, backed)]
@@ -703,7 +731,9 @@ def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeate
         elif iid == "top_third":
             sentences.append(f"Rewrite the summary so the top of the resume reads as {_a(req.get('title') or 'target')} role.")
         elif iid == "letter.specific":
-            sentences.append(f"Name one concrete fact about {req.get('company') or 'the company'} from the posting in the letter.")
+            sentences.append(f"Name one fact only true of {req.get('company') or 'the company'} (a number, or a named "
+                             "product, project, launch or event) from the posting or the verified company facts "
+                             "in the letter; adding the company's name doesn't count.")
         elif iid == "letter.opener":
             sentences.append("The letter's first sentence could open any letter; start with something specific to this role.")
         elif iid == "letter.closer":
