@@ -125,5 +125,6 @@ def _build_job(job_id: str, pieces: list[str], msg: EmailMessage) -> Job:
         location=location,
         url=f"https://www.glassdoor.ca/job-listing/j?jl={job_id}",
         description=f"Salary: {salary} (employer estimate)" if salary else "",
+        posted_date=msg.internal_date.date().isoformat(),  # alerts go out within a day of posting
         raw={"gmail_message_id": msg.id, "subject": msg.subject},
     )

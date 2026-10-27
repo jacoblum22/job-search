@@ -10,6 +10,7 @@ application, are never deleted. Configure with
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from datetime import UTC, date, datetime, timedelta
@@ -37,13 +38,15 @@ CREATE TABLE IF NOT EXISTS pruned_jobs (
 """
 
 _DAYS_AGO = re.compile(r"(\d+)\+?\s+days?\s+ago", re.IGNORECASE)
+_MONTH_NAME_FORMATS = ("%B %d, %Y", "%b %d, %Y", "%d %B %Y", "%d %b %Y")
 
 
 def parse_posted(value: object, today: date | None = None) -> date | None:
     """Best-effort posted date from the many formats sources use.
 
-    Handles ISO dates/timestamps, RFC 822 dates, M/D/YYYY, epoch milliseconds, and Workday's
-    "Posted Today" / "Posted Yesterday" / "Posted 30+ Days Ago". None when unknown.
+    Handles ISO dates/timestamps, RFC 822 dates, M/D/YYYY and M/D/YY, "September 25, 2026",
+    epoch milliseconds, and Workday's "Posted Today" / "Posted Yesterday" /
+    "Posted 30+ Days Ago". None when unknown.
     """
     if value is None or value == "":
         return None
@@ -54,14 +57,20 @@ def parse_posted(value: object, today: date | None = None) -> date | None:
     text = str(value).strip()
     if m := re.match(r"(\d{4})-(\d{2})-(\d{2})", text):
         return date(int(m[1]), int(m[2]), int(m[3]))
-    if m := re.match(r"(\d{1,2})/(\d{1,2})/(\d{4})$", text):
-        return date(int(m[3]), int(m[1]), int(m[2]))
+    if m := re.match(r"(\d{1,2})/(\d{1,2})/(\d{4}|\d{2})$", text):
+        year = int(m[3]) + (2000 if len(m[3]) == 2 else 0)  # SuccessFactors lists "8/27/26"
+        return date(year, int(m[1]), int(m[2]))
     if text.isdigit():
         return parse_posted(int(text), today)
     try:  # RFC 822, e.g. "Wed, 30 Sep 2026 07:17:19 GMT" (Adzuna, RSS feeds)
         return parsedate_to_datetime(text).date()
     except (TypeError, ValueError, IndexError):
         pass
+    for fmt in _MONTH_NAME_FORMATS:  # Job Bank: "September 25, 2026"
+        try:
+            return datetime.strptime(text.replace("Sept ", "Sep "), fmt).date()
+        except ValueError:
+            pass
     lower = text.lower()
     if "today" in lower or "just posted" in lower:
         return today
@@ -69,6 +78,24 @@ def parse_posted(value: object, today: date | None = None) -> date | None:
         return today - timedelta(days=1)
     if m := _DAYS_AGO.search(text):
         return today - timedelta(days=int(m[1]))
+    return None
+
+
+def posted_on(posted_date: object, raw: object = None, seen: date | None = None) -> date | None:
+    """The day a posting says it went up: its posted date, else the listed date some
+    sources keep in raw (SuccessFactors list pages). Relative wordings ("Posted
+    Yesterday") count back from `seen`, the day that wording was scraped. None when
+    the posting gives no date.
+    """
+    if (day := parse_posted(posted_date, seen)) is not None:
+        return day
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return None
+    if isinstance(raw, dict):
+        return parse_posted(raw.get("listed_date"), seen)
     return None
 
 

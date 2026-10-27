@@ -152,6 +152,7 @@ def parse_message(msg: EmailMessage) -> list[Job]:
                 location=location,
                 url=url,
                 description="\n\n".join(d for d in details if d),
+                posted_date=msg.internal_date.date().isoformat(),  # alerts go out within a day of posting
                 raw={"gmail_message_id": msg.id, "subject": msg.subject},
             )
         )

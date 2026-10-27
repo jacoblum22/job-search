@@ -155,6 +155,22 @@ def test_rows_and_details_carry_the_deadline(env):
     assert get(env, f"/api/job/{env['other']}")[1]["deadline"] is None
 
 
+def test_rows_carry_when_first_posted(env):
+    conn = connect(env["cfg"]["paths"]["db"])
+    conn.execute("UPDATE jobs SET posted_date = 'September 25, 2026' WHERE id = ?", (env["jid"],))
+    conn.execute("UPDATE jobs SET posted_date = NULL, first_seen = '2026-10-20T10:00:00+00:00' WHERE id = ?",
+                 (env["other"],))
+    conn.commit()
+    rows = json.loads(render_dashboard(conn).split('type="application/json">')[1].split("</script>")[0])
+    conn.close()
+    by_title = {r["title"]: r for r in rows}
+    assert (by_title["Junior Analyst"]["posted"], by_title["Junior Analyst"]["posted_given"]) == ("2026-09-25", True)
+    # No date in the posting: the day it was first seen, marked as such.
+    assert (by_title["Data Analyst"]["posted"], by_title["Data Analyst"]["posted_given"]) == ("2026-10-20", False)
+    assert get(env, f"/api/job/{env['jid']}")[1]["posted"] == "2026-09-25"
+    assert get(env, f"/api/job/{env['other']}")[1]["posted"] is None
+
+
 # --- retention ------------------------------------------------------------
 
 

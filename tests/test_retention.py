@@ -1,7 +1,7 @@
 from datetime import date
 
 from src.db import Job, connect, upsert_job
-from src.retention import is_stale, parse_posted, prune, pruned_keys
+from src.retention import is_stale, parse_posted, posted_on, prune, pruned_keys
 
 TODAY = date(2026, 10, 15)
 
@@ -15,6 +15,28 @@ def test_parse_posted_formats():
     assert parse_posted("Posted 30+ Days Ago", TODAY) == date(2026, 9, 15)
     assert parse_posted("", TODAY) is None
     assert parse_posted("soon", TODAY) is None
+    assert parse_posted("September 25, 2026", TODAY) == date(2026, 9, 25)  # Job Bank
+    assert parse_posted("Sept 5, 2026", TODAY) == date(2026, 9, 5)
+    assert parse_posted("8/27/26", TODAY) == date(2026, 8, 27)  # SuccessFactors list
+
+
+def test_posted_on_falls_back_to_the_listed_date_and_counts_from_the_scrape():
+    assert posted_on("2026-10-01", '{"listed_date": "8/27/26"}') == date(2026, 10, 1)
+    assert posted_on(None, '{"listed_date": "8/27/26"}') == date(2026, 8, 27)
+    assert posted_on("Posted Yesterday", None, TODAY) == date(2026, 10, 14)
+    assert posted_on(None, '{"subject": "x"}') is None
+    assert posted_on(None, None) is None
+
+
+def test_a_later_alert_email_keeps_the_first_posted_date(tmp_path):
+    conn = connect(tmp_path / "jobs.db")
+    email = {"gmail_message_id": "m1"}
+    upsert_job(conn, Job("linkedin", "1", "Data Analyst", "C", "Vancouver, BC", posted_date="2026-10-01", raw=email))
+    upsert_job(conn, Job("linkedin", "1", "Data Analyst", "C", "Vancouver, BC", posted_date="2026-10-09", raw=email))
+    upsert_job(conn, Job("greenhouse", "2", "Data Analyst", "C", "Vancouver, BC", posted_date="2026-10-01"))
+    upsert_job(conn, Job("greenhouse", "2", "Data Analyst", "C", "Vancouver, BC", posted_date=None))
+    dates = dict(conn.execute("SELECT source, posted_date FROM jobs").fetchall())
+    assert dates == {"linkedin": "2026-10-01", "greenhouse": "2026-10-01"}
 
 
 def test_is_stale():
