@@ -16,6 +16,7 @@ from src.resume import iter_bullets
 from src.tailor import TailorError, appdir
 from src.tailor.evidence import term_mentioned
 from src.tailor.jev import Question
+from src.tailor.entries import available as entry_available
 from src.tailor.sources import bullet_paths, load_bases, load_index
 
 JEV_TIE_POINTS = 5.0
@@ -109,6 +110,8 @@ def run_base(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
         "base_id": chosen, "base_scores": scores, "reachable_pct": potential[chosen], "jev_pick": pick,
         "bullet_relevance": relevance, "candidate_passages": candidates,
         "protected_paths": protected,
+        # Jobs and projects from the other bases or entries.yaml the draft may add (entries.py).
+        "entry_library": entry_available(cfg, base),
     })
     appdir.write_json(path, plan)
     appdir.log(app_dir, "base", f"base {chosen} (shows {scores[chosen]}% now, {potential[chosen]}% reachable)", base_id=chosen)

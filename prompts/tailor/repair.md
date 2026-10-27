@@ -49,6 +49,8 @@ already passed.
    Add the word without trading away what makes the line specific: keep its tools, methods and scope
    ("CTEs, window functions, views") and cut filler instead. A line stripped to fit the term reads as
    one any candidate could write, and the grader marks it down for that.
+   Build the word into the sentence; don't bolt it on as an add-on phrase ("a Google Apps Script
+   automation, a small ETL job") or pad it with words like "small" or "simple".
 5. **Missing must-have that the vault backs** (the feedback names the passage): show it in a bullet
    with the tool and scope, citing that passage. **A must-have that is ABSENT stays absent.** Do not
    add it to satisfy the grader.
@@ -79,6 +81,36 @@ teammates, "communication" where the letter says the candidate explained results
 `keep_soft` lists soft skills only the letter names now: when you reword a sentence, keep each of
 those words in it (`next-round` reports any the new letter dropped).
 Everything else in this prompt still applies to the letter.
+
+## Review round
+
+When `feedback.json` has `"review": true`, the round acts on an outside reviewer's notes
+(`review/notes.md`, written by a reader who never saw the vault or the rules). It builds on round
+`B`, and `sections` allow the whole resume and the letter.
+
+Read every note and decide, one by one:
+
+- **Act on it** when it is about wording, emphasis, order, what to cut, or evidence the vault
+  already shows: a clearer summary for this role, the posting's word for work a cited passage
+  describes, a dropped grade or internal name, a filler word cut, the letter's strongest story
+  moved up, a closing ask added. Use the advice sections of `resume-edits.md` and `cover-letter.md`.
+- **Leave it** when acting would need something the vault doesn't back (an outcome number, a tool,
+  a result), or would break the rules file (AlgaeCal metrics, dates, titles). A reviewer's
+  "[number]" stays out unless a cited passage has that number.
+- When two notes pull against each other, or a note would cost the posting's keywords, use
+  judgment: the ATS words the posting cares about still matter.
+
+All step-4 grounding rules still apply, and the resume must still fit one page (prefer replacing to
+adding). Write `edits.json` (an empty list is fine if nothing for the resume is worth doing) and a
+`cover-letter.json` if the letter changes. Then write `review/response.json`, one entry per note:
+
+```json
+[{"note": "Summary names the Loyalty team", "action": "changed", "why": "now says marketing and other business teams"},
+ {"note": "Quantify the Apps Script time saved", "action": "left", "why": "no number in the vault"}]
+```
+
+`note` is a short plain summary of the reviewer's point; `why` says what changed or why not, in a
+few words. Jake reads these in check.md.
 
 ## Output
 

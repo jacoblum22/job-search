@@ -290,25 +290,30 @@ def _sections(cur: dict[str, Any]) -> list[str]:
 
 
 def _finish_letter_round(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[str, Any],
-                         feedback: dict[str, Any]) -> dict[str, Any]:
+                         feedback: dict[str, Any], review: bool = False, ats_drop: float = 2.0) -> dict[str, Any]:
     """A letter-only round ends the loop. It keeps the resume it built on, so it becomes the best
     unless the new letter added a critical: comparing Jev's answers on the same resume again would
-    only pick between coin flips. A soft skill the old letter named that the new one dropped is
-    named in the reason, so the run reports it."""
+    only pick between coin flips. A review round (outside.py) ends it the same way, and also loses
+    to the round it built on when its ATS estimate fell more than `ats_drop` points. A soft skill
+    the old letter named that the new one dropped is named in the reason, so the run reports it."""
     from src.tailor import wording
     from src.tailor.grade import letter_text
 
     build_on = feedback.get("build_on")
     base = next((r for r in rounds if r["round"] == build_on), None) or _best(rounds[:-1])
-    if cur["criticals"] <= base["criticals"]:
-        best, reason = cur, f"letter round done: round {cur['round']} is round {base['round']}'s resume with the new letter"
+    dropped = review and (cur["ats"] or 0) < (base["ats"] or 0) - ats_drop
+    if cur["criticals"] <= base["criticals"] and not dropped:
+        what = "the outside review acted on" if review else "round {0}'s resume with the new letter".format(base["round"])
+        best, reason = cur, f"{'review' if review else 'letter'} round done: round {cur['round']} is {what}"
+    elif dropped:
+        best, reason = base, f"review round {cur['round']} lost ATS points: keeping round {base['round']}"
     else:
-        best, reason = base, f"letter round {cur['round']} added a critical: keeping round {base['round']}"
+        best, reason = base, f"{'review' if review else 'letter'} round {cur['round']} added a critical: keeping round {base['round']}"
     path = round_dir(app_dir, cur["round"]) / "cover-letter.json"
     said = letter_text(read_json(path)) if path.exists() else ""
-    dropped = [t for t in feedback.get("keep_soft") or [] if not wording.same(t, said)]
-    if dropped:
-        reason += f"; the new letter no longer names {', '.join(dropped)}, which round {base['round']}'s did"
+    lost = [t for t in feedback.get("keep_soft") or [] if not wording.same(t, said)]
+    if lost:
+        reason += f"; the new letter no longer names {', '.join(lost)}, which round {base['round']}'s did"
     summaries = [
         {"round": r["round"], "score": r["score"], "criticals": r["criticals"], "failed_items": r["failed_items"]}
         for r in rounds
@@ -329,9 +334,10 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     cur, prev = rounds[-1], rounds[:-1]
     best = _best(rounds)
 
-    letter_only = _feedback(app_dir, cur["round"])
-    if letter_only.get("letter_only") and prev:
-        return _finish_letter_round(app_dir, rounds, cur, letter_only)
+    side = _feedback(app_dir, cur["round"])
+    if (side.get("letter_only") or side.get("review")) and prev:
+        return _finish_letter_round(app_dir, rounds, cur, side, review=bool(side.get("review")),
+                                    ats_drop=float(loop_cfg.get("min_gain", 2.0)))
 
     # Jake, Oct 23 2026: more than `wide_gap` points under what the evidence allows isn't acceptable,
     # so while the best round is that far off and the last round still raised its ATS, the loop gets

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from src.resume import load_resume
-from src.tailor import TailorError, appdir, explain, rejects, review, store
+from src.tailor import TailorError, appdir, explain, outside, rejects, review, store
 from src.tailor.paths import resolve
 from src.tailor.sources import load_index, load_titles
 
@@ -233,6 +233,13 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             info.append("- Keyword stuffing suspected: the score is high only because terms repeat")
     else:
         info.append("- No grade available")
+    replies = outside.response(app_dir)
+    if replies:
+        info += ["", "## Outside review", ""] + _note(explain.OUTSIDE)
+        for r in replies:
+            done = "Changed" if str(r.get("action", "")).lower().startswith("change") else "Left as is"
+            why = f": {r['why']}" if r.get("why") else ""
+            info.append(f"- {done}: {r['note']}{why}")
     # Jev's "no" answers are advice; listing them lets the candidate catch a false rejection.
     said_no = [it for it in (grade or {}).get("checklist") or [] if it.get("passed") is False]
     ev_no = (_opt_json(app_dir / "evidence.json") or {}).get("jev_said_no") or []

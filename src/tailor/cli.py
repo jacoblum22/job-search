@@ -98,11 +98,20 @@ def evidence(app_dir):
 @main.command()
 @click.argument("ids", nargs=-1, required=True)
 def passages(ids):
-    """Print vault passages by id (instead of searching vault-index.json)."""
+    """Print vault passages by id (instead of searching vault-index.json). An id ending in ".*"
+    (`vhf.*`) prints every claim passage of that vault file."""
     from src.tailor.sources import load_index
 
     index = load_index(load_config())
-    _out({i: (index[i].get("text") if i in index else None) for i in ids})
+    out = {}
+    for i in ids:
+        if i.endswith(".*"):
+            pre = i[:-1]
+            out.update({k: p.get("text") for k, p in index.items()
+                        if k.startswith(pre) and p.get("use", "claim") == "claim"})
+        else:
+            out[i] = index[i].get("text") if i in index else None
+    _out(out)
 
 
 @main.command()
@@ -236,6 +245,26 @@ def next_round_cmd(app_dir):
     _out(next_round(app_dir, load_config()))
 
 
+@main.command("review-input")
+@APP
+def review_input_cmd(app_dir):
+    """Step 7b: write review/input.md (posting, best resume, letter) for the outside reviewer."""
+    from src.tailor.outside import review_input
+
+    _out(review_input(app_dir))
+
+
+@main.command("review-round")
+@APP
+def review_round_cmd(app_dir):
+    """Step 7b: after review/notes.md is written, ask for one round that acts on it."""
+    from src.tailor.outside import review_round
+
+    fb = review_round(app_dir)
+    _out({"action": "repair", "next_round": fb["round"], "build_on": fb["build_on"]} if fb
+         else {"action": "stop", "reason": "no notes, a round is already pending, or the review round was done"})
+
+
 @main.command("humanize-flags")
 @APP
 def humanize_flags_cmd(app_dir):
@@ -320,7 +349,7 @@ def pending():
         except ValueError:
             shown = str(folder)
         out.append({"app": shown, "round": rnd, "build_on": fb.get("build_on"),
-                    "kind": "letter" if fb.get("letter_only") else "repair"})
+                    "kind": "letter" if fb.get("letter_only") else "review" if fb.get("review") else "repair"})
     _out(out)
 
 

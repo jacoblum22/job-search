@@ -63,6 +63,9 @@ ISSUES = ("Automatic checks on the final resume and letter. Pick Keep if it's fi
           "you'll change it before applying. Remove only records your choice: edit the file yourself, then "
           "rerun the render and packet steps.")
 NOTES = "Things the pipeline already handled. Nothing to decide; they're here so you know."
+OUTSIDE = ("After the repair rounds, a fresh reviewer that never saw your vault read the posting, resume and "
+           "letter and gave notes. The last round acted on the ones your vault and rules allow. Nothing to "
+           "decide; the changes are in the resume and letter, and in Changes from the base.")
 
 # ---------------------------------------------------------------------------
 # Where in the resume
@@ -380,8 +383,6 @@ _ISSUES: dict[str, tuple[str, str]] = {
                              "Only claim familiarity you can back up."),
     "keen_to_grow": ("The letter says it's keen to learn or grow more than once.",
                      "Once reads as eager; more reads as inexperienced."),
-    "keen_not_must": ("The letter says you're keen to grow into something, but every must-have is covered.",
-                      "Only a missing must-have earns that line; otherwise it just reads as inexperienced."),
     "course_grade": ("The letter uses a course grade as evidence ({term}).",
                      "The work is the evidence; name what you built or did instead."),
     "no_company_fact": ("The letter doesn't mention a checked fact about the company.",
