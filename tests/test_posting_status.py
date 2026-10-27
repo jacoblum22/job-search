@@ -90,3 +90,11 @@ def test_source_data_deadline_closes_the_posting():
     assert due_date("SQL and dashboards.", SEEN, raw) == date(2026, 10, 19)
     assert closed_reason("SQL and dashboards.", TODAY, SEEN, raw) == "Closed Oct 19, 2026"
     assert closed_reason("SQL and dashboards.", TODAY, SEEN, None) is None
+
+
+def test_source_data_date_a_year_out_is_no_deadline():
+    # iCIMS sends validThrough as a year from the day the page was fetched.
+    raw = json.dumps({"validThrough": "2027-10-27T00:00:00-07:00"})
+    assert due_date("SQL and dashboards.", date(2026, 10, 16), raw) is None
+    near = json.dumps({"validThrough": "2027-01-15T00:00:00-08:00"})
+    assert due_date("SQL and dashboards.", date(2026, 10, 16), near) == date(2027, 1, 15)
