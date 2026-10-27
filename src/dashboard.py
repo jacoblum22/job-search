@@ -50,6 +50,13 @@ _TEMPLATE = r"""<!DOCTYPE html>
   header { padding: 20px 24px; border-bottom: 1px solid var(--border); }
   h1 { margin: 0 0 4px; font-size: 20px; }
   .meta { color: var(--muted); font-size: 13px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .runbox { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .runbox[hidden] { display: none; }
+  .runbox input { width: 56px; }
+  .runbox button { background: var(--accent); border: 0; color: #fff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .runbox button:disabled { background: var(--dismissed); cursor: default; }
+  .runbox .runstate { flex-basis: 100%; text-align: right; max-width: 420px; }
   .controls { display: flex; gap: 12px; flex-wrap: wrap; padding: 16px 24px; border-bottom: 1px solid var(--border); align-items: center; }
   input, select { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
   input[type=text] { min-width: 240px; }
@@ -151,8 +158,16 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <body>
 <div class="wrap">
 <header>
-  <h1>Job Aggregator Dashboard</h1>
-  <div class="meta">Generated __GENERATED_AT__ &middot; __TOTAL__ postings across __SOURCES__ sources</div>
+  <div>
+    <h1>Job Aggregator Dashboard</h1>
+    <div class="meta">Generated __GENERATED_AT__ &middot; __TOTAL__ postings across __SOURCES__ sources</div>
+  </div>
+  <div class="runbox" id="runBox" hidden>
+    <label for="runLimit">Jobs</label>
+    <input type="number" id="runLimit" min="1" max="10" value="3">
+    <button id="runBtn">Run tailoring</button>
+    <div class="runstate" id="runState"></div>
+  </div>
 </header>
 <div class="tabs" role="tablist">
   <button class="tab" role="tab" data-tab="fulltime" id="tab-fulltime">Full-time<span class="n"></span></button>
@@ -242,6 +257,37 @@ window.addEventListener('pageshow', e => {
     }
   } catch (_) {}
 });
+// Run tailoring: starts scripts/run_tailoring.ps1 -Limit N on the PC the server runs on.
+if (SERVER) {
+  const box = document.getElementById('runBox'), btn = document.getElementById('runBtn');
+  const state = document.getElementById('runState'), limitEl = document.getElementById('runLimit');
+  let timer = null;
+  const show = s => {
+    btn.disabled = s.running;
+    limitEl.max = s.max;
+    if (s.running) {
+      const what = s.by === 'dashboard' ? `Tailoring ${s.limit} job${s.limit === 1 ? '' : 's'} (started ${new Date(s.started).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})})`
+                                        : 'The 9:00 tailoring task is running';
+      state.textContent = `${what}. It scrapes first, then drafts each job, so it takes a while.` + (s.last_log ? ` Last: ${s.last_log}` : '');
+    } else {
+      state.textContent = s.last_log ? `Last run: ${s.last_log}` : '';
+    }
+    clearTimeout(timer);
+    if (s.running) timer = setTimeout(refresh, 30000);
+  };
+  const refresh = () => fetch('/api/tailoring').then(r => r.json()).then(show).catch(() => {});
+  btn.addEventListener('click', async () => {
+    const n = parseInt(limitEl.value, 10);
+    if (!(n >= 1 && n <= parseInt(limitEl.max, 10))) { state.textContent = `Pick 1 to ${limitEl.max} jobs.`; return; }
+    btn.disabled = true;
+    const r = await fetch('/api/tailoring', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                             body: JSON.stringify({limit: n})});
+    const data = await r.json().catch(() => ({}));
+    if (r.ok) show(data.result); else { state.textContent = data.error || 'Could not start the run.'; btn.disabled = false; }
+  });
+  box.hidden = false;
+  refresh();
+}
 const rawJobs = JSON.parse(document.getElementById('jobs-data').textContent);
 const jobs = rawJobs.map(j => ({...j, sourcesStr: j.sources.join(', ')}));
 

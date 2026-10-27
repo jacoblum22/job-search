@@ -1,5 +1,6 @@
 """Local dashboard server: the dashboard plus a details page per job where you can
-tick check.md, approve, and record what happened, without the command line.
+tick check.md, approve, and record what happened, without the command line. The
+dashboard's "Run tailoring" button starts a tailoring run on this PC (src/tailor_runner.py).
 
 Run with `uv run python scripts/serve.py`. It listens on 127.0.0.1 only. Requests
 that change anything must be JSON from the page itself (same Origin and Host), so
@@ -27,6 +28,7 @@ from src.posting_status import closed_reason, due_date, seen_date
 from src.retention import posted_on
 from src.tailor import TailorError, rejects, review, store
 from src.tailor.packet import OUTCOMES, approve, record_outcome
+from src.tailor_runner import TailoringRunner
 
 Response = tuple[int, str, bytes]
 _JOB = re.compile(r"^/(?:api/)?job/(\d+)(/.*)?$")
@@ -36,8 +38,10 @@ _SERVABLE = {".pdf", ".docx", ".md", ".json", ".yaml"}
 
 class DashboardApp:
     def __init__(self, cfg: dict[str, Any], db_path: Path, dashboard_path: Path | None = None,
-                 port: int = 8765, extra_hosts: tuple[str, ...] = ()) -> None:
+                 port: int = 8765, extra_hosts: tuple[str, ...] = (),
+                 runner: TailoringRunner | None = None) -> None:
         self.cfg = cfg
+        self.runner = runner or TailoringRunner()
         self.db_path = Path(db_path)
         self.dashboard_path = dashboard_path
         self.origins = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
@@ -100,6 +104,8 @@ class DashboardApp:
                 return 200, "text/html; charset=utf-8", render_dashboard(conn, server=True).encode()
             finally:
                 conn.close()
+        if path == "/api/tailoring":
+            return self._json(self.runner.status())
         m = _JOB.match(path)
         if not m:
             return self._error("not found", 404)
@@ -196,6 +202,8 @@ class DashboardApp:
     # --- changes --------------------------------------------------------
 
     def _post(self, path: str, data: dict[str, Any]) -> Response:
+        if path == "/api/tailoring":
+            return self._json({"ok": True, "result": self.runner.start(data.get("limit"))})
         m = _JOB.match(path)
         if not m or not path.startswith("/api/job/"):
             return self._error("not found", 404)
