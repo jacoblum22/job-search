@@ -25,9 +25,10 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Sequence
 
-import httpx
+if TYPE_CHECKING:
+    import httpx
 
 
 @dataclass
@@ -299,6 +300,9 @@ class JevClient:
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         retries = int(self.cfg["max_retries"])
         error = "unknown error"
+        # Imported here so code that only builds questions (the `why` re-check) runs without httpx.
+        import httpx
+
         with httpx.Client(transport=self._transport, timeout=float(self.cfg["timeout_s"])) as http:
             for attempt in range(retries + 1):
                 delay = min(2.0**attempt, _MAX_BACKOFF_S)

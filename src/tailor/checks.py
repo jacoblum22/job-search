@@ -30,7 +30,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from rapidfuzz import fuzz
 
 from src.resume import iter_bullets, load_resume, validate
 from src.tailor import metrics, phrases, rejects, taxonomy, wording
@@ -199,6 +198,10 @@ def _count(term: str, text: str) -> int:
 
 
 def _similarity(text: str, passages: list[str]) -> float:
+    # Imported here so the code-only re-check (`why`, `repacket`), which never scores similarity,
+    # runs in a shell without rapidfuzz (the device VM's Python can't install it).
+    from rapidfuzz import fuzz
+
     t = norm(text)
     best = 0.0
     for p in [*passages, " ".join(passages)] if len(passages) > 1 else passages:
