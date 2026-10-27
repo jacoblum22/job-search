@@ -160,10 +160,20 @@ def raw_deadline(raw: str | None) -> date | None:
     return None
 
 
+# Some sites fill the source-data closing date with a stand-in a year out (iCIMS sends
+# "validThrough" as a year from the day the page is fetched), so a date this far past
+# the day the job was first seen is no deadline.
+_PLACEHOLDER_DAYS = 180
+
+
 def due_date(description: str, seen: date | None = None, raw: str | None = None) -> date | None:
     """The posting's deadline from its text or its source data, remembered: the dashboard
     shows it for every job on every load. The later date wins if the two differ."""
-    dates = [d for d in (_scan(description or "", seen or date.today())[1], raw_deadline(raw)) if d]
+    seen = seen or date.today()
+    data = raw_deadline(raw)
+    if data and data > seen + timedelta(days=_PLACEHOLDER_DAYS):
+        data = None
+    dates = [d for d in (_scan(description or "", seen)[1], data) if d]
     return max(dates) if dates else None
 
 
