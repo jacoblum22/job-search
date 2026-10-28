@@ -552,3 +552,23 @@ def test_narrower_phrase_backed_only_through_its_skill_is_not_pushed(tmp_path):
     # "reporting pipelines" is backed as reporting, but the vault doesn't say the phrase.
     assert out["unused"] == ["key performance indicators"]
     assert out["unbacked"] == []
+
+
+def test_required_term_only_in_the_summary_is_a_repair_note():
+    # Nexthop new grad, Oct 28 2026: "software engineering" was only in the summary, so the skills part
+    # scored it missing while the gap report (whole resume) never asked for it.
+    from src.tailor.grade import ats_gap, ats_gap_lines
+    data = {"summary": {"id": "summary", "text": "Developer doing software engineering with pytest."},
+            "skills": [{"id": "skills.languages", "label": "Languages", "items": ["Python"]}],
+            "experience": [{"id": "x", "title": "Dev", "company": "Co", "dates": "2025", "bullets": [
+                {"id": "x.a", "text": "Built Python scripts.", "sources": []}]}]}
+    req = {"requirements": [{"id": "r1", "kind": "must", "text": "Python and software engineering",
+                             "terms": ["Python", "software engineering"], "weight": "role"}], "keywords": []}
+    ev = {"present": ["Python", "software engineering"], "terms": []}
+    gap = ats_gap(data, req, ev, {"ats_floor": 90}, None)
+    assert gap["summary_only"] == ["software engineering"] and gap["unused"] == []
+    assert gap["needs_repair"]
+    line = {g["id"]: g for g in ats_gap_lines(gap, ev, data)}["ats.summary_only"]
+    assert "software engineering" in line["sentence"] and "summary" not in line["sections"]
+    data["experience"][0]["bullets"][0]["text"] = "Built Python scripts as part of software engineering work."
+    assert ats_gap(data, req, ev, {"ats_floor": 90}, None)["summary_only"] == []
