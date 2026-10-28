@@ -16,9 +16,9 @@ access to the Postgres server:
     .browser-queue/<id>.fail    written by the task: one line on why it couldn't
 
 import_results() stores those files and moves them to .browser-queue/done/.
-Every scrape (scripts/aggregate.py) imports first and exports a fresh queue at
-the end; `scripts/browser_queue.py sync` does both by hand or from Task
-Scheduler.
+`scripts/browser_queue.py sync` does both, on the desktop: every morning from
+run_tailoring.ps1, and by hand or from Task Scheduler. Not from the scrape,
+which runs in Azure where this folder doesn't exist.
 
 CareerJet links block plain HTTP fetches but open in a real browser
 (4/5 in testing, 2026-10-15; added at Jake's request). The browser session

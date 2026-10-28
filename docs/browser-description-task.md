@@ -16,15 +16,17 @@ folder.
 The task only reads and writes files in `.browser-queue/` (git-ignored); it
 never runs a command and never touches the database:
 
-- `.browser-queue/queue.json`: what to open. Every scrape writes it at the
-  end (scripts/aggregate.py, so the 9:00 AM run_tailoring.ps1 scrape keeps it
-  fresh), as does `.venv\Scripts\python.exe scripts\browser_queue.py sync`.
+- `.browser-queue/queue.json`: what to open. The 9:00 AM run_tailoring.ps1
+  run writes it with `.venv\Scripts\python.exe scripts\browser_queue.py sync`
+  (after the 7:00 AM Azure scrape, or its own fallback scrape).
 - `.browser-queue/<id>.md`: a description the task read.
 - `.browser-queue/<id>.fail`: one line on why it couldn't (closed, login,
   CAPTCHA...).
 
-The next scrape (or `sync`) stores those files in the database, rescored on
-the same run, and moves them to `.browser-queue/done/<date>/`.
+The next `sync` stores those files in the database and moves them to
+`.browser-queue/done/<date>/`; the tailoring queue right after it rescores
+them. `sync` runs on the desktop, not in the scrape, because the scrape runs
+in Azure (docs/azure-scrape-job.md), where this folder doesn't exist.
 
 Why: the desktop app may run the task in a Linux shell with this folder
 mounted (that's what happened on Oct 28 2026, when it couldn't run
@@ -35,7 +37,7 @@ same in the Linux shell and in a native Windows session, so it can't break
 that way again.
 
 Optional, for descriptions on the dashboard the same evening instead of after
-the next morning's scrape, register a Task Scheduler entry that runs `sync`
+the next morning's tailoring run, register a Task Scheduler entry that runs `sync`
 at 9:30 PM (PowerShell, from this folder):
 
 ```powershell
