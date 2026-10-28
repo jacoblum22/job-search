@@ -145,7 +145,7 @@ models:
       - name: reached_offer
         description: Offer.
       - name: days_seen_to_drafted
-        description: Days from the job first being seen to the packet being drafted.
+        description: Days from any board first showing the job to the packet being drafted.
       - name: days_drafted_to_outcome
         description: Days from drafting to the latest outcome.
 

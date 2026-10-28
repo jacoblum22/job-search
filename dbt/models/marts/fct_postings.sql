@@ -9,7 +9,8 @@ with jobs as (
         coalesce(a.canonical, j.company) as company_name,
         row_number() over (
             partition by j.dedup_group_id
-            order by j.description_length desc nulls last, j.job_id
+            -- ties: the newest copy, as the dashboard's newest-first order does
+            order by j.description_length desc nulls last, j.first_seen_at desc, j.job_id desc
         ) as copy_rank
     from {{ ref('stg_app__jobs') }} as j
     left join {{ ref('company_aliases') }} as a on a.alias = j.company

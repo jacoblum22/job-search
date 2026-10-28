@@ -14,7 +14,9 @@ jobs as (
         coalesce(a.canonical, j.company) as company,
         j.location_category,
         j.tier,
-        j.first_seen_at
+        -- the first time any board showed the job (a later board's copy can be the
+        -- one the packet was made from)
+        min(j.first_seen_at) over (partition by j.dedup_group_id) as first_seen_at
     from {{ ref('stg_app__jobs') }} as j
     left join {{ ref('company_aliases') }} as a on a.alias = j.company
 )
