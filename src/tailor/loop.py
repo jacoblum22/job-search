@@ -120,7 +120,7 @@ _ATS_NOTES = ("Use the posting's own words", "Open the summary's first sentence 
 
 def _wide_gap(r: dict[str, Any], loop_cfg: dict[str, Any]) -> bool:
     ceiling = r["grade"].get("ats_ceiling")
-    return ceiling is not None and (r["ats"] or 0) < float(ceiling) - float(loop_cfg.get("wide_gap", 10))
+    return ceiling is not None and (r["ats"] or 0) < float(ceiling) - float(loop_cfg.get("wide_gap", 8))
 
 
 def gap_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
@@ -148,7 +148,7 @@ def gap_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
     data = load_resume(rdir / "resume.yaml")
     gap = ats_gap(data, req, evidence, cfg, _vault_wording(app_dir, cfg), title_ok=title_ok(app_dir))
     total = ats_score(data, req, evidence, cfg, title_ok(app_dir))["total"]
-    if total >= gap["ceiling"] - float((cfg.get("loop") or {}).get("wide_gap", 10)):
+    if total >= gap["ceiling"] - float((cfg.get("loop") or {}).get("wide_gap", 8)):
         return None
     grade = read_json(rdir / "grade.json")
     check = read_json(rdir / "check.json") if (rdir / "check.json").exists() else {}
@@ -170,7 +170,7 @@ def gap_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
         "sections": _sections({"check": check, "grade": grade}),
     }
     write_json(round_dir(app_dir, nxt) / "feedback.json", feedback)
-    log(app_dir, "gap-round", f"round {nxt}: ATS {total} is more than {(cfg.get('loop') or {}).get('wide_gap', 10)} "
+    log(app_dir, "gap-round", f"round {nxt}: ATS {total} is more than {(cfg.get('loop') or {}).get('wide_gap', 8)} "
         f"under the {gap['ceiling']} the evidence allows; repairing again from round {best}")
     return feedback
 
@@ -341,7 +341,8 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
 
     # Jake, Oct 23 2026: more than `wide_gap` points under what the evidence allows isn't acceptable,
     # so while the best round is that far off and the last round still raised its ATS, the loop gets
-    # up to `max_rounds_wide_gap` drafts.
+    # up to `max_rounds_wide_gap` drafts. Jake, Oct 28 2026: 8 points, not 10 (Nexthop new grad
+    # stopped at the 3-draft limit 8.5 under, after a round that gained 3.2).
     max_rounds = loop_cfg.get("max_rounds", 3)
     if _wide_gap(best, loop_cfg) and (not prev or (best["ats"] or 0) > (_best(prev)["ats"] or 0)):
         max_rounds = max(max_rounds, loop_cfg.get("max_rounds_wide_gap", 5))

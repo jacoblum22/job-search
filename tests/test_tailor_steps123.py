@@ -347,12 +347,12 @@ def test_self_description_ranks_after_a_story(env, tmp_path):
     assert passage_strength(claims["extra.strong-collaboration"]) == 1  # a self-description, no story
     assert passage_strength(claims["soft.data-team"]) == 2  # a row naming where it happened
     assert _origin_rank(claims["soft.data-team"], _folders(claims)) == 0  # cites a work note
-    # The taxonomy only finds the self-description (it says "collaboration"); Jev is asked about the
-    # story too, says yes, and the story leads.
+    # Wording only finds the self-description (it says "collaboration", a form of "collaborate");
+    # Jev is asked about the story too, says yes, and the story leads.
     jev = FakeJev(lambda s, q: 0.9 if "5-person" in s or "Strong collaboration" in s else 0.1)
     s1 = run_evidence(app, cfg, jev)["requirements"][0]
     assert s1["passages"][0] == "soft.data-team" and "extra.strong-collaboration" in s1["passages"]
-    assert s1["status"] == "covered" and s1["method"] == "jev" and s1["strength"] == 2
+    assert s1["status"] == "covered" and s1["method"] == "taxonomy+jev" and s1["strength"] == 2
 
 
 def test_jev_ranks_the_story_that_shows_a_soft_skill(env, tmp_path):

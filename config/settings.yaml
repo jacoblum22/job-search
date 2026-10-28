@@ -651,7 +651,7 @@ tailor:
   stuffing_score: 90
   loop:
     max_rounds: 3        # drafts in total, so at most 2 repair rounds
-    wide_gap: 10         # Jake: more than this many ATS points under the ceiling isn't acceptable...
+    wide_gap: 8          # Jake: more than this many ATS points under the ceiling isn't acceptable (10 until Oct 28 2026)...
     max_rounds_wide_gap: 5   # ...so the loop gets up to this many drafts while it still gains
     min_gain: 2.0
     regression_min_confidence: 0.6  # a Jev flip at or under this is a coin flip, not a regression

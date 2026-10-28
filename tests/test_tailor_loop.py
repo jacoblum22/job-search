@@ -457,6 +457,18 @@ def test_wide_gap_that_still_gains_gets_rounds_past_the_limit(tmp_path):
     assert next_round(app, WIDE)["action"] == "stop"
 
 
+def test_eight_points_under_is_a_wide_gap(tmp_path):
+    # Jake, Oct 28 2026: Nexthop new grad stopped at 3 drafts on ATS 65.5 with 74 reachable (8.5 under)
+    # though the last round gained 3.2; the wide gap is now 8 points.
+    app = new_app(tmp_path)
+    for n, ats in ((1, 62.3), (2, 62.3), (3, 65.5)):
+        add_round(app, n, 60 + n, items=[item("must.r1", False, ["summary"])], ats=ats, feedback=["show SQL"])
+        _set_grade(app, n, ats_ceiling=74, needs_ats_repair=True)
+    cfg = {**CFG, "loop": {**CFG["loop"], "wide_gap": 8, "max_rounds_wide_gap": 5}}
+    out = next_round(app, cfg)
+    assert out["action"] == "repair" and out["next_round"] == 4
+
+
 def test_wide_gap_that_stopped_gaining_stops_at_the_limit(tmp_path):
     app = new_app(tmp_path)
     for n, ats in ((1, 50), (2, 58), (3, 58)):
@@ -546,14 +558,14 @@ def test_gap_round_asked_for_when_the_best_round_is_far_under_reach(tmp_path, mo
     # One try per best round.
     add_round(app, 3, 63, ats=60)
     assert gap_round(app, CFG) is None
-    # Within 10 of the ceiling: no round.
+    # Within 8 of the ceiling: no round.
     app2 = tmp_path / "b"
     app2.mkdir()
     write_json(app2 / "app.json", {"history": [], "best_round": 1})
     write_json(app2 / "requirements.json", {"requirements": []})
-    add_round(app2, 1, 60, ats=63)
+    add_round(app2, 1, 60, ats=65)
     (app2 / "drafts" / "r1" / "resume.yaml").write_text("summary:\n  text: Analyst.\n", encoding="utf-8")
-    monkeypatch.setattr(grade, "ats_score", lambda *a: {"total": 63.0})
+    monkeypatch.setattr(grade, "ats_score", lambda *a: {"total": 65.0})
     assert gap_round(app2, CFG) is None
 
 

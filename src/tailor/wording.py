@@ -10,7 +10,8 @@ Two strictness levels:
 
 - `same(words, text)`: for truth checks. Plurals, hyphen/space, US/British
   spelling and "MS" for "Microsoft" don't change the wording: the vault's
-  "data modelling" backs a draft's "data modeling".
+  "data modelling" backs a draft's "data modeling". Nor does the form of an
+  -ize/-ate verb: the vault's "optimized" backs the posting's "optimizing".
   Wordings in one `EQUIVALENTS` group also count as the same: they name one thing
   ("KPIs" and "metrics"), so the vault saying one backs a draft saying the other.
 - `ats(words, text)`: for the ATS score. Plurals and hyphen/space still count
@@ -73,14 +74,34 @@ def _last_word(word: str) -> str:
     return "(?:" + "|".join(re.escape(s) for s in stems) + ")(?:e?s)?"
 
 
+# Regular -ize and -ate verbs and their -ation/-ion nouns: "optimizing", "optimized" and
+# "optimization" name one act. Nexthop new grad, Oct 27 2026: the posting's "optimizing" found
+# no passage though the vault says "Optimized for 16GB VRAM" and "model size optimization".
+_VERB_FAMILIES = [
+    (re.compile(r"^([a-z]{4,}iz)(?:e|es|ed|ing|ations?)$", re.I), "(?:e|es|ed|ing|ations?)"),
+    (re.compile(r"^([a-z]{4,}at)(?:e|es|ed|ing|ions?)$", re.I), "(?:e|es|ed|ing|ions?)"),
+]
+
+
+def _verb_forms(word: str) -> str | None:
+    """Pattern for every form of an -ize/-ate verb `word` (see `_VERB_FAMILIES`), or None."""
+    for rx, ends in _VERB_FAMILIES:
+        m = rx.match(word)
+        if m:
+            return re.escape(m.group(1)) + ends
+    return None
+
+
 @lru_cache(maxsize=4096)
 def pattern(words: str, spelling_blind: bool = False) -> re.Pattern[str]:
-    """Compiled whole-phrase pattern for `words` (see the module docstring)."""
+    """Compiled whole-phrase pattern for `words` (see the module docstring). Spelling-blind
+    patterns also take the other forms of an -ize/-ate verb (`_verb_forms`)."""
     words = words.strip()
     if spelling_blind:
         words = _blind(words)
     parts = re.split(r"[\s\-]+", words)
-    body = _JOIN.join([re.escape(p) for p in parts[:-1]] + [_last_word(parts[-1])])
+    last = (spelling_blind and _verb_forms(parts[-1])) or _last_word(parts[-1])
+    body = _JOIN.join([re.escape(p) for p in parts[:-1]] + [last])
     return re.compile(_EDGE_BEFORE + body + _EDGE_AFTER, re.I)
 
 
