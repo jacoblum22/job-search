@@ -7,11 +7,14 @@ regenerates the dashboard (after each source, and again at the end) + xlsx expor
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import socket
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta, timezone
 from functools import partial
 from pathlib import Path
 
@@ -20,7 +23,8 @@ import yaml
 from dotenv import load_dotenv
 
 from src.dashboard import generate_dashboard
-from src.db import connect, upsert_job
+from src import score_inputs
+from src.db import ScrapeLock, connect, get_cursor, is_postgres, set_cursor, try_scrape_lock, upsert_job
 from src.dedup import run_dedup
 from src.enrich import DEFAULT_WORKERS as DEFAULT_ENRICH_WORKERS
 from src.enrich import (
@@ -60,6 +64,16 @@ LOCK_PATH = PROJECT_ROOT / ".aggregate.lock"
 # A real run finishes in well under this; anything older means a previous
 # process crashed without cleaning up, not that it's still legitimately running.
 STALE_LOCK_SECONDS = 30 * 60
+# The lock above only covers this machine; with the database in Postgres the Azure job
+# (docs/azure-scrape-job.md) and the desktop share one, held here while it's ours.
+_shared_lock: ScrapeLock | None = None
+
+# Kept in source_cursors: a summary of the latest run, and of the latest full run (every
+# source), which run_tailoring.ps1 checks with --skip-if-fresh before scraping again.
+LAST_RUN_KEY = "aggregate:last_run"
+LAST_FULL_RUN_KEY = "aggregate:last_full_run"
+# Where the run happened, in that summary ("azure" in the container image).
+HOST = os.environ.get("SCRAPE_HOST") or socket.gethostname()
 
 log = logging.getLogger("aggregate")
 
@@ -94,11 +108,11 @@ def _acquire_lock() -> bool:
     already holds the lock — the caller should skip this run entirely rather
     than wait, since the other instance will finish on its own.
     """
+    global _shared_lock
     try:
         fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         os.write(fd, str(os.getpid()).encode())
         os.close(fd)
-        return True
     except FileExistsError:
         age = time.time() - LOCK_PATH.stat().st_mtime
         if age < STALE_LOCK_SECONDS:
@@ -106,6 +120,16 @@ def _acquire_lock() -> bool:
         log.warning("Clearing stale lock file (age %.0fs) — previous run likely crashed", age)
         LOCK_PATH.unlink(missing_ok=True)
         return _acquire_lock()
+    try:
+        _shared_lock = try_scrape_lock()
+    except Exception:
+        LOCK_PATH.unlink(missing_ok=True)
+        raise
+    if _shared_lock is None:
+        log.debug("A scrape on another machine holds the shared database lock")
+        LOCK_PATH.unlink(missing_ok=True)
+        return False
+    return True
 
 
 def _wait_for_lock(wait_seconds: float, poll_seconds: float = 15) -> bool:
@@ -123,7 +147,30 @@ def _wait_for_lock(wait_seconds: float, poll_seconds: float = 15) -> bool:
 
 
 def _release_lock() -> None:
+    global _shared_lock
+    if _shared_lock is not None:
+        _shared_lock.release()
+        _shared_lock = None
     LOCK_PATH.unlink(missing_ok=True)
+
+
+def last_run(conn, key: str = LAST_FULL_RUN_KEY) -> dict | None:
+    """The summary a run left behind (see LAST_RUN_KEY), or None."""
+    raw = get_cursor(conn, key)
+    try:
+        return json.loads(raw) if raw else None
+    except ValueError:
+        return None
+
+
+def fresh_run(conn, hours: float, now: datetime | None = None) -> dict | None:
+    """The latest full run if it finished within `hours`, else None."""
+    run = last_run(conn)
+    if not run or not run.get("finished"):
+        return None
+    finished = datetime.fromisoformat(run["finished"])
+    now = now or datetime.now(timezone.utc)
+    return run if now - finished <= timedelta(hours=hours) else None
 
 
 # Same list as BROWSER_SOURCES in scripts/browser_queue.py (stdlib-only, so
@@ -150,6 +197,21 @@ def run(
 ) -> None:
     conn = connect(db_path)
     started = time.perf_counter()
+    started_at = datetime.now(timezone.utc)
+    full = not (skip_workday or skip_apis or skip_email or skip_ats or workday_limit)
+    sources: dict[str, dict] = {}  # per source: listings downloaded, kept, error
+
+    if is_postgres(conn):
+        # The shared database holds the vault files scoring needs: the desktop keeps them
+        # current, the Azure job (which has no materials/) reads them back out.
+        direction, changed = score_inputs.sync(conn, cfg.get("score"))
+        if changed:
+            log.info("Scoring files %s: %s", "saved to the database" if direction == "push" else "read from the database",
+                     ", ".join(changed))
+        if not score_inputs.ready(cfg.get("score")):
+            raise RuntimeError(
+                "The experience vault index isn't here or in the database, so every job would be "
+                "scored without it. On the desktop run: uv run python scripts/score_inputs.py push")
     new_count = 0
     total_fetched = 0
     search = cfg.get("search", {})
@@ -310,10 +372,15 @@ def run(
 
     def safe_ingest(label: str, jobs: list) -> None:
         t0 = time.perf_counter()
+        before = total_fetched
+        stats = sources.setdefault(label, {})
+        stats["downloaded"] = len(jobs)
         try:
             ingest(jobs, match_keywords=True)
-        except Exception:
+        except Exception as e:
             log.exception("Saving %s jobs failed — continuing with other sources", label)
+            stats["error"] = f"saving: {e}"[:300]
+        stats["kept"] = total_fetched - before
         log.info("%s: saved in %.0fs", label, time.perf_counter() - t0)
 
     def timed(fetch: Callable[[], list]) -> Callable[[], tuple[list, float]]:
@@ -336,8 +403,9 @@ def run(
                 t0 = time.perf_counter()
                 try:
                     jobs = fetch_fn(conn, forward_from=forward_from)
-                except Exception:
+                except Exception as e:
                     log.exception("%s fetch failed — continuing with other sources", fetch_fn.__module__)
+                    sources[fetch_fn.__module__] = {"error": str(e)[:300]}
                     continue
                 log.info("%s: read %d listing(s) in %.0fs", fetch_fn.__module__, len(jobs), time.perf_counter() - t0)
                 safe_ingest(fetch_fn.__module__, jobs)
@@ -346,8 +414,9 @@ def run(
             label = pending[future]
             try:
                 jobs, took = future.result()
-            except Exception:
+            except Exception as e:
                 log.exception("%s fetch failed — continuing with other sources", label)
+                sources[label] = {"error": str(e)[:300]}
                 continue
             log.info("%s: downloaded %d listing(s) in %.0fs", label, len(jobs), took)
             safe_ingest(label, jobs)
@@ -382,6 +451,40 @@ def run(
     log.info("Export: %s", xlsx_path)
     log.info("Run finished in %.1f min", (time.perf_counter() - started) / 60)
 
+    summary = {
+        "started": started_at.isoformat(timespec="seconds"),
+        "finished": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "host": HOST,
+        "image": os.environ.get("IMAGE_SHA", "")[:12] or None,
+        "full": full,
+        "fetched": total_fetched,
+        "new": new_count,
+        "minutes": round((time.perf_counter() - started) / 60, 1),
+        "tiers": dict(sorted(tiers.items())),
+        "sources": dict(sorted(sources.items())),
+    }
+    set_cursor(conn, LAST_RUN_KEY, json.dumps(summary))
+    if full:
+        set_cursor(conn, LAST_FULL_RUN_KEY, json.dumps(summary))
+    conn.commit()
+    conn.close()
+
+
+def show_last_run_(db_path: Path) -> None:
+    conn = connect(db_path)
+    for key in (LAST_RUN_KEY, LAST_FULL_RUN_KEY):
+        run = last_run(conn, key)
+        label = "Last full run" if key == LAST_FULL_RUN_KEY else "Last run"
+        if not run:
+            click.echo(f"{label}: none recorded")
+            continue
+        click.echo(f"{label}: {run['finished']} on {run['host']}"
+                   f"{' (image ' + run['image'] + ')' if run.get('image') else ''}, "
+                   f"{run['minutes']} min, {run['fetched']} kept, {run['new']} new")
+        if key == LAST_RUN_KEY:
+            for name, s in run.get("sources", {}).items():
+                detail = f"ERROR {s['error']}" if s.get("error") else f"{s.get('downloaded', 0)} downloaded, {s.get('kept', 0)} kept"
+                click.echo(f"    {name:<28} {detail}")
     conn.close()
 
 
@@ -409,6 +512,9 @@ def run(
 @click.option("--workday-limit", type=int, default=0, help="Max jobs per Workday source (0 = all)")
 @click.option("--wait-lock", type=int, default=0,
               help="If another run holds the lock, wait up to this many seconds for it (exit 3 if it never frees)")
+@click.option("--skip-if-fresh", "fresh_hours", type=float, default=0,
+              help="Skip (exit 4) when a full run finished within this many hours, e.g. the Azure job's")
+@click.option("--show-last-run", is_flag=True, help="Print what the latest runs did and exit")
 @click.option("--verbose", "-v", is_flag=True)
 def main(
     config_path: Path,
@@ -422,6 +528,8 @@ def main(
     boards_path: Path,
     skip_ats: bool,
     wait_lock: int,
+    fresh_hours: float,
+    show_last_run: bool,
     verbose: bool,
 ) -> None:
     """Aggregate jobs from all configured sources into the DB + dashboard + xlsx."""
@@ -440,15 +548,28 @@ def main(
     # httpx INFO logs include the full URL, which embeds Adzuna app_key.
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+    load_dotenv()
+    if show_last_run:
+        show_last_run_(db_path)
+        return
+    if os.environ.get("IMAGE_SHA"):
+        log.info("Running image %s on %s", os.environ["IMAGE_SHA"][:12], HOST)
     if wait_lock > 0:
         if not _wait_for_lock(wait_lock):
-            log.warning("Another aggregate.py run still held the lock after %ds — skipping this run", wait_lock)
+            log.warning("Another scrape (here or the Azure job) still held the lock after %ds — skipping this run", wait_lock)
             raise SystemExit(3)
     elif not _acquire_lock():
-        log.warning("Another aggregate.py run is already in progress — skipping this run")
+        log.warning("Another scrape (here or the Azure job) is already in progress — skipping this run")
         return
     try:
-        load_dotenv()
+        if fresh_hours > 0:
+            conn = connect(db_path)
+            recent = fresh_run(conn, fresh_hours)
+            conn.close()
+            if recent:
+                log.info("Skipping: a full run on %s finished at %s (%d new)",
+                         recent["host"], recent["finished"], recent["new"])
+                raise SystemExit(4)
         cfg = merge_boards(load_config(config_path), boards_path)
         run(
             cfg,

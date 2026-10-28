@@ -4,9 +4,11 @@
 # at "Ready for review" on the dashboard. It never applies, sends, commits or pushes.
 #
 # Before picking jobs it runs a full scrape (scripts/aggregate.py, every source) so the queue
-# sees today's postings; the queue then rescores every job. -NoScrape skips the scrape, and
+# sees today's postings; the queue then rescores every job. The Azure job scrapes every
+# morning (docs/azure-scrape-job.md), so the scrape here is skipped when a full run finished
+# in the last 6 hours, and only runs when that job didn't. -NoScrape skips the scrape, and
 # -JobId / -ResumeOnly runs never scrape since they don't pick new jobs. If the scrape fails
-# the run still tailors from the jobs already in jobs.db and logs why.
+# the run still tailors from the jobs already in the database and logs why.
 #
 # Test on one job:   .\scripts\run_tailoring.ps1 -Limit 1   (or -JobId 812)
 # Normal daily run:  .\scripts\run_tailoring.ps1            (tailor.daily_cap jobs)
@@ -79,10 +81,11 @@ if (-not $NoScrape -and -not $ResumeOnly -and $JobId -le 0) {
     Log "Scraping every source before picking jobs (log: logs\full_aggregate.log)"
     $scrapeStart = Get-Date
     try {
-        # --wait-lock: if the email check or a scheduled full run is mid-way, wait for it
-        # (up to 30 min) instead of skipping the scrape.
+        # --wait-lock: if another scrape (the Azure job, the email check) is mid-way, wait for
+        # it (up to 30 min) instead of skipping the scrape; --skip-if-fresh: exit 4 without
+        # scraping when a full run finished in the last 6 hours.
         $proc = Start-Process -FilePath (Join-Path $projectRoot ".venv\Scripts\python.exe") `
-            -ArgumentList "scripts/aggregate.py", "--wait-lock", "1800" `
+            -ArgumentList "scripts/aggregate.py", "--wait-lock", "1800", "--skip-if-fresh", "6" `
             -WorkingDirectory $projectRoot `
             -RedirectStandardOutput $stdoutTmp -RedirectStandardError $stderrTmp `
             -NoNewWindow -Wait -PassThru
@@ -96,6 +99,8 @@ if (-not $NoScrape -and -not $ResumeOnly -and $JobId -le 0) {
     $mins = ((Get-Date) - $scrapeStart).TotalMinutes
     if ($code -eq 0) {
         Log ("Scrape finished in {0:N0} min" -f $mins)
+    } elseif ($code -eq 4) {
+        Log "Skipped the scrape: a full run (usually the Azure job) finished in the last 6 hours"
     } elseif ($code -eq 3) {
         Log "WARNING: another scrape held the lock for 30 min; tailoring from the jobs already in jobs.db"
     } else {
@@ -148,6 +153,10 @@ if ($mirrorOut) {
     else { Log "WARNING: Postgres daily step exit code $mirrorCode (see logs\pg-mirror.jsonl)" }
     $mirrorOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | Add-Content $logFile -Encoding UTF8
 }
+# The Azure scrape job scores with the vault files saved in Postgres; keep them current.
+$pushOut = & uv run python scripts/score_inputs.py push 2>&1 | ForEach-Object { "$_" }
+if ($LASTEXITCODE -ne 0) { Log "WARNING: saving the scoring files to Postgres failed (exit $LASTEXITCODE)" }
+$pushOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | Add-Content $logFile -Encoding UTF8
 
 # Nothing tracked should change during a run.
 $tracked = git status --porcelain --untracked-files=no -- src tests prompts docs config scripts

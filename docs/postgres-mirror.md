@@ -6,6 +6,8 @@ write it, and a daily SQLite backup lands in `backups/`. Code: `src/pg_mirror.py
 (the mirror), `src/pg_cutover.py` (cutover, backup, rollback), `src/pgdb.py` (Postgres
 behind the sqlite3 calls the code makes), `scripts/pg_mirror.py` (all commands).
 Phase 4 is described [below](#phase-4-postgres-as-the-main-database).
+Phase 5 (the scrape as an Azure job that writes this database) is in
+[azure-scrape-job.md](azure-scrape-job.md).
 
 ## What it does
 

@@ -1,0 +1,9 @@
+# Only what the Dockerfile copies; never personal files or secrets.
+*
+!pyproject.toml
+!uv.lock
+!src/
+!scripts/
+!config/
+config/contact.yaml
+**/__pycache__

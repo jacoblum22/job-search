@@ -9,6 +9,7 @@ the one-time setup steps.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -24,6 +25,9 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CREDENTIALS_PATH = Path(os.environ.get("GMAIL_CREDENTIALS_FILE", PROJECT_ROOT / "credentials.json"))
 TOKEN_PATH = Path(os.environ.get("GMAIL_TOKEN_FILE", PROJECT_ROOT / "token.json"))
+# The token itself, for the Azure scrape job (a Container Apps secret; docs/azure-scrape-job.md).
+# A refreshed access token then lives only in memory: the refresh token inside keeps working.
+TOKEN_ENV = "GMAIL_TOKEN_JSON"
 
 
 def run_auth_flow() -> Credentials:
@@ -51,18 +55,22 @@ def get_gmail_service() -> Resource:
     Raises RuntimeError with setup instructions if no token exists yet —
     run `scripts/gmail_auth.py` once first.
     """
-    if not TOKEN_PATH.exists():
+    from_env = os.environ.get(TOKEN_ENV)
+    if from_env:
+        creds = Credentials.from_authorized_user_info(json.loads(from_env), SCOPES)
+    elif not TOKEN_PATH.exists():
         raise RuntimeError(
             f"No {TOKEN_PATH.name} found. Run `uv run python scripts/gmail_auth.py` once "
             "to connect your Gmail account (see docs/gmail-setup.md)."
         )
-
-    creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+    else:
+        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
 
     if not creds.valid:
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
-            TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
+            if not from_env:
+                TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
         else:
             raise RuntimeError(
                 f"{TOKEN_PATH.name} is invalid and has no refresh token. Delete it and run "
