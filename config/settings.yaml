@@ -668,4 +668,4 @@ tailor:
 # run_tailoring.ps1 syncs Postgres at the end of each run. The connection string is
 # JOBSEARCH_PG_URL in .env. Turning it off is the rollback.
 database:
-  postgres_mirror: false
+  postgres_mirror: true   # on since Oct 28 2026 (Jake)

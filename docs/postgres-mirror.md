@@ -29,11 +29,14 @@ Normal PowerShell in `C:\Users\Nelly\job-search` (Azure CLI is signed in).
    past the free amounts. Takes about 10 minutes.
 
    ```powershell
+   # a new subscription has to register the Postgres provider once (MissingSubscriptionRegistration)
+   az provider register --namespace Microsoft.DBforPostgreSQL --wait
    $ip = (Invoke-RestMethod https://api.ipify.org)
    $bytes = New-Object byte[] 24
    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
    $pw = ([Convert]::ToBase64String($bytes) -replace '[+/=]', '') + 'Aa1'
-   az postgres flexible-server create `
+   # $null =: az prints the admin password in its result, so keep it off the screen
+   $null = az postgres flexible-server create `
      --resource-group rg-job-search --name jobsearch-pg-jake --location canadacentral `
      --tier Burstable --sku-name Standard_B1ms --storage-size 32 --version 16 `
      --admin-user jobsearch_admin --admin-password $pw `
@@ -55,7 +58,7 @@ Normal PowerShell in `C:\Users\Nelly\job-search` (Azure CLI is signed in).
    password never goes anywhere else). In the same window, so `$pw` is still set:
 
    ```powershell
-   az postgres flexible-server db create -g rg-job-search -s jobsearch-pg-jake -d jobsearch
+   az postgres flexible-server db create -g rg-job-search --server-name jobsearch-pg-jake --name jobsearch
    Add-Content .env "`nJOBSEARCH_PG_URL=postgresql://jobsearch_admin:$pw@jobsearch-pg-jake.postgres.database.azure.com:5432/jobsearch?sslmode=require"
    ```
 
@@ -73,8 +76,8 @@ Normal PowerShell in `C:\Users\Nelly\job-search` (Azure CLI is signed in).
    differs; 1 means it couldn't connect or a value didn't fit (the message names the
    table, row and column).
 
-5. Turn on the daily sync: set `postgres_mirror: true` under `database:` in
-   `config/settings.yaml`.
+5. Turn on the daily sync: `postgres_mirror: true` under `database:` in
+   `config/settings.yaml` (on since Oct 28 2026; jobsearch-pg-jake, firewall 75.157.102.114).
 
 ## Over the week
 
@@ -87,8 +90,9 @@ Only addresses with a rule can connect. The desktop's IP is added at creation. T
 another (a laptop, or a new home IP):
 
 ```powershell
-az postgres flexible-server firewall-rule create -g rg-job-search -n jobsearch-pg-jake `
-  --rule-name laptop --start-ip-address 203.0.113.7 --end-ip-address 203.0.113.7
+az postgres flexible-server firewall-rule create -g rg-job-search --server-name jobsearch-pg-jake `
+  --name laptop --start-ip-address 203.0.113.7 --end-ip-address 203.0.113.7
+az postgres flexible-server firewall-rule list -g rg-job-search --server-name jobsearch-pg-jake -o table
 ```
 
 If the desktop's own IP changes, the sync logs "Couldn't connect"; add the new IP the
