@@ -1,0 +1,19 @@
+version: 2
+
+exposures:
+  - name: job_search_power_bi
+    label: Job search report (Power BI)
+    type: dashboard
+    maturity: low
+    description: >
+      The phase 7 Power BI report: Market, Funnel and Posting life pages. It imports
+      these marts from the prod schema (analytics), which the 9:00 run rebuilds.
+    depends_on:
+      - ref('fct_postings')
+      - ref('fct_posting_life')
+      - ref('agg_postings_daily')
+      - ref('fct_applications')
+      - ref('dim_companies')
+      - ref('dim_days')
+    owner:
+      name: Jake
