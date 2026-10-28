@@ -191,6 +191,52 @@ def has_table(conn: Any, table: str) -> bool:
     return conn.execute(sql, (table,)).fetchone() is not None
 
 
+# One scrape at a time across machines once the database is shared (the desktop and the
+# Azure job, docs/azure-scrape-job.md): a Postgres advisory lock held by its own connection
+# for the whole run, so it lets go by itself if the scrape dies.
+SCRAPE_LOCK_KEY = 0x6A6F6273  # "jobs"
+
+
+class ScrapeLock:
+    """Holds the cross-machine scrape lock; release() (or the process ending) frees it."""
+
+    def __init__(self, pg=None) -> None:
+        self._pg = pg
+
+    def release(self) -> None:
+        if self._pg is not None and not self._pg.closed:
+            self._pg.close()
+        self._pg = None
+
+
+def try_scrape_lock() -> ScrapeLock | None:
+    """The shared scrape lock, or None while another machine's scrape holds it.
+    With the database in jobs.db there's nothing to share: always granted."""
+    if backend() != "postgres":
+        return ScrapeLock()
+    import psycopg
+
+    url = _env(PG_URL_ENV)
+    if not url:
+        raise RuntimeError(f"{BACKEND_ENV}=postgres but {PG_URL_ENV} is not set in .env")
+    pg = psycopg.connect(url, autocommit=True, connect_timeout=20, keepalives=1, keepalives_idle=60)
+    if pg.execute("SELECT pg_try_advisory_lock(%s)", (SCRAPE_LOCK_KEY,)).fetchone()[0]:
+        return ScrapeLock(pg)
+    pg.close()
+    return None
+
+
+def scrape_lock_held(conn: Any) -> bool:
+    """True while some scrape (this machine's or the Azure job's) holds the shared lock."""
+    if not is_postgres(conn):
+        return False
+    return conn.execute(
+        "SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND classid::bigint = 0 AND objid::bigint = ? "
+        "AND objsubid = 1 AND granted "
+        "AND database = (SELECT oid FROM pg_database WHERE datname = current_database())",
+        (SCRAPE_LOCK_KEY,)).fetchone() is not None
+
+
 # Columns added after the first release; CREATE TABLE IF NOT EXISTS won't add
 # them to an existing jobs.db, so ALTER them in.
 _LATER_COLUMNS = {"score": "INTEGER", "score_reasons": "TEXT"}

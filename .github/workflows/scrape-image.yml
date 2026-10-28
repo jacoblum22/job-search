@@ -1,0 +1,54 @@
+# Builds the scrape image the Azure Container Apps job runs (docs/azure-scrape-job.md) and
+# pushes it to ghcr.io/jacoblum22/job-search-scrape. The job pulls the :jake tag at each run.
+name: Scrape image
+
+on:
+  push:
+    branches: [jake]
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "config/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/scrape-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: scrape-image
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run pytest -q
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: IMAGE_SHA=${{ github.sha }}
+          tags: |
+            ghcr.io/jacoblum22/job-search-scrape:jake
+            ghcr.io/jacoblum22/job-search-scrape:sha-${{ github.sha }}

@@ -91,6 +91,18 @@ def _busy() -> list[str]:
         pass
     if (ROOT / ".aggregate.lock").exists():
         found.append("a scrape is running (.aggregate.lock exists)")
+    if backend() == "postgres":
+        from src.db import MAIN_DB, connect, scrape_lock_held
+
+        try:
+            conn = connect(MAIN_DB)
+            try:
+                if scrape_lock_held(conn):
+                    found.append("a scrape is running (this desktop's or the Azure job's)")
+            finally:
+                conn.close()
+        except Exception:  # noqa: BLE001 - Postgres unreachable: nothing can be writing it either
+            pass
     if TailoringRunner(ROOT).status()["running"]:
         found.append("a tailoring run is going")
     return found
