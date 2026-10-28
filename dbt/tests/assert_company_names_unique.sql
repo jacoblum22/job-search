@@ -1,6 +1,6 @@
 -- Pairs of company names that look like the same employer and aren't mapped
--- in seeds/company_aliases.csv yet. Fix a real pair by adding a seed row;
--- a false match means the rules below need tightening.
+-- in seeds/company_aliases.csv yet. Fix a real pair by adding a row to that
+-- seed; a pair that really is two employers goes in company_not_duplicates.csv.
 {{ config(severity='warn') }}
 
 with names as (
@@ -12,14 +12,15 @@ with names as (
 ),
 
 normalized as (
-    -- Lowercase, punctuation to spaces, company-type endings dropped.
+    -- Lowercase, punctuation to spaces, company-type endings and a leading
+    -- "the" dropped: "The Boeing Company" -> "boeing".
     select
         company,
-        trim(regexp_replace(
+        regexp_replace(trim(regexp_replace(
             regexp_replace(
                 regexp_replace(lower(company), '[^a-z0-9]+', ' ', 'g'),
                 '\m(inc|ltd|limited|corp|corporation|llc|ulc|lp|plc|co|company)\M', ' ', 'g'),
-            '\s+', ' ', 'g')) as norm
+            '\s+', ' ', 'g')), '^the ', '') as norm
     from names
 ),
 
@@ -42,22 +43,34 @@ profiled as (
     select n.company, n.norm, replace(n.norm, ' ', '') as squashed, i.initials, i.n_words
     from normalized as n
     left join initials as i using (company)
+),
+
+pairs as (
+    select
+        a.company as company_a,
+        b.company as company_b,
+        case
+            when a.norm = b.norm then 'same after cleanup'
+            when a.initials = b.squashed then 'b is the initials of a'
+            when b.initials = a.squashed then 'a is the initials of b'
+            else 'one starts with the other'
+        end as why
+    from profiled as a
+    join profiled as b on a.company < b.company
+    where a.norm = b.norm
+        -- initials of 3 to 6 letters ("TD" matches too many names)
+        or (a.n_words >= 2 and length(b.squashed) between 3 and 6 and a.initials = b.squashed)
+        or (b.n_words >= 2 and length(a.squashed) between 3 and 6 and b.initials = a.squashed)
+        -- the shorter name is the first whole words of the longer one
+        -- ("Amazon" / "Amazon Science"), and doesn't end on a small word
+        -- (a stray "City of" would match every city)
+        or (length(b.norm) >= 4 and b.norm !~ ' (of|and|the|for)$' and a.norm like b.norm || ' %')
+        or (length(a.norm) >= 4 and a.norm !~ ' (of|and|the|for)$' and b.norm like a.norm || ' %')
 )
 
-select
-    a.company as company_a,
-    b.company as company_b,
-    case
-        when a.norm = b.norm then 'same after cleanup'
-        when a.n_words >= 2 and a.initials = b.squashed then 'b is the initials of a'
-        when b.n_words >= 2 and b.initials = a.squashed then 'a is the initials of b'
-        else 'one contains the other'
-    end as why
-from profiled as a
-join profiled as b on a.company < b.company
-where a.norm = b.norm
-    or (a.n_words >= 2 and length(b.squashed) between 2 and 6 and a.initials = b.squashed)
-    or (b.n_words >= 2 and length(a.squashed) between 2 and 6 and b.initials = a.squashed)
-    -- whole words only, so "meta" doesn't match "metabase"
-    or (length(b.norm) >= 4 and ' ' || a.norm || ' ' like '% ' || b.norm || ' %')
-    or (length(a.norm) >= 4 and ' ' || b.norm || ' ' like '% ' || a.norm || ' %')
+select p.*
+from pairs as p
+left join {{ ref('company_not_duplicates') }} as nd
+    on (nd.company_a = p.company_a and nd.company_b = p.company_b)
+    or (nd.company_a = p.company_b and nd.company_b = p.company_a)
+where nd.company_a is null
