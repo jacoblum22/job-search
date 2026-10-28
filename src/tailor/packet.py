@@ -369,7 +369,7 @@ def run_packet(app_dir: Path, cfg: dict[str, Any], recheck: bool = False) -> dic
     # Jake, Oct 23 2026: more than loop.wide_gap under what the evidence allows isn't acceptable, so
     # it needs a fix (a line reworded by hand, or another round) before it is sent.
     wide_gap = (isinstance(ats_total, (int, float)) and isinstance(ceiling, (int, float))
-                and ats_total < ceiling - float((cfg.get("loop") or {}).get("wide_gap", 10)))
+                and ats_total < ceiling - float((cfg.get("loop") or {}).get("wide_gap", 8)))
     status = "needs_fixes" if criticals or wide_gap else "ready_for_review"
     below_floor = isinstance(ats_total, (int, float)) and ats_total < float(cfg.get("ats_floor", 70))
     weaker_fit = bool(below_floor and (grade or {}).get("fit_gap"))

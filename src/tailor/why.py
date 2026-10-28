@@ -106,7 +106,7 @@ def summarize(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     reasons = [f"{label}: {h}" for h in _say(criticals, data)]
     ats = (grade.get("ats") or {}).get("total")
     ceiling = grade.get("ats_ceiling")
-    wide = float((cfg.get("loop") or {}).get("wide_gap", 10))
+    wide = float((cfg.get("loop") or {}).get("wide_gap", 8))
     if isinstance(ats, (int, float)) and isinstance(ceiling, (int, float)) and ats < ceiling - wide:
         reasons.append(f"Wide ATS gap: {ats:.1f} against a reachable {ceiling:.1f} (more than {wide:g} under)")
 

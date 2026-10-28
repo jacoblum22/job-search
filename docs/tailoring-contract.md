@@ -320,7 +320,7 @@ them as `keep_soft`, and `next-round` names any the new letter dropped)
 and `unbacked_terms` (the posting asks, the vault can't back). Unused hard skills become an
 `ats.unused` gap and feedback line. While `needs_ats_repair` holds, `next-round` keeps repairing even
 on a small gain (up to the round limit); a fit gap gets no extra rounds, since that would only stuff
-keywords. While the best round's ATS is more than `loop.wide_gap` (10) under the ceiling and the last
+keywords. While the best round's ATS is more than `loop.wide_gap` (8) under the ceiling and the last
 round raised it, the limit is `loop.max_rounds_wide_gap` (5) drafts. `pending` asks for one more
 repair round (feedback `revisit: true`, built on the best round) for an application up for review
 whose best round, scored under today's rules, is that far off; and `packet` sets such an
