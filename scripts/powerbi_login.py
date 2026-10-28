@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src import pg_mirror  # noqa: E402
+from src import pg_mirror
 
 READER = "powerbi_reader"
 SCHEMA = "analytics"
