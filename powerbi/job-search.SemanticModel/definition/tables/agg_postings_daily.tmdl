@@ -1,0 +1,74 @@
+table agg_postings_daily
+	lineageTag: ad1124a4-a3f1-4105-9b9b-913481a9429f
+
+	measure 'New postings' = SUM(agg_postings_daily[new_postings])
+		formatString: 0
+		lineageTag: 7c9c52ff-535d-4c2a-ba3e-b93644c25c84
+
+	column day
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 9fa27ab1-73d6-43d9-a25e-c505e5fb234d
+		summarizeBy: none
+		sourceColumn: day
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column source
+		dataType: string
+		lineageTag: d4e87c03-5c04-494b-a1a4-f896f50b0dfe
+		summarizeBy: none
+		sourceColumn: source
+
+		annotation SummarizationSetBy = Automatic
+
+	column tier
+		dataType: string
+		lineageTag: b2ca9d26-fdf5-4e70-9cf1-addabf8a8d20
+		summarizeBy: none
+		sourceColumn: tier
+
+		annotation SummarizationSetBy = Automatic
+
+	column new_postings
+		dataType: int64
+		formatString: 0
+		lineageTag: d04ac8d4-1e87-4b9e-86c7-399663f4ae31
+		summarizeBy: sum
+		sourceColumn: new_postings
+
+		annotation SummarizationSetBy = Automatic
+
+	column new_vancouver
+		dataType: int64
+		formatString: 0
+		lineageTag: 5df84518-b232-4a13-9f7b-0ff32e564617
+		summarizeBy: sum
+		sourceColumn: new_vancouver
+
+		annotation SummarizationSetBy = Automatic
+
+	column new_remote
+		dataType: int64
+		formatString: 0
+		lineageTag: 8b57e97c-c3ab-47d5-8dd9-486fa1994c1e
+		summarizeBy: sum
+		sourceColumn: new_remote
+
+		annotation SummarizationSetBy = Automatic
+
+	partition agg_postings_daily = m
+		mode: import
+		source =
+				let
+				  Source = PostgreSQL.Database("jobsearch-pg-jake.postgres.database.azure.com", "jobsearch"),
+				  #"Navigation 1" = Source{[Schema = "analytics", Item = "agg_postings_daily"]}[Data]
+				in
+				  #"Navigation 1"
+
+	changedProperty = Name
+
+	annotation PBI_ResultType = Table
+

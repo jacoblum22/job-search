@@ -1,0 +1,90 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "52f8f21a7b0f100d6cec",
+  "position": {
+    "x": 20,
+    "y": 630,
+    "z": 4000,
+    "height": 430,
+    "width": 930,
+    "tabOrder": 4000
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_posting_life"
+                    }
+                  },
+                  "Property": "source"
+                }
+              },
+              "queryRef": "fct_posting_life.source",
+              "nativeQueryRef": "source",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_posting_life"
+                    }
+                  },
+                  "Property": "Median days up"
+                }
+              },
+              "queryRef": "fct_posting_life.Median days up",
+              "nativeQueryRef": "Median days up"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fct_posting_life"
+                  }
+                },
+                "Property": "Median days up"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Typical days up, by job board'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

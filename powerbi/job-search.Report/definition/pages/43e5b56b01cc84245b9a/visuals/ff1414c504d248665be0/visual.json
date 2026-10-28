@@ -1,0 +1,90 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "ff1414c504d248665be0",
+  "position": {
+    "x": 279.49367088607596,
+    "y": 279.49367088607596,
+    "z": 5000,
+    "height": 512.40506329113919,
+    "width": 840.506329113924,
+    "tabOrder": 5000
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_postings"
+                    }
+                  },
+                  "Property": "location_category"
+                }
+              },
+              "queryRef": "fct_postings.location_category",
+              "nativeQueryRef": "location_category",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_postings"
+                    }
+                  },
+                  "Property": "Open postings"
+                }
+              },
+              "queryRef": "fct_postings.Open postings",
+              "nativeQueryRef": "Open postings"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fct_postings"
+                  }
+                },
+                "Property": "Open postings"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Where the open postings are'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}
