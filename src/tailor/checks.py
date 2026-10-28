@@ -16,7 +16,7 @@ Warning codes:
   skill_only_in_list, verbatim_posting_copy, too_many_skills, bullet_count,
   duplicate_bullets, ai_phrase, resume_invalid, rejected_edit_note,
   no_company_fact, paragraph_count, letter_length, familiar_absent_term, keen_to_grow,
-  course_grade (letter)
+  course_grade (letter), directed_opener, test_count
 Flag codes (source "jev"): jev_unsupported, jev_citation_gap
 """
 
@@ -220,6 +220,10 @@ def _runs(words: list[str], n: int) -> set[tuple[str, ...]]:
     return {tuple(words[i : i + n]) for i in range(len(words) - n + 1)}
 
 
+# "140 pytest tests", "808 automated tests", "182 unit tests".
+_TEST_COUNT = re.compile(r"\b\d[\d,]*\+?\s+(?:automated\s+|unit\s+)?(?:pytest\s+)?(?:unit\s+)?tests?\b", re.I)
+
+
 def check_resume(
     draft: dict[str, Any], base: dict[str, Any], ctx: dict[str, Any]
 ) -> tuple[list[dict], list[dict], list[str]]:
@@ -408,8 +412,19 @@ def check_resume(
                 # Base bullets are already approved; only judge the length of rewritten ones. A long
                 # rewrite is a critical, so the repair round shortens it instead of the page fit
                 # dropping other bullets to make room.
-                if len(str(b.get("text", ""))) > 200 and b.get("text") != base_bullets.get(f"{section}/{e.get('id')}/{b.get('id')}"):
-                    c("bullet_long", f"{len(b['text'])} characters (limit 200)", f"{section}/{e.get('id')}/{b.get('id')}")
+                bpath = f"{section}/{e.get('id')}/{b.get('id')}"
+                rewritten = b.get("text") != base_bullets.get(bpath)
+                if len(str(b.get("text", ""))) > 200 and rewritten:
+                    c("bullet_long", f"{len(b['text'])} characters (limit 200)", bpath)
+                # Jake, Oct 26 2026: a project bullet opening with "Directed" reads as prompting a
+                # chatbot, and test counts go stale and read as padding. Rewrites only: the bases
+                # are his (Nexthop new grad, Oct 28 2026: a repair wrote both into one bullet).
+                if rewritten and section == "projects" and re.match(r"\s*Directed\b", str(b.get("text", ""))):
+                    w("directed_opener", "project bullet opens with 'Directed'; lead with what the system does", bpath)
+                m = _TEST_COUNT.search(str(b.get("text", ""))) if rewritten else None
+                if m:
+                    w("test_count", f"{m.group(0)!r}: say 'a pytest suite' or name specific verification", bpath,
+                      term=m.group(0))
                 for b2 in bl[i + 1 :]:
                     if _jaccard(b["text"], b2["text"]) >= 0.8:
                         w("duplicate_bullets", f"{b.get('id')} and {b2.get('id')} are near-duplicates", f"{section}/{e.get('id')}/{b.get('id')}")

@@ -51,6 +51,11 @@ already passed.
    one any candidate could write, and the grader marks it down for that.
    Build the word into the sentence; don't bolt it on as an add-on phrase ("a Google Apps Script
    automation, a small ETL job") or pad it with words like "small" or "simple".
+   A line you rewrite follows the advice in `resume-edits.md` like a first draft does: no template
+   shapes ("from project scoping to testing"), no "Directed" opener on a project bullet, no test
+   counts (Nexthop new grad, Oct 28 2026: a repair turned the job-search bullet into "Directed the
+   software engineering of a Claude Code rebuild, from project scoping to testing (140 pytest
+   tests)").
 5. **Missing must-have that the vault backs** (the feedback names the passage): show it in a bullet
    with the tool and scope, citing that passage. **A must-have that is ABSENT stays absent.** Do not
    add it to satisfy the grader.
