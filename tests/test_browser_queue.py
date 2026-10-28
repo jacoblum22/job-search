@@ -62,3 +62,14 @@ def test_cli_sync(tmp_path, capsys):
     assert cli.main(["--db", str(tmp_path / "jobs.db"), "--queue-dir", str(qdir), "sync"]) == 0
     out = capsys.readouterr().out
     assert "1 failed" in out and "3 listing(s) queued" in out and "failed 4: posting closed" in out
+
+
+def test_md_beats_an_earlier_fail(tmp_path):
+    conn = _conn(tmp_path)
+    qdir = tmp_path / "queue"
+    qdir.mkdir()
+    (qdir / "1.fail").write_text("Login required", encoding="utf-8")
+    (qdir / "1.md").write_text("A full description. " * 30, encoding="utf-8")
+    results = browser_queue.import_results(conn, qdir)
+    assert results["saved"] == [1] and results["failed"] == []
+    assert conn.execute("SELECT ok FROM enrich_attempts WHERE external_id = '1'").fetchone()[0] == 1

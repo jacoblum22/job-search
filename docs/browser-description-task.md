@@ -76,7 +76,10 @@ commands or scripts: this task only reads and writes files in the
    job description: the role, responsibilities, qualifications, pay and
    benefits. Leave out the sidebar, "similar jobs", and the generic company
    blurb.
-   - Write the description as Markdown to `.browser-queue/<id>.md`.
+   - Copy the description into `.browser-queue/<id>.md` word for word, as
+     Markdown (keep its headings and bullet lists). Don't summarize, shorten,
+     reword or add notes of your own: the tailoring matches the posting's
+     exact wording, so a summary loses the keywords it needs.
    - If the posting is closed or removed, has no description, asks for a
      login, or shows a CAPTCHA, "verify you are human", or Cloudflare check,
      write one line saying which to `.browser-queue/<id>.fail` and move on.

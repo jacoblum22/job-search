@@ -172,8 +172,13 @@ def import_results(conn, queue_dir: Path = QUEUE_DIR) -> dict[str, list]:
         return out
     done = queue_dir / "done" / _now().strftime("%Y-%m-%d")
     done.mkdir(parents=True, exist_ok=True)
+    described = {f.stem for f in files if f.suffix == ".md"}
     for f in files:
         job_id = int(f.stem)
+        if f.suffix == ".fail" and f.stem in described:
+            # A later retry (e.g. after signing in) read it after all.
+            shutil.move(str(f), str(done / f.name))
+            continue
         text = f.read_text(encoding="utf-8", errors="replace")
         try:
             if f.suffix == ".md":
