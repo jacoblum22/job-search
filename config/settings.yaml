@@ -664,8 +664,10 @@ tailor:
     max_retries: 3
 
 # Azure plan phase 3: a shadow copy of jobs.db in Azure Postgres (src/pg_mirror.py,
-# docs/postgres-mirror.md). jobs.db stays the only database anything reads; with this on,
-# run_tailoring.ps1 syncs Postgres at the end of each run. The connection string is
-# JOBSEARCH_PG_URL in .env. Turning it off is the rollback.
+# docs/postgres-mirror.md). With this on, run_tailoring.ps1 syncs Postgres at the end of
+# each run. The connection string is JOBSEARCH_PG_URL in .env. Turning it off is the rollback.
+# Phase 4 (moving the main database to Postgres) is not set here: `pg_mirror.py cutover`
+# writes JOBSEARCH_DB=postgres to .env, and from then on the daily step makes a backup
+# instead of a sync, whatever this says.
 database:
   postgres_mirror: true   # on since Oct 28 2026 (Jake)

@@ -15,3 +15,5 @@ def _tailor_state_in_tmp(tmp_path, monkeypatch):
             monkeypatch.setitem(paths.DEFAULT_PATHS, name, str(tmp_path / "materials-defaults" / default))
     monkeypatch.setitem(paths.DEFAULT_PATHS, "skill_record", str(tmp_path / "state" / "skill-record.json"))
     monkeypatch.setitem(paths.DEFAULT_PATHS, "jev_cache", str(tmp_path / "state" / "jev-cache.json"))
+    # The real .env may say JOBSEARCH_DB=postgres (after the phase 4 cutover); tests never use it.
+    monkeypatch.setenv("JOBSEARCH_DB", "sqlite")

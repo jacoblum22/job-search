@@ -40,6 +40,8 @@ logs/
 
 # Aggregator — generated output, regenerated on every run
 jobs.db
+# SQLite copies of the main database (docs/postgres-mirror.md)
+backups/
 dashboard.html
 export.xlsx
 .aggregate.lock

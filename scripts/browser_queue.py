@@ -17,7 +17,8 @@ CareerJet links block plain HTTP fetches but open in a real browser
 must never solve or interact with a CAPTCHA or bot check; a page that still
 shows one after its own short wait is marked failed.
 
-Standard library only, so it runs from any Python that can see the folder.
+It opens the main database through src/db.py, so it follows the jobs.db/Postgres
+switch (docs/postgres-mirror.md) like everything else.
 """
 
 from __future__ import annotations
@@ -30,6 +31,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.db import connect  # noqa: E402
 DEFAULT_DB = PROJECT_ROOT / "jobs.db"
 
 SNIPPET_MAX_CHARS = 1000  # same threshold as src/enrich.py
@@ -83,7 +87,7 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
                  OR (j.source NOT IN ({marks})
                      AND (e.ok = 0 OR (e.ok = ? AND e.attempted_at < ?)))
               )
-        )
+        ) ranked
         WHERE rank <= ?
         ORDER BY source, first_seen DESC
         """,
@@ -149,18 +153,16 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     if args.cmd == "dashboard":
-        sys.path.insert(0, str(PROJECT_ROOT))
         from src.dashboard import generate_dashboard
 
-        conn = sqlite3.connect(args.db)
-        conn.row_factory = sqlite3.Row
+        conn = connect(args.db)
         try:
             print(generate_dashboard(conn, PROJECT_ROOT / "dashboard.html"))
         finally:
             conn.close()
         return 0
 
-    conn = sqlite3.connect(args.db, timeout=30)
+    conn = connect(args.db)
     conn.executescript(ATTEMPTS_SCHEMA)
     try:
         if args.cmd == "list":

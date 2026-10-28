@@ -8,6 +8,7 @@ generated FROM this table on each run, so manual edits (e.g. marking a job
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -97,13 +98,97 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+ROOT = Path(__file__).resolve().parent.parent
+MAIN_DB = ROOT / "jobs.db"
+# "postgres" in .env (or the environment) moves the main database to Postgres at
+# JOBSEARCH_PG_URL (Azure plan, phase 4; docs/postgres-mirror.md). Anything else, or
+# nothing, keeps it in jobs.db. scripts/pg_mirror.py cutover/rollback set and clear it.
+BACKEND_ENV = "JOBSEARCH_DB"
+PG_URL_ENV = "JOBSEARCH_PG_URL"
+_ensured: set[str] = set()
+
+
+def _env(name: str) -> str | None:
+    """A setting from the environment, else from .env, read fresh each time so a running
+    dashboard follows a cutover or rollback without a restart."""
+    if os.environ.get(name):
+        return os.environ[name]
+    env = ROOT / ".env"
+    if not env.exists():
+        return None
+    from dotenv import dotenv_values
+
+    return dotenv_values(env).get(name) or None
+
+
+def backend() -> str:
+    """Where the main database lives: "postgres" or "sqlite"."""
+    return "postgres" if (_env(BACKEND_ENV) or "").strip().lower() == "postgres" else "sqlite"
+
+
+def is_main(db_path: str | Path) -> bool:
+    """True for the project's own jobs.db path (every script's default)."""
+    return Path(db_path).resolve() == MAIN_DB.resolve()
+
+
 def connect(db_path: str | Path) -> sqlite3.Connection:
-    """Open (creating if needed) the jobs database and ensure the schema exists."""
-    conn = sqlite3.connect(db_path)
+    """Open (creating if needed) the jobs database and ensure the schema exists.
+
+    The project's jobs.db path means "the main database": with the backend set to
+    postgres this opens Postgres instead (src/pgdb.py). A postgresql:// URL opens that
+    database. Any other path is a SQLite file, as before (tests, backups, snapshots).
+    """
+    target = str(db_path)
+    if target.startswith(("postgresql://", "postgres://")):
+        return _connect_pg(target)
+    if backend() == "postgres" and is_main(db_path):
+        url = _env(PG_URL_ENV)
+        if not url:
+            raise RuntimeError(f"{BACKEND_ENV}=postgres but {PG_URL_ENV} is not set in .env")
+        return _connect_pg(url)
+    conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
     _add_missing_columns(conn)
     return conn
+
+
+def _connect_pg(url: str):
+    import psycopg
+
+    from src.pgdb import PgConnection
+
+    conn = PgConnection(psycopg.connect(url, connect_timeout=20))
+    # The schema is checked once per process: each statement is a round trip to Azure.
+    if url not in _ensured:
+        conn.executescript(SCHEMA)
+        _add_missing_columns(conn)
+        conn.commit()
+        _ensured.add(url)
+    return conn
+
+
+def is_postgres(conn: Any) -> bool:
+    return getattr(conn, "backend", "sqlite") == "postgres"
+
+
+def table_columns(conn: Any, table: str) -> list[str]:
+    """Column names of a table, in order (empty when it doesn't exist), on either backend."""
+    if is_postgres(conn):
+        return [r[0] for r in conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND table_name = ? ORDER BY ordinal_position",
+            (table,))]
+    return [r[1] for r in conn.execute(f'PRAGMA table_info("{table}")')]
+
+
+def has_table(conn: Any, table: str) -> bool:
+    if is_postgres(conn):
+        sql = ("SELECT 1 FROM information_schema.tables "
+               "WHERE table_schema = current_schema() AND table_name = ?")
+    else:
+        sql = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?"
+    return conn.execute(sql, (table,)).fetchone() is not None
 
 
 # Columns added after the first release; CREATE TABLE IF NOT EXISTS won't add
@@ -112,7 +197,7 @@ _LATER_COLUMNS = {"score": "INTEGER", "score_reasons": "TEXT"}
 
 
 def _add_missing_columns(conn: sqlite3.Connection) -> None:
-    existing = {r[1] for r in conn.execute("PRAGMA table_info(jobs)")}
+    existing = set(table_columns(conn, "jobs"))
     for col, typ in _LATER_COLUMNS.items():
         if col not in existing:
             conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {typ}")
@@ -125,24 +210,21 @@ def upsert_job(conn: sqlite3.Connection, job: Job) -> tuple[int, bool]:
     """
     now = _now()
     existing = conn.execute(
-        "SELECT id FROM jobs WHERE source = ? AND external_id = ?",
+        "SELECT id, description, posted_date FROM jobs WHERE source = ? AND external_id = ?",
         (job.source, job.external_id),
     ).fetchone()
 
     if existing:
-        existing_row = conn.execute(
-            "SELECT description, posted_date FROM jobs WHERE id = ?", (existing["id"],)
-        ).fetchone()
-        old_desc = (existing_row["description"] if existing_row else "") or ""
+        old_desc = existing["description"] or ""
         new_desc = job.description or ""
         description = new_desc if len(new_desc) >= len(old_desc) else old_desc
         # An alert email's date stands in for the posted date; a later alert for the
         # same job isn't a new posting, so it keeps the first email's date.
         posted_date = job.posted_date
-        if existing_row and existing_row["posted_date"] and (
+        if existing["posted_date"] and (
             not posted_date or (job.raw or {}).get("gmail_message_id")
         ):
-            posted_date = existing_row["posted_date"]
+            posted_date = existing["posted_date"]
         conn.execute(
             """
             UPDATE jobs SET
@@ -182,6 +264,7 @@ def upsert_job(conn: sqlite3.Connection, job: Job) -> tuple[int, bool]:
             description, url, posted_date, first_seen, last_seen, status,
             years_experience, location_category, raw
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)
+        RETURNING id
         """,
         (
             dedup_group_id,
@@ -200,8 +283,7 @@ def upsert_job(conn: sqlite3.Connection, job: Job) -> tuple[int, bool]:
             json.dumps(job.raw) if job.raw is not None else None,
         ),
     )
-    assert cur.lastrowid is not None
-    return cur.lastrowid, True
+    return cur.fetchone()[0], True
 
 
 def get_cursor(conn: sqlite3.Connection, source: str) -> str | None:

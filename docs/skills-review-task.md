@@ -18,8 +18,9 @@ and the log gives the compare link.
 1. Fetches `origin/jake` and creates a fresh git worktree at
    `..\job-search-skills-review` on a new branch `skills-review/<date>`. Jake's
    own checkout and uncommitted work are never touched.
-2. Copies `jobs.db` to a temp file. SQLite on the live file can lock a
-   running scrape.
+2. Writes a SQLite snapshot of the main database to a temp file
+   (`pg_mirror.py export`: a copy of `jobs.db`, or of Postgres after the phase 4
+   cutover). SQLite on the live file can lock a running scrape.
 3. Runs `claude -p` with the prompt below in the worktree. It can read the
    main folder (`--add-dir`), edit files, and run only
    `uv run python ...` / `uv run pytest ...`. It has no git, network or other

@@ -1,6 +1,7 @@
 """Shadow copy of jobs.db in Postgres (Azure plan, phase 3).
 
-jobs.db stays the source of truth: nothing reads Postgres yet. `sync` makes every
+Before the phase 4 cutover (src/pg_cutover.py) jobs.db is the source of truth and nothing
+reads Postgres. `sync` makes every
 table in Postgres match jobs.db (new rows inserted, changed rows updated, rows gone
 from jobs.db deleted), and `check` compares the two table by table. Both append a
 line to logs/pg-mirror.jsonl, so a week of matching counts can be read back.
@@ -126,6 +127,9 @@ def _ensure_pg_table(pg, t: Table) -> None:
     have = {r[0] for r in pg.execute(
         "SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() "
         "AND table_name = %s", (t.name,))}
+    if HASH_COL not in have:
+        raise MirrorError(f"Postgres table {t.name} has no {HASH_COL}: it is the live database from "
+                          "the phase 4 cutover, not a mirror; see docs/postgres-mirror.md")
     for c, typ in t.columns:
         if c not in have:
             pg.execute(sql.SQL("ALTER TABLE {} ADD COLUMN {} {}").format(
@@ -191,8 +195,17 @@ def _sync_table(pg, t: Table, rows: list[tuple]) -> dict[str, int]:
     return stats
 
 
+def _not_live() -> None:
+    from src.db import backend
+
+    if backend() == "postgres":
+        raise MirrorError("the main database is Postgres now (JOBSEARCH_DB=postgres), so there is "
+                          "no jobs.db to mirror; the daily step backs Postgres up instead")
+
+
 def sync(db_path: str | Path, pg) -> dict[str, dict[str, int]]:
     """Make Postgres match jobs.db, in one Postgres transaction (all tables or none)."""
+    _not_live()
     lite = open_sqlite(db_path)
     try:
         lite.execute("BEGIN")  # one consistent snapshot while the dashboard keeps writing
@@ -211,6 +224,8 @@ def sync(db_path: str | Path, pg) -> dict[str, dict[str, int]]:
 def check(db_path: str | Path, pg) -> dict[str, dict[str, Any]]:
     """Row counts per table on both sides, plus how many rows differ in content."""
     from psycopg import sql
+
+    _not_live()
 
     lite = open_sqlite(db_path)
     try:

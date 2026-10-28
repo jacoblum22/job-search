@@ -22,8 +22,9 @@ git branch -D $branch 2>&1 | Out-Null
 git worktree add -b $branch $worktree origin/jake 2>&1 | Add-Content $logFile
 if (-not (Test-Path $worktree)) { Log "Could not create worktree"; exit 1 }
 
+# A SQLite snapshot of the main database (jobs.db, or Postgres after the phase 4 cutover).
 $db = Join-Path $env:TEMP "skills-review-jobs.db"
-Copy-Item (Join-Path $projectRoot "jobs.db") $db -Force
+uv run python scripts/pg_mirror.py export --to $db 2>&1 | Add-Content $logFile
 
 # The prompt is everything after the "---" under "## Prompt".
 $doc = Get-Content (Join-Path $worktree "docs\skills-review-task.md") -Raw

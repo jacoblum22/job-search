@@ -1,8 +1,11 @@
-# Postgres shadow copy (Azure plan, phase 3)
+# Job database in Azure Postgres (Azure plan, phases 3 and 4)
 
-jobs.db stays the only database anything reads. Phase 3 keeps a copy of it in Azure
-Database for PostgreSQL so phase 4 (switching over) starts from a copy that has
-matched for a week. Code: `src/pg_mirror.py`, `scripts/pg_mirror.py`.
+Phase 3 keeps a shadow copy of jobs.db in Azure Database for PostgreSQL; nothing reads
+it. Phase 4 makes Postgres the main database: every task and the dashboard read and
+write it, and a daily SQLite backup lands in `backups/`. Code: `src/pg_mirror.py`
+(the mirror), `src/pg_cutover.py` (cutover, backup, rollback), `src/pgdb.py` (Postgres
+behind the sqlite3 calls the code makes), `scripts/pg_mirror.py` (all commands).
+Phase 4 is described [below](#phase-4-postgres-as-the-main-database).
 
 ## What it does
 
@@ -98,14 +101,94 @@ az postgres flexible-server firewall-rule list -g rg-job-search --server-name jo
 If the desktop's own IP changes, the sync logs "Couldn't connect"; add the new IP the
 same way.
 
-## Rollback
+## Rollback (phase 3)
 
 Set `postgres_mirror: false`. Nothing reads Postgres, so nothing else changes. To stop
 paying anything after the free year, `az postgres flexible-server stop` (it restarts
 itself after 7 days) or delete the server.
 
+## Phase 4: Postgres as the main database
+
+### How the switch works
+
+- `JOBSEARCH_DB=postgres` in `.env` is the switch. `src/db.py` `connect()` reads it each
+  time, and for the project's own `jobs.db` path (every script's default) opens
+  Postgres at `JOBSEARCH_PG_URL` instead. Any other path is still a SQLite file (tests,
+  backups, the skills-review snapshot). Nothing in settings.yaml or the scheduled tasks
+  changes, and a running dashboard follows the switch on its next page load.
+- Every writer goes through `connect()`: the scrape (`aggregate.py`, enrichment,
+  retention, dedup, scoring), the tailoring commands, the dashboard server,
+  `browser_queue.py` (the Chrome task), `rescore.py`, `prune_unwanted.py`,
+  `backfill_descriptions.py`. The skills review reads a SQLite snapshot made by
+  `pg_mirror.py export`.
+- `src/pgdb.py` takes the SQLite-flavoured SQL the code sends (`?` and `:name`
+  placeholders, `INSERT OR IGNORE`, `char(10)`, the SCHEMA DDL) and returns rows that
+  read like sqlite3 rows. PRAGMA and sqlite_master are refused; code uses
+  `db.table_columns` / `db.has_table`, which work on both.
+
+### Cutover (once)
+
+`cutover` refuses while the dashboard answers on port 8765, a scrape holds
+`.aggregate.lock`, or a tailoring run is going. It then:
+
+1. syncs the mirror and checks it (stops unless every table matches);
+2. replaces the mirror's tables with the app's own schema (ids become identity columns
+   that continue after the highest id SQLite ever gave out; defaults, unique keys and
+   indexes as in SQLite; no `_row_hash`) and copies every row, in one transaction;
+3. compares every row of jobs.db with Postgres, value for value, and checks jobs.db's
+   bytes didn't change during the copy (else it drops the copied tables, so the next
+   mirror sync rebuilds them, and stops);
+4. writes `JOBSEARCH_DB=postgres` to `.env` and moves jobs.db to
+   `backups/jobs-sqlite-at-cutover-<time>.db`.
+
+Desktop, normal PowerShell in `C:\Users\Nelly\job-search` (stop and start the dashboard
+task from an admin PowerShell if a normal one is refused):
+
+```powershell
+git pull origin jake; uv sync
+uv run python scripts/pg_mirror.py history     # the phase 3 syncs and checks
+uv run python scripts/pg_mirror.py check       # must end "All tables match."
+Stop-ScheduledTask -TaskName JobSearch-Dashboard
+uv run python scripts/pg_mirror.py cutover
+Start-ScheduledTask -TaskName JobSearch-Dashboard
+```
+
+Don't run it while the 6:45 PM Chrome task is going (it writes descriptions).
+
+### Every day
+
+`run_tailoring.ps1` runs `pg_mirror.py daily` after the run. Once Postgres is the main
+database that writes `backups/jobs-<date>.db` (a SQLite copy with the app's schema,
+newest 14 kept); before the cutover it is the mirror sync. `backup` makes one any time.
+
+### Check
+
+A day of runs with no errors in `logs\tailoring.log` and `logs\dashboard.log`, the
+dashboard's counts match the day before, and `pg_mirror.py history` shows the backup.
+
+### Rollback
+
+```powershell
+Stop-ScheduledTask -TaskName JobSearch-Dashboard
+uv run python scripts/pg_mirror.py rollback                  # Postgres back to jobs.db
+# or, when Postgres can't be reached (desktop IP changed, server down):
+uv run python scripts/pg_mirror.py rollback --from-backup    # newest backups/jobs-<date>.db
+Start-ScheduledTask -TaskName JobSearch-Dashboard
+```
+
+`rollback` writes Postgres to jobs.db (with the same ids), clears `JOBSEARCH_DB`, and
+renames the Postgres tables `pre_rollback_*` so a mirror sync can start a fresh copy.
+`--from-backup` loses whatever changed since that backup.
+
+### If the desktop's IP changes
+
+Postgres refuses connections from an address without a firewall rule, so after the
+cutover the scrape, tailoring and dashboard all fail with "Couldn't connect" / a
+connection timeout. Add the new IP (Firewall, above) and everything works again; or roll
+back from the backup.
+
 ## Tests
 
-`tests/test_pg_mirror.py` runs against a real Postgres when `JOBSEARCH_PG_TEST_URL`
+`tests/test_pg_mirror.py` and `tests/test_pg_backend.py` run against a real Postgres when `JOBSEARCH_PG_TEST_URL`
 names a scratch database (each test uses its own schema and drops it); without it the
 Postgres tests are skipped. Never point it at the Azure server.
