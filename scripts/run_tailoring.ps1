@@ -172,6 +172,13 @@ $dbtOut = & uv run python scripts/dbt.py daily 2>&1 | ForEach-Object { "$_" }
 if ($LASTEXITCODE -ne 0) { Log "WARNING: dbt daily build failed (exit $LASTEXITCODE)" }
 else { Log "dbt daily build done" }
 $dbtOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | Select-Object -Last 15 | Add-Content $logFile -Encoding UTF8
+# Snowflake (docs/snowflake-guide.md): copy the tables to Azure storage, load them into Snowflake
+# and build the same dbt models there. Each step is skipped until it's set up in .env; a failure
+# is only logged.
+$sfOut = & uv run python scripts/snowflake_sync.py daily 2>&1 | ForEach-Object { "$_" }
+if ($LASTEXITCODE -ne 0) { Log "WARNING: Snowflake daily step failed (exit $LASTEXITCODE)" }
+else { Log "Snowflake daily step done" }
+$sfOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | Select-Object -Last 15 | Add-Content $logFile -Encoding UTF8
 
 # Nothing tracked should change during a run.
 $tracked = git status --porcelain --untracked-files=no -- src tests prompts docs config scripts

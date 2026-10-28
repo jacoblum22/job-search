@@ -2,7 +2,9 @@ version: 2
 
 sources:
   - name: app
-    schema: public
+    # Postgres: the app's own tables. Snowflake: the copies loaded into RAW each day
+    # (docs/snowflake-guide.md).
+    schema: "{{ 'raw' if target.type == 'snowflake' else 'public' }}"
     description: All the public job tables.
     tables:
       - name: jobs

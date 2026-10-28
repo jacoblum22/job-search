@@ -3,15 +3,18 @@
 with bounds as (
     select least(min(first_seen_on), date '2026-09-01') as first_day
     from {{ ref('fct_posting_life') }}
+),
+
+days as (
+    {{ day_rows('(select first_day from bounds)', dbt.dateadd('day', 90, 'current_date')) }}
 )
 
 select
-    d::date                                             as day,
-    extract(isodow from d)::int                         as weekday_number,
-    to_char(d, 'Dy')                                    as weekday,
-    (extract(isodow from d) >= 6)                       as is_weekend,
+    d                                                   as day,
+    {{ iso_weekday('d') }}                              as weekday_number,
+    {{ weekday_name('d') }}                             as weekday,
+    ({{ iso_weekday('d') }} >= 6)                       as is_weekend,
     date_trunc('week', d)::date                         as week_start,
     date_trunc('month', d)::date                        as month_start,
-    to_char(d, 'Mon YYYY')                              as month
-from bounds,
-    generate_series(bounds.first_day, current_date + 90, interval '1 day') as d
+    {{ month_name('d') }}                               as month
+from days

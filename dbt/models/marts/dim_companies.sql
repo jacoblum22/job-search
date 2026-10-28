@@ -3,7 +3,7 @@ with open_postings as (
     select
         company,
         count(*)                                        as open_postings,
-        count(*) filter (where tier in ('A', 'B'))      as open_ab_postings,
+        count(case when tier in ('A', 'B') then 1 end) as open_ab_postings,
         max(score)                                      as best_open_score
     from {{ ref('fct_postings') }}
     group by company
@@ -20,7 +20,7 @@ ever as (
 ),
 
 applications as (
-    select company, count(*) as applications, count(*) filter (where reached_applied) as applied
+    select company, count(*) as applications, count(case when reached_applied then 1 end) as applied
     from {{ ref('fct_applications') }}
     group by company
 ),

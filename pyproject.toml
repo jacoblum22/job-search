@@ -23,6 +23,11 @@ dependencies = [
     # (which drops optional extras) can't remove it.
     "pywin32>=306; sys_platform == 'win32'",
     "psycopg[binary]>=3.2",
+    # phase 9 (docs/snowflake-guide.md): Parquet export to Azure storage, Snowflake loads
+    "pyarrow>=18",
+    "azure-identity>=1.19",
+    "azure-storage-blob>=12.24",
+    "snowflake-connector-python>=4.8,<5",  # same major version dbt-snowflake uses
 ]
 
 [dependency-groups]
