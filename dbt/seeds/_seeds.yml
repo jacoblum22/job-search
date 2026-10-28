@@ -1,0 +1,17 @@
+version: 2
+
+seeds:
+  - name: company_aliases
+    description: >
+      Hand-kept map of alternate employer names (alias) to one name (canonical).
+      Subsidiaries map to the parent brand. tests/assert_company_names_unique.sql
+      warns about look-alike names that need a row here.
+    columns:
+      - name: alias
+        description: A name as boards write it.
+        data_tests: [unique, not_null]
+      - name: canonical
+        description: The name every model uses instead.
+        data_tests: [not_null]
+  - name: company_not_duplicates
+    description: Look-alike name pairs that are really different employers, so the duplicate check skips them.

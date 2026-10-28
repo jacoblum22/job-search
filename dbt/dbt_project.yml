@@ -20,3 +20,5 @@ models:
   job_search:
     staging:
       +materialized: view
+    marts:
+      +materialized: table
