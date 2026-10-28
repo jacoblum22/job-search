@@ -663,6 +663,12 @@ tailor:
     timeout_s: 30
     max_retries: 3
 
+# Azure plan phase 5 (docs/azure-scrape-job.md): sources that block Azure's IPs. The Azure
+# scrape job skips them, and the desktop's tailoring run fetches just these when the Azure run
+# is fresh (aggregate.py --skip-if-fresh). Names as `aggregate.py --show-last-run` prints them.
+cloud_sources:
+  skip: [careerjet]   # HTTP 403 from Azure on the first run, Oct 28 2026; 742 listings from the desktop
+
 # Azure plan phase 3: a shadow copy of jobs.db in Azure Postgres (src/pg_mirror.py,
 # docs/postgres-mirror.md). With this on, run_tailoring.ps1 syncs Postgres at the end of
 # each run. The connection string is JOBSEARCH_PG_URL in .env. Turning it off is the rollback.
