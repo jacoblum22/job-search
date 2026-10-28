@@ -294,6 +294,15 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     unused = [t["term"] for t in missing if not t["soft"]]
     unused_soft = [t["term"] for t in missing if t["soft"]]
     unbacked = [t["term"] for t in ranked if not _is_backed(t["term"], backed) and not t["boilerplate"]]
+    # The skills part reads the skills list and bullets only, so a required term the summary alone
+    # says scores there as missing though `unused` (whole resume) doesn't name it (Nexthop new grad,
+    # Oct 28 2026: software engineering, testing and project scoping, about 3.5 of a 10.8-point gap).
+    hay = _skills_text(data) + "\n" + "\n".join(t for _, t in _bullet_texts(data))
+    unused_names = {u.lower() for u in unused}
+    summary_only = [terms[k]["term"] for k in sorted(req_terms, key=lambda k: -weight(terms[k]))
+                    if not terms[k]["soft"] and terms[k]["term"].lower() not in unused_names
+                    and _wording_backed(terms[k]["term"], backed, vault)
+                    and _credit(terms[k]["term"], text, 1.0) > 0 and _credit(terms[k]["term"], hay, 0.5) == 0]
     score = ats_score(data, req, evidence, cfg, title_ok if isinstance(title_ok, str) else "")
     comps = dict(score["components"])
     total_w = sum(weight(t) for t in terms.values())
@@ -319,8 +328,9 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     floor = float(cfg.get("ats_floor", 70))
     target = min(floor, ceiling - float(cfg.get("ats_wording_tolerance", 5)))
     return {"unused": unused, "unused_soft": unused_soft, "unbacked": unbacked, "title_missing": title_missing,
+            "summary_only": summary_only,
             "ceiling": ceiling, "floor": floor, "target": round(target, 1), "fit_gap": ceiling < floor,
-            "needs_repair": score["total"] < target and bool(unused or title_missing)}
+            "needs_repair": score["total"] < target and bool(unused or title_missing or summary_only)}
 
 
 def _repeated(terms, text) -> list[str]:
@@ -544,6 +554,7 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
         "fit_gap": gap["fit_gap"],
         "needs_ats_repair": gap["needs_repair"],
         "unused_terms": gap["unused"],
+        "summary_only_terms": gap["summary_only"],
         "title_missing": gap["title_missing"],
         "unused_soft_terms": gap["unused_soft"],
         "letter_soft_terms": gap["letter_soft"],
@@ -589,6 +600,7 @@ def regrade(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any] | No
             "ats_floor": gap["floor"], "below_floor": ats["total"] < gap["floor"], "ats_ceiling": gap["ceiling"],
             "ats_target": gap["target"], "fit_gap": gap["fit_gap"], "needs_ats_repair": gap["needs_repair"],
             "unused_terms": gap["unused"],
+        "summary_only_terms": gap["summary_only"],
         "title_missing": gap["title_missing"], "unused_soft_terms": gap["unused_soft"], "unbacked_terms": gap["unbacked"],
             "letter_soft_terms": gap["letter_soft"]}
 
@@ -640,6 +652,13 @@ def ats_gap_lines(gap: dict[str, Any], evidence: dict[str, Any], data: dict[str,
         out.append({"id": "ats.unused", "sections": sections(gap["unused"]), "sentence": (
             "Use the posting's own words for these terms the vault backs (only where a cited passage "
             f"supports them): {', '.join(gap['unused'][:12])}.")})
+    if gap.get("summary_only"):
+        # Required terms the summary says but no bullet or skills-list item does: the skills part of
+        # the score looks for them in the lines that show the work.
+        where = [x for x in sections(gap["summary_only"]) if x != "summary"] or ["skills"]
+        out.append({"id": "ats.summary_only", "sections": where, "sentence": (
+            "These required terms are only in the summary; also say them in a bullet whose cited passage "
+            f"supports them, or in the skills list: {', '.join(gap['summary_only'][:12])}.")})
     if gap.get("title_missing"):
         # An ATS ranks a resume whose opening names the job title well above one that doesn't (Jake,
         # Oct 23 2026: fine to say when it is true).

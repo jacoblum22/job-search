@@ -115,7 +115,7 @@ def letter_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
 
 
 _ATS_NOTES = ("Use the posting's own words", "Open the summary's first sentence with the job title",
-              "Soft skills the vault shows")
+              "Soft skills the vault shows", "These required terms are only in the summary")
 
 
 def _wide_gap(r: dict[str, Any], loop_cfg: dict[str, Any]) -> bool:
@@ -386,7 +386,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
         reason = f"round limit of {max_rounds} reached" + (
             f" ({len(rounds)} drafts with the one pending asked for)" if len(rounds) > max_rounds else "")
     # Without a wording gap the "use the posting's words" line is advice, not a reason for a round.
-    ats_lines = {g.get("sentence") for g in src["grade"].get("gaps") or [] if g.get("id") in ("ats.unused", "ats.title")}
+    ats_lines = {g.get("sentence") for g in src["grade"].get("gaps") or [] if g.get("id") in ("ats.unused", "ats.summary_only", "ats.title")}
     # The soft-skill note rides along with a round that happens anyway, never starts one.
     soft_lines = {g.get("sentence") for g in src["grade"].get("gaps") or [] if g.get("id") == "ats.soft"}
     repairable = [f for f in feedback if f not in soft_lines and (needs_ats or f not in ats_lines)]
