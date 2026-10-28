@@ -20,6 +20,7 @@ cleaned as (
         tier,
         score,
         years_experience,
+        length(description)             as description_length,
         -- Boards write the posted date in several formats (and some only write
         -- "Posted 30+ Days Ago"); read the ones that are dates, leave the rest null.
         case

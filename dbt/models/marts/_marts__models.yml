@@ -1,0 +1,220 @@
+version: 2
+
+models:
+  - name: fct_postings
+    description: >
+      Grain: one row per posting open today, with the same job on several boards
+      merged into one row. The Market page in Power BI reads this. Counts here
+      should match the dashboard's (it groups rows the same way).
+    columns:
+      - name: posting_id
+        description: The app's dedup group id, shared by every board's copy of the job.
+        data_tests: [unique, not_null]
+      - name: primary_job_id
+        description: The board copy whose details are shown (the one with the longest description).
+      - name: title
+        description: Job title from the primary copy.
+      - name: company
+        description: Employer, with alternate names merged (seeds/company_aliases.csv).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_companies')
+                field: company
+      - name: company_as_posted
+        description: Employer name exactly as the primary copy wrote it.
+      - name: location
+        description: Location text from the primary copy.
+      - name: location_category
+        description: vancouver, remote or other.
+      - name: tier
+        description: Score band A, B, C, D or skip.
+      - name: score
+        description: The app's fit score (src/score.py).
+      - name: years_experience
+        description: Years of experience the posting asks for, from any copy that states it.
+      - name: status
+        description: What Jake did with it (new, applied, dismissed, expired); the strongest across copies.
+      - name: posted_on
+        description: The earliest posted date any board gives, else the day it was first seen.
+      - name: posted_date_given
+        description: True when a board gave a readable posted date; false means posted_on is the first-seen day.
+      - name: first_seen_on
+        description: The day (UTC) any board first showed it.
+      - name: first_seen_at
+        description: When any board first showed it.
+      - name: last_seen_at
+        description: When a scrape last saw it on any board.
+      - name: board_count
+        description: How many boards list it.
+      - name: boards
+        description: Those boards, comma-separated.
+      - name: has_application
+        description: True when a tailored packet exists for any copy.
+
+  - name: fct_posting_life
+    description: >
+      Grain: one row per posting per board that the snapshot has ever seen, open or
+      deleted. The Posting life page (how long postings stay up) reads this. History
+      starts with the snapshot's first prod run on Oct 28 2026.
+    columns:
+      - name: posting_board_id
+        description: source + ':' + external_id, the key for one board's copy.
+        data_tests: [unique, not_null]
+      - name: source
+        description: The job board.
+      - name: external_id
+        description: The board's own id for the posting.
+      - name: job_id
+        description: The app's id for the row (gone from the app once removed).
+      - name: posting_id
+        description: The dedup group id, shared with the same job on other boards.
+      - name: title
+        description: Title in the latest version.
+      - name: company
+        description: Employer, alternate names merged.
+      - name: location_category
+        description: vancouver, remote or other.
+      - name: last_tier
+        description: Tier in the latest version.
+      - name: last_score
+        description: Score in the latest version.
+      - name: last_status
+        description: Status in the latest version.
+      - name: first_seen_at
+        description: When the board first showed it.
+      - name: first_seen_on
+        description: That day (UTC).
+      - name: last_seen_at
+        description: When a scrape last saw it.
+      - name: removed_at
+        description: When the cleanup deleted it from the app (30 days after posting, or on expiry); null while open.
+      - name: is_open
+        description: True while it is still in the app.
+      - name: days_listed
+        description: Days from first seen to removal, or to now while open.
+      - name: change_count
+        description: How many times its title, tier, score or status changed since the snapshot started.
+
+  - name: fct_applications
+    description: >
+      Grain: one row per tailored application packet. The Funnel page reads this.
+      The reached_* columns are cumulative: an interview also counts as reaching
+      callback, applied and approved.
+    columns:
+      - name: job_id
+        description: The board copy the packet was made for.
+        data_tests: [unique, not_null]
+      - name: posting_id
+        description: Its dedup group id (fct_postings.posting_id).
+      - name: source
+        description: The board.
+      - name: title
+        description: Job title.
+      - name: company
+        description: Employer, alternate names merged.
+      - name: location_category
+        description: vancouver, remote or other.
+      - name: tier_now
+        description: The job's tier today.
+      - name: tier_when_drafted
+        description: Its tier when the packet was drafted.
+      - name: score_when_drafted
+        description: Its score when the packet was drafted.
+      - name: base_resume
+        description: Which base resume the packet started from.
+      - name: packet_status
+        description: shortlisted, needs_fixes, ready_for_review, approved or applied.
+      - name: outcome
+        description: Latest outcome after applying (applied, callback, interview, offer, rejected, no_reply), or null.
+      - name: is_flagged
+        description: True when the review flagged the packet.
+      - name: drafted_at
+        description: When the packet was created.
+      - name: outcome_at
+        description: When the latest outcome was recorded.
+      - name: reached_approved
+        description: Approved, applied or any outcome.
+      - name: reached_applied
+        description: Applied or any outcome.
+      - name: reached_callback
+        description: Callback, interview or offer.
+      - name: reached_interview
+        description: Interview or offer.
+      - name: reached_offer
+        description: Offer.
+      - name: days_seen_to_drafted
+        description: Days from any board first showing the job to the packet being drafted.
+      - name: days_drafted_to_outcome
+        description: Days from drafting to the latest outcome.
+
+  - name: dim_companies
+    description: >
+      Grain: one row per employer, with alternate names merged. Every page filters
+      and labels employers through this.
+    columns:
+      - name: company
+        description: The merged employer name.
+        data_tests: [unique, not_null]
+      - name: open_postings
+        description: Postings open today (merged across boards).
+      - name: open_ab_postings
+        description: Of those, how many are tier A or B.
+      - name: best_open_score
+        description: Highest score among its open postings.
+      - name: postings_ever
+        description: Postings seen since the snapshot started, open or deleted.
+      - name: first_seen_on
+        description: The first day any of its postings was seen.
+      - name: last_seen_at
+        description: The last time any of its postings was seen.
+      - name: applications
+        description: Tailored packets made for it.
+      - name: applied
+        description: Of those, how many were sent.
+
+  - name: agg_postings_daily
+    description: >
+      Grain: one row per day, board and tier. How many postings each board showed
+      for the first time that day; a job on two boards counts on both.
+    data_tests:
+      - unique:
+          column_name: "day || '|' || source || '|' || tier"
+    columns:
+      - name: day
+        description: The day (UTC) the postings were first seen.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_days')
+                field: day
+      - name: source
+        description: The board.
+      - name: tier
+        description: Latest tier, or 'unscored'.
+      - name: new_postings
+        description: Postings first seen that day.
+      - name: new_vancouver
+        description: Of those, in the Vancouver area.
+      - name: new_remote
+        description: Of those, remote.
+
+  - name: dim_days
+    description: "Grain: one row per calendar day, from Sep 1 2026 (or the earliest posting) to 90 days ahead."
+    columns:
+      - name: day
+        description: The date.
+        data_tests: [unique, not_null]
+      - name: weekday_number
+        description: 1 = Monday ... 7 = Sunday.
+      - name: weekday
+        description: Mon, Tue, ...
+      - name: is_weekend
+        description: Saturday or Sunday.
+      - name: week_start
+        description: The Monday of that week.
+      - name: month_start
+        description: The first of that month.
+      - name: month
+        description: Month label, e.g. Oct 2026.

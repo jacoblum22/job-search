@@ -20,3 +20,9 @@ models:
   job_search:
     staging:
       +materialized: view
+    marts:
+      +materialized: table
+      # descriptions become Postgres comments, visible to anyone browsing the tables
+      +persist_docs:
+        relation: true
+        columns: true
