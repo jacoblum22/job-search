@@ -124,8 +124,10 @@ Use judgment.
   twice.
 - **AI-assisted projects: lead with what the system does.** The "(AI-assisted build)" label
   already says how it was made, so "Built a Python pipeline with Claude Code that loads ..." is
-  honest; opening every project bullet with "Directed" reads as "I prompted a chatbot". Let the
-  numbers (tests, postings, runs) carry the credibility.
+  honest; opening a project bullet with "Directed" reads as "I prompted a chatbot". Let the
+  scope (postings, sources, runs) carry the credibility. No test counts: they go stale fast (the
+  job-search repo went from 140 to 800+) and read as padding; say "a pytest suite", or name
+  specific verification (a 57-case eval set built from real play) (Jake, Oct 26 2026).
 - **Grades are usually noise.** A grade in brackets after a report or a course ("(87%)", "(A+)")
   confuses more than it helps; leave it out unless the posting asks for grades. The cGPA / Dean's
   List line is fine.

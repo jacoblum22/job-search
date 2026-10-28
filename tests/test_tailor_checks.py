@@ -915,3 +915,16 @@ def test_reorder_projects(tmp_path):
     ])
     assert apply_edits(app, 1, cfg)["rejected"] == []
     assert [e["id"] for e in load_resume(app / "drafts/r1/resume.yaml")["projects"]] == ["survey", "spam"]
+
+
+def test_rewritten_project_bullet_with_directed_opener_or_test_count_warns(tmp_path):
+    # Nexthop new grad, Oct 28 2026: a repair wrote "Directed the software engineering of a Claude Code
+    # rebuild, ... (140 pytest tests)"; Jake's rules (Oct 26) say neither belongs on the resume.
+    def m(d):
+        d["projects"][0]["bullets"][0]["text"] = "Directed a PyTorch spam classifier build with 0.94 F1 and 140 pytest tests."
+    res, *_ = checked(tmp_path, m)
+    ws = {w["code"]: w for w in res["warnings"]}
+    assert "directed_opener" in ws and ws["test_count"]["data"]["term"] == "140 pytest tests"
+    # The base wording itself is Jake's and isn't judged.
+    res, *_ = checked(tmp_path / "b", lambda d: None)
+    assert not {"directed_opener", "test_count"} & set(codes(res["warnings"]))
