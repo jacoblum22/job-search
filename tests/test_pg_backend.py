@@ -306,3 +306,20 @@ def test_mirror_refuses_once_postgres_is_live(jobs_db, monkeypatch):
     monkeypatch.setenv("JOBSEARCH_DB", "postgres")
     with pytest.raises(pg_mirror.MirrorError, match="main database is Postgres"):
         pg_mirror.sync(jobs_db, None)
+
+
+@needs_pg
+def test_dashboard_keeps_one_postgres_connection(live):
+    from src.server import DashboardApp
+
+    upsert_job(live, _job(1))
+    live.commit()
+    app = DashboardApp({}, db.MAIN_DB)
+    headers = {"Host": "127.0.0.1:8765"}
+    assert app.handle("GET", "/api/job/1", headers)[0] == 200
+    first = app._pg.raw
+    assert app.handle("GET", "/", headers)[0] == 200
+    assert app._pg.raw is first and not first.closed
+    first.close()  # dropped (Azure restart, network blip): the next request reconnects
+    assert app.handle("GET", "/api/job/1", headers)[0] == 200
+    assert app._pg.raw is not first

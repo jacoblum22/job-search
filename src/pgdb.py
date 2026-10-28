@@ -187,3 +187,22 @@ class PgConnection:
             self.commit()
         else:
             self.rollback()
+
+
+class KeptConnection(PgConnection):
+    """One connection reused across the dashboard's requests (connecting to Azure takes
+    about 0.4 s): close() only ends the transaction, as closing a sqlite3 connection would."""
+
+    def close(self) -> None:
+        if not self._pg.closed:
+            self._pg.rollback()
+
+    def alive(self) -> bool:
+        if self._pg.closed or self._pg.broken:
+            return False
+        try:
+            self._pg.execute("SELECT 1")
+            self._pg.rollback()
+            return True
+        except Exception:  # noqa: BLE001 - a dropped connection is replaced, whatever the error
+            return False
