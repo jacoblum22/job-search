@@ -130,8 +130,8 @@ models:
         description: Latest outcome after applying (applied, callback, interview, offer, rejected, no_reply), or null.
       - name: is_flagged
         description: True when the review flagged the packet.
-      - name: drafted_at
-        description: When the packet was created.
+      - name: drafted_on
+        description: The day the packet was created (the app stores the day only).
       - name: outcome_at
         description: When the latest outcome was recorded.
       - name: reached_approved
@@ -145,9 +145,9 @@ models:
       - name: reached_offer
         description: Offer.
       - name: days_seen_to_drafted
-        description: Days from any board first showing the job to the packet being drafted.
+        description: Whole days from any board first showing the job (Vancouver date) to the drafting day.
       - name: days_drafted_to_outcome
-        description: Days from drafting to the latest outcome.
+        description: Whole days from the drafting day to the latest outcome.
 
   - name: dim_companies
     description: >
