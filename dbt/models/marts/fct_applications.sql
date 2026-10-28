@@ -35,14 +35,17 @@ select
     ap.packet_status,
     ap.outcome,
     ap.is_flagged,
-    ap.created_at                                       as drafted_at,
+    -- the app stores the drafting day only (desktop local date), no time
+    (ap.created_at at time zone 'UTC')::date            as drafted_on,
     ap.outcome_at,
     (ap.packet_status in ('approved', 'applied') or ap.outcome is not null) as reached_approved,
     (ap.packet_status = 'applied' or ap.outcome is not null)                as reached_applied,
     (ap.outcome in ('callback', 'interview', 'offer'))                       as reached_callback,
     (ap.outcome in ('interview', 'offer'))                                   as reached_interview,
     (ap.outcome = 'offer')                                                   as reached_offer,
-    extract(epoch from (ap.created_at - j.first_seen_at)) / 86400.0         as days_seen_to_drafted,
-    extract(epoch from (ap.outcome_at - ap.created_at)) / 86400.0           as days_drafted_to_outcome
+    (ap.created_at at time zone 'UTC')::date
+        - (j.first_seen_at at time zone 'America/Vancouver')::date           as days_seen_to_drafted,
+    (ap.outcome_at at time zone 'America/Vancouver')::date
+        - (ap.created_at at time zone 'UTC')::date                           as days_drafted_to_outcome
 from applications as ap
 join jobs as j using (job_id)
