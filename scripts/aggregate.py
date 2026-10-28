@@ -19,6 +19,8 @@ import click
 import yaml
 from dotenv import load_dotenv
 
+from src import browser_queue
+from src.browser_queue import BROWSER_SOURCES
 from src.dashboard import generate_dashboard
 from src.db import connect, upsert_job
 from src.dedup import run_dedup
@@ -126,9 +128,6 @@ def _release_lock() -> None:
     LOCK_PATH.unlink(missing_ok=True)
 
 
-# Same list as BROWSER_SOURCES in scripts/browser_queue.py (stdlib-only, so
-# it can't import from here).
-BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet", "jobright", "wellfound")
 
 
 def _awaits_browser(job) -> bool:
@@ -165,6 +164,13 @@ def run(
     if removed:
         log.info("Deleted %d job(s) older than %d days", removed, max_days)
     conn.commit()
+
+    # Descriptions the Chrome task read since the last scrape, so this run scores them.
+    try:
+        log.info(browser_queue.summary(browser_queue.import_results(conn)))
+        conn.commit()
+    except Exception:
+        log.exception("Importing the Chrome task's descriptions failed — continuing")
 
     def wanted(j) -> bool:
         return should_hydrate_record(j.title, search, company=j.company, location=j.location)
@@ -380,6 +386,11 @@ def run(
     generate_xlsx(conn, xlsx_path)
     log.info("Dashboard: %s", dashboard_path)
     log.info("Export: %s", xlsx_path)
+    # What the Chrome task should open next (it reads this file, not the database).
+    try:
+        log.info("Browser queue: %d listing(s) for the Chrome task", len(browser_queue.export_queue(conn)))
+    except Exception:
+        log.exception("Writing the Chrome task's queue failed — continuing")
     log.info("Run finished in %.1f min", (time.perf_counter() - started) / 60)
 
     conn.close()
