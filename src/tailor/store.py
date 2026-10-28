@@ -53,7 +53,9 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
 
 def ensure_table(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
-    have = {r[1] for r in conn.execute("PRAGMA table_info(applications)")}
+    from src.db import table_columns
+
+    have = set(table_columns(conn, "applications"))
     for col, kind in _ADDED_COLUMNS.items():
         if col not in have:
             conn.execute(f"ALTER TABLE applications ADD COLUMN {col} {kind}")
@@ -62,9 +64,9 @@ def ensure_table(conn: sqlite3.Connection) -> None:
 
 def has_table(conn: sqlite3.Connection) -> bool:
     """True when jobs.db has an applications table (the dashboard and retention never create it)."""
-    return conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'applications'"
-    ).fetchone() is not None
+    from src.db import has_table as db_has_table
+
+    return db_has_table(conn, "applications")
 
 
 def all_apps(conn: sqlite3.Connection) -> dict[int, dict[str, Any]]:

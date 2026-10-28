@@ -23,9 +23,9 @@ KEEP_STATUSES = ("applied",)
 def kept_clause(conn: sqlite3.Connection) -> str:
     """SQL to add to a `WHERE` on jobs so jobs with a tailoring application
     (src/tailor/store.py) are never deleted, whatever their status."""
-    has_apps = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'applications'"
-    ).fetchone()
+    from src.db import has_table
+
+    has_apps = has_table(conn, "applications")
     return " AND id NOT IN (SELECT job_id FROM applications)" if has_apps else ""
 
 SCHEMA = """

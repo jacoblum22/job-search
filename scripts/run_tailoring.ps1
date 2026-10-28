@@ -138,13 +138,14 @@ if ($result) {
     $out | Select-Object -Last 10 | ForEach-Object { "$_" } | Add-Content $logFile -Encoding UTF8
 }
 
-# Azure phase 3: copy jobs.db into the Postgres shadow copy (docs/postgres-mirror.md). Does
-# nothing unless settings.yaml has database.postgres_mirror: true; a failure is only logged.
-$mirrorOut = & uv run python scripts/pg_mirror.py sync --if-enabled 2>&1 | ForEach-Object { "$_" }
+# Azure (docs/postgres-mirror.md): once Postgres is the main database (phase 4), back it up to
+# backups\jobs-<date>.db; before that, copy jobs.db into the Postgres shadow copy when
+# settings.yaml has database.postgres_mirror: true. A failure is only logged.
+$mirrorOut = & uv run python scripts/pg_mirror.py daily 2>&1 | ForEach-Object { "$_" }
 $mirrorCode = $LASTEXITCODE
 if ($mirrorOut) {
-    if ($mirrorCode -eq 0) { Log "Postgres mirror synced; counts match" }
-    else { Log "WARNING: Postgres mirror exit code $mirrorCode (see logs\pg-mirror.jsonl)" }
+    if ($mirrorCode -eq 0) { Log "Postgres daily step done (backup or mirror sync)" }
+    else { Log "WARNING: Postgres daily step exit code $mirrorCode (see logs\pg-mirror.jsonl)" }
     $mirrorOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | Add-Content $logFile -Encoding UTF8
 }
 

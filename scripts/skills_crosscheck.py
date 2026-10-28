@@ -152,9 +152,12 @@ def phrase_regex(name: str) -> re.Pattern[str]:
 
 def load_postings(db: Path) -> list[tuple[str, str]]:
     """(description, tier) for every job with a full description."""
-    con = sqlite3.connect(db)
+    from src.db import connect, is_main, table_columns
+
+    # The main database may be Postgres (src/db.py); a snapshot file is opened as it is.
+    con = connect(db) if is_main(db) else sqlite3.connect(db)
     try:
-        cols = {r[1] for r in con.execute("PRAGMA table_info(jobs)")}
+        cols = set(table_columns(con, "jobs"))
         desc = "description" if "description" in cols else None
         if desc is None:
             raise SystemExit("jobs table has no description column")
