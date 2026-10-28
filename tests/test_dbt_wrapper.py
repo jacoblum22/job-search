@@ -40,3 +40,9 @@ def test_has_work(tmp_path):
     (tmp_path / "snapshots").mkdir()
     (tmp_path / "snapshots" / "jobs_snapshot.sql").write_text("select 1")
     assert dbt_wrapper.has_work(tmp_path)
+
+
+def test_has_work_counts_yaml_snapshots(tmp_path):
+    (tmp_path / "snapshots").mkdir()
+    (tmp_path / "snapshots" / "jobs_snapshot.yml").write_text("snapshots: []")
+    assert dbt_wrapper.has_work(tmp_path)

@@ -42,8 +42,10 @@ def connection_env(url: str) -> dict[str, str]:
 
 
 def has_work(dbt_dir: Path = DBT_DIR) -> bool:
-    """Whether the project has any model or snapshot yet; before then the daily build is skipped."""
-    return any(any((dbt_dir / d).rglob("*.sql")) for d in ("models", "snapshots"))
+    """Whether the project has any model or snapshot yet; before then the daily build is skipped.
+    Snapshots are usually YAML since dbt 1.9, so .yml files count too."""
+    return any(f.suffix in (".sql", ".yml", ".yaml")
+               for d in ("models", "snapshots") for f in (dbt_dir / d).rglob("*"))
 
 
 def main(argv: list[str]) -> int:

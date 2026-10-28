@@ -14,7 +14,7 @@ so you can honestly put dbt on your resume.
 | Connection | `dbt/profiles.yml` | No secrets. `scripts/dbt.py` splits `JOBSEARCH_PG_URL` from `.env` into `DBT_PG_*` variables. |
 | Targets | `dbt/profiles.yml` | `dev` (default) builds into `dbt_dev*` schemas while you work. `prod` builds `analytics*`, which Power BI will read. |
 | Run command | `scripts/dbt.py` | `uv run python scripts/dbt.py <any dbt command>` |
-| Daily build | `scripts/run_tailoring.ps1` | `dbt.py daily` = `dbt build --target prod` after each run, once the project has a model or snapshot. A failure is logged, never stops the run. |
+| Daily build | `scripts/run_tailoring.ps1` | `dbt.py daily` = `dbt build --target prod` after each run, once the project has a model or snapshot (.sql or .yml). A failure is logged, never stops the run. |
 
 Run everything from `C:\Users\Nelly\job-search`:
 
