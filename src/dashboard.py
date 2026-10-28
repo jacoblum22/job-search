@@ -247,14 +247,28 @@ window.addEventListener('error', e => {
     'The dashboard hit an error and could not show jobs: ' + e.message;
 });
 const SERVER = __SERVER__;
-// Back from a job page the browser shows this page as it was; if something was changed there, reload.
-window.addEventListener('pageshow', e => {
+// Back from a job page the browser shows this page as it was (from its back/forward cache, or
+// its HTTP cache with the old rows). If something was changed there, fetch just those rows.
+window.addEventListener('pageshow', async () => {
+  if (!SERVER) return;
+  let ids;
   try {
-    if (SERVER && sessionStorage.getItem('dashboardStale')) {
-      sessionStorage.removeItem('dashboardStale');
-      if (e.persisted) location.reload();
+    ids = JSON.parse(sessionStorage.getItem('dashboardStale') || '[]');
+    sessionStorage.removeItem('dashboardStale');
+  } catch (_) { return; }
+  if (!Array.isArray(ids)) { location.reload(); return; }
+  ids = ids.filter(i => /^\d+$/.test(String(i)));
+  if (!ids.length) return;
+  try {
+    const r = await fetch('/api/rows?ids=' + ids.join(','));
+    if (!r.ok) throw new Error(r.statusText);
+    for (const row of (await r.json()).rows) {
+      const fresh = {...row, sourcesStr: row.sources.join(', ')};
+      const at = jobs.findIndex(j => j.id === fresh.id);
+      if (at >= 0) jobs[at] = fresh; else jobs.push(fresh);
     }
-  } catch (_) {}
+    render();
+  } catch (_) { location.reload(); }
 });
 // Run tailoring: starts scripts/run_tailoring.ps1 -Limit N on the PC the server runs on.
 if (SERVER) {
@@ -669,10 +683,10 @@ def app_summary(app: dict) -> dict:
     }
 
 
-def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
-    """The dashboard HTML. With `server`, titles open the details page of the local
-    server (scripts/serve.py) instead of only linking to the posting."""
-    rows = grouped_jobs(conn)
+def dashboard_rows(conn: sqlite3.Connection, only_ids: set[int] | None = None) -> list[dict]:
+    """The rows the dashboard's table is built from. With `only_ids`, just the rows
+    holding one of those job ids (what a details page changed)."""
+    rows = grouped_jobs(conn, only_ids)
     apps = store.all_apps(conn)
     for r in rows:
         ids = r.pop("ids")
@@ -692,7 +706,13 @@ def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
         # Skipped / never-scored rows sort below every real score.
         r["score_sort"] = r["score"] if r.get("score") is not None else -9999
         r.pop("description", None)  # the details page fetches it; keeps the page small
+    return rows
 
+
+def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
+    """The dashboard HTML. With `server`, titles open the details page of the local
+    server (scripts/serve.py) instead of only linking to the posting."""
+    rows = dashboard_rows(conn)
     all_sources = sorted({s for r in rows for s in r["sources"]})
     generated_at = escape(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
 
