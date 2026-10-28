@@ -1,5 +1,7 @@
 # The daily scrape as an Azure Container Apps job (Azure plan, phase 5; docs/azure-scrape-job.md).
-# Run in normal PowerShell in the project folder, with the Azure CLI signed in.
+# Run in normal PowerShell (not "Run as administrator") in the project folder, with the Azure
+# CLI signed in. Windows blocks .ps1 files by default, so start each step with
+# `powershell -ExecutionPolicy Bypass -File` (only for that command):
 #
 #   .\scripts\azure_scrape_job.ps1 setup    # once: providers, Container Apps environment, Postgres rule
 #   .\scripts\azure_scrape_job.ps1 deploy   # create or update the job (after changing .env or token.json too)
@@ -36,7 +38,7 @@ switch ($Step) {
         $null = az postgres flexible-server firewall-rule create --resource-group $rg --server-name $pgServer `
             --name AllowAzureServices --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0; Check "firewall rule"
         az postgres flexible-server firewall-rule list --resource-group $rg --server-name $pgServer -o table
-        Write-Host "Setup done. Next: .\scripts\azure_scrape_job.ps1 deploy"
+        Write-Host "Setup done. Next: powershell -ExecutionPolicy Bypass -File .\scripts\azure_scrape_job.ps1 deploy"
     }
     "deploy" {
         . (Join-Path $PSScriptRoot "uv_path.ps1")
@@ -61,7 +63,7 @@ switch ($Step) {
     }
     "run" {
         az containerapp job start --name $job --resource-group $rg --query name -o tsv; Check "job start"
-        Write-Host "Started. A full scrape takes about 10 minutes; then: .\scripts\azure_scrape_job.ps1 status"
+        Write-Host "Started. A full scrape takes about 10 minutes; then: powershell -ExecutionPolicy Bypass -File .\scripts\azure_scrape_job.ps1 status"
     }
     "status" {
         az containerapp job execution list --name $job --resource-group $rg `

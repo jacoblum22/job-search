@@ -18,9 +18,13 @@ on. Tailoring, the dashboard, the Chrome task and the skills review stay on the 
   released by itself if the scrape dies. A desktop scrape started while the Azure job runs
   waits (`--wait-lock`) or skips. `pg_mirror.py rollback` refuses while either is running.
 - **The tailoring run doesn't scrape twice.** `run_tailoring.ps1` passes
-  `--skip-if-fresh 6`: if a full run finished in the last 6 hours (the morning job), the
-  scrape step exits 4 and the log says so. If the Azure job failed or didn't run, the
-  desktop scrapes as before, so a bad morning costs nothing but time.
+  `--skip-if-fresh 6`: if the Azure job finished a full run in the last 6 hours, the desktop
+  fetches only the sources that block Azure (below) and exits 4 when there are none. If the
+  Azure job failed or didn't run, the desktop scrapes everything as before.
+- **Sources that block Azure** are listed under `cloud_sources.skip` in settings.yaml; the
+  Azure job skips them and the desktop fetches them. CareerJet answered HTTP 403 to every
+  query from Azure on the first run (Oct 28 2026); everything else matched the desktop's
+  counts. Add a source there if `--show-last-run` shows it failing only from Azure.
 - **Scoring uses the vault.** `src/score.py` subtracts points for tools the experience
   vault doesn't show, read from `materials/profile/vault-index.json` and
   `materials/tailor/skill-record.json`. Those are personal and never in the image, so the
@@ -34,19 +38,25 @@ on. Tailoring, the dashboard, the Chrome task and the skills review stay on the 
 
 ## One-time setup (desktop, normal PowerShell, `C:\Users\Nelly\job-search`)
 
+Use a normal window, not "Run as administrator": the Azure CLI extension `setup` installs
+from an admin window can't be read from a normal one later ("Access is denied" on
+`.azure\cliextensions\containerapp`; fix: `az extension add --name containerapp --upgrade --yes`
+from a normal window). Windows blocks `.ps1` files by default, hence the
+`-ExecutionPolicy Bypass`, which applies to that one command only.
+
 1. Pull the branch with this change: `git pull origin jake`, then `uv sync`.
 2. After the merge, GitHub builds the image (repo, **Actions** tab, "Scrape image"). The
    first time, make the package public so Azure can pull it without a password: GitHub,
    your profile, **Packages**, `job-search-scrape`, **Package settings**, **Change
    visibility**, Public. It holds only what's already in the public repo.
-3. `.\scripts\azure_scrape_job.ps1 setup` (extension, providers, environment, firewall rule;
+3. `powershell -ExecutionPolicy Bypass -File .\scripts\azure_scrape_job.ps1 setup` (extension, providers, environment, firewall rule;
    a few minutes).
-4. `.\scripts\azure_scrape_job.ps1 deploy` (saves the vault files to Postgres, then creates
+4. `powershell -ExecutionPolicy Bypass -File .\scripts\azure_scrape_job.ps1 deploy` (saves the vault files to Postgres, then creates
    the job with the secrets).
-5. `.\scripts\azure_scrape_job.ps1 run`, wait about 10 minutes, then
-   `.\scripts\azure_scrape_job.ps1 status`. Compare the per-source counts with a desktop run
+5. `powershell -ExecutionPolicy Bypass -File .\scripts\azure_scrape_job.ps1 run`, wait about 10 minutes, then
+   `powershell -ExecutionPolicy Bypass -File .\scripts\azure_scrape_job.ps1 status`. Compare the per-source counts with a desktop run
    (`logs\full_aggregate.log`): a source that reads 0 or errors only from Azure is being
-   blocked by Azure's IPs (CareerJet and Adzuna were the expected risks).
+   blocked by Azure's IPs; add it to `cloud_sources.skip`.
 
 Run `deploy` again after changing a key in `.env` or reconnecting Gmail (`token.json`).
 New code needs no deploy: each run pulls the `:jake` image, and `--show-last-run` names

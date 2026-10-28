@@ -148,3 +148,27 @@ def test_job_spec_puts_every_key_in_a_secret():
     assert {e["name"] for e in env} == {"JOBSEARCH_PG_URL", "ADZUNA_APP_ID", "GMAIL_TOKEN_JSON"}
     with pytest.raises(Exception):
         mod.spec({}, None, "/env/id", "canadacentral")
+
+
+def test_sources_that_block_azure_are_left_to_the_desktop(tmp_path, monkeypatch):
+    agg = _aggregate()
+    assert agg.cloud_skip({"cloud_sources": {"skip": ["CareerJet"]}}) == ["careerjet"]
+    assert agg.cloud_skip({}) == []
+    calls = []
+
+    def run_with(host, only=None):
+        calls.clear()
+        monkeypatch.setattr(agg, "HOST", host)
+        cfg = {"cloud_sources": {"skip": ["careerjet"]}, "api_sources": {"adzuna": {"enabled": False}},
+               "search": {}, "score": {}, "enrich": {"enabled": False}}
+        monkeypatch.setattr(agg, "fetch_careerjet_jobs", lambda **kw: calls.append("careerjet") or [])
+        monkeypatch.setattr(agg, "generate_dashboard", lambda *a, **k: None)
+        monkeypatch.setattr(agg, "generate_xlsx", lambda *a, **k: None)
+        agg.run(cfg, db_path=tmp_path / f"{host}.db", dashboard_path=tmp_path / "d.html",
+                xlsx_path=tmp_path / "x.xlsx", skip_workday=True, skip_apis=False, skip_email=True,
+                workday_limit=0, skip_ats=True, only=only)
+        return list(calls)
+
+    assert run_with("azure") == []                          # the Azure job leaves it out
+    assert run_with("DESKTOP", only={"careerjet"}) == ["careerjet"]
+    assert run_with("DESKTOP") == ["careerjet"]

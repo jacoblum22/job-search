@@ -5,8 +5,9 @@
 #
 # Before picking jobs it runs a full scrape (scripts/aggregate.py, every source) so the queue
 # sees today's postings; the queue then rescores every job. The Azure job scrapes every
-# morning (docs/azure-scrape-job.md), so the scrape here is skipped when a full run finished
-# in the last 6 hours, and only runs when that job didn't. -NoScrape skips the scrape, and
+# morning (docs/azure-scrape-job.md), so when a full run finished in the last 6 hours the
+# scrape here fetches only the sources that block Azure (settings.yaml cloud_sources), and
+# does the full scrape only when that job didn't run. -NoScrape skips the scrape, and
 # -JobId / -ResumeOnly runs never scrape since they don't pick new jobs. If the scrape fails
 # the run still tailors from the jobs already in the database and logs why.
 #
@@ -82,8 +83,8 @@ if (-not $NoScrape -and -not $ResumeOnly -and $JobId -le 0) {
     $scrapeStart = Get-Date
     try {
         # --wait-lock: if another scrape (the Azure job, the email check) is mid-way, wait for
-        # it (up to 30 min) instead of skipping the scrape; --skip-if-fresh: exit 4 without
-        # scraping when a full run finished in the last 6 hours.
+        # it (up to 30 min) instead of skipping the scrape; --skip-if-fresh: after a full run in
+        # the last 6 hours, fetch only what the Azure job leaves here (exit 4 if that's nothing).
         $proc = Start-Process -FilePath (Join-Path $projectRoot ".venv\Scripts\python.exe") `
             -ArgumentList "scripts/aggregate.py", "--wait-lock", "1800", "--skip-if-fresh", "6" `
             -WorkingDirectory $projectRoot `

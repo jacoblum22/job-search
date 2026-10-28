@@ -154,6 +154,11 @@ def _release_lock() -> None:
     LOCK_PATH.unlink(missing_ok=True)
 
 
+def cloud_skip(cfg: dict) -> list[str]:
+    """Sources the Azure job leaves to the desktop (settings.yaml cloud_sources.skip)."""
+    return [str(s).lower() for s in (cfg.get("cloud_sources") or {}).get("skip") or []]
+
+
 def last_run(conn, key: str = LAST_FULL_RUN_KEY) -> dict | None:
     """The summary a run left behind (see LAST_RUN_KEY), or None."""
     raw = get_cursor(conn, key)
@@ -194,11 +199,22 @@ def run(
     skip_email: bool,
     workday_limit: int,
     skip_ats: bool = False,
+    only: set[str] | None = None,
 ) -> None:
+    """`only`: fetch just these sources (names as in the run summary: careerjet,
+    greenhouse, email...), as the desktop does after a fresh Azure run (cloud_sources)."""
     conn = connect(db_path)
     started = time.perf_counter()
     started_at = datetime.now(timezone.utc)
-    full = not (skip_workday or skip_apis or skip_email or skip_ats or workday_limit)
+    full = not (skip_workday or skip_apis or skip_email or skip_ats or workday_limit or only)
+    # Sources that block Azure's IPs are left to the desktop (cloud_sources in settings.yaml).
+    elsewhere = set(cloud_skip(cfg)) if HOST == "azure" else set()
+    if elsewhere:
+        log.info("Left to the desktop (they block Azure): %s", ", ".join(sorted(elsewhere)))
+
+    def included(label: str) -> bool:
+        name = label.lower()
+        return name not in elsewhere and (only is None or name in only)
     sources: dict[str, dict] = {}  # per source: listings downloaded, kept, error
 
     if is_postgres(conn):
@@ -389,12 +405,13 @@ def run(
             return fetch(), time.perf_counter() - t0
         return call
 
+    downloads = [(label, fetch) for label, fetch in downloads if included(label)]
     with ThreadPoolExecutor(max_workers=max(1, par.get("source_workers", 4))) as pool:
         pending = {pool.submit(timed(fetch)): label for label, fetch in downloads}
 
         # Email alerts read and update their cursors in jobs.db, so they run
         # here while the downloads above get going.
-        if not skip_email:
+        if not skip_email and included("email"):
             forward_from = cfg.get("email_sources", {}).get("forward_from") or None
             for fetch_fn in (
                 fetch_linkedin_jobs, fetch_indeed_jobs, fetch_glassdoor_jobs,
@@ -562,15 +579,21 @@ def main(
         log.warning("Another scrape (here or the Azure job) is already in progress — skipping this run")
         return
     try:
+        cfg = merge_boards(load_config(config_path), boards_path)
+        only = None
         if fresh_hours > 0:
             conn = connect(db_path)
             recent = fresh_run(conn, fresh_hours)
             conn.close()
             if recent:
-                log.info("Skipping: a full run on %s finished at %s (%d new)",
+                log.info("A full run on %s finished at %s (%d new)",
                          recent["host"], recent["finished"], recent["new"])
-                raise SystemExit(4)
-        cfg = merge_boards(load_config(config_path), boards_path)
+                # The Azure job leaves the sources that block it to this machine.
+                only = set(cloud_skip(cfg)) if recent.get("host") == "azure" and HOST != "azure" else set()
+                if not only:
+                    log.info("Skipping this scrape")
+                    raise SystemExit(4)
+                log.info("Fetching only what the Azure job leaves to this machine: %s", ", ".join(sorted(only)))
         run(
             cfg,
             db_path=db_path,
@@ -581,6 +604,7 @@ def main(
             skip_email=skip_email,
             workday_limit=workday_limit,
             skip_ats=skip_ats,
+            only=only,
         )
     finally:
         _release_lock()
