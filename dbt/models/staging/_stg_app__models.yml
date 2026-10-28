@@ -6,18 +6,74 @@ models:
     columns:
       - name: job_id
         description: The app's id for this row (jobs.id).
+        data_tests: [unique, not_null]
       - name: posted_on
         description: The posted date when the board wrote a readable date; null for things like "Posted 30+ Days Ago". The original text is in posted_date_raw.
+      - name: tier
+        description: The score band (A, B, C, D) or skip; null until the job is scored.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['A', 'B', 'C', 'D', 'skip']
+      - name: status
+        description: What Jake did with the job (new, applied, dismissed, expired).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['new', 'applied', 'dismissed', 'expired']
+      - name: location_category
+        description: vancouver, remote or other.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['vancouver', 'remote', 'other']
+              config:
+                severity: warn
   - name: stg_app__applications
     description: One row per tailored application packet.
     columns:
+      - name: job_id
+        description: The job this packet is for (stg_app__jobs.job_id). One packet per job.
+        data_tests:
+          - unique
+          - not_null
+          # A job with an application is never deleted, so a miss means real breakage.
+          - relationships:
+              arguments:
+                to: ref('stg_app__jobs')
+                field: job_id
       - name: packet_status
-        description: Where the packet is in the tailoring pipeline (shortlisted, needs_fixes, ready_for_review, approved, ...).
+        description: Where the packet is in the tailoring pipeline (shortlisted, needs_fixes, ready_for_review, approved, applied).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['shortlisted', 'needs_fixes', 'ready_for_review', 'approved', 'applied']
+              config:
+                severity: warn
       - name: outcome
         description: What happened after applying (applied, callback, interview, offer, rejected, no_reply), or null.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['applied', 'callback', 'interview', 'offer', 'rejected', 'no_reply']
   - name: stg_app__pruned_jobs
     description: One row per posting the cleanup deleted.
+    data_tests:
+      - unique:
+          column_name: "source || '|' || external_id"
   - name: stg_app__enrich_attempts
     description: One row per posting the scraper tried to fetch a full description for, with the latest result.
+    data_tests:
+      - unique:
+          column_name: "source || '|' || external_id"
+    columns:
+      - name: result
+        description: fetched, http_failed or browser_failed; null would mean an ok code nobody has named yet.
+        data_tests: [not_null]
   - name: stg_app__source_cursors
     description: One row per saved scraper setting; the scrape summaries have their fields pulled out of the JSON.
+    columns:
+      - name: cursor_name
+        data_tests: [unique, not_null]

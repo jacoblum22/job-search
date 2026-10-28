@@ -11,7 +11,8 @@ cleaned as (
         external_id,
         dedup_group_id,
         title,
-        company,
+        -- trimmed, inner runs of spaces squashed, &amp; from HTML decoded
+        regexp_replace(trim(replace(company, '&amp;', '&')), '\s+', ' ', 'g') as company,
         location,
         location_category,
         url,
