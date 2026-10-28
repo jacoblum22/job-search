@@ -15,3 +15,8 @@ clean-targets: ["target", "dbt_packages"]
 
 flags:
   send_anonymous_usage_stats: false
+
+models:
+  job_search:
+    staging:
+      +materialized: view

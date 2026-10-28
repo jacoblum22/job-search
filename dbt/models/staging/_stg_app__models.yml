@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: stg_app__jobs
+    description: One row per posting per job board, with dates as real dates. The same job on two boards is two rows sharing a dedup_group_id.
+    columns:
+      - name: job_id
+        description: The app's id for this row (jobs.id).
+      - name: posted_on
+        description: The posted date when the board wrote a readable date; null for things like "Posted 30+ Days Ago". The original text is in posted_date_raw.
+  - name: stg_app__applications
+    description: One row per tailored application packet.
+    columns:
+      - name: packet_status
+        description: Where the packet is in the tailoring pipeline (shortlisted, needs_fixes, ready_for_review, approved, ...).
+      - name: outcome
+        description: What happened after applying (applied, callback, interview, offer, rejected, no_reply), or null.
+  - name: stg_app__pruned_jobs
+    description: One row per posting the cleanup deleted.
+  - name: stg_app__enrich_attempts
+    description: One row per posting the scraper tried to fetch a full description for, with the latest result.
+  - name: stg_app__source_cursors
+    description: One row per saved scraper setting; the scrape summaries have their fields pulled out of the JSON.
