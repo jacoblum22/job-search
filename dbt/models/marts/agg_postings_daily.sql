@@ -7,7 +7,7 @@ select
     source,
     coalesce(last_tier, 'unscored')                     as tier,
     count(*)                                            as new_postings,
-    count(*) filter (where location_category = 'vancouver') as new_vancouver,
-    count(*) filter (where location_category = 'remote')    as new_remote
+    count(case when location_category = 'vancouver' then 1 end) as new_vancouver,
+    count(case when location_category = 'remote' then 1 end)    as new_remote
 from {{ ref('fct_posting_life') }}
 group by 1, 2, 3

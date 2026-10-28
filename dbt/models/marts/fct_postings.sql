@@ -20,7 +20,7 @@ groups as (
     select
         dedup_group_id,
         count(*)                                        as board_count,
-        string_agg(distinct source, ', ')               as boards,
+        {{ join_distinct('source', ', ') }}         as boards,
         min(first_seen_at)                              as first_seen_at,
         max(last_seen_at)                               as last_seen_at,
         min(posted_on)                                  as earliest_posted_on,
@@ -58,9 +58,9 @@ select
         when 1 then 'expired'
         else 'new'
     end                                                 as status,
-    coalesce(g.earliest_posted_on, (g.first_seen_at at time zone 'UTC')::date) as posted_on,
+    coalesce(g.earliest_posted_on, {{ date_in_zone('g.first_seen_at', 'UTC') }}) as posted_on,
     (g.earliest_posted_on is not null)                  as posted_date_given,
-    (g.first_seen_at at time zone 'UTC')::date          as first_seen_on,
+    {{ date_in_zone('g.first_seen_at', 'UTC') }}          as first_seen_on,
     g.first_seen_at,
     g.last_seen_at,
     g.board_count,

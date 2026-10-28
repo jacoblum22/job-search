@@ -7,7 +7,9 @@ with versions as (
         row_number() over (
             partition by source, external_id order by dbt_valid_from desc
         ) as newest_first,
-        count(*) over (partition by source, external_id) as version_count
+        count(*) over (partition by source, external_id) as version_count,
+        -- the same tidying staging does, so names match the seed
+        {{ regex_replace_all("trim(replace(company, '&amp;', '&'))", '\s+', ' ') }} as company_tidy
     from {{ ref('jobs_snapshot') }}
 ),
 
@@ -22,23 +24,19 @@ select
     l.id                                                as job_id,
     l.dedup_group_id                                    as posting_id,
     l.title,
-    coalesce(a.canonical, s.company)                    as company,
+    coalesce(a.canonical, l.company_tidy)               as company,
     l.location_category,
     l.tier                                              as last_tier,
     l.score                                             as last_score,
     l.status                                            as last_status,
     l.first_seen::timestamptz                           as first_seen_at,
-    (l.first_seen::timestamptz at time zone 'UTC')::date as first_seen_on,
+    {{ date_in_zone('l.first_seen::timestamptz', 'UTC') }} as first_seen_on,
     l.last_seen::timestamptz                            as last_seen_at,
     -- set when the posting left the app's table (the cleanup deleted it)
     l.dbt_valid_to                                      as removed_at,
     (l.dbt_valid_to is null)                            as is_open,
-    extract(epoch from (coalesce(l.dbt_valid_to, now()) - l.first_seen::timestamptz))
-        / 86400.0                                       as days_listed,
+    {{ days_between('l.first_seen::timestamptz',
+                    'coalesce(l.dbt_valid_to::timestamptz, current_timestamp)') }} as days_listed,
     l.version_count - 1                                 as change_count
 from latest as l
--- the same tidying staging does, so names match the seed
-cross join lateral (
-    select regexp_replace(trim(replace(l.company, '&amp;', '&')), '\s+', ' ', 'g') as company
-) as s
-left join {{ ref('company_aliases') }} as a on a.alias = s.company
+left join {{ ref('company_aliases') }} as a on a.alias = l.company_tidy

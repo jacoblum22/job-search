@@ -2,6 +2,8 @@
 -- in seeds/company_aliases.csv yet. Fix a real pair by adding a row to that
 -- seed; a pair that really is two employers goes in company_not_duplicates.csv.
 {{ config(severity='warn') }}
+{#- Whole-word edges: Postgres writes them \m and \M, Snowflake \b for both. -#}
+{%- set word_start, word_end = ('\\b', '\\b') if target.type == 'snowflake' else ('\\m', '\\M') %}
 
 with names as (
     -- Each company once, after applying the seed's mapping.
@@ -16,24 +18,33 @@ normalized as (
     -- "the" dropped: "The Boeing Company" -> "boeing".
     select
         company,
-        regexp_replace(trim(regexp_replace(
-            regexp_replace(
-                regexp_replace(lower(company), '[^a-z0-9]+', ' ', 'g'),
-                '\m(inc|ltd|limited|corp|corporation|llc|ulc|lp|plc|co|company)\M', ' ', 'g'),
-            '\s+', ' ', 'g')), '^the ', '') as norm
+        {{ regex_replace_all(
+            'trim(' ~ regex_replace_all(
+                regex_replace_all(
+                    regex_replace_all('lower(company)', '[^a-z0-9]+', ' '),
+                    word_start ~ '(inc|ltd|limited|corp|corporation|llc|ulc|lp|plc|co|company)' ~ word_end, ' '),
+                '\s+', ' ') ~ ')',
+            '^the ', '') }} as norm
     from names
 ),
 
 words as (
+    {% if target.type == 'snowflake' %}
+    select company, w.value::varchar as word, w.index as ord
+    from normalized,
+        lateral split_to_table(norm, ' ') as w
+    where w.value <> ''
+    {% else %}
     select company, word, ord
     from normalized,
         unnest(string_to_array(norm, ' ')) with ordinality as w(word, ord)
     where word <> ''
+    {% endif %}
 ),
 
 initials as (
     -- "university of british columbia" -> "ubc" (small words skipped).
-    select company, string_agg(left(word, 1), '' order by ord) as initials, count(*) as n_words
+    select company, {{ dbt.listagg('left(word, 1)', "''", 'order by ord') }} as initials, count(*) as n_words
     from words
     where word not in ('of', 'the', 'and', 'for', 'at', 'de', 'du', 'des', 'la', 'le')
     group by company
@@ -64,8 +75,8 @@ pairs as (
         -- the shorter name is the first whole words of the longer one
         -- ("Amazon" / "Amazon Science"), and doesn't end on a small word
         -- (a stray "City of" would match every city)
-        or (length(b.norm) >= 4 and b.norm !~ ' (of|and|the|for)$' and a.norm like b.norm || ' %')
-        or (length(a.norm) >= 4 and a.norm !~ ' (of|and|the|for)$' and b.norm like a.norm || ' %')
+        or (length(b.norm) >= 4 and not {{ regex_found('b.norm', ' (of|and|the|for)$') }} and a.norm like b.norm || ' %')
+        or (length(a.norm) >= 4 and not {{ regex_found('a.norm', ' (of|and|the|for)$') }} and b.norm like a.norm || ' %')
 )
 
 select p.*

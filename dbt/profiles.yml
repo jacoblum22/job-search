@@ -27,3 +27,28 @@ job_search:
       schema: analytics
       threads: 4
       connect_timeout: 15
+    # Snowflake (phase 9, docs/snowflake-guide.md): the same models, built from the copy of
+    # the app's tables loaded into the RAW schema. scripts/dbt.py passes these SNOWFLAKE_*
+    # values on from .env; the login is a key file on the desktop, never a password.
+    #   sf_dev: your own schema while you work, DBT_DEV
+    #   sf_prod: what the daily run builds, ANALYTICS
+    sf_dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+      schema: dbt_dev
+      threads: 4
+    sf_prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+      schema: analytics
+      threads: 4

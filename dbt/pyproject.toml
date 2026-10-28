@@ -9,6 +9,8 @@ dependencies = [
     # dbt v2 doesn't support Postgres (Oct 2026), so this stays on dbt Core v1.
     "dbt-core==1.12.6",
     "dbt-postgres==1.11.0",
+    # phase 9: the same models also build in Snowflake (docs/snowflake-guide.md)
+    "dbt-snowflake==1.12.4",
 ]
 
 [tool.uv]

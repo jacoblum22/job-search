@@ -53,6 +53,9 @@ token.json
 # Outlook OAuth — per-person, never shared/committed
 token_outlook.json
 
+# Snowflake login key (docs/snowflake-guide.md)
+*.p8
+
 # Downloaded Google OAuth client secret — never commit
 client_secret_*.json
 

@@ -13,6 +13,7 @@ with the password from `.env`, and the 9:00 run builds it every day.
 | Targets | `dbt/profiles.yml` | `dev` (default) builds into `dbt_dev*` schemas while you work. `prod` builds `analytics*`, which Power BI will read. |
 | Run command | `scripts/dbt.py` | `uv run python scripts/dbt.py <any dbt command>` |
 | Daily build | `scripts/run_tailoring.ps1` | `dbt.py daily` = `dbt build --target prod` after each run, (skipped only while the project is empty). A failure is logged, never stops the run. |
+| Snowflake (phase 9) | `dbt/profiles.yml`, `dbt/macros/cross_database.sql` | Targets `sf_dev` / `sf_prod` build the same models in Snowflake. Where the two databases write SQL differently, models call a macro from `cross_database.sql`. See `docs/snowflake-guide.md`. |
 
 Run everything from `C:\Users\Nelly\job-search`:
 
