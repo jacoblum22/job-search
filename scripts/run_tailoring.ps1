@@ -108,6 +108,13 @@ if (-not $NoScrape -and -not $ResumeOnly -and $JobId -le 0) {
     }
 }
 
+# The evening Chrome task's hand-off (docs/browser-description-task.md): store the
+# descriptions it left in .browser-queue\ and write a fresh queue.json for tonight. Runs
+# here, not in the scrape, because the scrape may run in Azure, where this folder isn't.
+$bqOut = & (Join-Path $projectRoot ".venv\Scripts\python.exe") scripts\browser_queue.py sync 2>&1 | ForEach-Object { "$_" }
+if ($LASTEXITCODE -ne 0) { Log "WARNING: browser queue sync failed (exit $LASTEXITCODE)" }
+$bqOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | ForEach-Object { Log $_ }
+
 # The prompt is everything between the two markers in the runbook.
 $doc = Get-Content (Join-Path $projectRoot "docs\tailoring-runbook.md") -Raw -Encoding UTF8
 $prompt = ($doc -split "<!-- prompt start -->", 2)[1]

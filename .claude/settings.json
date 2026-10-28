@@ -1,8 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(.venv\\Scripts\\python.exe scripts\\browser_queue.py *)",
-      "PowerShell(.venv\\Scripts\\python.exe scripts/browser_queue.py *)",
+      "Read(/.browser-queue/**)",
       "Edit(/.browser-queue/**)",
       "mcp__claude-in-chrome__tabs_context_mcp",
       "mcp__claude-in-chrome__tabs_create_mcp",
