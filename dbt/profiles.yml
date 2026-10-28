@@ -1,0 +1,29 @@
+# Connection settings only, no secrets: scripts/dbt.py reads JOBSEARCH_PG_URL from the
+# git-ignored .env and passes it in as these DBT_PG_* variables. Never put a password here.
+#   dev  (default): your own schemas while you work, dbt_dev_*
+#   prod: what the daily run builds and Power BI reads, analytics_*
+job_search:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_PG_HOST') }}"
+      port: "{{ env_var('DBT_PG_PORT') | int }}"
+      user: "{{ env_var('DBT_PG_USER') }}"
+      password: "{{ env_var('DBT_PG_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_PG_DBNAME') }}"
+      sslmode: "{{ env_var('DBT_PG_SSLMODE') }}"
+      schema: dbt_dev
+      threads: 4
+      connect_timeout: 15
+    prod:
+      type: postgres
+      host: "{{ env_var('DBT_PG_HOST') }}"
+      port: "{{ env_var('DBT_PG_PORT') | int }}"
+      user: "{{ env_var('DBT_PG_USER') }}"
+      password: "{{ env_var('DBT_PG_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_PG_DBNAME') }}"
+      sslmode: "{{ env_var('DBT_PG_SSLMODE') }}"
+      schema: analytics
+      threads: 4
+      connect_timeout: 15

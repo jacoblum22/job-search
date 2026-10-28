@@ -1,0 +1,17 @@
+# The job-search dbt project (Azure plan, phase 6; docs/dbt-guide.md). It reads the app's tables
+# in Azure Postgres and builds its own schemas next to them; it never writes to the app's tables.
+name: job_search
+version: "0.1.0"
+config-version: 2
+profile: job_search
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+clean-targets: ["target", "dbt_packages"]
+
+flags:
+  send_anonymous_usage_stats: false

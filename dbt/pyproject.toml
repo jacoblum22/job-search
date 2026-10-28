@@ -1,0 +1,15 @@
+# dbt has its own environment so its pinned dependencies never clash with the app's, and a
+# plain `uv sync` at the repo root (run_tailoring.ps1 runs one) never removes it.
+# Run it through scripts/dbt.py, which supplies the connection (docs/dbt-guide.md).
+[project]
+name = "job-search-dbt"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    # dbt v2 doesn't support Postgres (Oct 2026), so this stays on dbt Core v1.
+    "dbt-core==1.12.6",
+    "dbt-postgres==1.11.0",
+]
+
+[tool.uv]
+package = false
