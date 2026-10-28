@@ -1,0 +1,36 @@
+relationship AutoDetected_308eac12-f33b-40af-ab35-a28c742a99f3
+	fromColumn: fct_applications.company
+	toColumn: dim_companies.company
+
+relationship AutoDetected_388f245e-0208-4517-af4b-e48255390af8
+	fromColumn: fct_posting_life.company
+	toColumn: dim_companies.company
+
+relationship AutoDetected_efcf7397-c695-430e-8f46-04afd3184af3
+	fromColumn: fct_postings.company
+	toColumn: dim_companies.company
+
+relationship 55a3f96c-d71c-0b5d-0032-a1e098c9d461
+	fromColumn: fct_postings.posted_on
+	toColumn: dim_days.day
+
+relationship 654d32d6-67ee-1a64-5bc1-271c5291aef2
+	fromColumn: agg_postings_daily.day
+	toColumn: dim_days.day
+
+relationship 2c928e75-7086-c2f3-e73c-44ec827ef555
+	fromColumn: fct_applications.drafted_on
+	toColumn: dim_days.day
+
+relationship 67a269ed-7bae-4e52-e3e8-eb4198c6735f
+	fromColumn: fct_posting_life.first_seen_on
+	toColumn: dim_days.day
+
+relationship 02a8316f-df10-102e-9ecc-afc2f37af57d
+	fromColumn: fct_postings.tier
+	toColumn: Tiers.tier
+
+relationship c47ae06d-2375-d6b8-6cf2-0def09afb218
+	fromColumn: agg_postings_daily.tier
+	toColumn: Tiers.tier
+

@@ -1,0 +1,104 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "956fa6cc55e909a41972",
+  "position": {
+    "x": 838.48101265822777,
+    "y": 0,
+    "z": 0,
+    "height": 279.49367088607596,
+    "width": 556.96202531645565,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "base_resume"
+                }
+              },
+              "queryRef": "fct_applications.base_resume",
+              "nativeQueryRef": "base_resume",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "Applied"
+                }
+              },
+              "queryRef": "fct_applications.Applied",
+              "nativeQueryRef": "Applied"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "Callbacks"
+                }
+              },
+              "queryRef": "fct_applications.Callbacks",
+              "nativeQueryRef": "Callbacks"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fct_applications"
+                  }
+                },
+                "Property": "Applied"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Replies by base resume'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

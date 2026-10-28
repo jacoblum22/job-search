@@ -1,0 +1,142 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "869f235cbc90733471a0",
+  "position": {
+    "x": 1395.4430379746834,
+    "y": 0,
+    "z": 1,
+    "height": 1079.493670886076,
+    "width": 524.55696202531647,
+    "tabOrder": 1
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "Packets"
+                }
+              },
+              "queryRef": "fct_applications.Packets",
+              "nativeQueryRef": "Packets"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "Approved"
+                }
+              },
+              "queryRef": "fct_applications.Approved",
+              "nativeQueryRef": "Approved"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "Applied"
+                }
+              },
+              "queryRef": "fct_applications.Applied",
+              "nativeQueryRef": "Applied"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "Callbacks"
+                }
+              },
+              "queryRef": "fct_applications.Callbacks",
+              "nativeQueryRef": "Callbacks"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "Interviews"
+                }
+              },
+              "queryRef": "fct_applications.Interviews",
+              "nativeQueryRef": "Interviews"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fct_applications"
+                  }
+                },
+                "Property": "Packets"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "objects": {
+      "labels": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'From draft to interview: where packets drop off'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

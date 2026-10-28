@@ -1,0 +1,113 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 0,
+        "y": 27.807078878688024
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 1143.3079440859174,
+            "y": 535.82766646154187
+          },
+          "nodeIndex": "agg_postings_daily",
+          "nodeLineageTag": "ad1124a4-a3f1-4105-9b9b-913481a9429f",
+          "size": {
+            "height": 224,
+            "width": 234
+          },
+          "zIndex": 1
+        },
+        {
+          "location": {
+            "x": 731.25976222454074,
+            "y": 841.1641360803128
+          },
+          "nodeIndex": "dim_companies",
+          "nodeLineageTag": "9c78df16-50da-4e61-bcb7-55245686120d",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 2
+        },
+        {
+          "location": {
+            "x": 571.6505577018487,
+            "y": 485.63077041708726
+          },
+          "nodeIndex": "fct_applications",
+          "nodeLineageTag": "74648575-7ba1-4cce-b0c6-7c97d98e85f7",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 3
+        },
+        {
+          "location": {
+            "x": 292.37395054894193,
+            "y": 466.76468342620711
+          },
+          "nodeIndex": "fct_posting_life",
+          "nodeLineageTag": "afa9543f-080a-49c9-82bd-92881ec84b23",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 4
+        },
+        {
+          "location": {
+            "x": 886.95914455503714,
+            "y": 493.790301144403
+          },
+          "nodeIndex": "fct_postings",
+          "nodeLineageTag": "0fe27e7d-506a-4eda-858c-62921e16b941",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 5
+        },
+        {
+          "location": {
+            "x": 767.88293067703,
+            "y": 116.19386531451782
+          },
+          "nodeIndex": "dim_days",
+          "nodeLineageTag": "d33cc0a8-5a77-4f24-b706-38fca0d6b739",
+          "size": {
+            "height": 248,
+            "width": 234
+          },
+          "zIndex": 6
+        },
+        {
+          "location": {
+            "x": 1160.7548524957572,
+            "y": 153.26965575503323
+          },
+          "nodeIndex": "Tiers",
+          "nodeLineageTag": "59a1b8d5-3110-4f50-9e0d-4b87a707457e",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 7
+        }
+      ],
+      "name": "All tables",
+      "zoomValue": 50.346892102823205,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "All tables",
+  "defaultDiagram": "All tables"
+}

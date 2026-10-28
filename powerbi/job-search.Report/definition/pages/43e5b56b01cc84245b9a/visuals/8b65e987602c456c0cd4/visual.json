@@ -1,0 +1,133 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "8b65e987602c456c0cd4",
+  "position": {
+    "x": 279.49367088607596,
+    "y": 791.89873417721515,
+    "z": 6000,
+    "height": 287.59493670886076,
+    "width": 1640.506329113924,
+    "tabOrder": 6000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_postings"
+                    }
+                  },
+                  "Property": "title"
+                }
+              },
+              "queryRef": "fct_postings.title",
+              "nativeQueryRef": "title"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_postings"
+                    }
+                  },
+                  "Property": "company"
+                }
+              },
+              "queryRef": "fct_postings.company",
+              "nativeQueryRef": "company"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_postings"
+                    }
+                  },
+                  "Property": "tier"
+                }
+              },
+              "queryRef": "fct_postings.tier",
+              "nativeQueryRef": "tier"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_postings"
+                    }
+                  },
+                  "Property": "score"
+                }
+              },
+              "queryRef": "fct_postings.score",
+              "nativeQueryRef": "score"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_postings"
+                    }
+                  },
+                  "Property": "posted_on"
+                }
+              },
+              "queryRef": "fct_postings.posted_on",
+              "nativeQueryRef": "posted_on"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fct_postings"
+                  }
+                },
+                "Property": "score"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Best-fit open postings, highest score first'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

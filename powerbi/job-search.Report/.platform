@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "job-search"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "24614fb2-43f1-47e4-afe6-df184063014a"
+  }
+}

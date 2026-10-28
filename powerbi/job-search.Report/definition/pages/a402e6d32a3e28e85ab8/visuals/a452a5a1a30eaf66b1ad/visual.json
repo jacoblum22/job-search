@@ -1,0 +1,90 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "a452a5a1a30eaf66b1ad",
+  "position": {
+    "x": 20,
+    "y": 190,
+    "z": 3000,
+    "height": 420,
+    "width": 1880,
+    "tabOrder": 3000
+  },
+  "visual": {
+    "visualType": "columnChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_posting_life"
+                    }
+                  },
+                  "Property": "days_up"
+                }
+              },
+              "queryRef": "fct_posting_life.days_up",
+              "nativeQueryRef": "days_up",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_posting_life"
+                    }
+                  },
+                  "Property": "Postings removed"
+                }
+              },
+              "queryRef": "fct_posting_life.Postings removed",
+              "nativeQueryRef": "Postings removed"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fct_posting_life"
+                  }
+                },
+                "Property": "days_up"
+              }
+            },
+            "direction": "Ascending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'How many days postings stay up'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

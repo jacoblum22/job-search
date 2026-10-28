@@ -1,0 +1,25 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-US
+	valueFilterBehavior: independent
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_QueryOrder = ["agg_postings_daily","dim_companies","dim_days","fct_applications","fct_posting_life","fct_postings"]
+
+annotation PBI_ProTooling = ["DaxQueryView_Desktop","DevMode"]
+
+ref table agg_postings_daily
+ref table dim_companies
+ref table dim_days
+ref table fct_applications
+ref table fct_posting_life
+ref table fct_postings
+ref table Tiers
+
+ref cultureInfo en-US
+

@@ -1,0 +1,189 @@
+table fct_posting_life
+	lineageTag: afa9543f-080a-49c9-82bd-92881ec84b23
+
+	measure 'Postings removed' = CALCULATE(COUNTROWS(fct_posting_life), fct_posting_life[is_open] = FALSE())
+		formatString: 0
+		lineageTag: cfe9a862-6099-4308-b8aa-c8bab100d1ff
+
+	measure 'Median days up' = CALCULATE(MEDIAN(fct_posting_life[days_listed]), fct_posting_life[is_open] = FALSE())
+		lineageTag: 8d256536-164c-48d4-b6b5-cd16ddba85f0
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column posting_board_id
+		dataType: string
+		lineageTag: 12c3dbb0-fc55-4f83-a568-b097961acbbf
+		summarizeBy: none
+		sourceColumn: posting_board_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column source
+		dataType: string
+		lineageTag: e05c4647-df11-4042-bda1-3df348e4d1c4
+		summarizeBy: none
+		sourceColumn: source
+
+		annotation SummarizationSetBy = Automatic
+
+	column external_id
+		dataType: string
+		lineageTag: 6b99aabf-d32f-498b-bd6b-62f43dec6769
+		summarizeBy: none
+		sourceColumn: external_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column job_id
+		dataType: int64
+		formatString: 0
+		lineageTag: 8cdd23ed-bf9d-4ba7-9e0a-9cedf1e4ca2b
+		summarizeBy: none
+		sourceColumn: job_id
+
+		annotation SummarizationSetBy = User
+
+	column posting_id
+		dataType: string
+		lineageTag: 07cadf6f-2ec8-4b23-b493-640c0e862eaf
+		summarizeBy: none
+		sourceColumn: posting_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column title
+		dataType: string
+		lineageTag: a174297f-907e-4b77-bfc6-cbae248a19aa
+		summarizeBy: none
+		sourceColumn: title
+
+		annotation SummarizationSetBy = Automatic
+
+	column company
+		dataType: string
+		lineageTag: ab7024c3-326d-477b-81b8-8723eeca69ff
+		summarizeBy: none
+		sourceColumn: company
+
+		annotation SummarizationSetBy = Automatic
+
+	column location_category
+		dataType: string
+		lineageTag: c6a7c2de-ae5d-4749-8dbd-3f64894140ec
+		summarizeBy: none
+		sourceColumn: location_category
+
+		annotation SummarizationSetBy = Automatic
+
+	column last_tier
+		dataType: string
+		lineageTag: 25b72b2c-721f-4b53-a0ed-b465a345ba38
+		summarizeBy: none
+		sourceColumn: last_tier
+
+		annotation SummarizationSetBy = Automatic
+
+	column last_score
+		dataType: int64
+		formatString: 0
+		lineageTag: 2abbf091-9e41-4e5b-942d-5ecaea50e0bf
+		summarizeBy: none
+		sourceColumn: last_score
+
+		annotation SummarizationSetBy = User
+
+	column last_status
+		dataType: string
+		lineageTag: fe022c3c-0d20-4d09-9e5e-94e6dfda8017
+		summarizeBy: none
+		sourceColumn: last_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column first_seen_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: d070f905-fd32-4528-a45e-2178b804c8d2
+		summarizeBy: none
+		sourceColumn: first_seen_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column first_seen_on
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 05a07764-2f9d-4be7-b265-0cb84dbdf9b1
+		summarizeBy: none
+		sourceColumn: first_seen_on
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column last_seen_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: a5e2e449-bc48-423a-97f3-76c9b65445a3
+		summarizeBy: none
+		sourceColumn: last_seen_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column removed_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: ba5d4ab8-703c-4500-bd32-b5d4ee838214
+		summarizeBy: none
+		sourceColumn: removed_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_open
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 89838e40-9ca5-415c-9bd1-a8718f89dbe0
+		summarizeBy: none
+		sourceColumn: is_open
+
+		annotation SummarizationSetBy = Automatic
+
+	column days_listed
+		dataType: double
+		lineageTag: 0480bca1-b3ce-472b-a578-36460dfec4c6
+		summarizeBy: none
+		sourceColumn: days_listed
+
+		annotation SummarizationSetBy = User
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column change_count
+		dataType: int64
+		formatString: 0
+		lineageTag: 4e82b771-54e7-492a-bab8-4857b0487bf9
+		summarizeBy: sum
+		sourceColumn: change_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column days_up = INT(fct_posting_life[days_listed])
+		dataType: int64
+		formatString: 0
+		lineageTag: db575a83-3b59-41bb-91bd-40dfbb8da1c0
+		summarizeBy: none
+
+		annotation SummarizationSetBy = User
+
+	partition fct_posting_life = m
+		mode: import
+		source =
+				let
+				  Source = PostgreSQL.Database("jobsearch-pg-jake.postgres.database.azure.com", "jobsearch"),
+				  #"Navigation 1" = Source{[Schema = "analytics", Item = "fct_posting_life"]}[Data]
+				in
+				  #"Navigation 1"
+
+	changedProperty = Name
+
+	annotation PBI_ResultType = Table
+

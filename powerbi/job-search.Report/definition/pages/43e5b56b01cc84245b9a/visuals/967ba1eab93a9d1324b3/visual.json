@@ -1,0 +1,56 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "967ba1eab93a9d1324b3",
+  "position": {
+    "x": 558.98734177215192,
+    "y": 0,
+    "z": 2000,
+    "height": 279.49367088607596,
+    "width": 281.51898734177212,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "cardVisual",
+    "query": {
+      "queryState": {
+        "Data": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_postings"
+                    }
+                  },
+                  "Property": "A/B share"
+                }
+              },
+              "queryRef": "fct_postings.A/B share",
+              "nativeQueryRef": "A/B share"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fct_postings"
+                  }
+                },
+                "Property": "A/B share"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}
