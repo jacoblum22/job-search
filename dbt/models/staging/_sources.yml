@@ -1,0 +1,42 @@
+version: 2
+
+sources:
+  - name: app
+    schema: public
+    description: All the public job tables.
+    tables:
+      - name: jobs
+        description: One row per job posting, listing posting info.
+        config:
+          loaded_at_field: "last_seen::timestamptz"
+          freshness:
+            warn_after: {count: 36, period: hour}
+        columns:
+          - name: id
+            description: Job id. No two jobs share one.
+          - name: dedup_group_id
+            description: The same job on different boards has the same dedup_group_id.
+      - name: pruned_jobs
+        description: Postings that have passed the 30 day window, deadline passed, or job closed. They will not be re-scraped.
+        columns:
+          - name: source
+            description: The job board where the job was found.
+          - name: external_id
+            description: The job board's own ID for the posting.
+      - name: applications
+        description: Tailored resume/cover letter packets, with status/outcomes.
+        columns:
+          - name: job_id
+            description: Points at jobs.id, represents the job the packet is for.
+      - name: enrich_attempts
+        description: The latest try at getting the full description for each posting.
+        columns:
+          - name: source
+            description: The job board where the job was found.
+          - name: external_id
+            description: The job board's own ID for the posting.
+      - name: source_cursors
+        description: Settings like where the last scrape left off, or a summary of the last run.
+        columns:
+          - name: source
+            description: The setting's name.
