@@ -165,6 +165,13 @@ if ($mirrorOut) {
 $pushOut = & uv run python scripts/score_inputs.py push 2>&1 | ForEach-Object { "$_" }
 if ($LASTEXITCODE -ne 0) { Log "WARNING: saving the scoring files to Postgres failed (exit $LASTEXITCODE)" }
 $pushOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | Add-Content $logFile -Encoding UTF8
+# dbt (docs/dbt-guide.md): rebuild the analytics schemas Power BI reads, and take the daily
+# snapshot that keeps postings after the 30-day cleanup deletes them. Skipped until the project
+# has a model or snapshot; a failure is only logged (full output in dbt\logs\dbt.log).
+$dbtOut = & uv run python scripts/dbt.py daily 2>&1 | ForEach-Object { "$_" }
+if ($LASTEXITCODE -ne 0) { Log "WARNING: dbt daily build failed (exit $LASTEXITCODE)" }
+else { Log "dbt daily build done" }
+$dbtOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | Select-Object -Last 15 | Add-Content $logFile -Encoding UTF8
 
 # Nothing tracked should change during a run.
 $tracked = git status --porcelain --untracked-files=no -- src tests prompts docs config scripts
