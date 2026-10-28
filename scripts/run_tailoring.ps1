@@ -138,6 +138,16 @@ if ($result) {
     $out | Select-Object -Last 10 | ForEach-Object { "$_" } | Add-Content $logFile -Encoding UTF8
 }
 
+# Azure phase 3: copy jobs.db into the Postgres shadow copy (docs/postgres-mirror.md). Does
+# nothing unless settings.yaml has database.postgres_mirror: true; a failure is only logged.
+$mirrorOut = & uv run python scripts/pg_mirror.py sync --if-enabled 2>&1 | ForEach-Object { "$_" }
+$mirrorCode = $LASTEXITCODE
+if ($mirrorOut) {
+    if ($mirrorCode -eq 0) { Log "Postgres mirror synced; counts match" }
+    else { Log "WARNING: Postgres mirror exit code $mirrorCode (see logs\pg-mirror.jsonl)" }
+    $mirrorOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | Add-Content $logFile -Encoding UTF8
+}
+
 # Nothing tracked should change during a run.
 $tracked = git status --porcelain --untracked-files=no -- src tests prompts docs config scripts
 if ($tracked) { Log "WARNING: tracked files changed during the run:"; $tracked | Add-Content $logFile -Encoding UTF8 }

@@ -22,6 +22,7 @@ dependencies = [
     # Word COM automation for DOCX→PDF on Windows; a regular dependency so a plain `uv sync`
     # (which drops optional extras) can't remove it.
     "pywin32>=306; sys_platform == 'win32'",
+    "psycopg[binary]>=3.2",
 ]
 
 [dependency-groups]
