@@ -23,8 +23,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs
 
-from src.dashboard import app_summary, dashboard_rows, generate_dashboard, render_dashboard
-from src.db import JOB_STATUSES, connect, set_job_status
+from src.dashboard import (
+    app_summary,
+    dashboard_rows,
+    generate_dashboard,
+    render_dashboard,
+)
+from src.db import JOB_STATUSES, backend, connect, is_main, set_job_status
 from src.posting_status import closed_reason, due_date, seen_date
 from src.retention import posted_on
 from src.tailor import TailorError, rejects, review, store
@@ -44,6 +49,7 @@ class DashboardApp:
         self.cfg = cfg
         self.runner = runner or TailoringRunner()
         self.db_path = Path(db_path)
+        self._pg = None  # the kept Postgres connection, once the main database is Postgres
         self.dashboard_path = dashboard_path
         self.origins = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
         self.hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
@@ -57,6 +63,14 @@ class DashboardApp:
     # --- plumbing -------------------------------------------------------
 
     def _conn(self) -> sqlite3.Connection:
+        if backend() == "postgres" and is_main(self.db_path):
+            from src.pgdb import KeptConnection
+
+            if self._pg is None or not self._pg.alive():
+                if self._pg is not None:
+                    self._pg.raw.close()
+                self._pg = KeptConnection(connect(self.db_path).raw)
+            return self._pg
         conn = connect(self.db_path)
         conn.row_factory = sqlite3.Row
         return conn
