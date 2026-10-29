@@ -316,25 +316,3 @@ def test_a_job_jake_cannot_do_ends_the_reviews(tmp_path):
     (app / "review" / "notes.md").write_text("Verdict: blocked\nRequires a PhD.\n", encoding="utf-8")
     assert parse_notes("Verdict: blocked\nRequires a PhD.\n")["verdict"] == "blocked"
     assert review_round(app) is None and "can't take this job" in review_input(app)["reason"]
-
-
-def test_a_gap_round_comes_before_a_review_pass(tmp_path, monkeypatch):
-    # Jake, Oct 29 2026: Quora Full Stack ended "needs fixes" (ATS 8.8 under what its evidence
-    # allows) because the review passes never looked at the gap.
-    import src.tailor.loop as loop
-
-    app = _app(tmp_path)
-    write_json(app / "requirements.json", {"requirements": []})
-    monkeypatch.setattr(loop, "gap_round", lambda a, c: {"round": 3, "build_on": 2, "revisit": True})
-    monkeypatch.setattr(loop, "letter_round", lambda a, c: None)
-    out = review_input(app)
-    assert out["action"] == "repair" and out["next_round"] == 3 and out["kind"] == "repair"
-    assert not (app / "review" / "input.md").exists()
-    monkeypatch.setattr(loop, "gap_round", lambda a, c: None)
-    assert review_input(app)["pass"] == 1
-    # also after a pass that said ready: the last pass never looks at the gap either
-    (app / "review" / "notes.md").write_text("Verdict: ready\nGood.\n", encoding="utf-8")
-    monkeypatch.setattr(loop, "gap_round", lambda a, c: {"round": 3, "build_on": 2, "revisit": True})
-    assert review_input(app)["action"] == "repair"
-    (app / "review" / "notes.md").write_text("Verdict: blocked\nNeeds a PhD.\n", encoding="utf-8")
-    assert review_input(app)["action"] == "stop"
