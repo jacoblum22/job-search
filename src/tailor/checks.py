@@ -31,6 +31,7 @@ from typing import Any
 
 import yaml
 
+from src.concurrency import parallel_map
 from src.resume import iter_bullets, load_resume, validate
 from src.tailor import metrics, phrases, rejects, taxonomy, wording
 from src.tailor.appdir import humanized, log, read_json, round_dir, write_json
@@ -570,30 +571,37 @@ def _jev_flags(jev: Any, lines: list[tuple[str, str, list[str]]], index: dict[st
     added: dict[str, list[str]] = {}
     if jev is None:
         return flags, added
-    for path, text, srcs in lines:
+
+    def one(line: tuple[str, str, list[str]]) -> tuple[dict | None, list[str] | None]:
+        path, text, srcs = line
         first = _ask_supported(jev, path, text, srcs, index)
         if first is None or first >= 0.5:
-            continue
+            return None, None
         extra = related_passages(text, srcs, index)
         second = _ask_supported(jev, path, text, [*srcs, *extra], index) if extra else None
         if second is not None and second >= 0.5:
             extra, second = _prune_extra(jev, path, text, srcs, extra, second, index)
-            added[path] = extra
-            flags.append({
+            return {
                 "code": "jev_citation_gap",
                 "message": (f"Jev doubted this line with its cited passages (p={first:.2f}) but agreed once "
                             f"{', '.join(extra)} were cited too (p={second:.2f}); those were added to its sources"),
                 "path": path, "doc": "resume", "source": "jev",
                 "data": {"first": round(first, 2), "second": round(second, 2), "added": extra},
-            })
-            continue
+            }, extra
         doubt = second if second is not None else first
         also = f", even with {', '.join(extra)}" if extra else ""
-        flags.append({
+        return {
             "code": "jev_unsupported",
             "message": f"Jev doubts this line is supported by its cited passages{also} (p={doubt:.2f})",
             "path": path, "doc": "resume", "source": "jev", "data": {"p": round(doubt, 2), "extra": extra},
-        })
+        }, None
+
+    # Lines don't depend on each other, so several are asked at once; results keep line order.
+    for (path, _, _), (flag, extra) in zip(lines, parallel_map(one, lines, 4)):
+        if flag:
+            flags.append(flag)
+        if extra is not None:
+            added[path] = extra
     return flags, added
 
 

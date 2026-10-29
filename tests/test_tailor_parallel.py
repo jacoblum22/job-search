@@ -70,3 +70,36 @@ def test_parallel_processes_lose_no_confirms(tmp_path):
     data = json.loads((tmp_path / "skill-record.json").read_text(encoding="utf-8"))
     assert len(data["has"]) == 45
     assert not list(tmp_path.glob("*.lock")) and not list(tmp_path.glob("*.tmp"))
+
+
+def test_jev_batches_sent_at_once_keep_their_answers():
+    import time
+
+    import httpx
+
+    from src.tailor.jev import JevClient, Question
+
+    def handler(request):
+        body = json.loads(request.content)
+        keys = list(body["questions"])
+        if "q0" in keys:
+            time.sleep(0.2)  # the first batch answers last
+        return httpx.Response(200, json={"answers": {
+            k: {"type": "boolean", "probability": int(k[1:]) / 100} for k in keys}})
+
+    qs = [Question(f"q{i}", "yesno", "x" * 400) for i in range(10)]
+    c = JevClient("k", {"max_request_tokens": 1000}, transport=httpx.MockTransport(handler))
+    out = c.ask("short state", qs)
+    assert [a.id for a in out] == [q.id for q in qs]
+    assert [a.value for a in out] == [i / 100 for i in range(10)]
+    assert c.usage.requests > 1
+
+
+def test_remembered_jev_keeps_answers_asked_from_threads(tmp_path):
+    from src.concurrency import parallel_map
+    from src.tailor.jev import FakeJev, Question, RememberedJev
+
+    jev = RememberedJev(FakeJev(lambda state, q: 0.7), tmp_path / "jev-answers.json")
+    qs = [Question(f"q{i}", "yesno", f"line {i}?") for i in range(20)]
+    parallel_map(lambda q: jev.ask("state", [q]), qs, 8)
+    assert len(json.loads((tmp_path / "jev-answers.json").read_text(encoding="utf-8"))) == 20

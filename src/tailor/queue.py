@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from src.concurrency import parallel_map
 from src.posting_status import closed_reason, seen_date
 from src.retention import posted_on
 from src.tailor import TailorError, appdir, store
@@ -213,16 +214,21 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
         bases = _base_resumes(cfg) if use_jev else {}
         default_base = gate.get("resume_base", "data-scientist")
         entries = []
-        for r in rows:
-            if not use_jev:
-                entries.append((r, [], None))
-                continue
-            posting = _to_markdown(r["description"])
-            base_id, resume = _gate_resume(bases, f"{r['title']}\n{posting}", default_base)
-            state = (f"JOB POSTING\n{r['title']} at {r['company']}\n\n"
-                     f"{posting}\n\nRESUME\n{resume}")
-            answers = jev.ask(state, [q for q, _ in GATE_QUESTIONS])
-            entries.append((r, _flags(answers, gate), base_id or None))
+        if not use_jev:
+            entries = [(r, [], None) for r in rows]
+        else:
+            states = []
+            for r in rows:
+                posting = _to_markdown(r["description"])
+                base_id, resume = _gate_resume(bases, f"{r['title']}\n{posting}", default_base)
+                states.append((base_id, f"JOB POSTING\n{r['title']} at {r['company']}\n\n"
+                                        f"{posting}\n\nRESUME\n{resume}"))
+            # One Jev call per candidate, several at once: the same questions and answers as one
+            # after another, in a fraction of the time (about 4 minutes for 20 candidates, Oct 29 2026).
+            answered = parallel_map(lambda st: jev.ask(st[1], [q for q, _ in GATE_QUESTIONS]), states,
+                                    int(gate.get("parallel", 6)))
+            for r, (base_id, _), answers in zip(rows, states, answered):
+                entries.append((r, _flags(answers, gate), base_id or None))
         entries.sort(key=lambda e: order(e[0], bool(e[1])))
         if not job_ids:
             entries = entries[:limit]
