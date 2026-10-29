@@ -19,6 +19,14 @@ later-round shape, and gives a verdict. Another round runs only while the
 verdict is "not yet" ("ready after these changes" counts as not yet), up to `loop.review_passes` passes (6: the
 reviewer always has more suggestions, so the stop is it saying "ready to submit", not a count).
 The verdict, the questions for Jake and the interview questions go at the top of check.md.
+
+Jake, Oct 29 2026 (the Jobgether letter named neither the company nor the role, which each of his
+own review chats made the letter's first fix): the reviewer must be his review, not a summary of
+it. So it is a Claude subagent given his job-application-review skill itself
+(.claude/skills/job-application-review/SKILL.md, a verbatim copy), sent exactly what he sends: "Could
+you use the job-application-review skill on these? Here's the posting." with the posting and the
+resume and letter PDFs attached, then, in the same conversation, "Is this better? Is it ready to
+submit?" with the revised PDFs. Its reply is saved unchanged as notes.md.
 """
 
 from __future__ import annotations
@@ -26,8 +34,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Any
-
-import yaml
 
 from src.tailor.appdir import load_app, log, read_json, round_dir, write_json
 
@@ -60,36 +66,85 @@ def done_passes(app_dir: Path) -> list[int]:
     return sorted(out)
 
 
-_VERDICT = re.compile(r"^\W*verdict\W*:?\W*(ready after|ready|not yet|blocked)", re.IGNORECASE)
 _ITEM = re.compile(r"^\s*(?:\d+[.)]|[-*])\s+(.*\S)")
+_HEADING = re.compile(r"^\s*(?:#+\s*(.+?)|\*\*([^*]+?)\*\*:?)\s*:?\s*$")
+_VERDICT_LINE = re.compile(r"^\W*verdict\W*:?\W*(.*)$", re.IGNORECASE)
+_NOT_YET = re.compile(r"\bnot (?:yet|ready)\b|\bdon'?t submit\b|\bdo not submit\b|\bhold off\b", re.IGNORECASE)
+_BLOCKED = re.compile(r"^\W*blocked\b", re.IGNORECASE)
+_SUBMIT = re.compile(r"\bsubmit\b|\bready\b", re.IGNORECASE)
+# "Submit after items 1 to 3", "ready to submit once you do the checks below": Jake, Oct 29 2026,
+# only "ready to submit now" stops the passes (after those changes it often finds more).
+_CONDITION = re.compile(r"\b(?:after|once|when|but|if|until|before|provided)\b|\bfix", re.IGNORECASE)
+
+
+def _verdict(text: str) -> str | None:
+    t = text.replace("’", "'").strip(" .*")
+    if _BLOCKED.match(t):
+        return "blocked"
+    if _NOT_YET.search(t):
+        return "not yet"
+    if _SUBMIT.search(t):
+        return "not yet" if _CONDITION.search(t) else "ready"
+    return "not yet" if t else None
+
+
+def _heading(line: str) -> str | None:
+    h = _HEADING.match(line)
+    return (h.group(1) or h.group(2)).strip(" *:").lower() if h else None
+
+
+def _verdict_lines(lines: list[str]) -> tuple[str, list[str]] | None:
+    """The last verdict in the reply and the lines after it: a "Verdict: ..." line, or a "Verdict"
+    heading with the verdict on the next line (Nexthop's second round)."""
+    found = None
+    for i, line in enumerate(lines):
+        if _heading(line) == "verdict":
+            j = next((k for k in range(i + 1, len(lines)) if lines[k].strip()), None)
+            if j is not None:
+                found = (lines[j].replace("**", "").strip(), lines[j + 1:])
+            continue
+        m = _VERDICT_LINE.match(line.replace("**", ""))
+        if m and m.group(1).strip():
+            found = (m.group(1).strip(), lines[i + 1:])
+    return found
 
 
 def parse_notes(text: str) -> dict[str, Any]:
-    """notes.md as {"verdict": "ready" | "not yet" | "blocked" | None, "verdict_text", "sections":
-    {heading: [items]}}. The verdict is the first line starting "Verdict:"; its text runs to the first
-    heading. Jake, Oct 29 2026: only "ready to submit now" stops the passes; "ready after these
-    changes" is "not yet" (after those changes it often finds more)."""
-    verdict, why, sections, head, in_verdict = None, [], {}, None, False
-    for line in text.splitlines():
-        m = _VERDICT.match(line)
-        if m and verdict is None:
-            v = m.group(1).lower()
-            verdict, in_verdict = ("not yet" if v.startswith("ready after") else v), True
-            rest = line[m.end():].strip(" .:-*")
-            if rest:
-                why.append(rest)
+    """A reviewer's reply as {"verdict": "ready" | "not yet" | "blocked" | None, "verdict_text",
+    "sections": {heading: [items]}}. The reply is the skill's own free text, as in Jake's chats: the
+    verdict is its last verdict ("Verdict: Submit." is ready; "Verdict: Submit once you've fixed
+    ..." is not yet), else its first line ("Yes, this is better, and ..."); a verdict that isn't
+    plainly "submit" or "ready" (a first review's fit verdict) is not yet. Headings are markdown
+    "#" lines or whole-line bold."""
+    lines = text.splitlines()
+    found = _verdict_lines(lines)
+    if found:
+        verdict_line, after = found
+        more = []
+        for nxt in after:
+            if not nxt.strip() or _HEADING.match(nxt) or _ITEM.match(nxt):
+                break
+            more.append(nxt.strip().replace("**", ""))
+        # "Verdict: not yet" on a line of its own: the reason is the lines after it.
+        head = re.sub(r"^(?:not yet|ready|blocked)\W*$", "", verdict_line, flags=re.IGNORECASE)
+        why = " ".join(x for x in [head, *more] if x)
+    else:
+        verdict_line = why = next((ln.strip().replace("**", "") for ln in lines
+                                   if ln.strip() and not _HEADING.match(ln)), "")
+    sections: dict[str, list[str]] = {}
+    head_name = None
+    for line in lines:
+        h = _heading(line)
+        if h is not None:
+            head_name = h
+            sections.setdefault(head_name, [])
             continue
-        if line.startswith("#"):
-            head, in_verdict = line.lstrip("#").strip().strip("*").lower(), False
-            sections.setdefault(head, [])
-            continue
-        if in_verdict and line.strip():
-            why.append(line.strip())
-        elif head is not None:
+        if head_name is not None:
             m = _ITEM.match(line)
             if m:
-                sections[head].append(m.group(1).strip())
-    return {"verdict": verdict, "verdict_text": " ".join(why).strip(), "sections": sections}
+                sections[head_name].append(m.group(1).strip())
+    return {"verdict": _verdict(verdict_line) if verdict_line else None, "verdict_text": why,
+            "sections": sections}
 
 
 def blocker(app_dir: Path, cfg: dict[str, Any] | None = None) -> str | None:
@@ -220,35 +275,23 @@ def letter_text(letter: dict[str, Any]) -> str:
     return "\n\n".join([str(letter.get("greeting", "")).strip(), *paras, str(letter.get("sign_off", "")).strip()])
 
 
-def company_facts(app_dir: Path, cfg: dict[str, Any] | None) -> list[str]:
-    """The company research's verified facts, so the reviewer can check what the letter says
-    about the company (in his chats the reviewer looked those up on the web)."""
-    company = load_app(app_dir).get("company")
-    if not company or cfg is None:
-        return []
-    try:
-        from src.tailor.company import company_dir
-
-        path = company_dir(cfg, company) / "facts.json"
-    except Exception:  # noqa: BLE001 - no companies folder configured
-        return []
-    if not path.exists():
-        return []
-    facts = read_json(path)
-    out = []
-    for f in facts if isinstance(facts, list) else []:
-        if isinstance(f, dict) and f.get("verified") and f.get("fact"):
-            src = f" ({f['url']})" if f.get("url") else ""
-            quote = f'\n  > "{str(f["quote"]).strip()}"' if f.get("quote") else ""
-            out.append(f"- {str(f['fact']).strip()}{src}{quote}")
-    return out
+FIRST_MESSAGE = "Could you use the job-application-review skill on these? Here's the posting."
+LATER_MESSAGE = "Is this better? Is it ready to submit?"
 
 
-def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Write the next pass's input.md: the posting, what the company's own pages say, the best
-    round's resume and letter as plain text and, after the first pass, every earlier review and
-    "Is this better? Is it ready to submit?" (never what was changed). Returns {"action": "stop",
-    "reason"} when no pass is due."""
+def _posting_body(posting: str) -> str:
+    """The posting as Jake pastes it: title, company and location, then the text (no URL or date lines)."""
+    keep = [ln for ln in posting.splitlines() if not re.match(r"^\s*-\s*(?:URL|Posted)\s*:", ln)]
+    return "\n".join(keep).strip()
+
+
+def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | None = None,
+                 render: Any = None) -> dict[str, Any]:
+    """Get the next pass ready: render the best round's resume and letter PDFs into the pass's
+    folder and write message.md, the message Jake would send (pass 1: his opening line and the
+    posting; later passes: "Is this better? Is it ready to submit?"). Later passes continue the
+    same reviewer conversation; conversation.md holds the earlier turns for a reviewer that has to
+    be started fresh. Returns {"action": "stop", "reason"} when no pass is due."""
     app_dir = Path(app_dir)
     n, why = next_pass(app_dir, cfg)
     if n is None:
@@ -258,33 +301,32 @@ def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | No
         from src.tailor import TailorError
 
         raise TailorError(f"{app_dir} has no best round yet; run next-round first")
-    rd = round_dir(app_dir, int(rnd))
-    data = yaml.safe_load((rd / "resume.yaml").read_text(encoding="utf-8"))
-    letter = read_json(rd / "cover-letter.json") if (rd / "cover-letter.json").exists() else {}
-    posting = (app_dir / "posting.md").read_text(encoding="utf-8")
-    parts = ["# Job posting", posting.strip()]
-    facts = company_facts(app_dir, cfg)
-    if facts:
-        parts += ["# What the company's own pages say", "\n".join(facts)]
-    # Jake, Oct 29 2026: in his own review chats he never says what he changed. The reviewer sees
-    # its earlier reviews, then the revised resume and letter with "Is this better? Is it ready to
-    # submit?", and judges the text itself. A list of what was changed let pass 2 of Jobgether 2868
-    # believe "resume now matches the letter" when the resume still said "fell to none".
+    out = pass_dir(app_dir, n)
+    out.mkdir(parents=True, exist_ok=True)
+    if render is None:
+        from src.tailor.render import render_round as render
+    pdfs = render(app_dir, cfg or {}, int(rnd), out)
+    attachments = [pdfs["resume"], pdfs["letter"]]
+    if n == 1:
+        posting = (app_dir / "posting.md").read_text(encoding="utf-8")
+        message = FIRST_MESSAGE + "\n\n" + _posting_body(posting)
+    else:
+        message = LATER_MESSAGE
+    (out / "message.md").write_text(message + "\n", encoding="utf-8")
+    turns = []
     for k in range(1, n):
-        notes = pass_dir(app_dir, k) / "notes.md"
-        if notes.exists():
-            parts += [f"# Your review {k} (of an earlier version)", notes.read_text(encoding="utf-8").strip()]
-    if n > 1:
-        parts += ["# The candidate", "Is this better? Is it ready to submit?"]
-    parts += ["# Resume" + (" (revised)" if n > 1 else ""), resume_text(data),
-              "# Cover letter" + (" (revised)" if n > 1 else ""), letter_text(letter) if letter else "(no letter)"]
-    out = pass_dir(app_dir, n) / "input.md"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n\n".join(parts) + "\n", encoding="utf-8")
-    write_json(pass_dir(app_dir, n) / "reviewed.json", {"round": int(rnd)})
+        msg, notes = pass_dir(app_dir, k) / "message.md", pass_dir(app_dir, k) / "notes.md"
+        if msg.exists() and notes.exists():
+            turns += [f"## Jake (with his resume and cover letter PDFs attached)\n\n{msg.read_text(encoding='utf-8').strip()}",
+                      f"## You\n\n{notes.read_text(encoding='utf-8').strip()}"]
+    if turns:
+        (out / "conversation.md").write_text("\n\n".join(turns) + "\n", encoding="utf-8")
+    write_json(out / "reviewed.json", {"round": int(rnd)})
     log(app_dir, "review-input", f"pass {n}, round {rnd}")
-    return {"action": "review", "pass": n, "follow_up": n > 1, "round": int(rnd), "input": str(out),
-            "notes": str(pass_dir(app_dir, n) / "notes.md")}
+    return {"action": "review", "pass": n, "follow_up": n > 1, "round": int(rnd),
+            "message": str(out / "message.md"), "attachments": attachments,
+            **({"conversation": str(out / "conversation.md")} if turns else {}),
+            "notes": str(out / "notes.md")}
 
 
 def review_round(app_dir: Path, cfg: dict[str, Any] | None = None) -> dict[str, Any] | None:

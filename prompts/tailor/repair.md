@@ -159,8 +159,7 @@ entry per numbered fix:
 ```
 
 `note` is a short plain summary of the reviewer's point; `why` says what changed or why not, in a
-few words. Jake reads these in check.md, and the next review pass reads them, so a clear reason
-keeps the reviewer from raising the same point again.
+few words. Jake reads these in check.md.
 
 ## Review fix rounds
 
