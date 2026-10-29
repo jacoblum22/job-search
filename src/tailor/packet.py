@@ -160,8 +160,7 @@ def _reviewer_lines(app_dir: Path, rd: Path | None) -> list[str]:
     s = outside.summary(app_dir, shipped)
     if not s:
         return []
-    verdict = {"ready": "Ready to submit", "almost": "Ready after the listed changes",
-               "not yet": "Not yet"}.get(s["verdict"] or "", "No verdict given")
+    verdict = {"ready": "Ready to submit", "not yet": "Not yet"}.get(s["verdict"] or "", "No verdict given")
     text = f" {s['verdict_text']}" if s.get("verdict_text") else ""
     lines = ["## Outside reviewer", ""] + _note(explain.REVIEWER)
     lines += [f"Verdict after {s['passes']} pass{'es' if s['passes'] > 1 else ''}: {verdict}.{text}", ""]

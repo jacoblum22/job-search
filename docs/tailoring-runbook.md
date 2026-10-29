@@ -195,8 +195,8 @@ folder before starting the next. Keep a running note of the outcome for the dige
       one review fix round instead: follow repair.md ("Review fix rounds"), run `apply-edits`,
       `check`, `grade` and `next-round` once more. Then go back to the first bullet:
       `review-input` decides whether another pass is due (it stops when the reviewer says ready,
-      a review round wasn't kept, or `loop.review_passes` passes are done, 6 by default; "ready
-      after these changes" gets another round and pass).
+      a review round wasn't kept, or `loop.review_passes` passes are done, 6 by default; anything
+      short of "ready to submit now" counts as not yet).
     - If `review-round` says stop, go to step 11. If a subagent failed or wrote no notes, skip the
       rest of this step and note it for the digest.
 11. **Humanize, render, packet.**
