@@ -90,25 +90,55 @@ Everything else in this prompt still applies to the letter.
 
 ## Review round
 
-When `feedback.json` has `"review": true`, the round acts on an outside reviewer's notes
-(`review/notes.md`, written by a reader who never saw the vault or the rules). It builds on round
-`B`, and `sections` allow the whole resume and the letter.
+When `feedback.json` has `"review": true`, the round acts on an outside reviewer's notes (the file
+named in `feedback.json`'s `notes`: `review/notes.md` for the first pass, `review/pass<N>/notes.md`
+for an "is this better?" pass), written by a reader who never saw the vault or the rules. It builds
+on round `B`, and `sections` allow the whole resume and the letter. In a later pass, act on its
+"Still open" and "Mechanical" items; "What it fixed" needs nothing.
 
-Read every note and decide, one by one:
+Read every numbered fix and decide, one by one:
 
 - **Act on it** when it is about wording, emphasis, order, what to cut, or evidence the vault
   already shows: a clearer summary for this role, the posting's word for work a cited passage
   describes, a dropped grade or internal name, a filler word cut, the letter's strongest story
-  moved up, a closing ask added. Use the advice sections of `resume-edits.md` and `cover-letter.md`.
+  moved up, a closing ask added, resume and letter made to agree. Use the advice sections of
+  `resume-edits.md` and `cover-letter.md`.
 - **Leave it** when acting would need something the vault doesn't back (an outcome number, a tool,
   a result), or would break the rules file (AlgaeCal metrics, dates, titles). A reviewer's
   "[number]" stays out unless a cited passage has that number.
 - When two notes pull against each other, or a note would cost the posting's keywords, use
   judgment: the ATS words the posting cares about still matter.
+- "Questions only you can answer" and "Interview questions" are for Jake; they reach him on the
+  review page. Don't act on them, and don't guess their answers.
+
+**How Jake usually decides on reviewer advice** (his own reviews, Oct 25-28 2026; advice, not
+rules, so use judgment):
+
+- Don't name a missing minimum in the letter (years asked vs. his four months). The resume dates
+  already show it, and pointing at it hands the screener a reason to stop. Name only a gap the
+  letter can bridge in the same sentence (a tool he hasn't used, with the closest one he has).
+- Fill a "[number]" or "[N]" from the vault or cut the phrase; never estimate. Use the vault's
+  wording ("9+", "about 20", "10+ tables", "several business units"). Keep a "+" when the vault
+  says there were more he can't name.
+- Keep the posting's title words in the summary's first sentence even when the reviewer suggests
+  another opener: the ATS title match depends on it.
+- No test counts ("a pytest suite"): they go stale and read as padding.
+- Ownership verbs only for what he did: "fixed both" when he made the fix, "traced the cause" when
+  someone else changed it. "Across teams", not "every team".
+- A tool he never touched (Spark, dbt, Airflow) never goes in skills or a claim; the letter may
+  name it as a gap with a bridge. Docker is coursework only. C is coursework only.
+- Unfamiliar product or internal names get a short gloss ("the company's online community on
+  Circle") rather than being cut, when the story needs them.
+- A letter opener names what the job needs and how his work lines up with it as a whole; a single
+  narrow example goes in paragraph 2, not the opener.
+- A company figure the reviewer questions: use the wording in `facts.json` or the posting exactly,
+  or drop it.
 
 All step-4 grounding rules still apply, and the resume must still fit one page (prefer replacing to
 adding). Write `edits.json` (an empty list is fine if nothing for the resume is worth doing) and a
-`cover-letter.json` if the letter changes. Then write `review/response.json`, one entry per note:
+`cover-letter.json` if the letter changes. Then write the file named in `feedback.json`'s
+`response` (`review/response.json` for the first pass, `review/pass<N>/response.json` after), one
+entry per numbered fix:
 
 ```json
 [{"note": "Summary names the Loyalty team", "action": "changed", "why": "now says marketing and other business teams"},
@@ -116,7 +146,8 @@ adding). Write `edits.json` (an empty list is fine if nothing for the resume is 
 ```
 
 `note` is a short plain summary of the reviewer's point; `why` says what changed or why not, in a
-few words. Jake reads these in check.md.
+few words. Jake reads these in check.md, and the next review pass reads them, so a clear reason
+keeps the reviewer from raising the same point again.
 
 ## Output
 

@@ -143,6 +143,24 @@ def _note(text: str) -> list[str]:
     return [f"> {text}", ""]
 
 
+def _reviewer_lines(app_dir: Path) -> list[str]:
+    """The outside reviewer's verdict, questions only Jake can answer, claims to verify and the
+    interview questions they invite, as his claude.ai reviews put them (Jake, Oct 29 2026). Plain
+    lines, no boxes: nothing here blocks approval."""
+    s = outside.summary(app_dir)
+    if not s:
+        return []
+    verdict = {"ready": "Ready to submit", "not yet": "Not yet"}.get(s["verdict"] or "", "No verdict given")
+    text = f" {s['verdict_text']}" if s.get("verdict_text") else ""
+    lines = ["## Outside reviewer", ""] + _note(explain.REVIEWER)
+    lines += [f"Verdict after {s['passes']} pass{'es' if s['passes'] > 1 else ''}: {verdict}.{text}", ""]
+    for key, title in (("questions", "Questions only you can answer"), ("claims", "Claims to verify before sending"),
+                       ("interview", "Interview questions these claims invite")):
+        if s[key]:
+            lines += [f"{title}:"] + [f"- {q}" for q in s[key]] + [""]
+    return lines
+
+
 def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
               check: dict[str, Any] | None, cfg: dict[str, Any], grade: dict[str, Any] | None) -> str:
     from src.tailor.checks import units  # local: checks pulls in the heavier metrics stack
@@ -156,7 +174,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     reqs = {r["id"]: r for r in reqs_json.get("requirements") or [] if "id" in r}
     _, data = _final_resume(rd, app_dir)
     index = _vault_index(cfg)
-    lines = ["# Check", ""] + _note(explain.INTRO)
+    lines = ["# Check", ""] + _note(explain.INTRO) + _reviewer_lines(app_dir)
     if gate.get("checked") is False:
         lines += ["Gate not checked: Jev is not configured.", ""]
     if gate_flags:
@@ -233,13 +251,17 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             info.append("- Keyword stuffing suspected: the score is high only because terms repeat")
     else:
         info.append("- No grade available")
-    replies = outside.response(app_dir)
-    if replies:
+    passes = sorted({1, *outside.done_passes(app_dir)})
+    if any(outside.response(app_dir, n) for n in passes):
         info += ["", "## Outside review", ""] + _note(explain.OUTSIDE)
-        for r in replies:
-            done = "Changed" if str(r.get("action", "")).lower().startswith("change") else "Left as is"
-            why = f": {r['why']}" if r.get("why") else ""
-            info.append(f"- {done}: {r['note']}{why}")
+        for n in passes:
+            replies = outside.response(app_dir, n)
+            if replies and len(passes) > 1:
+                info.append(f"Pass {n}:")
+            for r in replies:
+                done = "Changed" if str(r.get("action", "")).lower().startswith("change") else "Left as is"
+                why = f": {r['why']}" if r.get("why") else ""
+                info.append(f"- {done}: {r['note']}{why}")
     # Jev's "no" answers are advice; listing them lets the candidate catch a false rejection.
     said_no = [it for it in (grade or {}).get("checklist") or [] if it.get("passed") is False]
     ev_no = (_opt_json(app_dir / "evidence.json") or {}).get("jev_said_no") or []
