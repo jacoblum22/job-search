@@ -258,8 +258,14 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             replies = outside.response(app_dir, n)
             if replies and len(passes) > 1:
                 info.append(f"Pass {n}:")
+            # A round acting on the review that added a problem isn't shipped, so its changes aren't either.
+            shipped = outside.kept(app_dir, n) is not False
+            if replies and not shipped:
+                info.append("Not kept: the round that acted on this review added a problem, so the earlier "
+                            "round ships and none of these changes are in it.")
             for r in replies:
-                done = "Changed" if str(r.get("action", "")).lower().startswith("change") else "Left as is"
+                changed = str(r.get("action", "")).lower().startswith("change")
+                done = ("Changed" if shipped else "Suggested, not applied") if changed else "Left as is"
                 why = f": {r['why']}" if r.get("why") else ""
                 info.append(f"- {done}: {r['note']}{why}")
     # Jev's "no" answers are advice; listing them lets the candidate catch a false rejection.

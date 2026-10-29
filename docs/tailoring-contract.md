@@ -60,6 +60,7 @@ max 120 chars). Contents, in the order steps create them:
 | `drafts/r<N>/feedback.json` | code (input to the repair round) | 7 |
 | `review/input.md`, `review/notes.md`, `review/response.json` (pass 1; later passes in `review/pass<N>/`) | code, then a fresh reviewer, then Claude (the review round) | 7b |
 | `humanize/flags.json`, `humanize/patches.json` | code, then Claude | 8 |
+| `jev-answers.json` | code (Jev's answers, reused for unchanged text) | 5, 6 |
 | `final/` resume + letter `.yaml/.json/.docx/.pdf`, `parse.json` | code | 9 |
 | `fit-notes.md`, `check.md` | code | 10 |
 
@@ -331,6 +332,20 @@ when the evidence can't reach 70, otherwise "ATS score below 70" (a wording gap)
 
 `{"round": 2, "criticals": [...from check], "failed_items": [...from grade feedback], "sections":
 [paths of sections allowed to change]}`. Claude may only edit inside `sections`.
+
+`warnings` holds the warnings that start a round and the ones that only ride along with one
+(`skill_only_in_list`, `ai_phrase`, `keyword_coverage_dropped`, Jev's `jev_unsupported` doubts, ...),
+and `sections` covers their lines too. Other keys mark the kind of round: `build_on` (the round it
+starts from), `letter_only`, `revisit` (a gap round), `review` + `review_pass` (acts on an outside
+review), and `review_fix` + `compare_to` (fixes only the criticals a review round added, judged
+against the round the review read). `next-round` stops when a round left the resume and letter as
+the round it built on had them, and compares rounds on ATS scored under today's rules.
+
+Jev's answers are kept per application in `jev-answers.json`, keyed by the question and the text
+it was asked about, so a question asked again about unchanged text gets the same answer. Resume
+questions are asked about the resume and letter questions about the letter. Each review pass
+records the round it read in `review/[pass<N>/]reviewed.json`; when a later round becomes the best,
+`review-input` starts another pass.
 
 ### Humanize
 

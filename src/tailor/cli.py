@@ -333,6 +333,7 @@ def pending():
     is more than loop.wide_gap under what the evidence allows, or a letter-only round asked for here
     when the best round's letter fails today's letter checks. The daily run does these before new jobs."""
     from src.tailor.loop import gap_round, letter_round, pending_round
+    from src.tailor.outside import done_passes
     from src.tailor.paths import ROOT
 
     cfg = load_config()
@@ -349,8 +350,25 @@ def pending():
         except ValueError:
             shown = str(folder)
         out.append({"app": shown, "round": rnd, "build_on": fb.get("build_on"),
-                    "kind": "letter" if fb.get("letter_only") else "review" if fb.get("review") else "repair"})
+                    "kind": "letter" if fb.get("letter_only") else "review" if fb.get("review") else "repair",
+                    # A folder an outside reviewer already read gets another pass once this round is done.
+                    "reviewed": bool(done_passes(folder))})
     _out(out)
+
+
+@main.command("extra-round")
+@APP
+def extra_round(app_dir):
+    """After next-round stops, before the outside review: the gap or letter round `pending` would
+    ask for on a later day, asked for now so the reviewer reads the draft that ships (Nexthop,
+    Oct 27 2026: two keyword rounds after the review rebuilt a bullet it had fixed)."""
+    from src.tailor.loop import gap_round, letter_round
+
+    cfg = load_config()
+    fb = gap_round(app_dir, cfg) or letter_round(app_dir, cfg)
+    _out({"action": "repair", "next_round": fb["round"], "build_on": fb["build_on"],
+          "kind": "letter" if fb.get("letter_only") else "repair"} if fb
+         else {"action": "stop", "reason": "no gap or letter round is due"})
 
 
 @main.command()

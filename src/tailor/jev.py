@@ -363,6 +363,75 @@ class FakeJev:
 
 _MISSING = object()
 
+
+class RememberedJev:
+    """A client that gives a question asked again about the same text the answer it got the first
+    time, kept in one application folder's `jev-answers.json`.
+
+    Every round asked Jev every checklist and support question again, even about lines that hadn't
+    changed, and many answers sit near 50/50, so rounds that changed a few words (or none: Fairstone
+    and J.D. Power, Oct 2026) won or lost on coin flips (pipeline audit, Oct 29 2026). With the
+    answers remembered, an unchanged line scores the same in every round and only what a round
+    changed can move its score. Only answered questions are kept; an unreachable Jev is asked again."""
+
+    def __init__(self, inner: Any, path: Path):
+        self.inner = inner
+        self.path = Path(path)
+        self.available = getattr(inner, "available", True)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.inner, name)
+
+    @staticmethod
+    def key(state: str, q: Question) -> str:
+        import hashlib
+        import json
+
+        raw = json.dumps([state, q.type, q.text, list(q.scale), list(q.options), q.criteria], ensure_ascii=False)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+    def _load(self) -> dict[str, Any]:
+        import json
+
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def ask(self, state: str, questions: Sequence[Question]) -> list[Answer]:
+        import json
+
+        questions = list(questions)
+        memory = self._load()
+        out: list[Answer | None] = [None] * len(questions)
+        missing: list[int] = []
+        for i, q in enumerate(questions):
+            hit = memory.get(self.key(state, q))
+            if isinstance(hit, dict):
+                out[i] = Answer(q.id, ok=True, value=hit.get("value"), confidence=hit.get("confidence"))
+            else:
+                missing.append(i)
+        if missing:
+            answers = self.inner.ask(state, [questions[i] for i in missing])
+            for i, a in zip(missing, answers):
+                out[i] = a
+                if a.ok:
+                    memory[self.key(state, questions[i])] = {"value": a.value, "confidence": a.confidence}
+            try:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                self.path.write_text(json.dumps(memory, ensure_ascii=False, indent=0), encoding="utf-8")
+            except OSError:
+                pass
+        return [a if a is not None else Answer(q.id, ok=False, error="no answer") for a, q in zip(out, questions)]
+
+
+def remembered(jev: Any, app_dir: Path) -> Any:
+    """`jev` wrapped so its answers are kept in `<app>/jev-answers.json` (None stays None)."""
+    if jev is None or isinstance(jev, RememberedJev):
+        return jev
+    return RememberedJev(jev, Path(app_dir) / "jev-answers.json")
+
 _EMAIL = re.compile(r"\S+@\S+\.\S+")
 _PHONE = re.compile(r"\+?\d[\d\s().-]{8,}\d")
 _URL = re.compile(r"(?:https?://)?(?:www\.)?(?:linkedin\.com|github\.com)/\S+", re.I)

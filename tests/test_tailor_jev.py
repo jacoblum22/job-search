@@ -229,3 +229,32 @@ def test_from_env(monkeypatch):
 
 def test_answer_dataclass_default():
     assert Answer("x", ok=False).value is None
+
+
+# --- remembered answers (pipeline audit, Oct 29 2026) ----------------------
+
+
+def test_remembered_jev_reuses_an_answer_for_the_same_text(tmp_path):
+    from src.tailor.jev import FakeJev, remembered
+
+    fake = FakeJev(lambda state, q: 0.7)
+    jev = remembered(fake, tmp_path)
+    assert remembered(jev, tmp_path) is jev and remembered(None, tmp_path) is None
+    first = jev.ask("resume text", [YN, SC])
+    again = jev.ask("resume text", [YN, SC])
+    assert [a.value for a in again] == [a.value for a in first] == [0.7, 0.7]
+    assert len(fake.calls) == 1
+    # Other text, or another question about it, is asked afresh; only what's new goes to Jev.
+    jev.ask("changed text", [YN])
+    jev.ask("resume text", [YN, Question("other", "yesno", "Is it short?")])
+    assert [[q.id for q in qs] for _, qs in fake.calls[1:]] == [["sql"], ["other"]]
+    assert (tmp_path / "jev-answers.json").exists()
+
+
+def test_remembered_jev_never_keeps_a_failed_answer(tmp_path):
+    from src.tailor.jev import FakeJev, remembered
+
+    jev = remembered(FakeJev({}), tmp_path)  # unreachable: every answer ok=False
+    assert jev.ask("t", [YN])[0].ok is False
+    later = remembered(FakeJev({"sql": 0.8}), tmp_path)
+    assert later.ask("t", [YN])[0].value == 0.8

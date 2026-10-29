@@ -103,8 +103,11 @@ for another way to run it, note it for the digest.
    wasn't finished (follow repair.md's "Review round"). For each, in order, run that round as
    Step B step 9 describes from "If it asks for another round" (follow `prompts/tailor/repair.md`
    for round N; if that round's `edits.json` and `cover-letter.json` already exist, start at
-   `apply-edits`), keep going with `next-round` as step 9 says, then do step 11. Don't start a new outside review (step 10) for these folders, except after
-   finishing a "review" round: then continue step 10 from `review-input` (another pass may be due).
+   `apply-edits`), keep going with `next-round` as step 9 says. Then, if the entry says
+   `"reviewed": true` (an outside reviewer already read this folder) or its kind is "review",
+   continue step 10 from `review-input`: it starts another pass when the round you just did
+   changed what the reviewer read, so a later round never ships unreviewed. Otherwise go to
+   step 11. Don't start a first outside review for a folder that never had one.
 3. Run `{QUEUE}`. It prints a JSON list of new application folders (capped by `tailor.daily_cap`,
    best A-tier jobs first). If the list is empty and nothing was unfinished or waiting, end with the
    one-line digest "Nothing new to tailor".
@@ -145,7 +148,12 @@ folder before starting the next. Keep a running note of the outcome for the dige
      then run `apply-edits`, `check`, `grade` with `--round N`, and `next-round` again.
    - Normally at most 2 repair rounds (3 drafts); the tool allows up to 5 drafts while the resume
      is still far under what the evidence allows and gaining. Never start a round the tool did not ask for. The tool keeps
-     the best round, not the last.
+     the best round, not the last. A round that changes nothing ends the loop (repair.md rule 9).
+   - When the loop has stopped, run `uv run python -m src.tailor extra-round "<app>"`. If it asks
+     for a round (a gap round when the ATS is still far under what the evidence allows, or a
+     letter-only round), do it like a repair round (`repair.md`; "Letter-only rounds" for kind
+     "letter"), run `apply-edits`, `check`, `grade`, `next-round`, then `extra-round` once more.
+     These used to run on a later day, after the outside review had read an older draft.
 10. **Outside review (like Jake's own "is this better?" reviews).** When the loop has stopped:
     - `uv run python -m src.tailor review-input "<app>"`. If it prints `"action": "stop"`, go to
       step 11. Otherwise it wrote the pass's `input.md` (pass 1: `<app>/review/`, later passes:
@@ -156,8 +164,10 @@ folder before starting the next. Keep a running note of the outcome for the dige
       answer, as in step 3.
     - `uv run python -m src.tailor review-round "<app>"`. If it asks for a round, follow
       `prompts/tailor/repair.md` ("Review round") for that round number, then run `apply-edits`,
-      `check`, `grade` with `--round N`, and `next-round` once (it ends the loop and keeps the review
-      round unless it added a critical or lost ATS points). Then go back to the first bullet:
+      `check`, `grade` with `--round N`, and `next-round`. It ends the loop and keeps the review
+      round unless it lost ATS points; if the review round added a critical, `next-round` asks for
+      one review fix round instead: follow repair.md ("Review fix rounds"), run `apply-edits`,
+      `check`, `grade` and `next-round` once more. Then go back to the first bullet:
       `review-input` decides whether another pass is due (it stops when the reviewer says ready,
       a review round wasn't kept, or `loop.review_passes` passes are done, 3 by default).
     - If `review-round` says stop, go to step 11. If a subagent failed or wrote no notes, skip the
@@ -252,11 +262,13 @@ summary; read it before continuing.
    `... grade "$APP" --round 1`. Read `drafts/r1/applied.json` (which edits were dropped and why),
    `check.json` and `grade.json`.
 8. **Repair if asked:** `... next-round "$APP"`; if it wrote `feedback.json`, run
-   `prompts/tailor/repair.md`, then repeat step 7 with `--round 2` (and 3 at most).
+   `prompts/tailor/repair.md`, then repeat step 7 with `--round 2` (and 3 at most). When it stops,
+   run `... extra-round "$APP"` and do the round it asks for, if any.
 9. **Outside review:** `... review-input "$APP"`; unless it says stop, have a fresh Claude follow
    `prompts/tailor/outside-review.md` for the pass it names to write that pass's `notes.md`, then
    `... review-round "$APP"`; if it asks for a round, run repair.md's "Review round", repeat step 7
-   for that round, run `next-round` once, and go back to `review-input` (up to 3 passes).
+   for that round, run `next-round` (and the review fix round it may ask for), and go back to
+   `review-input` (up to 3 passes).
 10. **Humanize:** `... humanize-flags "$APP"`; if there are flags, run `prompts/tailor/humanize.md` to write
    `humanize/patches.json`, then `... humanize-apply "$APP"`.
 11. **Finish:** `... render "$APP"`, then `... packet "$APP"`. Review `APP/check.md` (gate flags first, then

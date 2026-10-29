@@ -50,7 +50,9 @@ SUGGESTIONS = {
 # Phrase patterns: each dresses up a plain point instead of stating it (Humanizer patterns 3-5, 13, 16, 18).
 PATTERNS = {
     "deep_saying": r"\b(?:the real question is|at its core|what really matters|the heart of the matter|"
-                   r"the deeper issue|about as \w+ as \w+ (?:gets?|get)|fundamentally)\b",
+                   r"the deeper issue|about as \w+ as \w+ (?:gets?|get)|fundamentally|"
+                   # "an agent is only as good as the failures you find" (Quora letter, Oct 28 2026)
+                   r"(?:is|are) only as (?:good|strong|useful) as)\b",
     "run_up": r"(?:^|[.!?]\s+)(?:here's the thing|the thing is|let's dive in|let's be honest|honestly\?|"
               r"here's what you need to know|real talk)\b",
     "inflated": r"\b(?:stands? as a testament|plays? a (?:key|pivotal|crucial|vital) role|setting the stage for|"
