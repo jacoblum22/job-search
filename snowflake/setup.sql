@@ -49,7 +49,8 @@ desc storage integration jobsearch_azure;
 use role jobsearch_pipeline;
 use warehouse jobsearch_wh;
 
-create file format if not exists jobsearch.raw.parquet_files type = parquet;
+-- use_logical_type: read the files' own column types (else timestamps load as numbers)
+create file format if not exists jobsearch.raw.parquet_files type = parquet use_logical_type = true;
 
 create stage if not exists jobsearch.raw.lake
   storage_integration = jobsearch_azure
