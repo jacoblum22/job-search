@@ -248,8 +248,8 @@ def next_round_cmd(app_dir):
 @main.command("review-input")
 @APP
 def review_input_cmd(app_dir):
-    """Step 7b: write the next review pass's input.md (posting, company facts, best resume and
-    letter, and after the first pass the earlier notes), or say why no pass is due."""
+    """Step 7b: get the next review pass ready (the best round's resume and letter PDFs and the
+    message Jake would send with them), or say why no pass is due."""
     from src.tailor.outside import review_input
 
     _out(review_input(app_dir, cfg=load_config()))

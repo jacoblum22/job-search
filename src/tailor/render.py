@@ -237,34 +237,22 @@ def _company_twins(app_dir: Path, app: dict[str, Any]) -> bool:
     return False
 
 
-def run_render(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
-    app_dir = Path(app_dir)
-    app = load_app(app_dir)
+def _stems(app_dir: Path, app: dict[str, Any], name: str) -> tuple[str, str]:
     company = _safe(str(app.get("company") or "")) or "Company"
-    resume_src = _source_path(app_dir, app, "resume.yaml")
-    letter_src = _source_path(app_dir, app, "cover-letter.json")
-    data = yaml.safe_load(resume_src.read_text(encoding="utf-8")) or {}
-    letter = read_json(letter_src)
-    contact = _contact(cfg, data)
-    name = _safe(contact["name"])
+    # Two applications to one company would upload as identical file names, so add the job title.
+    if _company_twins(app_dir, app):
+        company = f"{company} - {_short_title(str(app.get('title') or ''))}".rstrip(" -")
+    return f"{name} Resume - {company}", f"{name} Cover Letter - {company}"
 
+
+def _render_into(app_dir: Path, data: dict[str, Any], letter: dict[str, Any], contact: dict[str, str],
+                 out_dir: Path, resume_stem: str, letter_stem: str) -> tuple[dict, dict, dict, list[str]]:
+    """Fit the resume to one page and render both documents into `out_dir`: (fitted resume data,
+    resume render result, letter render result, dropped bullet paths)."""
     plan_path = app_dir / "plan.json"
     plan = read_json(plan_path) if plan_path.exists() else {}
     relevance = plan.get("bullet_relevance") or {}
     protected = plan.get("protected_paths") or []
-
-    final = app_dir / "final"
-    final.mkdir(exist_ok=True)
-    # Two applications to one company would upload as identical file names, so add the job title.
-    if _company_twins(app_dir, app):
-        company = f"{company} - {_short_title(str(app.get('title') or ''))}".rstrip(" -")
-    resume_stem = f"{name} Resume - {company}"
-    letter_stem = f"{name} Cover Letter - {company}"
-    # A rerender under another name (a title added, a rule changed) would leave the old files
-    # beside the new ones, and either could get uploaded.
-    for old in [*final.glob(f"{name} Resume - *"), *final.glob(f"{name} Cover Letter - *")]:
-        if old.suffix.lower() in (".pdf", ".docx") and old.stem not in (resume_stem, letter_stem):
-            old.unlink()
 
     def pages_of(candidate: dict[str, Any]) -> int:
         with tempfile.TemporaryDirectory() as tmp:
@@ -273,12 +261,49 @@ def run_render(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
             return resume_mod.render(path, Path(tmp), stem="try", contact=contact)["pages"]
 
     fitted, dropped, _ = fit_to_page(data, relevance, protected, pages_of)
-
-    yaml_path = final / "resume.yaml"
+    yaml_path = out_dir / "resume.yaml"
     yaml_path.write_text(yaml.safe_dump(fitted, sort_keys=False, allow_unicode=True), encoding="utf-8")
-    res = resume_mod.render(yaml_path, final, stem=resume_stem, contact=contact)
-    write_json(final / "cover-letter.json", letter)
-    let = render_letter(letter, contact, final, letter_stem)
+    res = resume_mod.render(yaml_path, out_dir, stem=resume_stem, contact=contact)
+    write_json(out_dir / "cover-letter.json", letter)
+    let = render_letter(letter, contact, out_dir, letter_stem)
+    return fitted, res, let, dropped
+
+
+def render_round(app_dir: Path, cfg: dict[str, Any], rnd: int, out_dir: Path) -> dict[str, Any]:
+    """Render round `rnd`'s resume and letter as the PDFs Jake would attach, under the same file
+    names as final/, into `out_dir` (the outside review reads these, as his own chats do)."""
+    app_dir, out_dir = Path(app_dir), Path(out_dir)
+    app = load_app(app_dir)
+    rd = app_dir / "drafts" / f"r{rnd}"
+    data = yaml.safe_load((rd / "resume.yaml").read_text(encoding="utf-8")) or {}
+    letter = read_json(rd / "cover-letter.json")
+    contact = _contact(cfg, data)
+    resume_stem, letter_stem = _stems(app_dir, app, _safe(contact["name"]))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _, res, let, _ = _render_into(app_dir, data, letter, contact, out_dir, resume_stem, letter_stem)
+    return {"resume": str(res["pdf"]), "letter": str(let["pdf"])}
+
+
+def run_render(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
+    app_dir = Path(app_dir)
+    app = load_app(app_dir)
+    resume_src = _source_path(app_dir, app, "resume.yaml")
+    letter_src = _source_path(app_dir, app, "cover-letter.json")
+    data = yaml.safe_load(resume_src.read_text(encoding="utf-8")) or {}
+    letter = read_json(letter_src)
+    contact = _contact(cfg, data)
+    name = _safe(contact["name"])
+
+    final = app_dir / "final"
+    final.mkdir(exist_ok=True)
+    resume_stem, letter_stem = _stems(app_dir, app, name)
+    # A rerender under another name (a title added, a rule changed) would leave the old files
+    # beside the new ones, and either could get uploaded.
+    for old in [*final.glob(f"{name} Resume - *"), *final.glob(f"{name} Cover Letter - *")]:
+        if old.suffix.lower() in (".pdf", ".docx") and old.stem not in (resume_stem, letter_stem):
+            old.unlink()
+
+    fitted, res, let, dropped = _render_into(app_dir, data, letter, contact, final, resume_stem, letter_stem)
 
     resume_check = parse_check(res["pdf"], {**fitted, "kind": "resume"}, contact)
     letter_check = parse_check(let["pdf"], {**letter, "kind": "letter"}, contact)

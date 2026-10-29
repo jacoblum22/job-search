@@ -142,7 +142,7 @@ $basePrompt = ($basePrompt -split "<!-- prompt end -->", 2)[0]
 $basePrompt = $basePrompt.Replace("{DATE}", $date).Replace("{QUEUE}", $queueCmd)
 
 $tools = @(
-    "Read", "Glob", "Grep", "WebSearch", "Agent",
+    "Read", "Glob", "Grep", "WebSearch", "Agent", "SendMessage", "Skill", "WebFetch",
     "Edit(materials/applications/**)", "Edit(materials/companies/**)",
     "Bash(uv run python -m src.tailor:*)"
 )
