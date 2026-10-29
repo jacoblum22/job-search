@@ -470,6 +470,18 @@ def test_soft_must_is_not_asked_for_a_tool(tmp_path):
     assert "names a tool" in asked["must.r1"]
 
 
+def test_boilerplate_must_is_not_asked_or_repaired(tmp_path):
+    # An eligibility line no bullet can show: Jev said no and a repair round chased it.
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][1] = {**r["requirements"][1], "text": "18 years of age or older", "terms": [],
+                            "weight": "boilerplate", "quote": "Are 18 years of age or older"}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r2" else 0.8))
+    assert not any(it["id"] == "must.r2" for it in out["checklist"])
+    assert not any("18 years" in f for f in out["feedback"])
+
+
 def test_degree_requirement_is_asked_about_education_and_never_repaired(tmp_path):
     app = make_app(tmp_path)
     r = json.loads((app / "requirements.json").read_text())

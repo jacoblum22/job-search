@@ -428,6 +428,10 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
         meta[qid] = {"fail_on_yes": fail_on_yes, **extra}
 
     for r in req.get("requirements") or []:
+        if r.get("weight") == "boilerplate":
+            # Eligibility lines ("18 years of age or older") aren't work a bullet can show; evidence
+            # skips them too (Amazon SDE, Oct 29 2026: one sent a repair round that changed nothing).
+            continue
         if r.get("kind") == "must" and _is_degree(r):
             # A degree is shown by the education section, not by a bullet that names a tool.
             add(f"must.{r['id']}", f"Does the resume's education meet this requirement: {r.get('text') or _req_label(r)}?", req_id=r["id"])
