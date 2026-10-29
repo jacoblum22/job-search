@@ -119,3 +119,27 @@ def test_skill_record_corrects_the_vault(tmp_path):
     assert not {"Power BI", "Looker", "Node.js", "Dataform"} & v.tools
     assert {"SQL", "BigQuery", "Python"} <= v.tools
     assert labels("Experience with Tableau and Node.js", v) == [("Node.js", False)]
+
+
+def haves(text, vault, skip=frozenset(), **cfg):
+    from src.vault_gaps import find_haves
+    return {h.skill: (h.preferred, h.points) for h in find_haves(text, vault, {**CFG["vault_gaps"], **cfg}, skip)}
+
+
+def test_tools_the_vault_shows_earn_points_like_gaps_cost_them(vault):
+    got = haves("## Requirements\n- Python, AWS S3 and Tableau\n\n## Preferred\n- Looker Studio", vault)
+    assert "Tableau" not in got  # the vault has no Tableau: that is a gap, not points
+    assert got.get("AWS") == (False, 2) or got.get("AWS S3") == (False, 2)
+    assert got["Looker Studio"] == (True, 1.0)  # a nice-to-have counts half
+
+
+def test_hand_weighted_tools_and_employer_text_earn_nothing_here(vault):
+    text = "## About us\nWe use Looker Studio everywhere.\n\n## Requirements\n- Python and pandas"
+    got = haves(text, vault, skip={"pandas"})
+    assert "Looker Studio" not in got and "pandas" not in got and "Python" in got
+
+
+def test_score_gives_points_for_vault_tools_not_in_the_hand_list(vault):
+    text = "Builder. Hands-on with AWS S3, scikit-learn and Looker Studio every day. " * 5
+    kw = dict(title="Builder", description=text, location_category="vancouver", years_experience=None, cfg=CFG)
+    assert score_job(**kw, vault=vault).score > score_job(**kw).score

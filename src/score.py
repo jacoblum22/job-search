@@ -36,7 +36,7 @@ from typing import Any
 
 from src.experience import parse_years_ask
 from src.location_filter import classify_location
-from src.vault_gaps import Vault, find_gaps, load_vault
+from src.vault_gaps import Vault, find_gaps, find_haves, load_vault
 
 _YEARS_IN_TITLE_RE = re.compile(r"\d+\s*(?:[-–]\s*\d+\s*)?\+?\s*(?:years?|yrs?)\b", re.IGNORECASE)
 
@@ -234,6 +234,15 @@ def score_job(
     have_hits = [kw for kw in (skills.get("have") or {}) if _any_match(text, kw)]
     gap_hits = [kw for kw in (skills.get("gaps") or {}) if _any_match(text, kw)]
 
+    # Points only: the title-family and no-gaps checks still count hand-listed skills alone.
+    # Hand weights (score.skills.have); every other tool the vault shows (src/vault_gaps.py) earns a
+    # small default, so one list of what Jake has decides both points and penalties.
+    vault_cfg = cfg.get("vault_gaps") or {}
+    vault_haves = []
+    if vault is not None and vault_cfg.get("have_points"):
+        by_hand = {alt.strip().lower() for kw in skills.get("have") or {} for alt in kw.split("|")}
+        vault_haves = find_haves(text, vault, vault_cfg, by_hand)
+
     best_family: tuple[int, str, str] | None = None
     for fam in cfg.get("title_families") or []:
         # A broad family ("engineer", "developer") only counts when the
@@ -312,12 +321,15 @@ def score_job(
         score += pts
         reasons.append(f"{pts} Master's preferred or optional")
 
-    have_pts = min(sum(skills["have"][kw] for kw in have_hits), skills.get("have_cap", 40))
+    vault_pts = round(min(sum(h.points for h in vault_haves), vault_cfg.get("have_max", 20)))
+    have_pts = min(
+        sum(skills["have"][kw] for kw in have_hits) + vault_pts, skills.get("have_cap", 40)
+    )
     if have_pts:
         score += have_pts
-        reasons.append(f"+{have_pts} skills ({', '.join(have_hits)})")
+        named = list(have_hits) + [h.skill for h in vault_haves]
+        reasons.append(f"+{have_pts} skills ({', '.join(named)})")
 
-    vault_cfg = cfg.get("vault_gaps") or {}
     if vault is not None and vault_cfg:
         # Gaps come from the experience vault: any tool the posting asks for that no vault
         # passage shows, with "or" lists counted once (src/vault_gaps.py).
