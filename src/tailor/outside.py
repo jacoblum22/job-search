@@ -16,7 +16,7 @@ times, the reviewer checks the company's claims, and asks him questions only he 
 review pass after the first (`review/pass<N>/`) sees its earlier reviews and the revised text, never
 a list of what was changed (it judges the text itself, as in his chats), answers in that
 later-round shape, and gives a verdict. Another round runs only while the
-verdict is "not yet" or "ready after these changes", up to `loop.review_passes` passes (6: the
+verdict is "not yet" ("ready after these changes" counts as not yet), up to `loop.review_passes` passes (6: the
 reviewer always has more suggestions, so the stop is it saying "ready to submit", not a count).
 The verdict, the questions for Jake and the interview questions go at the top of check.md.
 """
@@ -60,22 +60,21 @@ def done_passes(app_dir: Path) -> list[int]:
     return sorted(out)
 
 
-_VERDICT = re.compile(r"^\W*verdict\W*:?\W*(ready after these changes|ready after|ready|almost|not yet)",
-                      re.IGNORECASE)
+_VERDICT = re.compile(r"^\W*verdict\W*:?\W*(ready after|ready|not yet)", re.IGNORECASE)
 _ITEM = re.compile(r"^\s*(?:\d+[.)]|[-*])\s+(.*\S)")
 
 
 def parse_notes(text: str) -> dict[str, Any]:
-    """notes.md as {"verdict": "ready" | "almost" | "not yet" | None, "verdict_text", "sections":
-    {heading: [items]}}. The verdict is the first line starting "Verdict:"; its text runs to the
-    first heading. Jake, Oct 29 2026: "ready to submit now, I'd just suggest these" is "ready" and
-    stops the passes; "ready to submit after these changes" is "almost": make them and ask again."""
+    """notes.md as {"verdict": "ready" | "not yet" | None, "verdict_text", "sections": {heading:
+    [items]}}. The verdict is the first line starting "Verdict:"; its text runs to the first
+    heading. Jake, Oct 29 2026: only "ready to submit now" stops the passes; "ready after these
+    changes" is "not yet" (after those changes it often finds more)."""
     verdict, why, sections, head, in_verdict = None, [], {}, None, False
     for line in text.splitlines():
         m = _VERDICT.match(line)
         if m and verdict is None:
             v = m.group(1).lower()
-            verdict, in_verdict = ("almost" if v.startswith("ready after") else v), True
+            verdict, in_verdict = ("not yet" if v.startswith("ready after") else v), True
             rest = line[m.end():].strip(" .:-*")
             if rest:
                 why.append(rest)

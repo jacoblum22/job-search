@@ -58,9 +58,8 @@ more you could suggest, so the verdict is whether you'd send it.
 
 - `ready`: you'd tell them "it's ready to submit now". Anything you still list is optional polish
   they can skip; say so in "Still open".
-- `ready after these changes`: one or a few changes are needed before sending, and after them it's
-  ready. They'll make them and ask you again.
-- `not yet`: bigger problems remain.
+- `not yet`: anything still needs changing before sending, however small ("ready after these
+  changes" is `not yet`). They'll make the changes and ask you again.
 
 Then the sections, with `##` headings, in this order. Leave out a section with nothing in it. No
 praise section, no summary at the end. At most 15 numbered fixes in all.
@@ -94,7 +93,7 @@ requirement no wording fixes. Say so if the role is a stretch.>
 **Later passes ("Is this better? Is it ready to submit?"):**
 
 ```
-Verdict: ready | ready after these changes | not yet
+Verdict: ready | not yet
 <one or two sentences answering "is this better, is it ready?">
 
 ## What it fixed

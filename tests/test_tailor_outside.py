@@ -274,9 +274,10 @@ def test_summary_keeps_last_pass_items_and_earlier_ones_still_about_the_text(tmp
     assert s["interview"] == ["What was in the table?", "Is 'wrote SQL daily' every day?"]
 
 
-def test_ready_after_changes_asks_for_another_round(tmp_path):
-    assert parse_notes("Verdict: ready after these changes\nTwo small fixes.\n")["verdict"] == "almost"
-    assert parse_notes("**Verdict: Ready after** the fixes below.\n")["verdict"] == "almost"
+def test_ready_after_changes_counts_as_not_yet(tmp_path):
+    # Jake, Oct 29 2026: only "ready to submit now" stops; "ready after these changes" is not yet.
+    assert parse_notes("Verdict: ready after these changes\nTwo small fixes.\n")["verdict"] == "not yet"
+    assert parse_notes("**Verdict: Ready after** the fixes below.\n")["verdict"] == "not yet"
     app = _app(tmp_path)
     _review_done(app, 3)
     d = app / "review" / "pass2"
