@@ -207,8 +207,9 @@ A fair match; the main risk is the missing Azure experience.
 """
 
 
-def _review_done(app, rnd, text=NOTES_1, n=1, ats=67):
-    """Write pass n's notes, run its round and finish it (the round becomes best)."""
+def _review_done(app, rnd, text=NOTES_1, n=1, ats=67, edit=True):
+    """Write pass n's notes, run its round and finish it (the round becomes best). The round
+    changes the summary unless `edit` is False (a round that applied none of the notes)."""
     d = app / "review" if n == 1 else app / "review" / f"pass{n}"
     d.mkdir(parents=True, exist_ok=True)
     (d / "notes.md").write_text(text, encoding="utf-8")
@@ -216,7 +217,8 @@ def _review_done(app, rnd, text=NOTES_1, n=1, ats=67):
     assert fb["round"] == rnd and fb["review_pass"] == n
     add_round(app, rnd, 72, ats=ats)
     r = app / "drafts" / f"r{rnd}"
-    (r / "resume.yaml").write_text(yaml.safe_dump(RESUME, sort_keys=False), encoding="utf-8")
+    data = {**RESUME, "summary": {**RESUME["summary"], "text": f"Data analyst, edit {rnd}."}} if edit else RESUME
+    (r / "resume.yaml").write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     write_json(r / "cover-letter.json", LETTER)
     write_json(app / fb["response"], [{"note": "Summary opener", "action": "left", "why": "keeps the posting title"}])
     return next_round(app, CFG)
@@ -273,6 +275,21 @@ def test_ready_verdict_asks_for_no_round_and_no_more_passes(tmp_path):
     (d / "notes.md").write_text("Verdict: ready\nYes, better.\n\n## What it fixed\n- The opener.\n", encoding="utf-8")
     assert review_round(app) is None
     assert review_input(app) == {"action": "stop", "reason": "review pass 2 said ready to submit"}
+
+
+def test_a_round_that_changed_nothing_ends_the_passes(tmp_path):
+    """Jake, Oct 29 2026: done when the reviewer says ready or nothing left is worth applying. Evismart,
+    Infoblox and Jobgether sent the same text six times because the round that judged every note not
+    worth applying still earned an "is this better?"."""
+    app = _app(tmp_path)
+    assert review_input(app)["pass"] == 1
+    _review_done(app, 3, edit=False)
+    out = review_input(app)
+    assert out["action"] == "stop" and "changed nothing" in out["reason"]
+    (tmp_path / "b").mkdir()
+    app = _app(tmp_path / "b")
+    _review_done(app, 3)
+    assert review_input(app)["pass"] == 2  # a round that changed the text still gets reviewed
 
 
 def test_passes_stop_at_the_limit_and_a_round_that_lost_ats_still_gets_reviewed(tmp_path):

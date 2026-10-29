@@ -118,17 +118,26 @@ Read every numbered fix and decide, one by one:
   describes, a dropped grade or internal name, a filler word cut, the letter's strongest story
   moved up, a closing ask added, resume and letter made to agree. Use the advice sections of
   `resume-edits.md` and `cover-letter.md`.
-- **Leave it** when acting would need something the vault doesn't back (an outcome number, a tool,
-  a result), or would break the rules file (AlgaeCal metrics, dates, titles). A reviewer's
-  "[number]" stays out unless a cited passage has that number.
-- When two notes pull against each other, or a note would cost the posting's keywords, use
-  judgment: the ATS words the posting cares about still matter.
+- **Skip it** (action `"left"`: you decided not to apply that note) when you judge it isn't valid for
+  this job. You have the vault, the rules and the posting; the reviewer has none of them, so you
+  decide, the way Jake does with his own reviews ("use what's valid, ignore the rest"). Skip a note
+  when it is wrong or already true and backed (check the vault: a claim a passage backs is not
+  "unverified"), when it asks for something the vault can't back (an outcome number, a tool, a
+  result: cut or soften the claim instead, never invent), when it would break the rules file
+  (AlgaeCal metrics, dates, titles), or when it conflicts with Jake's habits below. Put the reason in
+  `why` in a few words. A reviewer's "[number]" stays out unless a cited passage has that number.
+- A note that is plain wording or emphasis is applied even when it touches a posting keyword: move
+  the keyword (to Skills or a later line) instead of refusing the note. When two notes pull against
+  each other, apply the one that serves the reader.
+- If you skip every note, write an empty `edits.json` and copy the letter unchanged. The passes then
+  stop (nothing left is worth applying); the reasons show in check.md.
 - **Check a new skill or tool word before you write it.** The reviewer never saw the vault, so a
   word it suggests may be one the vault doesn't use ("AI agent" for an LLM tool-call loop drew two
   `invented_skill` criticals on Infoblox, Oct 28 2026). Run `uv run python -m src.tailor vault <word>`
   first; if no claim passage words it that way, make the reviewer's point in the vault's words.
 - "Questions only you can answer" and "Interview questions" are for Jake; they reach him on the
-  review page. Don't act on them, and don't guess their answers.
+  review page and never hold up the passes. Answer one yourself when the vault or the posting
+  answers it (then apply the fix it was asking for); otherwise don't guess.
 
 **How Jake usually decides on reviewer advice** (his own reviews, Oct 25-28 2026; advice, not
 rules, so use judgment):

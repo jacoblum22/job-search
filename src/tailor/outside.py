@@ -238,6 +238,14 @@ def next_pass(app_dir: Path, cfg: dict[str, Any] | None = None) -> tuple[int | N
     rnd = _pass_round(app_dir, last)
     if rnd is None:
         return None, f"review pass {last} has no round acting on it yet (run review-round)"
+    from src.tailor.loop import _feedback, unchanged
+    built_on = int(_feedback(app_dir, rnd).get("build_on") or 0)
+    if built_on and unchanged(app_dir, rnd, built_on):
+        # Jake, Oct 29 2026: advice in, apply what is valid, "is this better?", done when the reviewer
+        # says so OR nothing left is worth applying. A round that changed nothing means every note was
+        # judged not worth applying; the reviewer would see the same text and repeat itself (Evismart,
+        # Infoblox, Jobgether ran six passes on one text).
+        return None, f"round {rnd} acted on review pass {last} and changed nothing: no note left was worth applying"
     if load_app(app_dir).get("best_round") != rnd:
         return None, f"the round acting on review pass {last} (round {rnd}) was not kept"
     if last >= _max_passes(cfg):
