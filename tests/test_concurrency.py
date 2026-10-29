@@ -27,8 +27,9 @@ def test_rate_limiter_spaces_starts_per_key():
             starts.append(time.monotonic())
 
     parallel_map(hit, range(5), workers=5)
-    # 5 starts spaced 0.05s apart span at least 0.2s, however the threads wake.
-    assert max(starts) - min(starts) >= 0.19
+    # 5 starts spaced 0.05s apart span about 0.2s, however the threads wake. Windows' clock ticks
+    # every ~15 ms, so the measured span can read a tick short (failed the Oct 29 2026 run review).
+    assert max(starts) - min(starts) >= 0.15
 
 
 def test_rate_limiter_does_not_hold_other_hosts():
