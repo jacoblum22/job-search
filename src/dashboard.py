@@ -93,6 +93,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .tier-C { background: var(--panel); border: 1px solid var(--border); }
   .tier-D, .tier-skip { background: var(--dismissed); }
   .score { white-space: nowrap; cursor: help; }
+  /* Long titles/companies/locations (Himalayas lists dozens of countries) stop at a few lines;
+     hover shows the full text, a click expands the cell. */
+  .clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; max-width: 260px; }
+  .clamp.loc { -webkit-line-clamp: 3; line-clamp: 3; max-width: 220px; cursor: pointer; }
+  .clamp.open { display: block; -webkit-line-clamp: unset; line-clamp: none; }
   label.chk { color: var(--muted); font-size: 13px; display: flex; gap: 6px; align-items: center; }
   .wrap { max-width: 1400px; margin: 0 auto; }
   #count { color: var(--muted); font-size: 13px; margin-left: auto; }
@@ -564,7 +569,7 @@ function render() {
       : '';
     // Served by scripts/serve.py: the title opens the job's details page.
     const titleCell = SERVER
-      ? `<a href="/job/${encodeURIComponent(j.id)}">${escapeHtml(j.title)}</a>`
+      ? `<a class="clamp" href="/job/${encodeURIComponent(j.id)}" title="${escapeHtml(j.title)}">${escapeHtml(j.title)}</a>`
         + (postingLink ? `<div class="applinks">${postingLink}</div>` : '')
       : (postingLink || escapeHtml(j.title));
     const closedBadge = j.closed ? ` <span class="badge closed" title="Can't apply: ${escapeHtml(j.closed)}">${escapeHtml(j.closed)}</span>` : '';
@@ -573,8 +578,8 @@ function render() {
     return `<tr${j.pin < 99 ? ' class="pinned"' : ''}>
       <td class="score" title="${escapeHtml(j.score_reasons)}"><span class="badge tier-${escapeHtml(j.tier)}">${escapeHtml(j.tier)}</span> ${escapeHtml(String(scoreText))}</td>
       <td>${titleCell}${closedBadge}</td>
-      <td>${escapeHtml(j.company)}</td>
-      <td>${escapeHtml(j.location)}</td>
+      <td><div class="clamp" title="${escapeHtml(j.company)}">${escapeHtml(j.company)}</div></td>
+      <td><div class="clamp loc" title="${escapeHtml(j.location)}">${escapeHtml(j.location)}</div></td>
       <td><span class="badge cat-${escapeHtml(j.location_category)}">${escapeHtml(j.location_category)}</span></td>
       <td><span class="badge status-${escapeHtml(j.status)}">${escapeHtml(j.status)}</span></td>
       <td>${appCell(j.app)}</td>
@@ -633,6 +638,8 @@ document.getElementById('hideSkipped').addEventListener('change', render);
 document.getElementById('hideDismissed').addEventListener('change', render);
 sourceFilterEl.addEventListener('change', render);
 document.getElementById('jobsBody').addEventListener('click', e => {
+  const loc = e.target.closest && e.target.closest('.clamp.loc');
+  if (loc) { loc.classList.toggle('open'); return; }
   const act = e.target.dataset && e.target.dataset.act;
   if (act === 'showSkipped') {
     document.getElementById('hideSkipped').checked = false;
