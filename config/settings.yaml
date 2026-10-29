@@ -654,7 +654,7 @@ tailor:
     wide_gap: 8          # Jake: more than this many ATS points under the ceiling isn't acceptable (10 until Oct 28 2026)...
     max_rounds_wide_gap: 5   # ...so the loop gets up to this many drafts while it still gains
     min_gain: 2.0
-    review_passes: 3     # outside review: the first pass plus up to two "is this better?" passes (Jake, Oct 29 2026)
+    review_passes: 6     # outside review cap; passes stop when the reviewer says "ready to submit" (Jake, Oct 29 2026)
     regression_min_confidence: 0.6  # a Jev flip at or under this is a coin flip, not a regression
   similarity_revert: 0.45
   company_refresh_days: 30
