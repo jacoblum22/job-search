@@ -42,6 +42,8 @@ SNIPPET_MAX_CHARS = 1000  # same threshold as src/enrich.py
 MIN_FULL_CHARS = 300
 BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet", "jobright", "wellfound")
 RETRY_AFTER = timedelta(days=3)
+# Listings per site on each night's queue; Jake's cap, so no account is hit too hard.
+DAILY_PER_SOURCE = 15
 # enrich_attempts.ok: 1 = filled, 0 = plain HTTP fetch failed, -1 = the
 # browser couldn't read it either (retried after RETRY_AFTER).
 BROWSER_FAILED = -1
@@ -61,16 +63,21 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
+def pending(conn: sqlite3.Connection, *, days: int | None = None, limit: int | None = None) -> list[dict]:
     """Listings still holding a snippet that a browser could fill, newest
-    first, at most `limit` per source so one busy site can't crowd out the
-    others.
+    first. With `days`, only listings first seen that recently; with `limit`,
+    at most that many per source. The nightly queue takes 15 per site (more
+    a night could get Jake's accounts flagged) from the whole backlog, with
+    no date window, so older listings come up once the new ones are read.
 
     BROWSER_SOURCES always qualify. Any other source qualifies as soon as the
     plain HTTP fetch (src/enrich.py) has failed on it. A listing the browser
-    already failed on waits RETRY_AFTER.
+    already failed on, or filled with a short page, waits RETRY_AFTER. A
+    failed HTTP fetch (ok = 0) doesn't make a browser source wait: the scrape
+    retries those every few days, and each retry would push the browser's
+    turn back again (that kept every Jobright listing out of the queue).
     """
-    since = (_now() - timedelta(days=days)).isoformat(timespec="seconds")
+    since = (_now() - timedelta(days=days)).isoformat(timespec="seconds") if days else ""
     retry_cutoff = (_now() - RETRY_AFTER).isoformat(timespec="seconds")
     marks = ",".join("?" * len(BROWSER_SOURCES))
     rows = conn.execute(
@@ -85,7 +92,8 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
             WHERE length(j.description) < ? AND j.url != '' AND j.first_seen >= ?
               AND j.status NOT IN ('expired', 'dismissed')
               AND (
-                    (j.source IN ({marks}) AND (e.attempted_at IS NULL OR e.attempted_at < ?))
+                    (j.source IN ({marks})
+                     AND (e.attempted_at IS NULL OR e.ok = 0 OR e.attempted_at < ?))
                  OR (j.source NOT IN ({marks})
                      AND (e.ok = 0 OR (e.ok = ? AND e.attempted_at < ?)))
               )
@@ -97,7 +105,7 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
             SNIPPET_MAX_CHARS, since,
             *BROWSER_SOURCES, retry_cutoff,
             *BROWSER_SOURCES, BROWSER_FAILED, retry_cutoff,
-            limit,
+            limit or 1_000_000,
         ),
     ).fetchall()
     cols = ("id", "source", "title", "company", "location", "url", "chars", "first_seen")
@@ -147,7 +155,8 @@ def _result_ids(queue_dir: Path) -> set[int]:
     return {int(f.stem) for f in queue_dir.glob("*") if f.suffix in (".md", ".fail") and f.stem.isdigit()}
 
 
-def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int = 14, limit: int = 15) -> list[dict]:
+def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int | None = None,
+                 limit: int | None = DAILY_PER_SOURCE) -> list[dict]:
     """Write queue.json for the Chrome task: what pending() lists, less any
     listing whose result file is already waiting to be imported."""
     ensure_schema(conn)

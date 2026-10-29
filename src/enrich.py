@@ -58,7 +58,8 @@ EXPIRED_STATUSES = frozenset({404, 410})
 # Pages where a plain fetch never yields the posting: login-walled boards, and
 # CareerJet, whose jobviewtrack links mostly 404 and otherwise land on a
 # careerjet.ca shell with no description (0/25 in testing, 2026-10-15).
-SKIP_HOSTS = ("linkedin.com", "indeed.com", "glassdoor.", "jobviewtrack.com", "careerjet.")
+# Jobright's job pages render in the browser (0/35 fetched, 2026-10-29).
+SKIP_HOSTS = ("linkedin.com", "indeed.com", "glassdoor.", "jobviewtrack.com", "careerjet.", "jobright.ai")
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
