@@ -65,13 +65,12 @@ scraper couldn't get. Nobody is watching this run. Don't run any shell
 commands or scripts: this task only reads and writes files in the
 `.browser-queue` folder and uses Chrome.
 
-1. Read `.browser-queue/queue.json`. Its `listings` are every posting still
-   missing a description (LinkedIn, Indeed, Glassdoor, Jobright, Wellfound,
-   CareerJet, plus any other site whose page the scraper couldn't load),
-   each with an `id` and a `url`. There may be a few hundred: work through
-   as many as you can, newest first within each site, and write each file
-   as soon as you finish that posting, so whatever's left waits for the
-   next run. Skip any listing whose `.browser-queue/<id>.md` or
+1. Read `.browser-queue/queue.json`. Its `listings` are up to 15 postings
+   per site (LinkedIn, Indeed, Glassdoor, Jobright, Wellfound, CareerJet,
+   plus any other site whose page the scraper couldn't load), each with an
+   `id` and a `url`. Open only the listings in the file, never more than 15
+   from one site in a run. Write each file as soon as you finish that
+   posting, so whatever's left waits for the next run. Skip any listing whose `.browser-queue/<id>.md` or
    `.browser-queue/<id>.fail` already exists. If the file is missing or
    nothing is left, stop and reply "Nothing to fill in today."
 2. For each listing, open its `url` in a new Chrome tab. Expand the

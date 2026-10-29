@@ -42,6 +42,8 @@ SNIPPET_MAX_CHARS = 1000  # same threshold as src/enrich.py
 MIN_FULL_CHARS = 300
 BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet", "jobright", "wellfound")
 RETRY_AFTER = timedelta(days=3)
+# Listings per site on each night's queue; Jake's cap, so no account is hit too hard.
+DAILY_PER_SOURCE = 15
 # enrich_attempts.ok: 1 = filled, 0 = plain HTTP fetch failed, -1 = the
 # browser couldn't read it either (retried after RETRY_AFTER).
 BROWSER_FAILED = -1
@@ -64,8 +66,9 @@ def _now() -> datetime:
 def pending(conn: sqlite3.Connection, *, days: int | None = None, limit: int | None = None) -> list[dict]:
     """Listings still holding a snippet that a browser could fill, newest
     first. With `days`, only listings first seen that recently; with `limit`,
-    at most that many per source. The nightly queue uses neither, so the
-    whole backlog is on it, not just the newest few per site.
+    at most that many per source. The nightly queue takes 15 per site (more
+    a night could get Jake's accounts flagged) from the whole backlog, with
+    no date window, so older listings come up once the new ones are read.
 
     BROWSER_SOURCES always qualify. Any other source qualifies as soon as the
     plain HTTP fetch (src/enrich.py) has failed on it. A listing the browser
@@ -153,7 +156,7 @@ def _result_ids(queue_dir: Path) -> set[int]:
 
 
 def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int | None = None,
-                 limit: int | None = None) -> list[dict]:
+                 limit: int | None = DAILY_PER_SOURCE) -> list[dict]:
     """Write queue.json for the Chrome task: what pending() lists, less any
     listing whose result file is already waiting to be imported."""
     ensure_schema(conn)

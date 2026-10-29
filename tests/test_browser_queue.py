@@ -87,13 +87,19 @@ def test_failed_http_fetch_does_not_hold_back_a_browser_source(tmp_path):
     assert "jobright" in {r["source"] for r in browser_queue.pending(conn, days=14, limit=15)}
 
 
-def test_queue_holds_the_whole_backlog(tmp_path):
-    # Not just the newest 15 per site from the last 14 days.
+def test_queue_reaches_the_backlog_15_per_site(tmp_path):
+    # Older than 14 days still qualifies; at most 15 per site a night.
     conn = _conn(tmp_path)
     for n in range(5, 25):
         upsert_job(conn, Job("linkedin", str(n), f"Data Analyst {n}", "Acme", "Vancouver, BC",
                              "snippet", url=f"https://www.linkedin.com/jobs/view/{n}"))
     conn.execute("UPDATE jobs SET first_seen = '2026-01-01T00:00:00+00:00' WHERE external_id = '1'")
     conn.commit()
+    for n in range(2, 13):
+        browser_queue.fail(conn, n)
     listed = browser_queue.export_queue(conn, tmp_path / "q")
-    assert len(listed) == 24 and 1 in {r["id"] for r in listed}
+    assert len(listed) == 13 and 1 in {r["id"] for r in listed}
+    for n in range(5, 25):
+        upsert_job(conn, Job("linkedin", str(n + 100), "Data Analyst", "Acme", "Vancouver, BC",
+                             "snippet", url=f"https://www.linkedin.com/jobs/view/{n + 100}"))
+    assert len(browser_queue.export_queue(conn, tmp_path / "q")) == 15
