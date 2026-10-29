@@ -353,8 +353,14 @@ def check_resume(
 
     terms = _terms(req)
     # Text against text: base_text also holds source ids, and "wids.data-visualization" covers nothing.
-    base_full = "\n".join(t for _, t in units(base))
-    lost = [t for t in terms if _covered(t, base_full) and not _covered(t, full)]
+    # The education header counts too, as in the grade: a summary that stops repeating "BSc" hasn't
+    # lost "Bachelor's" while the degree line still says it (Amazon SDE, Oct 29 2026).
+    def _with_degree(data: dict[str, Any], text: str) -> str:
+        return "\n".join([text, *(f"{e.get('school') or ''} {e.get('degree') or ''}" for e in data.get("education") or [])])
+
+    base_full = _with_degree(base, "\n".join(t for _, t in units(base)))
+    draft_full = _with_degree(draft, full)
+    lost = [t for t in terms if _covered(t, base_full) and not _covered(t, draft_full)]
     if lost:
         w("keyword_coverage_dropped", "terms covered by the base but not the draft: " + ", ".join(lost))
 

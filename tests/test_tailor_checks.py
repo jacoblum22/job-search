@@ -391,6 +391,19 @@ def test_coverage_dropped_ignores_words_in_source_ids(tmp_path):
     assert not any(w["code"] == "keyword_coverage_dropped" and "degree" in w["message"] for w in res["warnings"])
 
 
+def test_coverage_dropped_counts_the_education_degree(tmp_path):
+    # The summary stops repeating "BSc", but the education entry still says it: nothing is lost.
+    app, cfg = make_app(tmp_path)
+    req = read_json(app / "requirements.json")
+    req["keywords"].append({"term": "Bachelor's", "weight": "role", "quote": "a bachelor's degree"})
+    write_json(app / "requirements.json", req)
+    data = base_data(cfg)
+    data["summary"]["text"] = "Data analyst writing SQL daily and maintaining dashboards."
+    put_draft(app, data)
+    res = run_check(app, 1, cfg, None)
+    assert not any(w["code"] == "keyword_coverage_dropped" and "Bachelor" in w["message"] for w in res["warnings"])
+
+
 def test_skill_only_in_list_warning(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [{"path": "skills/skills.tools", "action": "add_skill", "value": "dbt", "sources": ["northwind.dbt"]}])
@@ -575,6 +588,19 @@ def test_letter_keen_sentence_may_name_a_missing_must(tmp_path):
     res, _ = letter_check(tmp_path / "b", with_(paragraphs=paras))
     msgs = [c["message"] for c in res["criticals"] if c["code"] == "invented_skill"]
     assert any("Looker" in m for m in msgs) and any("Power BI" in m for m in msgs)
+
+
+def test_letter_gap_with_a_bridge_names_a_tool_it_denies(tmp_path):
+    # cover-letter.md's own gap sentence: the denied tool (a nice-to-have here) is not a claim.
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "text": "I haven't used Looker; the closest tool I know is Tableau, which I kept for operations."}
+    res, _ = letter_check(tmp_path / "a", with_(paragraphs=paras))
+    assert not any(c["code"] == "invented_skill" for c in res["criticals"]), res["criticals"]
+    # the bridge after "but" is still a claim
+    paras[1] = {**paras[1], "text": "I haven't used Looker, but I use Power BI."}
+    res, _ = letter_check(tmp_path / "b", with_(paragraphs=paras))
+    msgs = [c["message"] for c in res["criticals"] if c["code"] == "invented_skill"]
+    assert len(msgs) == 1 and "Power BI" in msgs[0]
 
 
 def test_letter_keen_sentence_may_name_any_skill_in_a_must_term(tmp_path):

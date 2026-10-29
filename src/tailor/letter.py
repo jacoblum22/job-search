@@ -26,6 +26,13 @@ _KEEN = re.compile(
     r"|\bgrow(?:ing)?\s+(?:my|as)\b",
     re.I,
 )
+# The gap-with-a-bridge sentence cover-letter.md recommends ("I haven't used Marketo, but at ...")
+# denies the tools it names; group 1 is the denied part, up to the clause where the bridge starts.
+_DENIED = re.compile(
+    r"\b(?:ha(?:ve|s)n['’]t|ha(?:ve|s)\s+not|(?:ha(?:ve|s)\s+)?never)\s+(?:yet\s+)?(?:used|worked\s+with|touched)\s+"
+    r"([^.;:,\n]+?)(?=\s+(?:yet|but)\b|[.;:,\n]|$)",
+    re.I,
+)
 
 # A course grade used as evidence ("88% in STAT 301", "STAT 301 (A)"): the work is the evidence.
 _GRADE = re.compile(
@@ -89,7 +96,7 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
 
     `ctx` (built by checks.run_check): index, req, posting, base_text, claim_texts, own_texts, confirmed.
     """
-    from src.tailor.checks import extract_numbers, number_keys  # lazy: checks imports this module
+    from src.tailor.checks import _terms, extract_numbers, number_keys  # lazy: checks imports this module
 
     path = app_dir / "drafts" / f"r{rnd}" / "cover-letter.json"
     out: dict[str, Any] = {"criticals": [], "warnings": [], "greeting_reset": False}
@@ -132,6 +139,7 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     must_terms = {s for r in req.get("requirements") or [] if isinstance(r, dict) and r.get("kind") == "must"
                   for t in r.get("terms") or [] if isinstance(t, str)
                   for s in taxonomy.find(t) | {taxonomy.canonical(t) or t}}
+    posting_terms = {s for t in _terms(req) for s in taxonomy.find(t) | {taxonomy.canonical(t) or t}}
     confirmed = ctx.get("confirmed") or set()
 
     cited_fact = False
@@ -168,6 +176,8 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
         # The one "keen to grow into" sentence may name the missing must-haves it is about.
         keen_ok = {s for sent in _SENTENCE.split(text) if _KEEN.search(sent)
                    for s in taxonomy.find(sent) & must_terms}
+        # A posting tool the letter says it hasn't used is a gap, not a claim (must or nice-to-have).
+        keen_ok |= {s for m in _DENIED.finditer(text) for s in taxonomy.find(m.group(1)) & posting_terms}
         # As on the resume, a confirmed (skill, passage) pair backs the skill where that passage is cited.
         srcs = p.get("sources") or []
         for skill in sorted(taxonomy.find(text) - vault_skills - fact_skills - keen_ok):
