@@ -221,7 +221,11 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
             for r in rows:
                 posting = _to_markdown(r["description"])
                 base_id, resume = _gate_resume(bases, f"{r['title']}\n{posting}", default_base)
-                states.append((base_id, f"JOB POSTING\n{r['title']} at {r['company']}\n\n"
+                # The location field, as posting.md has it: boards list the remote countries there, not
+                # in the description (Ensemble, Nimble Gravity, Oct 29 2026: location_ok failed on
+                # "Remote - ..., Canada, ...").
+                states.append((base_id, f"JOB POSTING\n{r['title']} at {r['company']}\n"
+                                        f"Location: {r['location'] or 'not given'}\n\n"
                                         f"{posting}\n\nRESUME\n{resume}"))
             # One Jev call per candidate, several at once: the same questions and answers as one
             # after another, in a fraction of the time (about 4 minutes for 20 candidates, Oct 29 2026).

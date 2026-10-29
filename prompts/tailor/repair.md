@@ -164,10 +164,11 @@ keeps the reviewer from raising the same point again.
 
 ## Review fix rounds
 
-When `feedback.json` has `"review_fix": true`, the review round before it added a critical. The
-round builds on that review round (`build_on`) and keeps everything it changed; fix only the lines
-in `criticals`, the way rule 2 and rule 3 say (use the vault's wording for a skill, cut an unbacked
-number), and copy the letter unless a critical is in it. `next-round` then compares this round
+When `feedback.json` has `"review_fix": true`, the review round before it added a critical or
+reworded away posting words the ATS counted. The round builds on that review round (`build_on`) and
+keeps everything it changed; fix only the lines in `criticals`, the way rule 2 and rule 3 say (use
+the vault's wording for a skill, cut an unbacked number), put back the words `failed_items` names
+in a line whose cited passage shows them, and copy the letter unless a critical is in it. `next-round` then compares this round
 with the round the review read (`compare_to`) and keeps it unless a critical is still there.
 
 ## Output

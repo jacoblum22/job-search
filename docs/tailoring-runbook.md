@@ -143,7 +143,9 @@ folder before starting the next. Keep a running note of the outcome for the dige
 
 1. **Requirements (Claude).** Follow `prompts/tailor/requirements.md`; write `<app>/requirements.json`.
 2. `uv run python -m src.tailor requirements "<app>"`. Read the output: note what was dropped.
-3. **Company research (only if stale).** Look in `materials/companies/<company-slug>/facts.json` (the slug is the
+3. **Company research (only if stale).** The company is `requirements.json`'s `company` (the
+   employer, which may differ from the board in `app.json`); if it is `null`, the employer is
+   unnamed: skip research. Look in `materials/companies/<company-slug>/facts.json` (the slug is the
    company name in lowercase with every run of other characters turned into one `-`). If it has at
    least 3 facts and the newest `read` is under 30 days old, skip. Otherwise start a subagent with
    model **haiku**, telling it to follow `prompts/tailor/company-research.md`, and give it the company
@@ -191,8 +193,8 @@ folder before starting the next. Keep a running note of the outcome for the dige
     - `uv run python -m src.tailor review-round "<app>"`. If it asks for a round, follow
       `prompts/tailor/repair.md` ("Review round") for that round number, then run `apply-edits`,
       `check`, `grade` with `--round N`, and `next-round`. It ends the loop and keeps the review
-      round unless it lost ATS points; if the review round added a critical, `next-round` asks for
-      one review fix round instead: follow repair.md ("Review fix rounds"), run `apply-edits`,
+      round unless it lost ATS points; if the review round added a critical or dropped posting
+      words the ATS counted, `next-round` asks for one review fix round instead: follow repair.md ("Review fix rounds"), run `apply-edits`,
       `check`, `grade` and `next-round` once more. Then go back to the first bullet:
       `review-input` decides whether another pass is due (it stops when the reviewer says ready,
       a review round wasn't kept, or `loop.review_passes` passes are done, 3 by default).

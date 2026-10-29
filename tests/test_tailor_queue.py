@@ -83,6 +83,14 @@ def test_yes_no_sides_and_unchecked(cfg):
     assert flags == {"requires_phd": "failed", "is_coop": "unchecked"}
 
 
+def test_gate_sees_the_location_field_not_only_the_description(cfg):
+    # The description never says where the job is; the board's location field does.
+    add(cfg, "a1", "Analyst", "A", 80)
+    seen = []
+    out = run_queue(cfg, jev=FakeJev(lambda state, q: seen.append(state) or GOOD[q.id]))
+    assert out and "Location: Vancouver, BC" in seen[0]
+
+
 def test_no_jev_answers_means_unchecked_but_still_queued(cfg):
     add(cfg, "a1", "Analyst", "A", 80)
     out = run_queue(cfg, jev=FakeJev())
