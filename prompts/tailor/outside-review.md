@@ -52,9 +52,17 @@ next step uses only what the candidate's records show. Never invent facts in you
 
 ## Output
 
-Write `notes.md` in the same folder as `input.md`. Start with the verdict line exactly as below
-("ready" means nothing is left that needs changing before sending; optional polish doesn't count),
-then the sections, with `##` headings, in this order. Leave out a section with nothing in it. No
+Write `notes.md` in the same folder as `input.md`. Start with the verdict line exactly as below.
+On later passes, answer the candidate's question the way you would in a chat: there will always be
+more you could suggest, so the verdict is whether you'd send it.
+
+- `ready`: you'd tell them "it's ready to submit now". Anything you still list is optional polish
+  they can skip; say so in "Still open".
+- `ready after these changes`: one or a few changes are needed before sending, and after them it's
+  ready. They'll make them and ask you again.
+- `not yet`: bigger problems remain.
+
+Then the sections, with `##` headings, in this order. Leave out a section with nothing in it. No
 praise section, no summary at the end. At most 15 numbered fixes in all.
 
 **Pass 1 (first review):**
@@ -86,7 +94,7 @@ requirement no wording fixes. Say so if the role is a stretch.>
 **Later passes ("Is this better? Is it ready to submit?"):**
 
 ```
-Verdict: ready | not yet
+Verdict: ready | ready after these changes | not yet
 <one or two sentences answering "is this better, is it ready?">
 
 ## What it fixed

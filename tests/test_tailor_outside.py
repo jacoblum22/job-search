@@ -16,6 +16,7 @@ from src.tailor.outside import (
     resume_text,
     review_input,
     review_round,
+    shipped_text,
     summary,
 )
 from tests.test_tailor_loop import CFG, add_round, crit
@@ -231,7 +232,9 @@ def test_passes_stop_at_the_limit_or_when_a_review_round_is_not_kept(tmp_path):
     _review_done(app, 3)
     _review_done(app, 4, n=2)
     _review_done(app, 5, n=3)
-    assert review_input(app)["action"] == "stop" and "3 review passes" in review_input(app)["reason"]
+    assert review_input(app)["pass"] == 4  # the default cap is 6: passes stop on "ready"
+    cap = {"loop": {"review_passes": 3}}
+    assert review_input(app, cfg=cap)["action"] == "stop" and "3 review passes" in review_input(app, cfg=cap)["reason"]
     (tmp_path / "b").mkdir()
     app = _app(tmp_path / "b")
     assert _review_done(app, 3, ats=50)["best_round"] == 2  # lost ATS points: not kept
@@ -251,18 +254,36 @@ def test_review_input_carries_verified_company_facts(tmp_path):
     assert "Over 30,000 active users (https://remarcable.com)" in text and "1990" not in text
 
 
-def test_summary_gathers_questions_from_every_pass(tmp_path):
+def test_summary_keeps_last_pass_items_and_earlier_ones_still_about_the_text(tmp_path):
+    # Jake, Oct 29 2026: Jobgether's check.md listed questions about lines cut passes ago.
+    app = _app(tmp_path)
+    _review_done(app, 3, text=NOTES_1 + "- Is 'wrote SQL daily' every day?\n- Why 'built 12 dashboards'?\n")
+    d = app / "review" / "pass2"
+    d.mkdir(parents=True)
+    (d / "notes.md").write_text("Verdict: not yet\nCloser.\n\n## New claims to verify\n- 9+ sources\n"
+                                "- \"I wrote SQL\" (letter): what kind?\n- \"Led the... migration\": whose?\n\n"
+                                "## Interview questions\n- What was in the table?\n",
+                                encoding="utf-8")
+    s = summary(app)
+    assert s["passes"] == 2 and s["verdict"] == "not yet" and s["verdict_text"] == "Closer."
+    assert s["questions"] == []  # pass 1's question quotes nothing: only the last pass's unquoted items stay
+    assert s["interview"] == ["What was in the table?", "Is 'wrote SQL daily' every day?", "Why 'built 12 dashboards'?"]
+    shipped = shipped_text(RESUME, LETTER)
+    s = summary(app, shipped)
+    assert s["claims"] == ["9+ sources", '"I wrote SQL" (letter): what kind?']  # the migration line is gone
+    assert s["interview"] == ["What was in the table?", "Is 'wrote SQL daily' every day?"]
+
+
+def test_ready_after_changes_asks_for_another_round(tmp_path):
+    assert parse_notes("Verdict: ready after these changes\nTwo small fixes.\n")["verdict"] == "almost"
+    assert parse_notes("**Verdict: Ready after** the fixes below.\n")["verdict"] == "almost"
     app = _app(tmp_path)
     _review_done(app, 3)
     d = app / "review" / "pass2"
     d.mkdir(parents=True)
-    (d / "notes.md").write_text("Verdict: not yet\nCloser.\n\n## New claims to verify\n- 9+ sources\n\n"
-                                "## Interview questions\n- Why did the role last four months?\n- What was in the table?\n",
+    (d / "notes.md").write_text("Verdict: ready after these changes\nOne fix.\n\n## Still open\n1. **x.** y\n",
                                 encoding="utf-8")
-    s = summary(app)
-    assert s["passes"] == 2 and s["verdict"] == "not yet" and s["verdict_text"] == "Closer."
-    assert s["questions"] == ["How many sources did you validate?"] and s["claims"] == ["9+ sources"]
-    assert s["interview"] == ["Why did the role last four months?", "What was in the table?"]
+    assert review_round(app)["review_pass"] == 2
 
 
 def test_check_md_top_shows_verdict_and_questions_without_boxes(tmp_path):
@@ -270,9 +291,9 @@ def test_check_md_top_shows_verdict_and_questions_without_boxes(tmp_path):
     from src.tailor.review import undecided
 
     app = _app(tmp_path)
-    assert _reviewer_lines(app) == []
+    assert _reviewer_lines(app, None) == []
     _review_done(app, 3)
-    text = "\n".join(_reviewer_lines(app))
+    text = "\n".join(_reviewer_lines(app, app / "drafts" / "r3"))
     assert "Verdict after 1 pass: Not yet. A fair match" in text
     assert "- How many sources did you validate?" in text and "- Why did the role last four months?" in text
     assert undecided(text) == []

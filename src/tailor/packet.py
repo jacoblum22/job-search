@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from src.resume import load_resume
 from src.tailor import TailorError, appdir, explain, outside, rejects, review, store
 from src.tailor.paths import resolve
@@ -143,14 +145,23 @@ def _note(text: str) -> list[str]:
     return [f"> {text}", ""]
 
 
-def _reviewer_lines(app_dir: Path) -> list[str]:
+def _reviewer_lines(app_dir: Path, rd: Path | None) -> list[str]:
     """The outside reviewer's verdict, questions only Jake can answer, claims to verify and the
     interview questions they invite, as his claude.ai reviews put them (Jake, Oct 29 2026). Plain
-    lines, no boxes: nothing here blocks approval."""
-    s = outside.summary(app_dir)
+    lines, no boxes: nothing here blocks approval. Only items about text that is still sent."""
+    resume_path = appdir.humanized(app_dir, "resume.yaml") or (rd / "resume.yaml" if rd else None)
+    letter_path = appdir.humanized(app_dir, "cover-letter.json") or (rd / "cover-letter.json" if rd else None)
+    try:
+        resume = yaml.safe_load(resume_path.read_text(encoding="utf-8")) if resume_path and resume_path.exists() else None
+        letter = _opt_json(letter_path) if letter_path else None
+        shipped = outside.shipped_text(resume, letter) if (resume or letter) else None
+    except Exception:  # a broken draft still gets a packet; keep every item
+        shipped = None
+    s = outside.summary(app_dir, shipped)
     if not s:
         return []
-    verdict = {"ready": "Ready to submit", "not yet": "Not yet"}.get(s["verdict"] or "", "No verdict given")
+    verdict = {"ready": "Ready to submit", "almost": "Ready after the listed changes",
+               "not yet": "Not yet"}.get(s["verdict"] or "", "No verdict given")
     text = f" {s['verdict_text']}" if s.get("verdict_text") else ""
     lines = ["## Outside reviewer", ""] + _note(explain.REVIEWER)
     lines += [f"Verdict after {s['passes']} pass{'es' if s['passes'] > 1 else ''}: {verdict}.{text}", ""]
@@ -174,7 +185,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     reqs = {r["id"]: r for r in reqs_json.get("requirements") or [] if "id" in r}
     _, data = _final_resume(rd, app_dir)
     index = _vault_index(cfg)
-    lines = ["# Check", ""] + _note(explain.INTRO) + _reviewer_lines(app_dir)
+    lines = ["# Check", ""] + _note(explain.INTRO) + _reviewer_lines(app_dir, rd)
     if gate.get("checked") is False:
         lines += ["Gate not checked: Jev is not configured.", ""]
     if gate_flags:

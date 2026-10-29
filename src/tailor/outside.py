@@ -1,5 +1,5 @@
-"""Step 7b: an outside review of the best draft, the round that acts on it, and up to two
-"is this better?" passes after it.
+"""Step 7b: an outside review of the best draft, the round that acts on it, and "is this better?"
+passes after it until the reviewer says it's ready to submit.
 
 Jake, Oct 25 2026: pasting the posting, the resume and the letter into a fresh Claude and asking
 "what do you think?" caught problems the checks never look for (internal team names, filler words,
@@ -16,8 +16,9 @@ times, the reviewer checks the company's claims, and asks him questions only he 
 review pass after the first (`review/pass<N>/`) sees its earlier reviews and the revised text, never
 a list of what was changed (it judges the text itself, as in his chats), answers in that
 later-round shape, and gives a verdict. Another round runs only while the
-verdict is "not yet", up to `loop.review_passes` passes. The verdict, the questions for Jake and the
-interview questions go at the top of check.md.
+verdict is "not yet" or "ready after these changes", up to `loop.review_passes` passes (6: the
+reviewer always has more suggestions, so the stop is it saying "ready to submit", not a count).
+The verdict, the questions for Jake and the interview questions go at the top of check.md.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ import yaml
 
 from src.tailor.appdir import load_app, log, read_json, round_dir, write_json
 
-PASSES = 3  # loop.review_passes: the first review plus two "is this better?" passes
+PASSES = 6  # loop.review_passes: a cap; passes normally stop when the reviewer says "ready to submit"
 
 SECTIONS = ["summary", "skills", "experience", "projects", "education", "letter"]
 
@@ -59,18 +60,22 @@ def done_passes(app_dir: Path) -> list[int]:
     return sorted(out)
 
 
-_VERDICT = re.compile(r"^\W*verdict\W*:?\W*(ready|not yet)", re.IGNORECASE)
+_VERDICT = re.compile(r"^\W*verdict\W*:?\W*(ready after these changes|ready after|ready|almost|not yet)",
+                      re.IGNORECASE)
 _ITEM = re.compile(r"^\s*(?:\d+[.)]|[-*])\s+(.*\S)")
 
 
 def parse_notes(text: str) -> dict[str, Any]:
-    """notes.md as {"verdict": "ready" | "not yet" | None, "verdict_text", "sections": {heading: [items]}}.
-    The verdict is the first line starting "Verdict:"; its text runs to the first heading."""
+    """notes.md as {"verdict": "ready" | "almost" | "not yet" | None, "verdict_text", "sections":
+    {heading: [items]}}. The verdict is the first line starting "Verdict:"; its text runs to the
+    first heading. Jake, Oct 29 2026: "ready to submit now, I'd just suggest these" is "ready" and
+    stops the passes; "ready to submit after these changes" is "almost": make them and ask again."""
     verdict, why, sections, head, in_verdict = None, [], {}, None, False
     for line in text.splitlines():
         m = _VERDICT.match(line)
         if m and verdict is None:
-            verdict, in_verdict = m.group(1).lower(), True
+            v = m.group(1).lower()
+            verdict, in_verdict = ("almost" if v.startswith("ready after") else v), True
             rest = line[m.end():].strip(" .:-*")
             if rest:
                 why.append(rest)
@@ -315,9 +320,37 @@ def response(app_dir: Path, n: int = 1) -> list[dict[str, Any]]:
     return [r for r in (data if isinstance(data, list) else []) if isinstance(r, dict) and r.get("note")]
 
 
-def summary(app_dir: Path) -> dict[str, Any] | None:
+_QUOTE = re.compile(r'"([^"]{6,})"|“([^”]{6,})”|(?<![\w])\'([^\']{6,}?)\'(?![\w])')
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", text.replace("’", "'").replace("‘", "'")).strip().lower()
+
+
+def _quotes_gone(item: str, shipped: str) -> bool:
+    """True when the item quotes the documents and none of its quotes is in the shipped text any
+    more (a quote may skip words with "..."). Items quoting nothing are never gone."""
+    quotes = [next(g for g in m.groups() if g) for m in _QUOTE.finditer(item)]
+    if not quotes:
+        return False
+    for q in quotes:
+        parts = [_norm(x) for x in re.split(r"\.\.\.|…", q) if len(x.strip()) >= 6]
+        if parts and all(x in shipped for x in parts):
+            return False
+    return True
+
+
+def shipped_text(resume: dict[str, Any] | None, letter: dict[str, Any] | None) -> str:
+    return _norm((resume_text(resume) if resume else "") + "\n" + (letter_text(letter) if letter else ""))
+
+
+def summary(app_dir: Path, shipped: str | None = None) -> dict[str, Any] | None:
     """For the top of check.md: the latest verdict, and the questions for Jake, the claims to
-    verify and the interview questions from every pass (latest first, each once)."""
+    verify and the interview questions that still apply. Jake, Oct 29 2026: Jobgether listed 8
+    questions, 12 claims and 20 interview questions from all three passes, some about lines
+    long gone ("41 of 54", "the team returned to"). So: the last pass's items, plus an earlier
+    pass's items only when they quote the documents, and never an item whose every quote is
+    gone from `shipped` (the resume and letter as sent, `shipped_text`)."""
     done = done_passes(Path(app_dir))
     if not done:
         return None
@@ -331,6 +364,11 @@ def summary(app_dir: Path) -> dict[str, Any] | None:
                    else "interview" if "interview" in head
                    else "claims" if "claim" in head or "verify" in head else None)
             for it in items if key else []:
-                if it not in out[key]:
-                    out[key].append(it)
+                if it in out[key]:
+                    continue
+                if n != done[-1] and not _QUOTE.search(it):
+                    continue
+                if shipped is not None and _quotes_gone(it, shipped):
+                    continue
+                out[key].append(it)
     return out
