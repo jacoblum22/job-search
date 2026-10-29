@@ -134,6 +134,26 @@ def test_review_round_with_a_new_critical_gets_one_fix_round(tmp_path):
     assert kept(app, 1) is False
 
 
+def test_review_round_that_drops_a_posting_word_gets_one_fix_round(tmp_path):
+    # A reworded line lost a backed term's match: put it back instead of losing every review fix.
+    app = _app(tmp_path)
+    (app / "review").mkdir()
+    (app / "review" / "notes.md").write_text("1. x", encoding="utf-8")
+    review_round(app)
+    add_round(app, 3, 75, ats=60)
+    g = app / "drafts" / "r3" / "grade.json"
+    write_json(g, {**json.loads(g.read_text()), "unused_terms": ["dashboards"]})
+    out = next_round(app, CFG)
+    assert out == {**out, "action": "repair", "next_round": 4, "best_round": 2}
+    assert "dropped dashboards" in out["reason"]
+    fb = json.loads((app / "drafts" / "r4" / "feedback.json").read_text())
+    assert fb["review_fix"] and fb["build_on"] == 3 and fb["compare_to"] == 2
+    assert "dashboards" in fb["failed_items"][0] and "experience" in fb["sections"]
+    # Put back: the review's changes ship.
+    add_round(app, 4, 75, ats=66)
+    assert next_round(app, CFG)["best_round"] == 4
+
+
 def test_a_round_made_after_the_review_gets_another_pass(tmp_path):
     # Nexthop, Oct 27 2026: gap rounds after the review shipped a draft no reviewer read.
     app = _app(tmp_path)

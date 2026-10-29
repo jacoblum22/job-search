@@ -101,6 +101,15 @@ def test_ceiling_counts_the_title_when_the_plan_found_it_truthful():
     assert ats_gap(data, r, ev(["SQL"]), CFG, title_ok=True)["ceiling"] > plain
 
 
+def test_ceiling_is_never_under_the_score_the_resume_already_has():
+    # The skills part credits a required term the resume names though the vault doesn't back it.
+    from src.tailor.grade import ats_gap
+    r = req(terms=["SQL", "Tableau"])
+    data = {"summary": {"text": "Analyst writing SQL daily."}, "skills": [{"items": ["SQL", "Tableau"]}]}
+    now = ats_score(data, r, ev(["SQL"]), CFG)["total"]
+    assert ats_gap(data, r, ev(["SQL"]), CFG)["ceiling"] >= now
+
+
 def test_title_note_when_the_summary_does_not_open_with_the_true_title():
     # Jake, Oct 23 2026: say the job title when it is true, as the summary's opening.
     from src.tailor.grade import ats_gap, ats_gap_lines

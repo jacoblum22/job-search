@@ -306,16 +306,20 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     score = ats_score(data, req, evidence, cfg, title_ok if isinstance(title_ok, str) else "")
     comps = dict(score["components"])
     total_w = sum(weight(t) for t in terms.values())
+    # Never under what the resume already scores: the skills part credits a required term the
+    # resume names even when the evidence doesn't back it (Dice, Oct 29 2026: ATS 53.9, "the best
+    # this resume could reach is about 53.0").
     if total_w:
         # A narrower phrase backed only through its skill reaches synonym credit, not full credit.
         syn = cfg.get("synonym_credit", 0.5)
-        comps["keyword"] = 100.0 * sum(
+        comps["keyword"] = max(comps["keyword"] or 0.0, 100.0 * sum(
             weight(t) * (1.0 if _wording_backed(t["term"], backed, vault) else syn)
-            for t in terms.values() if _is_backed(t["term"], backed)) / total_w
+            for t in terms.values() if _is_backed(t["term"], backed)) / total_w)
     if req_terms:
         sw = {k: soft if terms[k]["soft"] else 1.0 for k in req_terms}
         if sum(sw.values()):
-            comps["skills"] = 100.0 * sum(sw[k] for k in req_terms if _is_backed(terms[k]["term"], backed)) / sum(sw.values())
+            comps["skills"] = max(comps["skills"] or 0.0, 100.0 * sum(
+                sw[k] for k in req_terms if _is_backed(terms[k]["term"], backed)) / sum(sw.values()))
     title_missing = ""
     if title_ok and comps.get("title") is not None:
         if comps["title"] < 100.0:

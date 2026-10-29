@@ -360,9 +360,13 @@ def _finish_letter_round(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[
     build_on = feedback.get("compare_to", feedback.get("build_on"))
     base = next((r for r in rounds if r["round"] == build_on), None) or _best(rounds[:-1])
     dropped = review and (cur["ats"] or 0) < (base["ats"] or 0) - ats_drop
-    if (review and feedback.get("review") and not dropped and cur["criticals"] > base["criticals"]
-            and not unchanged(app_dir, cur["round"], base["round"])):
-        return _review_fix(app_dir, rounds, cur, base, feedback)
+    # Backed posting words the review round reworded away (Nimble Gravity, Oct 29 2026: "membership
+    # metrics" lost the KPIs match, and with it all 21 review fixes).
+    was_unused = base["grade"].get("unused_terms") or []
+    lost = [t for t in cur["grade"].get("unused_terms") or [] if t not in was_unused] if dropped else []
+    fixable = bool(lost) if dropped else cur["criticals"] > base["criticals"]
+    if review and feedback.get("review") and fixable and not unchanged(app_dir, cur["round"], base["round"]):
+        return _review_fix(app_dir, rounds, cur, base, feedback, lost)
     if cur["criticals"] <= base["criticals"] and not dropped:
         what = "the outside review acted on" if review else "round {0}'s resume with the new letter".format(base["round"])
         best, reason = cur, f"{'review' if review else 'letter'} round done: round {cur['round']} is {what}"
@@ -384,13 +388,17 @@ def _finish_letter_round(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[
 
 
 def _review_fix(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[str, Any], base: dict[str, Any],
-                feedback: dict[str, Any]) -> dict[str, Any]:
+                feedback: dict[str, Any], lost: list[str] = ()) -> dict[str, Any]:
     """A review round that added a critical gets one round fixing only the flagged lines, built on
     it, instead of losing every change it made (Infoblox, Oct 28 2026: "AI agent" wording drew two
-    invented_skill criticals and about 240 words of review fixes were thrown away). The fix round is
-    judged against the round the review read, like the review round itself."""
+    invented_skill criticals and about 240 words of review fixes were thrown away). So does one
+    that lost ATS points by dropping backed posting words (`lost`): the fix round puts them back.
+    The fix round is judged against the round the review read, like the review round itself."""
     crit = cur["check"].get("criticals") or []
     nxt = cur["round"] + 1
+    sections = _sections({"check": {"criticals": crit}, "grade": {}})
+    if lost:
+        sections += [s for s in ("summary", "skills", "experience", "projects") if s not in sections]
     fb = {
         "round": nxt,
         "build_on": cur["round"],
@@ -398,12 +406,15 @@ def _review_fix(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[str, Any]
         "review_fix": True,
         "review_pass": feedback.get("review_pass", 1),
         "criticals": crit,
-        "failed_items": [],
+        "failed_items": [f"Put back the posting's words review round {cur['round']} dropped, where a cited "
+                         f"passage shows them: {', '.join(lost)}."] if lost else [],
         "warnings": [],
-        "sections": _sections({"check": {"criticals": crit}, "grade": {}}),
+        "sections": sections,
     }
     write_json(round_dir(app_dir, nxt) / "feedback.json", fb)
-    reason = (f"review round {cur['round']} added {cur['criticals'] - base['criticals']} critical(s): "
+    what = (f"dropped {', '.join(lost)}" if lost
+            else f"added {cur['criticals'] - base['criticals']} critical(s)")
+    reason = (f"review round {cur['round']} {what}: "
               f"round {nxt} fixes only those lines and keeps the rest of the review's changes")
     summaries = [{"round": r["round"], "score": r["score"], "criticals": r["criticals"], "failed_items": r["failed_items"]}
                  for r in rounds]
