@@ -3,16 +3,19 @@
 # Claude drafts a resume and cover letter for the best new A-tier jobs and stops
 # at "Ready for review" on the dashboard. It never applies, sends, commits or pushes.
 #
-# Before picking jobs it runs a full scrape (scripts/aggregate.py, every source) so the queue
-# sees today's postings; the queue then rescores every job. The Azure job scrapes every
+# With -Scrape (what the scheduled task passes) it first runs a full scrape (scripts/aggregate.py,
+# every source) so the queue sees today's postings; the queue then rescores every job. A run
+# started by hand or from the dashboard's Run button skips the scrape and tailors from the jobs
+# already in the database (Jake, Oct 29 2026). The Azure job scrapes every
 # morning (docs/azure-scrape-job.md), so when a full run finished in the last 6 hours the
 # scrape here fetches only the sources that block Azure (settings.yaml cloud_sources), and
-# does the full scrape only when that job didn't run. -NoScrape skips the scrape, and
-# -JobId / -ResumeOnly runs never scrape since they don't pick new jobs. If the scrape fails
+# does the full scrape only when that job didn't run. -JobId / -ResumeOnly runs never scrape,
+# even with -Scrape, since they don't pick new jobs (-NoScrape is still accepted; it's the default). If the scrape fails
 # the run still tailors from the jobs already in the database and logs why.
 #
 # Test on one job:   .\scripts\run_tailoring.ps1 -Limit 1   (or -JobId 812)
-# Normal daily run:  .\scripts\run_tailoring.ps1            (tailor.daily_cap jobs)
+# Normal daily run:  .\scripts\run_tailoring.ps1 -Scrape    (the scheduled task; tailor.daily_cap jobs)
+# By hand, no scrape: .\scripts\run_tailoring.ps1
 # Waiting rounds only (repair or letter rounds on applications up for review, no new jobs):
 #                    .\scripts\run_tailoring.ps1 -ResumeOnly
 # Afterwards run_tailoring_review.ps1 reviews the log and opens a PR for any pipeline
@@ -23,6 +26,7 @@ param(
     [int]$Limit = 0,
     [double]$MaxBudgetUsd = 0,
     [switch]$NoReview,
+    [switch]$Scrape,
     [switch]$NoScrape,
     [switch]$ResumeOnly
 )
@@ -74,7 +78,7 @@ uv sync -q 2>&1 | Out-Null
 
 # Fresh postings first. Start-Process with file redirection, not a pipe: PowerShell 5.1 turns
 # Python's stderr log lines into errors when piped (see run_full_aggregate.ps1).
-if (-not $NoScrape -and -not $ResumeOnly -and $JobId -le 0) {
+if ($Scrape -and -not $NoScrape -and -not $ResumeOnly -and $JobId -le 0) {
     $scrapeLog = Join-Path $projectRoot "logs\full_aggregate.log"
     $stdoutTmp = Join-Path $env:TEMP "job-tailoring-scrape-stdout.log"
     $stderrTmp = Join-Path $env:TEMP "job-tailoring-scrape-stderr.log"

@@ -26,12 +26,14 @@ The wrapper saves the full transcript (every command and its output) to
 and appends the digest to `materials\tailor\digests\<date>.md`. It also logs a warning if any tracked
 file changed during the run.
 
-Before Claude starts, the wrapper runs a full scrape of every source (`scripts/aggregate.py`, about
+On a scheduled run, before Claude starts, the wrapper runs a full scrape of every source (`scripts/aggregate.py`, about
 10 minutes; output in `logs\full_aggregate.log`), so the queue picks from today's postings. The queue
 then rescores every job before ranking. If the 10-minute email check or a scheduled full run holds
 the scrape lock, the wrapper waits up to 30 minutes for it. If the scrape fails or never gets the
 lock, `logs\tailoring.log` gets a warning and the run tailors from the jobs already in `jobs.db`.
-`-NoScrape` skips the scrape; `-JobId` and `-ResumeOnly` runs never scrape.
+Only the scheduled task scrapes: it passes `-Scrape`. A run started by hand or from the dashboard's
+Run button skips the scrape and tailors from the jobs already in the database. `-JobId` and
+`-ResumeOnly` runs never scrape.
 
 Test on one job first (PowerShell, from the repo root). `-Limit 1` takes the single best A-tier job
 nobody has tailored yet; `-JobId 812` tailors that job instead; `-MaxBudgetUsd 5` caps the API spend.
@@ -44,7 +46,7 @@ Register the daily run once the test looks right (daily at 9:00 AM; change `/ST`
 
 ```powershell
 schtasks /Create /TN "JobSearch-Tailoring" /SC DAILY /ST 09:00 /F `
-  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PWD\scripts\run_tailoring.ps1`""
+  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PWD\scripts\run_tailoring.ps1`" -Scrape"
 ```
 
 `schtasks` can't set two options the run needs, so set them once afterwards. With them, a run

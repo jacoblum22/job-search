@@ -17,7 +17,7 @@ on. Tailoring, the dashboard, the Chrome task and the skills review stay on the 
   scrape holds a Postgres advisory lock for its whole run (`src/db.py` `try_scrape_lock`),
   released by itself if the scrape dies. A desktop scrape started while the Azure job runs
   waits (`--wait-lock`) or skips. `pg_mirror.py rollback` refuses while either is running.
-- **The tailoring run doesn't scrape twice.** `run_tailoring.ps1` passes
+- **The tailoring run doesn't scrape twice.** The scheduled `run_tailoring.ps1 -Scrape` passes
   `--skip-if-fresh 6`: if the Azure job finished a full run in the last 6 hours, the desktop
   fetches only the sources that block Azure (below) and exits 4 when there are none. If the
   Azure job failed or didn't run, the desktop scrapes everything as before.
