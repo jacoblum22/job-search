@@ -109,12 +109,6 @@ def blocker(app_dir: Path, cfg: dict[str, Any] | None = None) -> str | None:
     return _language_ask(posting.read_text(encoding="utf-8"), known)
 
 
-def _cant_apply(app_dir: Path, cfg: dict[str, Any] | None) -> bool:
-    """A required language, or a reviewer verdict of "blocked": nothing is worth repairing."""
-    done = done_passes(app_dir)
-    return bool(blocker(app_dir, cfg)) or bool(done and _notes(app_dir, done[-1])["verdict"] == "blocked")
-
-
 def _notes(app_dir: Path, n: int) -> dict[str, Any]:
     p = pass_dir(app_dir, n) / "notes.md"
     return parse_notes(p.read_text(encoding="utf-8")) if p.exists() else {"verdict": None, "sections": {}}
@@ -257,20 +251,6 @@ def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | No
     "reason"} when no pass is due."""
     app_dir = Path(app_dir)
     n, why = next_pass(app_dir, cfg)
-    if not _cant_apply(app_dir, cfg):
-        # Jake, Oct 29 2026 (Quora Full Stack): "needs fixes" must never be where a packet ends.
-        # A folder drafted under older scoring rules can sit more than loop.wide_gap under what its
-        # evidence allows, and no review pass looks at that, not even the last one that says
-        # "ready". So the gap or letter round `extra-round` asks for comes first; a pass then reads
-        # the draft that ships (a round made after the last pass earns another one).
-        from src.tailor.loop import gap_round, letter_round
-
-        ready = (app_dir / "requirements.json").exists()
-        fb = (gap_round(app_dir, cfg or {}) or letter_round(app_dir, cfg or {})) if ready else None
-        if fb:
-            return {"action": "repair", "next_round": fb["round"], "build_on": fb["build_on"],
-                    "kind": "letter" if fb.get("letter_only") else "repair",
-                    "reason": "the best round is not ready to ship: do this round first, then run review-input again"}
     if n is None:
         return {"action": "stop", "reason": why}
     rnd = rnd or load_app(app_dir).get("best_round")
