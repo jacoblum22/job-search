@@ -238,6 +238,14 @@ def next_pass(app_dir: Path, cfg: dict[str, Any] | None = None) -> tuple[int | N
     rnd = _pass_round(app_dir, last)
     if rnd is None:
         return None, f"review pass {last} has no round acting on it yet (run review-round)"
+    from src.tailor.loop import _feedback, unchanged
+    built_on = int(_feedback(app_dir, rnd).get("build_on") or 0)
+    if built_on and unchanged(app_dir, rnd, built_on):
+        # Jake, Oct 29 2026: advice in, apply what is valid, "is this better?", done when the reviewer
+        # says so OR nothing left is worth applying. A round that changed nothing means every note was
+        # judged not worth applying; the reviewer would see the same text and repeat itself (Evismart,
+        # Infoblox, Jobgether ran six passes on one text).
+        return None, f"round {rnd} acted on review pass {last} and changed nothing: no note left was worth applying"
     if load_app(app_dir).get("best_round") != rnd:
         return None, f"the round acting on review pass {last} (round {rnd}) was not kept"
     if last >= _max_passes(cfg):
@@ -279,6 +287,26 @@ FIRST_MESSAGE = "Could you use the job-application-review skill on these? Here's
 LATER_MESSAGE = "Is this better? Is it ready to submit?"
 
 
+def answers(app_dir: Path, n: int) -> list[tuple[str, str]]:
+    """The reviewer's questions on pass n that the round answered itself (response.json entries
+    with a "question" and an "answer"), from the vault, the posting or the rules."""
+    p = pass_dir(Path(app_dir), n) / "response.json"
+    data = read_json(p) if p.exists() else []
+    return [(str(r["question"]).strip(), str(r["answer"]).strip()) for r in (data if isinstance(data, list) else [])
+            if isinstance(r, dict) and str(r.get("question") or "").strip() and str(r.get("answer") or "").strip()]
+
+
+def later_message(app_dir: Path, n: int) -> str:
+    """Jake's follow-up after pass n: "Is this better? Is it ready to submit?", with the answers to the
+    reviewer's questions in between when the round had them (Jake, Oct 29 2026: "Is this better? To
+    answer some of your questions..." along with the new resume and letter)."""
+    got = answers(app_dir, n)
+    if not got:
+        return LATER_MESSAGE
+    lines = "\n".join(f"- {q}\n  {a}" for q, a in got)
+    return f"Is this better? To answer some of your questions:\n\n{lines}\n\nIs it ready to submit?"
+
+
 def _posting_body(posting: str) -> str:
     """The posting as Jake pastes it: title, company and location, then the text (no URL or date lines)."""
     keep = [ln for ln in posting.splitlines() if not re.match(r"^\s*-\s*(?:URL|Posted)\s*:", ln)]
@@ -311,7 +339,7 @@ def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | No
         posting = (app_dir / "posting.md").read_text(encoding="utf-8")
         message = FIRST_MESSAGE + "\n\n" + _posting_body(posting)
     else:
-        message = LATER_MESSAGE
+        message = later_message(app_dir, n - 1)
     (out / "message.md").write_text(message + "\n", encoding="utf-8")
     turns = []
     for k in range(1, n):
