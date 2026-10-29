@@ -380,7 +380,7 @@ def test_ats_gap_lists_unused_and_unbacked_terms(tmp_path):
     assert out["ats_floor"] == 70 and out["below_floor"] == (out["ats"]["total"] < 70)
     assert out["ats_ceiling"] >= out["ats"]["total"]
     assert set(out["unused_terms"]).isdisjoint(out["unbacked_terms"])
-    assert out["ats_target"] == min(70, out["ats_ceiling"] - 5)
+    assert out["ats_target"] == round(out["ats_ceiling"] - 8, 1)
     assert out["fit_gap"] == (out["ats_ceiling"] < 70)
     if out["unused_terms"]:
         assert any(s.startswith("Use the posting's own words") for s in out["feedback"])

@@ -310,7 +310,7 @@ question wording.
 ATS floor (`tailor.ats_floor`, 70): grade.json also has `ats_floor`, `below_floor`, `ats_ceiling`
 (the score if every vault-backed hard term were used in the posting's words, and the job title
 when `plan.json` found it truthful as the headline), `ats_target`
-(the floor, or the ceiling minus `ats_wording_tolerance` (5) when that is lower), `fit_gap` (the
+(the ceiling minus `loop.wide_gap` (8); there is no separate target of 70), `fit_gap` (the
 ceiling is under the floor), `needs_ats_repair` (under the target with backed hard skills unused,
 or with the summary not yet opening with the plan's true job title, which an `ats.title` note asks for),
 `unused_terms` (backed hard skills not used word for word), `unused_soft_terms` (an `ats.soft`
