@@ -28,7 +28,7 @@ from src.tailor.checks import supported_years
 from src.tailor.evidence import degree_level
 from src.tailor.jev import Question, remembered, strip_identity
 
-DEFAULT_WEIGHTS = {"keyword": 40, "skills": 20, "title": 15, "sections": 15, "dates": 10}
+DEFAULT_WEIGHTS = {"keyword": 40, "skills": 20, "title": 5, "sections": 15, "dates": 10}
 SENIORITY_WORDS = {
     "junior", "jr", "senior", "sr", "lead", "principal", "staff", "associate", "entry", "level",
     "entry-level", "intern", "trainee", "i", "ii", "iii", "iv",
