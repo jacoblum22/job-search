@@ -22,10 +22,13 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Sequence
+
+from src.concurrency import parallel_map
 
 if TYPE_CHECKING:
     import httpx
@@ -69,6 +72,7 @@ DEFAULTS: dict[str, Any] = {
     "base_url": "https://ai-gateway.vercel.sh",
     "timeout_s": 30,
     "max_retries": 3,
+    "parallel": 4,   # batches of one ask() sent at once; the answers are the same either way
 }
 INPUT_USD_PER_TOKEN = 0.042 / 1_000_000
 MAX_REQUEST_TOKENS = 28_000  # Jev's state limit is ~32k tokens; leave headroom
@@ -222,6 +226,7 @@ class JevClient:
         self.api_key = api_key
         self.cfg = {**DEFAULTS, **(cfg or {})}
         self.usage = Usage()
+        self._usage_lock = threading.Lock()   # batches (and queue candidates) are sent from threads
         self._transport = transport
         self._sleep = sleep
 
@@ -260,9 +265,11 @@ class JevClient:
                 sendable.append(i)
         if sendable:
             state, batches = self._plan(str(state), [questions[i] for i in sendable])
-            for batch in batches:
-                idx = [sendable[j] for j in batch]
-                for i, a in zip(idx, self._send(state, [questions[i] for i in idx])):
+            idxs = [[sendable[j] for j in batch] for batch in batches]
+            sent = parallel_map(lambda idx: self._send(state, [questions[i] for i in idx]), idxs,
+                                int(self.cfg.get("parallel", 1)))
+            for idx, answers in zip(idxs, sent):
+                for i, a in zip(idx, answers):
                     results[i] = a
         return [
             r if r is not None else Answer(q.id, ok=False, error="not answered")
@@ -306,8 +313,9 @@ class JevClient:
         with httpx.Client(transport=self._transport, timeout=float(self.cfg["timeout_s"])) as http:
             for attempt in range(retries + 1):
                 delay = min(2.0**attempt, _MAX_BACKOFF_S)
-                self.usage.requests += 1
-                self.usage.est_input_tokens += est
+                with self._usage_lock:
+                    self.usage.requests += 1
+                    self.usage.est_input_tokens += est
                 try:
                     r = http.post(url, json=payload, headers=headers)
                 except httpx.HTTPError as e:
@@ -327,8 +335,9 @@ class JevClient:
                         except ValueError:
                             return [Answer(q.id, ok=False, error="response is not JSON") for q in qs]
                         answers, (tin, tout) = _parse_response(body, qs, keys)
-                        self.usage.reported_input_tokens += tin
-                        self.usage.reported_output_tokens += tout
+                        with self._usage_lock:
+                            self.usage.reported_input_tokens += tin
+                            self.usage.reported_output_tokens += tout
                         return answers
                 if attempt < retries:
                     self._sleep(delay)
@@ -378,6 +387,7 @@ class RememberedJev:
         self.inner = inner
         self.path = Path(path)
         self.available = getattr(inner, "available", True)
+        self._lock = threading.Lock()
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.inner, name)
@@ -403,7 +413,8 @@ class RememberedJev:
         import json
 
         questions = list(questions)
-        memory = self._load()
+        with self._lock:
+            memory = self._load()
         out: list[Answer | None] = [None] * len(questions)
         missing: list[int] = []
         for i, q in enumerate(questions):
@@ -414,15 +425,19 @@ class RememberedJev:
                 missing.append(i)
         if missing:
             answers = self.inner.ask(state, [questions[i] for i in missing])
+            new = {}
             for i, a in zip(missing, answers):
                 out[i] = a
                 if a.ok:
-                    memory[self.key(state, questions[i])] = {"value": a.value, "confidence": a.confidence}
-            try:
-                self.path.parent.mkdir(parents=True, exist_ok=True)
-                self.path.write_text(json.dumps(memory, ensure_ascii=False, indent=0), encoding="utf-8")
-            except OSError:
-                pass
+                    new[self.key(state, questions[i])] = {"value": a.value, "confidence": a.confidence}
+            # Re-read before writing: check asks about several lines at once from threads.
+            with self._lock:
+                memory = {**self._load(), **new}
+                try:
+                    self.path.parent.mkdir(parents=True, exist_ok=True)
+                    self.path.write_text(json.dumps(memory, ensure_ascii=False, indent=0), encoding="utf-8")
+                except OSError:
+                    pass
         return [a if a is not None else Answer(q.id, ok=False, error="no answer") for a, q in zip(out, questions)]
 
 

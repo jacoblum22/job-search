@@ -27,7 +27,9 @@ so a "no" sticks and the same question isn't paid twice.
 
 from __future__ import annotations
 
+import functools
 import hashlib
+import inspect
 import json
 import re
 from collections.abc import Iterable
@@ -72,6 +74,19 @@ _LEGACY = {"has": ("evidence-confirms.json", "confirms"), "lacks": ("known-gaps.
 
 def _record_path(cfg: dict[str, Any]) -> Path:
     return _path(cfg, "skill_record")
+
+
+def _locked(fn):
+    """Run `fn(..., cfg, ...)` holding the skill record's lock (appdir.file_lock), so parallel
+    tailoring sessions don't lose each other's changes. `cfg` is found by name or position."""
+    sig = inspect.signature(fn)
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        cfg = sig.bind(*args, **kwargs).arguments["cfg"]
+        with appdir.file_lock(_record_path(cfg)):
+            return fn(*args, **kwargs)
+    return wrapper
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -134,6 +149,7 @@ def rejected(names: Iterable[str], passage: str, active: set[tuple[str, str]]) -
     return any((_key(n), passage) in active for n in names if n)
 
 
+@_locked
 def sync_plan_drops(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
     """Copy this application's plan drops into the shared list; return the ones that were new."""
     app_dir = Path(app_dir)
@@ -162,6 +178,7 @@ def sync_plan_drops(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
     return new
 
 
+@_locked
 def apply_undos(check_md: str, cfg: dict[str, Any]) -> list[tuple[str, str]]:
     """Mark the rejects ticked "Undo" in check.md as undone; return the pairs changed."""
     ticked = set()
@@ -194,6 +211,7 @@ def apply_undos(check_md: str, cfg: dict[str, Any]) -> list[tuple[str, str]]:
 _SHOWS_REASON = "You said it shows the skill"
 
 
+@_locked
 def apply_pick(line: str, cfg: dict[str, Any], job_id: Any = None) -> bool:
     """Record one check.md evidence pick in the skill record the moment it's made, so a pick
     counts even on a job that is never approved. Either way round, so swapping a pick swaps the
@@ -277,6 +295,7 @@ def confirmed(cfg: dict[str, Any], app_dir: Path | None = None) -> dict[tuple[st
     return {k: c for k, c in out.items() if c.get("source") in STRONG or k not in active}
 
 
+@_locked
 def add_confirms(cfg: dict[str, Any], items: Iterable[dict[str, Any]], job_id: Any = None) -> list[dict[str, Any]]:
     """Add confirms (each {term, passage, source, reason?, value?}); return the ones new or changed.
 
@@ -330,6 +349,7 @@ def sync_plan_adds(app_dir: Path, cfg: dict[str, Any]) -> list[dict[str, Any]]:
     return add_confirms(cfg, [{**d, "source": "plan"} for d in _plan_list(app_dir, "evidence_adds")], job_id)
 
 
+@_locked
 def apply_confirms(check_md: str, cfg: dict[str, Any], job_id: Any = None) -> dict[str, list[tuple[str, str]]]:
     """Record check.md's "Doesn't show it" / "This shows it" picks.
 
@@ -418,7 +438,11 @@ class JevCache:
         self.path = _path(cfg, "jev_cache")
         self.data: dict[str, Any] = (json.loads(self.path.read_text(encoding="utf-8") or "{}")
                                      if self.path.exists() else {})
-        self.dirty = False
+        self.new: dict[str, Any] = {}
+
+    @property
+    def dirty(self) -> bool:
+        return bool(self.new)
 
     @staticmethod
     def key(question: str, text: str) -> str:
@@ -429,11 +453,18 @@ class JevCache:
         return None if hit is None else float(hit["value"])
 
     def put(self, question: str, text: str, value: float) -> None:
-        self.data[self.key(question, text)] = {"question": question, "text": text[:120],
-                                               "value": value, "date": appdir.now()[:10]}
-        self.dirty = True
+        entry = {"question": question, "text": text[:120], "value": value, "date": appdir.now()[:10]}
+        self.data[self.key(question, text)] = self.new[self.key(question, text)] = entry
 
     def save(self) -> None:
-        if self.dirty:
-            appdir.write_json(self.path, self.data)
-            self.dirty = False
+        """Write this session's new answers into the file as it is now, so answers another
+        tailoring session saved since this one loaded the cache are kept."""
+        if not self.new:
+            return
+        with appdir.file_lock(self.path):
+            current = (json.loads(self.path.read_text(encoding="utf-8") or "{}")
+                       if self.path.exists() else {})
+            current.update(self.new)
+            appdir.write_json(self.path, current)
+        self.data = {**current, **self.data}
+        self.new = {}

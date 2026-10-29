@@ -174,7 +174,9 @@ def normalize(app_dir: Path, cfg: dict[str, Any]) -> dict:
 
     app = appdir.load_app(app_dir)
     if unknown:
-        _append_unknown(resolve(cfg, "unknown_terms"), unknown, app.get("job_id"))
+        unknown_path = resolve(cfg, "unknown_terms")
+        with appdir.file_lock(unknown_path):
+            _append_unknown(unknown_path, unknown, app.get("job_id"))
     appdir.log(app_dir, "requirements",
                f"{len(reqs)} requirements, {len(kws)} keywords; dropped {len(dropped)}; "
                f"{len(unknown)} unknown terms")

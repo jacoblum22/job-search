@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import threading
+import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -36,9 +40,79 @@ def read_json(path: Path) -> Any:
 
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp = path.with_suffix(path.suffix + f".{os.getpid()}.tmp")
     tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    # Windows refuses the replace while another process has the file open for a read; that
+    # read is over in a moment, so try again briefly.
+    for attempt in range(20):
+        try:
+            tmp.replace(path)
+            return
+        except PermissionError:
+            if attempt == 19:
+                raise
+            time.sleep(0.1)
+
+
+# Files every application shares (the skill record, the Jev cache) are read, changed and written
+# back whole. Tailoring sessions running side by side (run_tailoring.ps1 -Parallel) take this
+# lock around each read-change-write so one never overwrites what another just added.
+_held: dict[str, int] = {}
+_held_guard = threading.Lock()
+LOCK_TIMEOUT = 120.0   # seconds to wait for another process
+LOCK_STALE = 300.0     # a lock file this old was left by a process that died
+
+
+@contextmanager
+def file_lock(path: Path, timeout: float = LOCK_TIMEOUT):
+    """Hold `<path>.lock` across processes. Re-entrant within one process, so a locked function
+    may call another. Raises TailorError if the lock can't be had within `timeout` seconds."""
+    lock = Path(str(path) + ".lock")
+    key = str(lock.resolve())
+    with _held_guard:
+        if _held.get(key):
+            _held[key] += 1
+            mine = False
+        else:
+            mine = True
+    if not mine:
+        try:
+            yield
+        finally:
+            with _held_guard:
+                _held[key] -= 1
+        return
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            break
+        except FileExistsError:
+            try:
+                if time.time() - lock.stat().st_mtime > LOCK_STALE:
+                    lock.unlink(missing_ok=True)
+                    continue
+            except OSError:
+                pass
+            if time.monotonic() > deadline:
+                raise TailorError(f"{path.name} is locked by another tailoring session ({lock})")
+            time.sleep(0.05)
+        except PermissionError:  # Windows: the lock file is being deleted right now
+            time.sleep(0.05)
+    with _held_guard:
+        _held[key] = 1
+    try:
+        yield
+    finally:
+        with _held_guard:
+            _held.pop(key, None)
+        try:
+            lock.unlink()
+        except OSError:
+            pass
 
 
 def round_dir(app_dir: Path, rnd: int) -> Path:

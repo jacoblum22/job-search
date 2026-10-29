@@ -26,12 +26,14 @@ The wrapper saves the full transcript (every command and its output) to
 and appends the digest to `materials\tailor\digests\<date>.md`. It also logs a warning if any tracked
 file changed during the run.
 
-Before Claude starts, the wrapper runs a full scrape of every source (`scripts/aggregate.py`, about
+On a scheduled run, before Claude starts, the wrapper runs a full scrape of every source (`scripts/aggregate.py`, about
 10 minutes; output in `logs\full_aggregate.log`), so the queue picks from today's postings. The queue
 then rescores every job before ranking. If the 10-minute email check or a scheduled full run holds
 the scrape lock, the wrapper waits up to 30 minutes for it. If the scrape fails or never gets the
 lock, `logs\tailoring.log` gets a warning and the run tailors from the jobs already in `jobs.db`.
-`-NoScrape` skips the scrape; `-JobId` and `-ResumeOnly` runs never scrape.
+Only the scheduled task scrapes: it passes `-Scrape`. A run started by hand or from the dashboard's
+Run button skips the scrape and tailors from the jobs already in the database. `-JobId` and
+`-ResumeOnly` runs never scrape.
 
 Test on one job first (PowerShell, from the repo root). `-Limit 1` takes the single best A-tier job
 nobody has tailored yet; `-JobId 812` tailors that job instead; `-MaxBudgetUsd 5` caps the API spend.
@@ -44,7 +46,7 @@ Register the daily run once the test looks right (daily at 9:00 AM; change `/ST`
 
 ```powershell
 schtasks /Create /TN "JobSearch-Tailoring" /SC DAILY /ST 09:00 /F `
-  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PWD\scripts\run_tailoring.ps1`""
+  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PWD\scripts\run_tailoring.ps1`" -Scrape"
 ```
 
 `schtasks` can't set two options the run needs, so set them once afterwards. With them, a run
@@ -57,6 +59,26 @@ $s.WakeToRun = $true
 Set-ScheduledTask -TaskName "JobSearch-Tailoring" -Settings $s
 ```
 
+**Parallel sessions (`-Parallel`, 2 by default).** A normal run (scheduled, by hand or from the
+dashboard's Run button) runs up to that many Claude sessions at once, each as a background job with
+its own transcript (`logs\tailoring\<date>_<time>_<n>-<kind>.jsonl`):
+
+- At the start the wrapper itself runs `pending` and looks for `shortlisted` folders an earlier run
+  left unfinished. Waiting rounds get one session; unfinished folders get a session per company.
+  These start straight away, while the scrape (if any) runs, since they don't need today's postings.
+- When the scrape is done the wrapper runs the browser queue sync and the queue, then starts a
+  session per company for the new folders (two jobs at one company go to the same session, one
+  after the other, so two sessions never research the same company folder at once).
+- Each session gets the same prompt with `{SCOPE}` naming its folders, and its own digest goes into
+  the day's digest file. The post-run review reads every session's transcript.
+- Files every application shares (`skill-record.json`, `jev-cache.json`, `unknown-terms.csv`) are
+  changed under a lock file (`<file>.lock`, `src/tailor/appdir.py` `file_lock`), and the Jev cache
+  merges what other sessions saved, so no session overwrites another's additions. A lock file left
+  by a crashed session is cleared after 5 minutes.
+- The Claude plan's usage limits apply to all sessions together: the run spends the same total, just
+  faster. `-MaxBudgetUsd` caps each session. `-Parallel 1` runs the old way, one session for
+  everything; `-JobId` and `-ResumeOnly` runs always use one session.
+
 After every run that tailored something, the wrapper starts the post-run review
 (`docs/run-review-task.md`): a second session reads this run's log, fixes clear pipeline bugs with
 tests and opens a PR into `jake` for you to merge. `-NoReview` skips it.
@@ -66,7 +88,9 @@ The `claude` CLI must be signed in (`claude` once, interactively), and `.env` mu
 
 ## The scheduled task prompt
 
-The wrapper sends everything between the two markers, with `{DATE}` and `{QUEUE}` filled in.
+The wrapper sends everything between the two markers, with `{DATE}`, `{QUEUE}` and `{SCOPE}` filled in.
+`{SCOPE}` is "Do all of Step A and Step B below." for a one-session run; in a parallel run it names
+the folders this session does (see "Parallel sessions" above).
 
 <!-- prompt start -->
 
@@ -89,6 +113,8 @@ for another way to run it, note it for the digest.
 
 1. Read `materials/docs/tailoring-rules.md` (the rules file). It is binding for everything you write.
 2. Read `docs/tailoring-contract.md` once for the file shapes.
+
+**This session's part of the run.** {SCOPE}
 
 **Step A: unfinished folders, waiting rounds, then the queue**
 
