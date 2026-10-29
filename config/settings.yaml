@@ -654,7 +654,6 @@ tailor:
   letter_words: [190, 320]   # cover letter body words outside this range get a letter_length warning (aim 200-300)
   letter_words_with_gaps: 250  # while the resume lists skills it can't show (and the letter doesn't), under this is short
   ats_soft_weight: 0     # soft skills (communication, teamwork...) don't count in the ATS score (Jake, Oct 23 2026); drafts still name them where a story fits
-  ats_wording_tolerance: 5   # within this many points of the best score the evidence allows counts as done
   stuffing_score: 90
   loop:
     max_rounds: 3        # drafts in total, so at most 2 repair rounds

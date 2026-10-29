@@ -118,6 +118,15 @@ _ATS_NOTES = ("Use the posting's own words", "Open the summary's first sentence 
               "Soft skills the vault shows", "These required terms are only in the summary")
 
 
+def _under_target(r: dict[str, Any], cfg: dict[str, Any]) -> bool:
+    """For a grade written before `needs_ats_repair` existed: under the ceiling minus `loop.wide_gap`
+    (Jake, Oct 29 2026: no separate target of 70). Without a ceiling, the old floor."""
+    ceiling = r["grade"].get("ats_ceiling")
+    if isinstance(ceiling, (int, float)):
+        return (r["ats"] or 0) < ceiling - float((cfg.get("loop") or {}).get("wide_gap", 8))
+    return (r["ats"] or 0) < cfg.get("ats_floor", 70)
+
+
 def _wide_gap(r: dict[str, Any], loop_cfg: dict[str, Any]) -> bool:
     ceiling = r["grade"].get("ats_ceiling")
     return ceiling is not None and (r["ats"] or 0) < float(ceiling) - float(loop_cfg.get("wide_gap", 8))
@@ -442,7 +451,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     # a fit gap doesn't, since repairing harder would only stuff keywords.
     needs_ats = cur["grade"].get("needs_ats_repair")
     if needs_ats is None:
-        needs_ats = (cur["ats"] or 0) < cfg.get("ats_floor", 70)
+        needs_ats = _under_target(cur, cfg)
 
     reason: str | None = None
     # The round the next repair builds on: normally the last one, but a round that regressed is
@@ -463,7 +472,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
             regressed = f"regression: an item that passed in round {ref['round']} now fails"
         best_needs_ats = best["grade"].get("needs_ats_repair")
         if best_needs_ats is None:
-            best_needs_ats = (best["ats"] or 0) < cfg.get("ats_floor", 70)
+            best_needs_ats = _under_target(best, cfg)
         if regressed and best_needs_ats and len(rounds) < max_rounds:
             # A wording gap is still open (Jake's ATS floor: repair until within 5 of the ceiling or
             # 70), so a bad round doesn't end the loop: the next one builds on the best round so far
