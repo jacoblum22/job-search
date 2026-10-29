@@ -126,18 +126,18 @@ Read every numbered fix and decide, one by one:
   result: cut or soften the claim instead, never invent), when it would break the rules file
   (AlgaeCal metrics, dates, titles), or when it conflicts with Jake's habits below. Put the reason in
   `why` in a few words. A reviewer's "[number]" stays out unless a cited passage has that number.
-- A note that is plain wording or emphasis is applied even when it touches a posting keyword: move
-  the keyword (to Skills or a later line) instead of refusing the note. When two notes pull against
-  each other, apply the one that serves the reader.
 - If you skip every note, write an empty `edits.json` and copy the letter unchanged. The passes then
   stop (nothing left is worth applying); the reasons show in check.md.
 - **Check a new skill or tool word before you write it.** The reviewer never saw the vault, so a
   word it suggests may be one the vault doesn't use ("AI agent" for an LLM tool-call loop drew two
   `invented_skill` criticals on Infoblox, Oct 28 2026). Run `uv run python -m src.tailor vault <word>`
   first; if no claim passage words it that way, make the reviewer's point in the vault's words.
-- "Questions only you can answer" and "Interview questions" are for Jake; they reach him on the
-  review page and never hold up the passes. Answer one yourself when the vault or the posting
-  answers it (then apply the fix it was asking for); otherwise don't guess.
+- "Questions only you can answer" and "Interview questions" never hold up the passes. When the
+  vault, the posting or the rules answer a question (is the Downloader claim true, did he use
+  Docker), answer it in `response.json` as `{"question": "...", "answer": "..."}` (the answer is a
+  fact from the vault, never a guess); it goes to the reviewer with the next "Is this better?".
+  Apply any fix the question was asking for. A question only Jake can answer stays for him on the
+  review page; don't guess it.
 
 **How Jake usually decides on reviewer advice** (his own reviews, Oct 25-28 2026; advice, not
 rules, so use judgment):

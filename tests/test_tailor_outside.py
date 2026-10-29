@@ -292,6 +292,22 @@ def test_a_round_that_changed_nothing_ends_the_passes(tmp_path):
     assert review_input(app)["pass"] == 2  # a round that changed the text still gets reviewed
 
 
+def test_answered_questions_go_with_the_next_is_this_better(tmp_path):
+    """Jake, Oct 29 2026: a question the round can answer from the vault goes in the next message."""
+    app = _app(tmp_path)
+    _review_done(app, 3)
+    assert review_input(app)["pass"] == 2
+    assert (app / "review" / "pass2" / "message.md").read_text(encoding="utf-8").strip() == "Is this better? Is it ready to submit?"
+    rsp = app / "review" / "response.json"
+    write_json(rsp, [{"note": "Summary opener", "action": "left", "why": "x"},
+                     {"question": "Did you use Docker?", "answer": "Only in coursework."}])
+    out = review_input(app)
+    text = (app / "review" / "pass2" / "message.md").read_text(encoding="utf-8")
+    assert text.startswith("Is this better? To answer some of your questions:")
+    assert "- Did you use Docker?\n  Only in coursework." in text and text.strip().endswith("Is it ready to submit?")
+    assert [r["note"] for r in response(app)] == ["Summary opener"]  # an answer is not a note
+
+
 def test_passes_stop_at_the_limit_and_a_round_that_lost_ats_still_gets_reviewed(tmp_path):
     app = _app(tmp_path)
     _review_done(app, 3)
