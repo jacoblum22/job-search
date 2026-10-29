@@ -61,12 +61,11 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
-    """Listings still holding a snippet that a browser could fill, best score
-    first (newest among equals), at most `limit` per source so one busy site
-    can't crowd out the others. The cap means the task can't read the whole
-    backlog every night, so the jobs most likely to be worth applying to go
-    first.
+def pending(conn: sqlite3.Connection, *, days: int | None = None, limit: int | None = None) -> list[dict]:
+    """Listings still holding a snippet that a browser could fill, newest
+    first. With `days`, only listings first seen that recently; with `limit`,
+    at most that many per source. The nightly queue uses neither, so the
+    whole backlog is on it, not just the newest few per site.
 
     BROWSER_SOURCES always qualify. Any other source qualifies as soon as the
     plain HTTP fetch (src/enrich.py) has failed on it. A listing the browser
@@ -75,7 +74,7 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
     retries those every few days, and each retry would push the browser's
     turn back again (that kept every Jobright listing out of the queue).
     """
-    since = (_now() - timedelta(days=days)).isoformat(timespec="seconds")
+    since = (_now() - timedelta(days=days)).isoformat(timespec="seconds") if days else ""
     retry_cutoff = (_now() - RETRY_AFTER).isoformat(timespec="seconds")
     marks = ",".join("?" * len(BROWSER_SOURCES))
     rows = conn.execute(
@@ -83,9 +82,7 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
         SELECT id, source, title, company, location, url, chars, first_seen FROM (
             SELECT j.id, j.source, j.title, j.company, j.location, j.url,
                    length(j.description) AS chars, j.first_seen,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY j.source ORDER BY COALESCE(j.score, 0) DESC, j.first_seen DESC
-                   ) AS rank
+                   ROW_NUMBER() OVER (PARTITION BY j.source ORDER BY j.first_seen DESC) AS rank
             FROM jobs j
             LEFT JOIN enrich_attempts e
               ON e.source = j.source AND e.external_id = j.external_id
@@ -99,13 +96,13 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
               )
         ) ranked
         WHERE rank <= ?
-        ORDER BY source, rank
+        ORDER BY source, first_seen DESC
         """,
         (
             SNIPPET_MAX_CHARS, since,
             *BROWSER_SOURCES, retry_cutoff,
             *BROWSER_SOURCES, BROWSER_FAILED, retry_cutoff,
-            limit,
+            limit or 1_000_000,
         ),
     ).fetchall()
     cols = ("id", "source", "title", "company", "location", "url", "chars", "first_seen")
@@ -155,7 +152,8 @@ def _result_ids(queue_dir: Path) -> set[int]:
     return {int(f.stem) for f in queue_dir.glob("*") if f.suffix in (".md", ".fail") and f.stem.isdigit()}
 
 
-def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int = 14, limit: int = 15) -> list[dict]:
+def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int | None = None,
+                 limit: int | None = None) -> list[dict]:
     """Write queue.json for the Chrome task: what pending() lists, less any
     listing whose result file is already waiting to be imported."""
     ensure_schema(conn)
