@@ -73,3 +73,22 @@ def test_md_beats_an_earlier_fail(tmp_path):
     results = browser_queue.import_results(conn, qdir)
     assert results["saved"] == [1] and results["failed"] == []
     assert conn.execute("SELECT ok FROM enrich_attempts WHERE external_id = '1'").fetchone()[0] == 1
+
+
+def test_failed_http_fetch_does_not_hold_back_a_browser_source(tmp_path):
+    # The scrape's plain fetch fails on Jobright pages every few days (ok = 0);
+    # that mustn't keep pushing the browser's turn back.
+    conn = _conn(tmp_path)
+    upsert_job(conn, Job("jobright", "j1", "Data Analyst", "Acme", "Vancouver, BC",
+                         "snippet", url="https://jobright.ai/jobs/info/j1"))
+    conn.execute("INSERT INTO enrich_attempts (source, external_id, attempted_at, ok) "
+                 "VALUES ('jobright', 'j1', ?, 0)", (browser_queue._now().isoformat(timespec="seconds"),))
+    conn.commit()
+    assert "jobright" in {r["source"] for r in browser_queue.pending(conn, days=14, limit=15)}
+
+
+def test_best_scored_listings_go_first_under_the_cap(tmp_path):
+    conn = _conn(tmp_path)
+    conn.execute("UPDATE jobs SET score = CASE external_id WHEN '2' THEN 70 WHEN '4' THEN 50 ELSE 10 END")
+    conn.commit()
+    assert [r["id"] for r in browser_queue.pending(conn, days=14, limit=2)] == [2, 4]

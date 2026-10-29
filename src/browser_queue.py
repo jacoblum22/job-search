@@ -62,13 +62,18 @@ def _now() -> datetime:
 
 
 def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
-    """Listings still holding a snippet that a browser could fill, newest
-    first, at most `limit` per source so one busy site can't crowd out the
-    others.
+    """Listings still holding a snippet that a browser could fill, best score
+    first (newest among equals), at most `limit` per source so one busy site
+    can't crowd out the others. The cap means the task can't read the whole
+    backlog every night, so the jobs most likely to be worth applying to go
+    first.
 
     BROWSER_SOURCES always qualify. Any other source qualifies as soon as the
     plain HTTP fetch (src/enrich.py) has failed on it. A listing the browser
-    already failed on waits RETRY_AFTER.
+    already failed on, or filled with a short page, waits RETRY_AFTER. A
+    failed HTTP fetch (ok = 0) doesn't make a browser source wait: the scrape
+    retries those every few days, and each retry would push the browser's
+    turn back again (that kept every Jobright listing out of the queue).
     """
     since = (_now() - timedelta(days=days)).isoformat(timespec="seconds")
     retry_cutoff = (_now() - RETRY_AFTER).isoformat(timespec="seconds")
@@ -78,20 +83,23 @@ def pending(conn: sqlite3.Connection, *, days: int, limit: int) -> list[dict]:
         SELECT id, source, title, company, location, url, chars, first_seen FROM (
             SELECT j.id, j.source, j.title, j.company, j.location, j.url,
                    length(j.description) AS chars, j.first_seen,
-                   ROW_NUMBER() OVER (PARTITION BY j.source ORDER BY j.first_seen DESC) AS rank
+                   ROW_NUMBER() OVER (
+                       PARTITION BY j.source ORDER BY COALESCE(j.score, 0) DESC, j.first_seen DESC
+                   ) AS rank
             FROM jobs j
             LEFT JOIN enrich_attempts e
               ON e.source = j.source AND e.external_id = j.external_id
             WHERE length(j.description) < ? AND j.url != '' AND j.first_seen >= ?
               AND j.status NOT IN ('expired', 'dismissed')
               AND (
-                    (j.source IN ({marks}) AND (e.attempted_at IS NULL OR e.attempted_at < ?))
+                    (j.source IN ({marks})
+                     AND (e.attempted_at IS NULL OR e.ok = 0 OR e.attempted_at < ?))
                  OR (j.source NOT IN ({marks})
                      AND (e.ok = 0 OR (e.ok = ? AND e.attempted_at < ?)))
               )
         ) ranked
         WHERE rank <= ?
-        ORDER BY source, first_seen DESC
+        ORDER BY source, rank
         """,
         (
             SNIPPET_MAX_CHARS, since,
