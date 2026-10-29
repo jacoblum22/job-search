@@ -49,6 +49,22 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Daily review, Oct 29 2026.
+    ("statistical modeling, econometrics, or control theory", "KPIs/metrics"),
+    ("metadata management, data classification, and lineage tracking", "classification"),
+    ("the highest probability of reaching $1 billion in annual revenue", "statistics"),
+    ("connects brand and performance marketing to drive measurable results", "marketing analytics / attribution"),
+    ("the systems that drive the user journey through purchasing", "product analytics (funnels / cohorts / LTV)"),
+    ("join our Data Science team", "data science"),
+    ("software supply chain security", "supply chain / inventory"),
+    ("an enterprise service bus", "Azure integration services (Logic Apps / Service Bus / Event Grid)"),
+    ("help bring new bank partners and payment rails to life", "Ruby on Rails"),
+    ("Life at Unity", "Unity / Unreal Engine"),
+    ("Unity Catalog, and Delta Lake", "Unity / Unreal Engine"),
+    ("stack shipping containers", "Docker"),
+    ("Management & Telemetry Protocols", "event tracking / instrumentation"),
+    ("retail partnerships", "e-commerce / retail"),
+    ("matches the Contoso Retail analytics work", "e-commerce / retail"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +219,63 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Daily review, Oct 29 2026: real posting wording.
+    ("a strong foundation in data science, analytics, and applied machine learning", "data science"),
+    ("Write clean, maintainable code following best practices and design patterns",
+     "software architecture / system design"),
+    ("Microservices and event-driven architectures", "event-driven architecture"),
+    ("Site Reliability Engineering (SRE)", "site reliability engineering (SRE)"),
+    ("Reliability engineering or SRE experience", "site reliability engineering (SRE)"),
+    ("Contributing to open-source projects", "open-source contribution"),
+    ("Use AI coding assistants and coding agents to accelerate development", "AI-assisted coding"),
+    ("Actively uses AI development tools (code copilots, AI debuggers, test generators)", "AI-assisted coding"),
+    ("The role analyzes product usage and telemetry", "event tracking / instrumentation"),
+    ("define questions, success metrics, and measurement plans", "event tracking / instrumentation"),
+    ("Directory Tables, Scoped URLs, Snowpark", "Snowpark"),
+    ("Azure Integration Services (Logic Apps, API Management, Service Bus & Event Grid)",
+     "Azure integration services (Logic Apps / Service Bus / Event Grid)"),
+    ("statistical modeling, econometrics, or control theory", "econometrics"),
+    ("statistical modeling, econometrics, or control theory", "control theory"),
+    ("Familiarity with ads systems, auction theory, or related marketplace optimization problems",
+     "ad tech / programmatic advertising"),
+    ("SQL and ORM technologies (JPA2, Hibernate)", "ORM (Hibernate / SQLAlchemy)"),
+    ("Worked on multithreaded applications", "concurrency / multithreading"),
+    ("maintaining cryptographic systems and practices", "cryptography"),
+    ("Experience building and maintaining production Ruby on Rails applications", "Ruby on Rails"),
+    ("Three.js, WebGL, Babylon.js, Unity, or Unreal Engine", "Three.js / WebGL"),
+    ("Three.js, WebGL, Babylon.js, Unity, or Unreal Engine", "Unity / Unreal Engine"),
+    ("within a supply chain, retail, or consumer goods environment", "supply chain / inventory"),
+    ("within a supply chain, retail, or consumer goods environment", "e-commerce / retail"),
+    ("Experience in e-commerce, online marketplaces, or other platform-based businesses", "e-commerce / retail"),
+    ("building and evaluating ... systems to detect harmful content and automate moderation workflows",
+     "trust & safety / content moderation"),
+    ("Experience in financial services, fraud detection, risk analytics", "fraud / risk analytics"),
+    ("combining business context, systems thinking, and AI-native execution", "systems thinking"),
+    ("Product-minded. You think beyond code", "product mindset"),
+    # Fixes to existing entries.
+    ("Azure Data Lake, Azure Synapse, and Data Bricks", "Databricks"),
+    ("Familiarity with cloud platforms, containers, CI/CD pipelines", "Docker"),
+    ("Familiarity with source control systems such as Git", "Git"),
+    ("Experience with test-driven development is a plus", "testing (unit/automated)"),
+    ("optimization, probability, statistical modeling", "statistics"),
+    ("Experience in object detection, recognition, and tracking", "computer vision"),
+    ("offline evaluations, online experiments, and production monitoring", "model evaluation/validation"),
+    ("offline evaluations, online experiments, and production monitoring", "A/B testing / experimentation"),
+    ("A/B testing, including sample size estimation", "A/B testing / experimentation"),
+    ("anomaly detection, trend analysis, marketing mix modeling", "descriptive statistics / correlation"),
+    ("Customer Acquisition Cost (CAC), Return on Ad Spend (ROAS)", "marketing analytics / attribution"),
+    ("Partner with performance marketing teams", "marketing analytics / attribution"),
+    ("Analyze conversion funnels and user journeys", "product analytics (funnels / cohorts / LTV)"),
+    ("Develop prompts, tools, workflows, and evaluation harnesses", "LLM / AI evaluation"),
+    ("alignment with defined acceptance criteria", "requirements gathering"),
+    ("workflow orchestration tools", "data pipelines"),
+    ("role-based access controls, encryption, and data masking", "data privacy / security"),
+    ("metadata management, data classification, and lineage tracking", "data governance"),
+    ("Experience with server-side programming, APIs", "web development (full-stack)"),
+    ("API, webhook, authentication, data synchronization", "APIs / REST"),
+    ("data structures", "data structures / algorithms"),
+    ("strong problem decomposition", "problem solving"),
+    ("Reporting, Dashboards, and Performance Measurement", "KPIs/metrics"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -236,6 +309,21 @@ def test_oct_20_review_products_and_concepts():
     for product, platform in [("SOQL", "Salesforce/CRM"), ("Acumatica", "ERP (SAP/Oracle/Workday)")]:
         assert _is_tool(product), product
         assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+
+
+def test_oct_29_review_products_and_concepts():
+    for name in ["software architecture / system design", "event-driven architecture", "AI-assisted coding",
+                 "site reliability engineering (SRE)", "open-source contribution", "event tracking / instrumentation",
+                 "concurrency / multithreading", "data science", "supply chain / inventory", "cryptography"]:
+        assert not _is_tool(name), name
+    for name in ["Snowpark", "Ruby on Rails", "Three.js / WebGL", "Unity / Unreal Engine",
+                 "ORM (Hibernate / SQLAlchemy)", "Azure integration services (Logic Apps / Service Bus / Event Grid)"]:
+        assert _is_tool(name), name
+        assert name in taxonomy.TOOL_TYPES, name
+    for product, platform in [("Snowpark", "Snowflake"), ("Ruby on Rails", "Ruby"), ("Three.js / WebGL", "JavaScript"),
+                              ("Azure integration services (Logic Apps / Service Bus / Event Grid)", "Azure")]:
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
 
