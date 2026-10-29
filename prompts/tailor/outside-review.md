@@ -58,6 +58,13 @@ more you could suggest, so the verdict is whether you'd send it.
 
 - `ready`: you'd tell them "it's ready to submit now". Anything you still list is optional polish
   they can skip; say so in "Still open".
+- `blocked` (first pass only): the posting has a hard requirement the resume and letter show the
+  candidate can't meet, one no wording fixes: a required language they don't list, a licence,
+  clearance, citizenship or work authorization they don't have, a required degree they lack. The
+  job is impossible for them, so no more passes follow. Quote the posting's line. A "preferred",
+  "asset" or "nice to have" is not a block; if you're unsure whether they meet it, use `not yet` and
+  ask in "Questions only you can answer". Write one short paragraph after the verdict and nothing
+  else.
 - `not yet`: anything still needs changing before sending, however small ("ready after these
   changes" is `not yet`). They'll make the changes and ask you again.
 
@@ -67,7 +74,7 @@ praise section, no summary at the end. At most 15 numbered fixes in all.
 **Pass 1 (first review):**
 
 ```
-Verdict: not yet
+Verdict: not yet | blocked
 <2-4 sentences: how well this matches the posting, and the single biggest risk, for example a hard
 requirement no wording fixes. Say so if the role is a stretch.>
 

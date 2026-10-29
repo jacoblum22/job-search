@@ -9,6 +9,7 @@ import yaml
 from src.tailor.appdir import write_json
 from src.tailor.loop import next_round, pending_round
 from src.tailor.outside import (
+    blocker,
     changed_since_review,
     kept,
     parse_notes,
@@ -298,3 +299,20 @@ def test_check_md_top_shows_verdict_and_questions_without_boxes(tmp_path):
     assert "Verdict after 1 pass: Not yet. A fair match" in text
     assert "- How many sources did you validate?" in text and "- Why did the role last four months?" in text
     assert undecided(text) == []
+
+
+def test_a_job_jake_cannot_do_ends_the_reviews(tmp_path):
+    # Jake, Oct 29 2026: CorGTA required Spanish; five review passes followed before anyone said so.
+    from src.tailor.packet import _reviewer_lines
+
+    app = _app(tmp_path)
+    (app / "posting.md").write_text("# Spanish Data Analyst\n\n- Spanish-speaking candidates mandatory\n", encoding="utf-8")
+    assert blocker(app)
+    out = review_input(app)
+    assert out["action"] == "stop" and "Spanish-speaking candidates mandatory" in out["reason"]
+    assert "Can't apply" in "\n".join(_reviewer_lines(app, None))
+    (app / "posting.md").write_text("# Analyst\n\nFrench is an asset.\n", encoding="utf-8")
+    assert blocker(app) is None and review_input(app)["pass"] == 1
+    (app / "review" / "notes.md").write_text("Verdict: blocked\nRequires a PhD.\n", encoding="utf-8")
+    assert parse_notes("Verdict: blocked\nRequires a PhD.\n")["verdict"] == "blocked"
+    assert review_round(app) is None and "can't take this job" in review_input(app)["reason"]

@@ -145,7 +145,7 @@ def _note(text: str) -> list[str]:
     return [f"> {text}", ""]
 
 
-def _reviewer_lines(app_dir: Path, rd: Path | None) -> list[str]:
+def _reviewer_lines(app_dir: Path, rd: Path | None, cfg: dict[str, Any] | None = None) -> list[str]:
     """The outside reviewer's verdict, questions only Jake can answer, claims to verify and the
     interview questions they invite, as his claude.ai reviews put them (Jake, Oct 29 2026). Plain
     lines, no boxes: nothing here blocks approval. Only items about text that is still sent."""
@@ -158,11 +158,16 @@ def _reviewer_lines(app_dir: Path, rd: Path | None) -> list[str]:
     except Exception:  # a broken draft still gets a packet; keep every item
         shipped = None
     s = outside.summary(app_dir, shipped)
+    line = outside.blocker(app_dir, cfg)
     if not s:
-        return []
-    verdict = {"ready": "Ready to submit", "not yet": "Not yet"}.get(s["verdict"] or "", "No verdict given")
+        return (["## Outside reviewer", "", f"Can't apply: the posting requires \"{line[:200]}\"", ""]
+                if line else [])
+    verdict = {"ready": "Ready to submit", "not yet": "Not yet",
+               "blocked": "Can't apply"}.get(s["verdict"] or "", "No verdict given")
     text = f" {s['verdict_text']}" if s.get("verdict_text") else ""
     lines = ["## Outside reviewer", ""] + _note(explain.REVIEWER)
+    if line:
+        lines += [f"Can't apply: the posting requires \"{line[:200]}\"", ""]
     lines += [f"Verdict after {s['passes']} pass{'es' if s['passes'] > 1 else ''}: {verdict}.{text}", ""]
     for key, title in (("questions", "Questions only you can answer"), ("claims", "Claims to verify before sending"),
                        ("interview", "Interview questions these claims invite")):
@@ -184,7 +189,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     reqs = {r["id"]: r for r in reqs_json.get("requirements") or [] if "id" in r}
     _, data = _final_resume(rd, app_dir)
     index = _vault_index(cfg)
-    lines = ["# Check", ""] + _note(explain.INTRO) + _reviewer_lines(app_dir, rd)
+    lines = ["# Check", ""] + _note(explain.INTRO) + _reviewer_lines(app_dir, rd, cfg)
     if gate.get("checked") is False:
         lines += ["Gate not checked: Jev is not configured.", ""]
     if gate_flags:
@@ -413,7 +418,8 @@ def run_packet(app_dir: Path, cfg: dict[str, Any], recheck: bool = False) -> dic
     weaker_fit = bool(below_floor and (grade or {}).get("fit_gap"))
     # What the dashboard shows next to the status, so a review problem is visible without
     # opening the folder.
-    flags = (["weaker_fit"] if weaker_fit else ["ats_below_floor"] if below_floor else []) + (["wide_gap"] if wide_gap else [])
+    blocked = bool(outside.blocker(app_dir, cfg)) or (outside.summary(app_dir) or {}).get("verdict") == "blocked"
+    flags = (["blocked"] if blocked else []) + (["weaker_fit"] if weaker_fit else ["ats_below_floor"] if below_floor else []) + (["wide_gap"] if wide_gap else [])
     app = appdir.log(app_dir, "packet", f"{status}, {criticals} critical(s)", status=status)
     _sync(app_dir, cfg, app, status, review_flags=json.dumps(flags))
     return {"status": status, "criticals": criticals, "round": rnd, "below_ats_floor": below_floor,

@@ -60,13 +60,13 @@ def done_passes(app_dir: Path) -> list[int]:
     return sorted(out)
 
 
-_VERDICT = re.compile(r"^\W*verdict\W*:?\W*(ready after|ready|not yet)", re.IGNORECASE)
+_VERDICT = re.compile(r"^\W*verdict\W*:?\W*(ready after|ready|not yet|blocked)", re.IGNORECASE)
 _ITEM = re.compile(r"^\s*(?:\d+[.)]|[-*])\s+(.*\S)")
 
 
 def parse_notes(text: str) -> dict[str, Any]:
-    """notes.md as {"verdict": "ready" | "not yet" | None, "verdict_text", "sections": {heading:
-    [items]}}. The verdict is the first line starting "Verdict:"; its text runs to the first
+    """notes.md as {"verdict": "ready" | "not yet" | "blocked" | None, "verdict_text", "sections":
+    {heading: [items]}}. The verdict is the first line starting "Verdict:"; its text runs to the first
     heading. Jake, Oct 29 2026: only "ready to submit now" stops the passes; "ready after these
     changes" is "not yet" (after those changes it often finds more)."""
     verdict, why, sections, head, in_verdict = None, [], {}, None, False
@@ -90,6 +90,23 @@ def parse_notes(text: str) -> dict[str, Any]:
             if m:
                 sections[head].append(m.group(1).strip())
     return {"verdict": verdict, "verdict_text": " ".join(why).strip(), "sections": sections}
+
+
+def blocker(app_dir: Path, cfg: dict[str, Any] | None = None) -> str | None:
+    """The posting line that makes the job impossible for Jake, else None: a required language he
+    doesn't speak (score.languages, the same check the scraper's score uses). Jake, Oct 29 2026:
+    CorGTA's "Spanish-speaking candidates mandatory" was drafted before that rule existed, and five
+    review passes followed; a job he can't do ends right there."""
+    from src.score import _language_ask
+
+    posting = Path(app_dir) / "posting.md"
+    if not posting.exists():
+        return None
+    lang = (((cfg or {}).get("score") or {}).get("languages")) or {}
+    if lang.get("required_skip", True) is False:
+        return None
+    known = {str(x).lower() for x in lang.get("known") or ["english"]}
+    return _language_ask(posting.read_text(encoding="utf-8"), known)
 
 
 def _notes(app_dir: Path, n: int) -> dict[str, Any]:
@@ -147,10 +164,15 @@ def kept(app_dir: Path, n: int) -> bool | None:
 
 def next_pass(app_dir: Path, cfg: dict[str, Any] | None = None) -> tuple[int | None, str]:
     """The review pass to run next, or None and why not."""
+    line = blocker(app_dir, cfg)
+    if line:
+        return None, f"the posting requires something Jake can't do: \"{line[:120]}\""
     done = done_passes(app_dir)
     if not done:
         return 1, "first review"
     last = done[-1]
+    if _notes(app_dir, last)["verdict"] == "blocked":
+        return None, f"review pass {last} says Jake can't take this job"
     later = changed_since_review(app_dir)
     if later is not None:
         if last >= _max_passes(cfg):
@@ -267,8 +289,8 @@ def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | No
 
 def review_round(app_dir: Path, cfg: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Ask for one round that acts on the latest pass's notes, building on the best round. None
-    when there are no notes, a round is pending, that pass already has its round, or the
-    reviewer said ready to submit."""
+    when there are no notes, a round is pending, that pass already has its round, the
+    reviewer said ready to submit, or the job needs something Jake can't do."""
     from src.tailor.loop import _round_dirs, pending_round
 
     app_dir = Path(app_dir)
@@ -280,7 +302,7 @@ def review_round(app_dir: Path, cfg: dict[str, Any] | None = None) -> dict[str, 
     if n > _max_passes(cfg) or _pass_round(app_dir, n) is not None:
         return None
     from src.tailor.loop import _warnings
-    if _notes(app_dir, n)["verdict"] == "ready":
+    if _notes(app_dir, n)["verdict"] in ("ready", "blocked") or blocker(app_dir, cfg):
         return None
     nxt = max(_round_dirs(app_dir)) + 1
     notes = (pass_dir(app_dir, n) / "notes.md").relative_to(app_dir).as_posix()

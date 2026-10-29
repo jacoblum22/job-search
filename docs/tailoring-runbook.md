@@ -197,6 +197,10 @@ folder before starting the next. Keep a running note of the outcome for the dige
       `review-input` decides whether another pass is due (it stops when the reviewer says ready,
       a review round wasn't kept, or `loop.review_passes` passes are done, 6 by default; anything
       short of "ready to submit now" counts as not yet).
+    - A job Jake can't do ends the reviews at once: `review-input` stops when the posting requires
+      a language he doesn't speak (`score.languages`, even for a folder drafted before that rule),
+      and the reviewer's pass-1 verdict `blocked` (a hard requirement the resume shows he can't
+      meet) stops the rest. check.md and the dashboard then say "Can't apply".
     - If `review-round` says stop, go to step 11. If a subagent failed or wrote no notes, skip the
       rest of this step and note it for the digest.
 11. **Humanize, render, packet.**
