@@ -195,7 +195,8 @@ folder before starting the next. Keep a running note of the outcome for the dige
       one review fix round instead: follow repair.md ("Review fix rounds"), run `apply-edits`,
       `check`, `grade` and `next-round` once more. Then go back to the first bullet:
       `review-input` decides whether another pass is due (it stops when the reviewer says ready,
-      a review round wasn't kept, or `loop.review_passes` passes are done, 3 by default).
+      a review round wasn't kept, or `loop.review_passes` passes are done, 6 by default; "ready
+      after these changes" gets another round and pass).
     - If `review-round` says stop, go to step 11. If a subagent failed or wrote no notes, skip the
       rest of this step and note it for the digest.
 11. **Humanize, render, packet.**
@@ -294,7 +295,7 @@ summary; read it before continuing.
    `prompts/tailor/outside-review.md` for the pass it names to write that pass's `notes.md`, then
    `... review-round "$APP"`; if it asks for a round, run repair.md's "Review round", repeat step 7
    for that round, run `next-round` (and the review fix round it may ask for), and go back to
-   `review-input` (up to 3 passes).
+   `review-input` (until the reviewer says ready, up to 6 passes).
 10. **Humanize:** `... humanize-flags "$APP"`; if there are flags, run `prompts/tailor/humanize.md` to write
    `humanize/patches.json`, then `... humanize-apply "$APP"`.
 11. **Finish:** `... render "$APP"`, then `... packet "$APP"`. Review `APP/check.md` (gate flags first, then
