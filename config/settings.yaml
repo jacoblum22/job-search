@@ -601,6 +601,13 @@ score:
     # (0.9% of one repo), Salesforce (Trailhead badges).
     light: ["C/C++", "Java", "PowerShell", "Salesforce/CRM"]
     light_factor: 0.5
+    # The same vault check gives points: any tool the posting names that the vault shows earns
+    # have_points (preferred_factor and light_factor apply), up to have_max, on top of the hand
+    # weights in skills.have above (which are skipped here, so nothing earns twice). The total
+    # still falls under skills.have_cap. have_weights overrides one tool: "Name": points.
+    have_points: 2
+    have_max: 20
+    have_weights: {}
 
   location_points:
     vancouver: 5

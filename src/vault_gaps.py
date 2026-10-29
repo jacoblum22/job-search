@@ -43,6 +43,13 @@ class Vault:
 
 
 @dataclass(frozen=True)
+class Have:
+    skill: str
+    preferred: bool
+    points: float
+
+
+@dataclass(frozen=True)
 class Gap:
     label: str  # "dbt", or "Airflow or Dagster" for a list
     preferred: bool
@@ -154,3 +161,37 @@ def find_gaps(description: str, vault: Vault, cfg: dict[str, Any]) -> list[Gap]:
         preferred = alone[s] == "preferred"
         gaps.append(Gap(s, preferred, points({s}, preferred)))
     return gaps
+
+
+def find_haves(description: str, vault: Vault, cfg: dict[str, Any], skip: set[str] = frozenset()) -> list[Have]:
+    """The posting's asks the vault does cover, each with its (positive) points: the mirror of find_gaps.
+
+    Same reading of the posting (text about the employer doesn't count, a nice-to-have counts
+    `preferred_factor` as much) and the same record-corrected vault, so one list of what Jake has
+    decides both the points and the penalties. A tool the vault shows only lightly earns
+    `light_factor` of the points. `skip` holds lowercase names already weighted by hand in
+    settings.yaml (`score.skills.have`), so a tool never earns twice.
+    """
+    md = html.unescape(to_markdown(description))
+    sections = Sections(md)
+    light = set(cfg.get("light") or ())
+    weights = cfg.get("have_weights") or {}
+    default = cfg.get("have_points", 2)
+    factor = cfg.get("preferred_factor", 0.5)
+    light_factor = cfg.get("light_factor", 0.5)
+    haves: list[Have] = []
+    charged: set[str] = set()
+    for _, name, rx in taxonomy.compiled():
+        if name not in vault.tools or _family(name) in charged:
+            continue
+        low = name.lower()
+        if any(k in low or low in k for k in skip):
+            continue
+        kinds = {sections.kind(m.start()) for m in rx.finditer(md)} - {"about"}
+        if not kinds:
+            continue
+        charged.add(_family(name))
+        preferred = kinds == {"preferred"}
+        pts = weights.get(name, default) * (light_factor if name in light else 1) * (factor if preferred else 1)
+        haves.append(Have(name, preferred, pts))
+    return haves
