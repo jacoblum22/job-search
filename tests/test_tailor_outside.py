@@ -8,8 +8,14 @@ import yaml
 
 from src.tailor.appdir import write_json
 from src.tailor.loop import next_round, pending_round
-from src.tailor.outside import resume_text, response, review_input, review_round
-
+from src.tailor.outside import (
+    parse_notes,
+    response,
+    resume_text,
+    review_input,
+    review_round,
+    summary,
+)
 from tests.test_tailor_loop import CFG, add_round, crit
 
 RESUME = {
@@ -97,3 +103,118 @@ def test_response_reads_only_entries_with_a_note(tmp_path):
                [{"note": "Cut 'small'", "action": "changed", "why": "cut"}, {"action": "left"}, "junk"])
     assert response(app) == [{"note": "Cut 'small'", "action": "changed", "why": "cut"}]
     assert json.loads((app / "review" / "response.json").read_text())[0]["note"] == "Cut 'small'"
+
+
+# Jake, Oct 29 2026: "is this better?" passes after the first review, as in his own review chats.
+
+NOTES_1 = """Verdict: not yet
+A fair match; the main risk is the missing Azure experience.
+
+## Resume
+1. **Summary doesn't read as the role.** Replace 'Data analyst' with 'Data developer'.
+
+## Cover letter
+1. **No closing ask.** Add one.
+
+## Questions only you can answer
+1. How many sources did you validate?
+
+## Interview questions
+- Why did the role last four months?
+"""
+
+
+def _review_done(app, rnd, text=NOTES_1, n=1, ats=67):
+    """Write pass n's notes, run its round and finish it (the round becomes best)."""
+    d = app / "review" if n == 1 else app / "review" / f"pass{n}"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "notes.md").write_text(text, encoding="utf-8")
+    fb = review_round(app)
+    assert fb["round"] == rnd and fb["review_pass"] == n
+    add_round(app, rnd, 72, ats=ats)
+    r = app / "drafts" / f"r{rnd}"
+    (r / "resume.yaml").write_text(yaml.safe_dump(RESUME, sort_keys=False), encoding="utf-8")
+    write_json(r / "cover-letter.json", LETTER)
+    write_json(app / fb["response"], [{"note": "Summary opener", "action": "left", "why": "keeps the posting title"}])
+    return next_round(app, CFG)
+
+
+def test_parse_notes_reads_verdict_and_sections():
+    out = parse_notes(NOTES_1)
+    assert out["verdict"] == "not yet" and "Azure" in out["verdict_text"]
+    assert out["sections"]["questions only you can answer"] == ["How many sources did you validate?"]
+    assert parse_notes("**Verdict: Ready** to submit.\n")["verdict"] == "ready"
+    assert parse_notes("1. no verdict")["verdict"] is None
+
+
+def test_second_pass_sees_earlier_notes_and_responses(tmp_path):
+    app = _app(tmp_path)
+    assert review_input(app)["pass"] == 1
+    assert _review_done(app, 3)["best_round"] == 3
+    out = review_input(app)
+    assert out["action"] == "review" and out["pass"] == 2 and out["follow_up"] and out["round"] == 3
+    text = (app / "review" / "pass2" / "input.md").read_text(encoding="utf-8")
+    assert "missing Azure experience" in text and "Left as is: Summary opener (keeps the posting title)" in text
+    assert text.index("Your review of the last version") < text.index("# Resume (revised)")
+
+
+def test_ready_verdict_asks_for_no_round_and_no_more_passes(tmp_path):
+    app = _app(tmp_path)
+    _review_done(app, 3)
+    d = app / "review" / "pass2"
+    d.mkdir(parents=True)
+    (d / "notes.md").write_text("Verdict: ready\nYes, better.\n\n## What it fixed\n- The opener.\n", encoding="utf-8")
+    assert review_round(app) is None
+    assert review_input(app) == {"action": "stop", "reason": "review pass 2 said ready to submit"}
+
+
+def test_passes_stop_at_the_limit_or_when_a_review_round_is_not_kept(tmp_path):
+    app = _app(tmp_path)
+    _review_done(app, 3)
+    _review_done(app, 4, n=2)
+    _review_done(app, 5, n=3)
+    assert review_input(app)["action"] == "stop" and "3 review passes" in review_input(app)["reason"]
+    (tmp_path / "b").mkdir()
+    app = _app(tmp_path / "b")
+    assert _review_done(app, 3, ats=50)["best_round"] == 2  # lost ATS points: not kept
+    assert "not kept" in review_input(app)["reason"]
+
+
+def test_review_input_carries_verified_company_facts(tmp_path):
+    app = _app(tmp_path)
+    write_json(app / "app.json", {"history": [], "best_round": 2, "company": "Remarcable Inc"})
+    cfg = {"paths": {"companies": str(tmp_path / "companies")}}
+    write_json(tmp_path / "companies" / "remarcable-inc" / "facts.json", [
+        {"id": "f1", "fact": "Over 30,000 active users", "quote": "over 30,000 active users", "verified": True,
+         "url": "https://remarcable.com"},
+        {"id": "f2", "fact": "Founded in 1990", "quote": "x", "verified": False}])
+    review_input(app, cfg=cfg)
+    text = (app / "review" / "input.md").read_text(encoding="utf-8")
+    assert "Over 30,000 active users (https://remarcable.com)" in text and "1990" not in text
+
+
+def test_summary_gathers_questions_from_every_pass(tmp_path):
+    app = _app(tmp_path)
+    _review_done(app, 3)
+    d = app / "review" / "pass2"
+    d.mkdir(parents=True)
+    (d / "notes.md").write_text("Verdict: not yet\nCloser.\n\n## New claims to verify\n- 9+ sources\n\n"
+                                "## Interview questions\n- Why did the role last four months?\n- What was in the table?\n",
+                                encoding="utf-8")
+    s = summary(app)
+    assert s["passes"] == 2 and s["verdict"] == "not yet" and s["verdict_text"] == "Closer."
+    assert s["questions"] == ["How many sources did you validate?"] and s["claims"] == ["9+ sources"]
+    assert s["interview"] == ["Why did the role last four months?", "What was in the table?"]
+
+
+def test_check_md_top_shows_verdict_and_questions_without_boxes(tmp_path):
+    from src.tailor.packet import _reviewer_lines
+    from src.tailor.review import undecided
+
+    app = _app(tmp_path)
+    assert _reviewer_lines(app) == []
+    _review_done(app, 3)
+    text = "\n".join(_reviewer_lines(app))
+    assert "Verdict after 1 pass: Not yet. A fair match" in text
+    assert "- How many sources did you validate?" in text and "- Why did the role last four months?" in text
+    assert undecided(text) == []

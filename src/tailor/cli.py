@@ -248,21 +248,24 @@ def next_round_cmd(app_dir):
 @main.command("review-input")
 @APP
 def review_input_cmd(app_dir):
-    """Step 7b: write review/input.md (posting, best resume, letter) for the outside reviewer."""
+    """Step 7b: write the next review pass's input.md (posting, company facts, best resume and
+    letter, and after the first pass the earlier notes), or say why no pass is due."""
     from src.tailor.outside import review_input
 
-    _out(review_input(app_dir))
+    _out(review_input(app_dir, cfg=load_config()))
 
 
 @main.command("review-round")
 @APP
 def review_round_cmd(app_dir):
-    """Step 7b: after review/notes.md is written, ask for one round that acts on it."""
+    """Step 7b: after a review pass's notes.md is written, ask for one round that acts on it."""
     from src.tailor.outside import review_round
 
-    fb = review_round(app_dir)
-    _out({"action": "repair", "next_round": fb["round"], "build_on": fb["build_on"]} if fb
-         else {"action": "stop", "reason": "no notes, a round is already pending, or the review round was done"})
+    fb = review_round(app_dir, load_config())
+    _out({"action": "repair", "next_round": fb["round"], "build_on": fb["build_on"],
+          "review_pass": fb["review_pass"], "notes": fb["notes"]} if fb
+         else {"action": "stop", "reason": "no notes, a round is already pending, this pass already had its "
+                                           "round, or the reviewer said ready to submit"})
 
 
 @main.command("humanize-flags")
