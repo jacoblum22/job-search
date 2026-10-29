@@ -129,6 +129,23 @@ def test_item_that_passed_before_and_fails_now_is_a_regression(tmp_path):
     assert out["best_round"] == 2  # no criticals either way, higher score
 
 
+def test_one_failed_item_does_not_outrank_a_big_ats_gain(tmp_path):
+    # Quora Full Stack, Oct 29 2026: round 5 closed an 8.8-point ATS gap but one letter item that
+    # round 3 passed now failed, so the loop kept round 3 and built the next round on it.
+    app = new_app(tmp_path)
+    many = [item(f"i{k}", True) for k in range(24)]
+    add_round(app, 1, 70, items=many + [item("letter.closer", True)], ats=68.4, feedback=["use the words"])
+    add_round(app, 2, 74, items=many + [item("letter.closer", False)], ats=77.2, feedback=["fix the closer"])
+    out = next_round(app, CFG)
+    assert out["best_round"] == 2 and "regression" not in out["reason"]
+    # the same flip with no ATS gain is still a regression
+    (tmp_path / "b").mkdir()
+    app2 = new_app(tmp_path / "b")
+    add_round(app2, 1, 70, items=many + [item("letter.closer", True)], ats=77.0, feedback=["x"])
+    add_round(app2, 2, 70, items=many + [item("letter.closer", False)], ats=77.2, feedback=["y"])
+    assert next_round(app2, CFG)["reason"].startswith("regression")
+
+
 def test_round_limit(tmp_path):
     app = new_app(tmp_path)
     for n, s in ((1, 50), (2, 60), (3, 70)):

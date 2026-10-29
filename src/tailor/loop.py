@@ -465,7 +465,13 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
         newly_failed = {i for i in cur["failed_ids"] & ref["passed_ids"] if not _unsure(cur["items"][i], sure)}
         if cur["criticals"] > ref["criticals"]:
             regressed = f"regression: round {cur['round']} has more criticals than round {ref['round']}"
-        elif newly_failed:
+        elif newly_failed and not (_gain(cur, ref) > 0 and (cur["ats"] or 0) - (ref["ats"] or 0) >= min_gain):
+            # An item that passed before and fails now only sets the round aside when the round
+            # isn't better overall: the ATS and the shared checklist items together must gain, and
+            # the ATS itself by at least `min_gain`. Jake, Oct 29 2026:
+            # Quora Full Stack round 5 closed an 8.8-point ATS gap, but one letter item flipped, so
+            # the loop kept round 3 and built the next round on it. The failed item is repaired in
+            # the next round instead, built on the round that gained.
             regressed = f"regression: an item that passed in round {ref['round']} now fails"
         best_needs_ats = best["grade"].get("needs_ats_repair")
         if best_needs_ats is None:
