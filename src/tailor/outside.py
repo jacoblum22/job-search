@@ -92,15 +92,52 @@ def _notes(app_dir: Path, n: int) -> dict[str, Any]:
     return parse_notes(p.read_text(encoding="utf-8")) if p.exists() else {"verdict": None, "sections": {}}
 
 
-def _pass_round(app_dir: Path, n: int) -> int | None:
-    """The round that acted on pass n (rounds written before passes existed count as pass 1)."""
+def _pass_round(app_dir: Path, n: int, fix: bool = True) -> int | None:
+    """The round that acted on pass n (rounds written before passes existed count as pass 1): the
+    review round, or the round that fixed a critical it added when there is one (`fix`)."""
     from src.tailor.loop import _feedback, _round_dirs
 
+    found = None
     for r in sorted(_round_dirs(Path(app_dir))):
         fb = _feedback(app_dir, r)
-        if fb.get("review") and int(fb.get("review_pass") or 1) == n:
-            return r
-    return None
+        if (fb.get("review") or (fix and fb.get("review_fix"))) and int(fb.get("review_pass") or 1) == n:
+            found = r
+    return found
+
+
+def _reviewed_round(app_dir: Path, n: int) -> int | None:
+    """The round pass n read (review-input records it; older passes: the round their review round built on)."""
+    p = pass_dir(Path(app_dir), n) / "reviewed.json"
+    if p.exists():
+        return int(read_json(p).get("round") or 0) or None
+    from src.tailor.loop import _feedback
+
+    rnd = _pass_round(app_dir, n, fix=False)
+    if rnd is None:
+        return None
+    return int(_feedback(app_dir, rnd).get("build_on") or 0) or None
+
+
+def changed_since_review(app_dir: Path) -> int | None:
+    """The best round, when a round made after the last review pass (a gap or letter round that
+    `pending` asked for on a later day) became the best: the reviewer never read it. Nexthop, Oct 27
+    2026: two keyword rounds after the review rebuilt a bullet the review had fixed."""
+    done = done_passes(app_dir)
+    best = load_app(app_dir).get("best_round")
+    if not done or not best:
+        return None
+    last = done[-1]
+    seen = _pass_round(app_dir, last) or _reviewed_round(app_dir, last)
+    return int(best) if seen and int(best) > seen else None
+
+
+def kept(app_dir: Path, n: int) -> bool | None:
+    """Whether the round that acted on pass n ships (None when no round acted on it)."""
+    rnd = _pass_round(app_dir, n)
+    if rnd is None:
+        return None
+    best = load_app(app_dir).get("best_round")
+    return bool(best) and int(best) >= rnd
 
 
 def next_pass(app_dir: Path, cfg: dict[str, Any] | None = None) -> tuple[int | None, str]:
@@ -109,6 +146,11 @@ def next_pass(app_dir: Path, cfg: dict[str, Any] | None = None) -> tuple[int | N
     if not done:
         return 1, "first review"
     last = done[-1]
+    later = changed_since_review(app_dir)
+    if later is not None:
+        if last >= _max_passes(cfg):
+            return None, f"{last} review passes done (round {later}, made after the last one, wasn't reviewed)"
+        return last + 1, f"round {later} changed the draft after review pass {last}"
     if _notes(app_dir, last)["verdict"] == "ready":
         return None, f"review pass {last} said ready to submit"
     rnd = _pass_round(app_dir, last)
@@ -214,6 +256,7 @@ def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | No
     out = pass_dir(app_dir, n) / "input.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n\n".join(parts) + "\n", encoding="utf-8")
+    write_json(pass_dir(app_dir, n) / "reviewed.json", {"round": int(rnd)})
     log(app_dir, "review-input", f"pass {n}, round {rnd}")
     return {"action": "review", "pass": n, "follow_up": n > 1, "round": int(rnd), "input": str(out),
             "notes": str(pass_dir(app_dir, n) / "notes.md")}
@@ -233,6 +276,7 @@ def review_round(app_dir: Path, cfg: dict[str, Any] | None = None) -> dict[str, 
     n = done[-1]
     if n > _max_passes(cfg) or _pass_round(app_dir, n) is not None:
         return None
+    from src.tailor.loop import _warnings
     if _notes(app_dir, n)["verdict"] == "ready":
         return None
     nxt = max(_round_dirs(app_dir)) + 1
@@ -248,12 +292,19 @@ def review_round(app_dir: Path, cfg: dict[str, Any] | None = None) -> dict[str, 
         "criticals": [],
         "failed_items": [f"Act on the outside review in {notes} where the vault and the rules "
                          "allow (prompts/tailor/repair.md, 'Review round')."],
-        "warnings": [],
+        # Phrase warnings and Jev's doubts on the round it builds on ride along (pipeline audit, Oct 29 2026).
+        "warnings": [{"code": w["code"], "message": w["message"], "path": w.get("path", "")}
+                     for w in _warnings(_check(app_dir, int(best)))],
         "sections": SECTIONS,
     }
     write_json(round_dir(app_dir, nxt) / "feedback.json", feedback)
     log(app_dir, "review-round", f"round {nxt}: outside review pass {n}, on round {best}")
     return feedback
+
+
+def _check(app_dir: Path, rnd: int) -> dict[str, Any]:
+    p = round_dir(app_dir, rnd) / "check.json"
+    return read_json(p) if p.exists() else {}
 
 
 def response(app_dir: Path, n: int = 1) -> list[dict[str, Any]]:

@@ -195,11 +195,16 @@ def _failed(grade: dict[str, Any]) -> list[dict[str, Any]]:
 # only ride along with a round that happens anyway.
 _ROUND_WARNINGS = {"term_stuffing", "verbatim_posting_copy", "duplicate_bullets", "years_inflation",
                    "title_drift", "letter_length", "skill_name_only", "directed_opener", "test_count"}
-_RIDE_WARNINGS = {"skill_only_in_list", "too_many_skills", "bullet_count", "paragraph_count"}
+# Pipeline audit, Oct 29 2026: AI-style phrases, a term the base covered that the draft lost, and
+# Jev's doubt about a line were shown every round and never reached a repair round (PointClickCare
+# carried 3 phrase warnings through all 3 rounds; humanize found them only after the outside review).
+_RIDE_WARNINGS = {"skill_only_in_list", "too_many_skills", "bullet_count", "paragraph_count",
+                  "ai_phrase", "keyword_coverage_dropped", "jev_unsupported"}
 
 
 def _warnings(check: dict[str, Any]) -> list[dict[str, Any]]:
-    return [w for w in check.get("warnings") or [] if w.get("code") in _ROUND_WARNINGS | _RIDE_WARNINGS]
+    doubts = [f for f in check.get("flags") or [] if f.get("code") == "jev_unsupported"]
+    return [w for w in (check.get("warnings") or []) + doubts if w.get("code") in _ROUND_WARNINGS | _RIDE_WARNINGS]
 
 
 def _unsure(item: dict[str, Any], sure: float) -> bool:
@@ -207,15 +212,67 @@ def _unsure(item: dict[str, Any], sure: float) -> bool:
     return item.get("source") == "jev" and (item.get("confidence") or 1.0) <= sure
 
 
-def _load(app_dir: Path, n: int) -> dict[str, Any]:
+def _todays_ats(app_dir: Path, cfg: dict[str, Any]):
+    """A function giving round n's ATS scored under today's rules, or None when it can't be.
+
+    Each grade.json keeps the ATS of the day it was graded, and the rules and the ceilings move
+    (VCH Junior Data Developer's gap round changed 2 resume words and "gained" 10.5 ATS points,
+    mostly from newer rules; pipeline audit, Oct 29 2026), so rounds are compared on today's."""
+    try:
+        from src.resume import load_resume
+        from src.tailor.grade import ats_score, graded_evidence, title_ok
+
+        req = read_json(app_dir / "requirements.json")
+        evidence = graded_evidence(app_dir, cfg, req)
+        title = title_ok(app_dir)
+    except Exception:  # noqa: BLE001 - missing inputs: keep each round's own number
+        return lambda n: None
+
+    def score(n: int) -> float | None:
+        try:
+            return ats_score(load_resume(round_dir(app_dir, n) / "resume.yaml"), req, evidence, cfg, title)["total"]
+        except Exception:  # noqa: BLE001
+            return None
+
+    return score
+
+
+def _draft_text(app_dir: Path, n: int) -> str | None:
+    """Round n's resume and letter as plain text (no ids or sources), or None when unreadable."""
+    from src.resume import load_resume
+    from src.tailor.grade import letter_text, resume_text
+
+    d = round_dir(app_dir, n)
+    try:
+        letter = read_json(d / "cover-letter.json") if (d / "cover-letter.json").exists() else None
+        return resume_text(load_resume(d / "resume.yaml")) + "\n---\n" + (letter_text(letter) if letter else "")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def unchanged(app_dir: Path, n: int, on: int) -> bool:
+    """True when round n left the resume and letter as round `on` had them (four repair rounds in
+    October changed nothing and were graded again, two of them winning on Jev's coin flips)."""
+    a, b = _draft_text(app_dir, n), _draft_text(app_dir, on)
+    return a is not None and a == b
+
+
+def _load(app_dir: Path, n: int, today=None) -> dict[str, Any]:
     d = round_dir(app_dir, n)
     check = read_json(d / "check.json")
     grade = read_json(d / "grade.json")
     failed = _failed(grade)
+    ats = (grade.get("ats") or {}).get("total")
+    score = float(grade.get("score", 0))
+    now = today(n) if today else None
+    if now is not None and ats is not None:
+        items = grade.get("checklist") or []
+        rate = sum(p_pass(it) for it in items) / len(items) if items else 1.0
+        ats, score = now, round(0.6 * now + 0.4 * rate * 100, 1)
     return {
         "round": n,
-        "score": float(grade.get("score", 0)),
-        "ats": (grade.get("ats") or {}).get("total"),
+        "score": score,
+        "ats": ats,
         "criticals": len(check.get("criticals") or []),
         "failed_items": len(failed),
         "check": check,
@@ -299,9 +356,13 @@ def _finish_letter_round(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[
     from src.tailor import wording
     from src.tailor.grade import letter_text
 
-    build_on = feedback.get("build_on")
+    # A review fix round builds on the review round but is judged against the round the review read.
+    build_on = feedback.get("compare_to", feedback.get("build_on"))
     base = next((r for r in rounds if r["round"] == build_on), None) or _best(rounds[:-1])
     dropped = review and (cur["ats"] or 0) < (base["ats"] or 0) - ats_drop
+    if (review and feedback.get("review") and not dropped and cur["criticals"] > base["criticals"]
+            and not unchanged(app_dir, cur["round"], base["round"])):
+        return _review_fix(app_dir, rounds, cur, base, feedback)
     if cur["criticals"] <= base["criticals"] and not dropped:
         what = "the outside review acted on" if review else "round {0}'s resume with the new letter".format(base["round"])
         best, reason = cur, f"{'review' if review else 'letter'} round done: round {cur['round']} is {what}"
@@ -322,6 +383,34 @@ def _finish_letter_round(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[
     return {"action": "stop", "best_round": best["round"], "reason": reason, "next_round": None}
 
 
+def _review_fix(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[str, Any], base: dict[str, Any],
+                feedback: dict[str, Any]) -> dict[str, Any]:
+    """A review round that added a critical gets one round fixing only the flagged lines, built on
+    it, instead of losing every change it made (Infoblox, Oct 28 2026: "AI agent" wording drew two
+    invented_skill criticals and about 240 words of review fixes were thrown away). The fix round is
+    judged against the round the review read, like the review round itself."""
+    crit = cur["check"].get("criticals") or []
+    nxt = cur["round"] + 1
+    fb = {
+        "round": nxt,
+        "build_on": cur["round"],
+        "compare_to": base["round"],
+        "review_fix": True,
+        "review_pass": feedback.get("review_pass", 1),
+        "criticals": crit,
+        "failed_items": [],
+        "warnings": [],
+        "sections": _sections({"check": {"criticals": crit}, "grade": {}}),
+    }
+    write_json(round_dir(app_dir, nxt) / "feedback.json", fb)
+    reason = (f"review round {cur['round']} added {cur['criticals'] - base['criticals']} critical(s): "
+              f"round {nxt} fixes only those lines and keeps the rest of the review's changes")
+    summaries = [{"round": r["round"], "score": r["score"], "criticals": r["criticals"], "failed_items": r["failed_items"]}
+                 for r in rounds]
+    log(app_dir, "loop", f"repair: {reason}", rounds=summaries, best_round=base["round"])
+    return {"action": "repair", "best_round": base["round"], "reason": reason, "next_round": nxt}
+
+
 def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     app_dir = Path(app_dir)
     nums = _round_numbers(app_dir)
@@ -330,13 +419,14 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     loop_cfg = cfg.get("loop") or {}
     # A Jev answer near 50/50 is a coin flip, not a regression (Jake, Oct 21 2026).
     sure = loop_cfg.get("regression_min_confidence", 0.6)
-    rounds = [_load(app_dir, n) for n in nums]
+    today = _todays_ats(app_dir, cfg)
+    rounds = [_load(app_dir, n, today) for n in nums]
     cur, prev = rounds[-1], rounds[:-1]
     best = _best(rounds)
 
     side = _feedback(app_dir, cur["round"])
-    if (side.get("letter_only") or side.get("review")) and prev:
-        return _finish_letter_round(app_dir, rounds, cur, side, review=bool(side.get("review")),
+    if (side.get("letter_only") or side.get("review") or side.get("review_fix")) and prev:
+        return _finish_letter_round(app_dir, rounds, cur, side, review=bool(side.get("review") or side.get("review_fix")),
                                     ats_drop=float(loop_cfg.get("min_gain", 2.0)))
 
     # Jake, Oct 23 2026: more than `wide_gap` points under what the evidence allows isn't acceptable,
@@ -358,7 +448,11 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     # The round the next repair builds on: normally the last one, but a round that regressed is
     # set aside and the repair starts again from the best round so far.
     src, regressed = cur, None
-    if cur["criticals"] == 0 and cur["failed_items"] == 0 and (cur["ats"] or 0) >= target:
+    built = int(side.get("build_on") or cur["round"] - 1)
+    if prev and unchanged(app_dir, cur["round"], built):
+        # Repair found nothing it could honestly change; another round would only tinker.
+        reason = f"round {cur['round']} left the resume and letter as round {built} had them"
+    elif cur["criticals"] == 0 and cur["failed_items"] == 0 and (cur["ats"] or 0) >= target:
         reason = "all checks pass and the ATS score meets the target"
     elif prev:
         ref = _best(prev)

@@ -39,8 +39,10 @@ list is also the before/after diff the candidate reviews.
    score aims for 70 (`ats_floor`), and the biggest lever is PRESENT tools and methods the base never
    says in the posting's wording ("presentations" where the base says "talk", "data analysis" where
    it says "EDA"). Before writing, list every PRESENT hard-skill term the base doesn't already use
-   word for word, and work each one into the summary, a bullet or the skills list where a cited
-   passage supports it. If the posting's
+   word for word, and work each one into the summary or a bullet where a cited passage supports
+   it. Put it in the skills list only when a bullet or the letter also shows it: a list-only skill
+   gets a `skill_only_in_list` warning, and October's drafts carried that warning through every
+   round in about 20 of 29 folders. If the posting's
    main skills aren't in the vault, a lower score is the honest result: it is flagged as a weaker
    fit for Jake, not something to write around.
    **Mirror the posting's exact wording only for vault-backed terms.** If the posting says

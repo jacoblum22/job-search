@@ -231,7 +231,8 @@ def test_stuffing_warning_earns_a_round_and_reaches_feedback(tmp_path):
     out = next_round(app, {**CFG, "target_score": 80})
     assert out["action"] == "repair"
     fb = json.loads((app / "drafts" / "r2" / "feedback.json").read_text())
-    assert [w["code"] for w in fb["warnings"]] == ["term_stuffing"]
+    # The phrase warning rides along with the round (pipeline audit, Oct 29 2026), it doesn't start one.
+    assert [w["code"] for w in fb["warnings"]] == ["term_stuffing", "ai_phrase"]
     assert fb["sections"] == ["summary", "experience/algaecal"]
 
 
@@ -590,3 +591,32 @@ def test_gap_round_soft_note_leaves_out_what_the_letter_already_says(tmp_path, m
     fb = gap_round(app, CFG)
     soft = [f for f in fb["failed_items"] if f.startswith("Soft skills")]
     assert soft and soft[0].endswith("through a story: teamwork.")
+
+
+# Pipeline audit, Oct 29 2026.
+
+
+def test_a_round_that_changed_nothing_ends_the_loop(tmp_path):
+    import yaml
+
+    app = new_app(tmp_path)
+    resume = {"summary": {"id": "summary", "text": "Analyst who writes SQL.", "sources": ["a"]}}
+    for n in (1, 2):
+        add_round(app, n, 60 + n * 3, items=[item("a", False)], ats=60, feedback=["fix a"])
+        (app / "drafts" / f"r{n}" / "resume.yaml").write_text(yaml.safe_dump(resume), encoding="utf-8")
+        resume = {"summary": {**resume["summary"], "sources": ["a", "b"]}}  # citations only: same text
+    write_json(app / "drafts" / "r2" / "feedback.json", {"round": 2, "build_on": 1})
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and "left the resume and letter as round 1 had them" in out["reason"]
+
+
+def test_rounds_are_compared_on_todays_ats(tmp_path, monkeypatch):
+    from src.tailor import loop
+
+    app = new_app(tmp_path)
+    add_round(app, 1, 64, items=[item("a", False)], ats=60, feedback=["fix a"])
+    add_round(app, 2, 70, items=[item("a", False)], ats=70, feedback=["fix a"])
+    # Stored, round 2 gained 6 points; under today's rules both score 70, so it gained nothing.
+    monkeypatch.setattr(loop, "_todays_ats", lambda app_dir, cfg: (lambda n: 70.0))
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and "gain under" in out["reason"]

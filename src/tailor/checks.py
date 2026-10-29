@@ -35,7 +35,7 @@ from src.resume import iter_bullets, load_resume, validate
 from src.tailor import metrics, phrases, rejects, taxonomy, wording
 from src.tailor.appdir import humanized, log, read_json, round_dir, write_json
 from src.tailor.edits import LOCKED_FIELDS, load_base, load_index, norm
-from src.tailor.jev import Question
+from src.tailor.jev import Question, remembered
 from src.tailor.entries import library as entry_library
 from src.tailor.letter import run_letter_checks
 
@@ -706,7 +706,8 @@ def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> 
     for err in applied.get("letter_errors") or []:
         criticals.append({"code": "letter_shape", "message": err, "path": "cover-letter.json", "doc": "letter"})
 
-    flags, added = _jev_flags(jev, _changed_lines(draft, base), index)
+    # A line unchanged since an earlier round gets the answer Jev gave it then (jev.RememberedJev).
+    flags, added = _jev_flags(remembered(jev, app_dir), _changed_lines(draft, base), index)
     # A re-check finds nothing to flag where the first check already added the sources, so the
     # earlier citation-gap flag carries over while the line still cites what it added.
     lines = {"summary": draft.get("summary"), **dict(iter_bullets(draft))}

@@ -327,9 +327,15 @@ def test_jev_failure_means_unchecked(tmp_path):
     assert all(it["source"] == "unchecked" for it in out["checklist"])
 
 
+def forget(app):
+    """A different Jev on the same draft: drop the answers the first one gave (jev.RememberedJev)."""
+    (app / "jev-answers.json").unlink(missing_ok=True)
+
+
 def test_failed_checklist_lowers_score(tmp_path):
     app = make_app(tmp_path)
     good = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.9 if q.id == "top_third" else 0.9))
+    forget(app)
     bad = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.1 if q.id == "top_third" else 0.9))
     assert bad["score"] < good["score"]
     assert good["ats"]["total"] == bad["ats"]["total"]
@@ -339,6 +345,7 @@ def test_checklist_counts_jevs_probability_not_yes_or_no(tmp_path):
     # A 0.51 yes and a 0.49 no are the same coin flip; they shouldn't move the score 1/n apart.
     app = make_app(tmp_path)
     yes = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.51 if q.id == "top_third" else 0.9))
+    forget(app)
     no = run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.49 if q.id == "top_third" else 0.9))
     top = {it["id"]: it for it in no["checklist"]}["top_third"]
     assert top["passed"] is False and top["p_pass"] == 0.49
@@ -390,6 +397,7 @@ def test_soft_must_that_jev_passes_needs_no_word(tmp_path):
     write_json(app / "evidence.json", e)
     out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.8))
     assert not any("communication" in f for f in out["feedback"])
+    forget(app)
     out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r2" else 0.8))
     assert any("communication" in f for f in out["feedback"])
 
@@ -572,3 +580,19 @@ def test_required_term_only_in_the_summary_is_a_repair_note():
     assert "software engineering" in line["sentence"] and "summary" not in line["sections"]
     data["experience"][0]["bullets"][0]["text"] = "Built Python scripts as part of software engineering work."
     assert ats_gap(data, req, ev, {"ats_floor": 90}, None)["summary_only"] == []
+
+
+def test_letter_only_change_reuses_the_resume_answers(tmp_path):
+    # Resume questions read the resume alone, so a new letter leaves their answers as they were.
+    app = make_app(tmp_path)
+    run_grade(app, 1, CFG, FakeJev(lambda s, q: 0.55))
+    letter_path = app / "drafts" / "r1" / "cover-letter.json"
+    letter = json.loads(letter_path.read_text())
+    letter["paragraphs"][0]["text"] = "A new opening sentence about SQL. " + letter["paragraphs"][0]["text"]
+    write_json(letter_path, letter)
+    fake = FakeJev(lambda s, q: 0.9)
+    out = run_grade(app, 1, CFG, fake)
+    asked = [q.id for _, qs in fake.calls for q in qs]
+    assert asked and all(i.startswith("letter.") for i in asked)
+    items = {it["id"]: it for it in out["checklist"]}
+    assert items["top_third"]["p_pass"] == 0.55

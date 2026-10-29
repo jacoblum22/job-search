@@ -9,6 +9,8 @@ import yaml
 from src.tailor.appdir import write_json
 from src.tailor.loop import next_round, pending_round
 from src.tailor.outside import (
+    changed_since_review,
+    kept,
     parse_notes,
     response,
     resume_text,
@@ -94,7 +96,58 @@ def test_review_round_that_loses_ats_points_or_adds_a_critical_keeps_the_base(tm
         (app / "review" / "notes.md").write_text("1. x", encoding="utf-8")
         review_round(app)
         add_round(app, 3, 75, **kwargs)
-        assert next_round(app, CFG)["best_round"] == 2
+        out = next_round(app, CFG)
+        assert out["best_round"] == 2
+        # A lost ATS point ends it; an added critical gets one round fixing only those lines.
+        assert out["action"] == ("stop" if i == 0 else "repair")
+
+
+def test_review_round_with_a_new_critical_gets_one_fix_round(tmp_path):
+    app = _app(tmp_path)
+    (app / "review").mkdir()
+    (app / "review" / "notes.md").write_text("1. x", encoding="utf-8")
+    review_round(app)
+    add_round(app, 3, 75, ats=67, criticals=[crit("experience/northwind/northwind.sql")])
+    out = next_round(app, CFG)
+    assert out == {**out, "action": "repair", "next_round": 4, "best_round": 2}
+    fb = json.loads((app / "drafts" / "r4" / "feedback.json").read_text())
+    assert fb["review_fix"] and fb["build_on"] == 3 and fb["compare_to"] == 2 and fb["review_pass"] == 1
+    assert fb["sections"] == ["experience/northwind"] and len(fb["criticals"]) == 1
+    # Fixed: the round keeps the review's changes and ships.
+    add_round(app, 4, 74, ats=67)
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and out["best_round"] == 4
+    write_json(app / "app.json", {**json.loads((app / "app.json").read_text()), "best_round": 4})
+    assert kept(app, 1) is True
+    # Still broken: the round the review read ships, and no second fix round is asked for.
+    (tmp_path / "b").mkdir()
+    app = _app(tmp_path / "b")
+    (app / "review").mkdir()
+    (app / "review" / "notes.md").write_text("1. x", encoding="utf-8")
+    review_round(app)
+    add_round(app, 3, 75, ats=67, criticals=[crit("summary")])
+    next_round(app, CFG)
+    add_round(app, 4, 75, ats=67, criticals=[crit("summary")])
+    out = next_round(app, CFG)
+    assert out["action"] == "stop" and out["best_round"] == 2
+    write_json(app / "app.json", {**json.loads((app / "app.json").read_text()), "best_round": 2})
+    assert kept(app, 1) is False
+
+
+def test_a_round_made_after_the_review_gets_another_pass(tmp_path):
+    # Nexthop, Oct 27 2026: gap rounds after the review shipped a draft no reviewer read.
+    app = _app(tmp_path)
+    assert review_input(app)["pass"] == 1
+    assert json.loads((app / "review" / "reviewed.json").read_text()) == {"round": 2}
+    d = app / "review"
+    (d / "notes.md").write_text("Verdict: ready\nGood to go.\n", encoding="utf-8")
+    assert review_round(app) is None and review_input(app)["action"] == "stop"
+    add_round(app, 3, 74, ats=70)  # a gap round on a later day
+    (app / "drafts" / "r3" / "resume.yaml").write_text(yaml.safe_dump(RESUME, sort_keys=False), encoding="utf-8")
+    write_json(app / "app.json", {**json.loads((app / "app.json").read_text()), "best_round": 3})
+    assert changed_since_review(app) == 3
+    out = review_input(app)
+    assert out["action"] == "review" and out["pass"] == 2 and out["round"] == 3
 
 
 def test_response_reads_only_entries_with_a_note(tmp_path):

@@ -26,7 +26,7 @@ from src.tailor import TailorError, rejects, taxonomy, wording
 from src.tailor.appdir import log, read_json, round_dir, write_json
 from src.tailor.checks import supported_years
 from src.tailor.evidence import degree_level
-from src.tailor.jev import Question, strip_identity
+from src.tailor.jev import Question, remembered, strip_identity
 
 DEFAULT_WEIGHTS = {"keyword": 40, "skills": 20, "title": 15, "sections": 15, "dates": 10}
 SENIORITY_WORDS = {
@@ -519,8 +519,15 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
     text = resume_text(data)
     must_reqs = {r["id"]: r for r in req.get("requirements") or [] if r.get("kind") == "must"}
     qs, meta = _build_questions(app_dir, rnd, data, req, company, letter)
-    state = strip_identity(text + ("\n\n--- LETTER ---\n" + letter_text(letter) if letter else ""), data.get("contact"))
-    items = _run_checklist(jev, state, qs, meta)
+    # Resume questions read the resume and letter questions the letter, each on its own, so a
+    # letter-only round's unchanged resume gets the answers it already had (jev.RememberedJev).
+    jev = remembered(jev, app_dir)
+    resume_qs = [q for q in qs if not q.id.startswith("letter.")]
+    letter_qs = [q for q in qs if q.id.startswith("letter.")]
+    items = _run_checklist(jev, strip_identity(text, data.get("contact")), resume_qs, meta)
+    if letter_qs:
+        items += _run_checklist(jev, strip_identity("--- LETTER ---\n" + letter_text(letter), data.get("contact")),
+                                letter_qs, meta)
     for it in items:
         r = must_reqs.get(meta[it["id"]].get("req_id", ""), {})
         if it["id"].startswith("must.") and _is_degree(r) and _degree_by_rule(r, evidence, cfg):

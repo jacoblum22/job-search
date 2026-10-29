@@ -35,6 +35,10 @@ already passed.
    sentence that only names it), or take it out of the list (a `remove` edit on `skills/<group id>`
    with the item as `value`). A critical on a skills item is fixed the same way: `remove` the item,
    then `add_skill` it in the vault's wording if the critical names one.
+   Some warnings only ride along with a round that runs anyway; answer them while you are in those
+   lines: `ai_phrase` (reword the named phrase plainly, as `humanize.md` describes; a phrase the
+   posting uses stays), `keyword_coverage_dropped` (put the named term back in a line in `sections`
+   that already says it in the cited passage's words) and `jev_unsupported` (rule 10).
 3. **An unsourced number is removed, or replaced with a number the cited passage actually states.**
    Never reword around it ("roughly a third", "dozens"), never swap it for another invented figure.
 4. **"Use the posting's own words for these terms"** (the ATS item): work each listed term into a
@@ -69,6 +73,11 @@ already passed.
 8. A revision that adds an unsupported claim is rejected whatever its score. If the only way to pass
    an item is to claim something the vault cannot back, leave the item failing.
 9. Feedback wording is information; do not try to guess the grader's questions.
+   **If nothing in the feedback can be fixed honestly, change nothing.** Write `{"edits": []}`
+   and copy the letter unchanged; `next-round` then stops. A word swapped only so the round has
+   something to show is worse than no change (October's third drafts mostly changed about five
+   words, and rounds that changed nothing won or lost on Jev's coin flips). Say why in a line of
+   your notes for the digest.
 10. **A `jev_unsupported` flag is not proof of an overclaim.** First check whether the line's
     `sources` cite a passage for every claim in it; if one is missing, add that passage and keep the
     wording. Change the wording only when no passage backs the claim.
@@ -108,6 +117,10 @@ Read every numbered fix and decide, one by one:
   "[number]" stays out unless a cited passage has that number.
 - When two notes pull against each other, or a note would cost the posting's keywords, use
   judgment: the ATS words the posting cares about still matter.
+- **Check a new skill or tool word before you write it.** The reviewer never saw the vault, so a
+  word it suggests may be one the vault doesn't use ("AI agent" for an LLM tool-call loop drew two
+  `invented_skill` criticals on Infoblox, Oct 28 2026). Run `uv run python -m src.tailor vault <word>`
+  first; if no claim passage words it that way, make the reviewer's point in the vault's words.
 - "Questions only you can answer" and "Interview questions" are for Jake; they reach him on the
   review page. Don't act on them, and don't guess their answers.
 
@@ -148,6 +161,14 @@ entry per numbered fix:
 `note` is a short plain summary of the reviewer's point; `why` says what changed or why not, in a
 few words. Jake reads these in check.md, and the next review pass reads them, so a clear reason
 keeps the reviewer from raising the same point again.
+
+## Review fix rounds
+
+When `feedback.json` has `"review_fix": true`, the review round before it added a critical. The
+round builds on that review round (`build_on`) and keeps everything it changed; fix only the lines
+in `criticals`, the way rule 2 and rule 3 say (use the vault's wording for a skill, cut an unbacked
+number), and copy the letter unless a critical is in it. `next-round` then compares this round
+with the round the review read (`compare_to`) and keeps it unless a critical is still there.
 
 ## Output
 

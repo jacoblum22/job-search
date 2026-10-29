@@ -412,6 +412,10 @@ def test_skill_only_in_list_once_per_skill_named_as_listed(tmp_path):
     assert [w["data"]["term"] for w in res["warnings"] if w["code"] == "skill_only_in_list"] == ["dbt"]
 
 
+def forget(app):
+    (app / "jev-answers.json").unlink(missing_ok=True)
+
+
 def test_jev_flag_and_unavailable(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [sql_edit()])
@@ -421,6 +425,7 @@ def test_jev_flag_and_unavailable(tmp_path):
     assert [f["path"] for f in res["flags"]] == ["experience/northwind/northwind.sql-daily"]
     assert res["flags"][0]["source"] == "jev" and res["criticals"] == []
     assert "Wrote SQL daily in PostgreSQL (CTEs" in fake.calls[0][0]
+    forget(app)  # a different Jev on the same lines: drop the answers the first one gave
     assert run_check(app, 1, cfg, FakeJev({}))["flags"] == []
     assert run_check(app, 1, cfg, FakeJev(lambda s, q: 0.9))["flags"] == []
 
@@ -441,11 +446,13 @@ def test_jev_no_from_a_missed_citation_adds_the_passage(tmp_path):
     srcs = next(b["sources"] for e in draft["experience"] for b in e["bullets"] if b["id"] == "northwind.sql-daily")
     assert srcs == ["northwind.sql-daily", "northwind.dashboards"]
     # Re-checking the same draft keeps the flag, though Jev now says yes with the added source.
+    forget(app)
     again = run_check(app, 1, cfg, FakeJev(lambda s, q: 0.9))
     assert [f["code"] for f in again["flags"]] == ["jev_citation_gap"]
     # Still "no" with the related passages: a real doubt, and nothing is added.
     write_edits(app, [sql_edit(value=value)])
     apply_edits(app, 1, cfg)
+    forget(app)
     res = run_check(app, 1, cfg, FakeJev(lambda s, q: 0.2))
     assert [f["code"] for f in res["flags"]] == ["jev_unsupported"]
     assert "even with northwind.dashboards" in res["flags"][0]["message"]
