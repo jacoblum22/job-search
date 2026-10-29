@@ -116,18 +116,20 @@ def test_review_round_ends_the_loop_and_becomes_best(tmp_path):
     assert not (app / "drafts" / "r4").exists()
 
 
-def test_review_round_that_loses_ats_points_or_adds_a_critical_keeps_the_base(tmp_path):
-    for i, kwargs in enumerate(({"ats": 60}, {"ats": 66, "criticals": [crit("summary")]})):
+def test_review_round_is_kept_whatever_its_ats_but_a_critical_gets_a_fix_round(tmp_path):
+    # Jake, Oct 29 2026: in his chats the revision always goes back to the reviewer.
+    for i, kwargs in enumerate(({"ats": 50}, {"ats": 66, "criticals": [crit("summary")]})):
         (tmp_path / str(i)).mkdir()
         app = _app(tmp_path / str(i))
         (app / "review").mkdir()
         (app / "review" / "notes.md").write_text("1. x", encoding="utf-8")
         review_round(app)
-        add_round(app, 3, 75, **kwargs)
+        add_round(app, 3, 60, **kwargs)
         out = next_round(app, CFG)
-        assert out["best_round"] == 2
-        # A lost ATS point ends it; an added critical gets one round fixing only those lines.
-        assert out["action"] == ("stop" if i == 0 else "repair")
+        if i == 0:
+            assert out["action"] == "stop" and out["best_round"] == 3
+        else:  # an added critical gets one round fixing only those lines
+            assert out["action"] == "repair" and out["best_round"] == 2
 
 
 def test_review_round_with_a_new_critical_gets_one_fix_round(tmp_path):
@@ -273,7 +275,7 @@ def test_ready_verdict_asks_for_no_round_and_no_more_passes(tmp_path):
     assert review_input(app) == {"action": "stop", "reason": "review pass 2 said ready to submit"}
 
 
-def test_passes_stop_at_the_limit_or_when_a_review_round_is_not_kept(tmp_path):
+def test_passes_stop_at_the_limit_and_a_round_that_lost_ats_still_gets_reviewed(tmp_path):
     app = _app(tmp_path)
     _review_done(app, 3)
     _review_done(app, 4, n=2)
@@ -283,8 +285,8 @@ def test_passes_stop_at_the_limit_or_when_a_review_round_is_not_kept(tmp_path):
     assert review_input(app, cfg=cap)["action"] == "stop" and "3 review passes" in review_input(app, cfg=cap)["reason"]
     (tmp_path / "b").mkdir()
     app = _app(tmp_path / "b")
-    assert _review_done(app, 3, ats=50)["best_round"] == 2  # lost ATS points: not kept
-    assert "not kept" in review_input(app)["reason"]
+    assert _review_done(app, 3, ats=50)["best_round"] == 3  # lost ATS points: kept all the same
+    assert review_input(app)["pass"] == 2
 
 
 def test_summary_keeps_last_pass_items_and_earlier_ones_still_about_the_text(tmp_path):

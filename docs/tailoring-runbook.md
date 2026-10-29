@@ -201,11 +201,11 @@ folder before starting the next. Keep a running note of the outcome for the dige
     - `uv run python -m src.tailor review-round "<app>"`. If it asks for a round, follow
       `prompts/tailor/repair.md` ("Review round") for that round number, then run `apply-edits`,
       `check`, `grade` with `--round N`, and `next-round`. It ends the loop and keeps the review
-      round unless it lost ATS points; if the review round added a critical, `next-round` asks for
+      round, whatever its ATS score; if the review round added a critical, `next-round` asks for
       one review fix round instead: follow repair.md ("Review fix rounds"), run `apply-edits`,
       `check`, `grade` and `next-round` once more. Then go back to the first bullet:
       `review-input` decides whether another pass is due (it stops when the reviewer says ready,
-      a review round wasn't kept, or `loop.review_passes` passes are done, 6 by default; anything
+      a review round wasn't kept because a critical stayed, or `loop.review_passes` passes are done, 6 by default; anything
       short of "ready to submit now" counts as not yet).
     - A job Jake can't do ends the reviews at once: `review-input` stops when the posting requires
       a language he doesn't speak (`score.languages`, even for a folder drafted before that rule).

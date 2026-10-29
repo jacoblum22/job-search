@@ -7,7 +7,7 @@ a summary that didn't read as the role, the letter missing the best evidence). S
 loop stops, `review-input` writes the best round as plain text for a reviewer that has never seen
 the vault or the rules; it writes `review/notes.md`; `review-round` then asks for one more round
 that builds on the best round and acts on the notes the vault and the rules allow. That round
-becomes the best unless it adds a critical or loses ATS points (loop._finish_letter_round), and packet shows what was
+becomes the best unless it adds a critical (loop._finish_letter_round; never dropped for ATS points, Jake Oct 29 2026), and packet shows what was
 changed and what was left in check.md.
 
 Jake, Oct 29 2026: his own claude.ai reviews (job-application-review skill) never stop after one
