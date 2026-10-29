@@ -279,8 +279,9 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     when the summary doesn't open with it yet). Soft skills weigh `ats_soft_weight` (0 since
     Jake, Oct 23 2026: ATS searches key on hard skills), so a missing soft word is never a gap to close.
 
-    The ATS target is the floor, or the ceiling minus a small tolerance when the ceiling itself is
-    under the floor. A ceiling under the floor is a fit gap (the evidence isn't there), not a wording gap."""
+    The ATS target is the ceiling minus `loop.wide_gap` (8): repair keeps going until the resume is
+    that close to what the evidence allows. A ceiling under the floor (70) is a fit gap (the evidence
+    isn't there), not a wording gap."""
     text = resume_text(data)
     terms, req_terms = _collect_terms(req)
     backed = _backed_set(evidence)
@@ -326,7 +327,9 @@ def ats_gap(data: dict[str, Any], req: dict[str, Any], evidence: dict[str, Any],
     wsum = sum(weights.get(k, 0) for k in live)
     ceiling = round(sum(weights.get(k, 0) * v for k, v in live.items()) / wsum if wsum else 0.0, 1)
     floor = float(cfg.get("ats_floor", 70))
-    target = min(floor, ceiling - float(cfg.get("ats_wording_tolerance", 5)))
+    # Jake, Oct 29 2026: no fixed 70 target; repair stops only within `loop.wide_gap` of the ceiling
+    # (Quora Full Stack sat 5-9 points under its ceiling because 71.6 already "cleared 70").
+    target = ceiling - float((cfg.get("loop") or {}).get("wide_gap", 8))
     return {"unused": unused, "unused_soft": unused_soft, "unbacked": unbacked, "title_missing": title_missing,
             "summary_only": summary_only,
             "ceiling": ceiling, "floor": floor, "target": round(target, 1), "fit_gap": ceiling < floor,

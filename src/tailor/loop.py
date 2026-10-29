@@ -442,7 +442,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     # a fit gap doesn't, since repairing harder would only stuff keywords.
     needs_ats = cur["grade"].get("needs_ats_repair")
     if needs_ats is None:
-        needs_ats = (cur["ats"] or 0) < cfg.get("ats_floor", 70)
+        needs_ats = _wide_gap(cur, loop_cfg)
 
     reason: str | None = None
     # The round the next repair builds on: normally the last one, but a round that regressed is
@@ -463,7 +463,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
             regressed = f"regression: an item that passed in round {ref['round']} now fails"
         best_needs_ats = best["grade"].get("needs_ats_repair")
         if best_needs_ats is None:
-            best_needs_ats = (best["ats"] or 0) < cfg.get("ats_floor", 70)
+            best_needs_ats = _wide_gap(best, loop_cfg)
         if regressed and best_needs_ats and len(rounds) < max_rounds:
             # A wording gap is still open (Jake's ATS floor: repair until within 5 of the ceiling or
             # 70), so a bad round doesn't end the loop: the next one builds on the best round so far

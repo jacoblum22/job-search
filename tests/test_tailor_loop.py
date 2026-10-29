@@ -154,19 +154,24 @@ def test_nothing_to_repair_stops(tmp_path):
     assert out["action"] == "stop" and out["next_round"] is None
 
 
-def test_below_ats_floor_keeps_repairing_despite_small_gain(tmp_path):
+def test_wide_gap_keeps_repairing_despite_small_gain(tmp_path):
+    # Jake, Oct 29 2026: no fixed 70 target. More than loop.wide_gap (8) under the ceiling keeps
+    # repairing on a small gain, even above 70 (Quora Full Stack stopped at 71.6 with 79.5 reachable).
     app = new_app(tmp_path)
-    cfg = {**CFG, "ats_floor": 70}
-    add_round(app, 1, 60.0, ats=51, feedback=["Use the posting's own words for: data analysis."])
-    add_round(app, 2, 61.0, ats=55, feedback=["Use the posting's own words for: reports."])
-    out = next_round(app, cfg)
+    add_round(app, 1, 60.0, ats=70, feedback=["Use the posting's own words for: data analysis."])
+    add_round(app, 2, 61.0, ats=71, feedback=["Use the posting's own words for: reports."])
+    for n in (1, 2):
+        _set_grade(app, n, ats_ceiling=80)
+    out = next_round(app, CFG)
     assert out["action"] == "repair" and out["next_round"] == 3
-    # at or above the floor the usual small-gain stop applies
+    # within wide_gap of the ceiling the usual small-gain stop applies, even under 70
     (tmp_path / "b").mkdir()
     app2 = new_app(tmp_path / "b")
-    add_round(app2, 1, 60.0, ats=72, feedback=["x"])
-    add_round(app2, 2, 61.0, ats=73, feedback=["x"])
-    assert next_round(app2, cfg)["action"] == "stop"
+    add_round(app2, 1, 60.0, ats=62, feedback=["x"])
+    add_round(app2, 2, 61.0, ats=63, feedback=["x"])
+    for n in (1, 2):
+        _set_grade(app2, n, ats_ceiling=68)
+    assert next_round(app2, CFG)["action"] == "stop"
 
 
 def test_fit_gap_stops_on_small_gain_even_below_floor(tmp_path):

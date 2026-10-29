@@ -36,7 +36,7 @@ list is also the before/after diff the candidate reviews.
    timeframes unless the same number is in the cited passage. If the original has no number, keep the
    bullet qualitative. Do not round, convert or "improve" a number.
 4. **Use the posting's exact words for every vault-backed hard skill, and leave none out.** The ATS
-   score aims for 70 (`ats_floor`), and the biggest lever is PRESENT tools and methods the base never
+   score aims for within 8 points of the best the vault allows (`loop.wide_gap`), and the biggest lever is PRESENT tools and methods the base never
    says in the posting's wording ("presentations" where the base says "talk", "data analysis" where
    it says "EDA"). Before writing, list every PRESENT hard-skill term the base doesn't already use
    word for word, and work each one into the summary or a bullet where a cited passage supports
