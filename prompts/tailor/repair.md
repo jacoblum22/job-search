@@ -13,6 +13,12 @@ already passed.
 - `drafts/r<N>/feedback.json`: `criticals`, `failed_items`, `warnings` (style problems such as a term
   repeated too often, text copied from the posting, or a letter outside 200-300 words), and
   `sections` (the only paths you may change)
+- `earlier_letters` in feedback.json, when present: letters from earlier rounds that passed a letter
+  check the draft you build on now fails (`items` names the checks, `text` is that letter). The
+  letter checks only warn, they don't decide which draft wins, so keep the newer draft and repair
+  the letter on it. Take what made the earlier letter pass (a sentence that was specific to the
+  company, a stronger opener or closer) and bring it back or reword it, as long as it is true and
+  fits this draft; don't paste the earlier letter back over a letter that fixed other problems.
 - `drafts/r<B>/edits.json` and `drafts/r<B>/cover-letter.json` (the draft you build on), where `B` is
   feedback.json's `build_on`: normally N-1, but when round N-1 made things worse it names the best
   earlier round, and round N-1's changes are dropped

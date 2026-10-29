@@ -129,6 +129,31 @@ def test_item_that_passed_before_and_fails_now_is_a_regression(tmp_path):
     assert out["best_round"] == 2  # no criticals either way, higher score
 
 
+def test_letter_checks_warn_but_do_not_decide(tmp_path):
+    # Quora Full Stack, Oct 29 2026: round 5 closed an 8.8-point ATS gap, but two letter checks that
+    # round 3 passed failed, so the loop kept round 3 and built the next round on it.
+    app = new_app(tmp_path)
+    resume = [item(f"i{k}", True) for k in range(6)]
+    add_round(app, 1, 70, items=resume + [item("letter.closer", True), item("letter.specific", True)],
+              ats=68.4, feedback=["use the words"])
+    write_json(app / "drafts" / "r1" / "cover-letter.json", {"greeting": "Hi", "paragraphs": [{"text": "Poe closer."}], "sign_off": "Bye"})
+    add_round(app, 2, 74, items=resume + [item("letter.closer", False), item("letter.specific", False)],
+              ats=77.2, feedback=["fix the closer"])
+    out = next_round(app, CFG)
+    assert out["best_round"] == 2 and "regression" not in out["reason"]
+    assert out["action"] == "repair"  # the letter checks still fail, so the next round repairs them
+    fb = json.loads((app / "drafts" / "r3" / "feedback.json").read_text())
+    assert fb["build_on"] == 2
+    assert fb["earlier_letters"] == [{"round": 1, "items": ["letter.closer", "letter.specific"],
+                                      "text": "Hi\n\nPoe closer.\n\nBye"}]
+    # a resume item that passed before and fails now is still a regression
+    (tmp_path / "b").mkdir()
+    app2 = new_app(tmp_path / "b")
+    add_round(app2, 1, 70, items=[item("a", True), item("b", False)], ats=77.0, feedback=["x"])
+    add_round(app2, 2, 70, items=[item("a", False), item("b", True)], ats=77.2, feedback=["y"])
+    assert next_round(app2, CFG)["reason"].startswith("regression")
+
+
 def test_round_limit(tmp_path):
     app = new_app(tmp_path)
     for n, s in ((1, 50), (2, 60), (3, 70)):

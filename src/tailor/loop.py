@@ -275,7 +275,7 @@ def _load(app_dir: Path, n: int, today=None) -> dict[str, Any]:
     score = float(grade.get("score", 0))
     now = today(n) if today else None
     if now is not None and ats is not None:
-        items = grade.get("checklist") or []
+        items = [it for it in grade.get("checklist") or [] if not _is_letter(str(it.get("id", "")))]
         rate = sum(p_pass(it) for it in items) / len(items) if items else 1.0
         ats, score = now, round(0.6 * now + 0.4 * rate * 100, 1)
     return {
@@ -292,7 +292,35 @@ def _load(app_dir: Path, n: int, today=None) -> dict[str, Any]:
     }
 
 
+def _is_letter(item_id: str) -> bool:
+    return item_id.startswith("letter.")
+
+
+def _earlier_letters(app_dir: Path, rounds: list[dict[str, Any]], src: dict[str, Any]) -> list[dict[str, Any]]:
+    """For the letter checks the draft being repaired fails, the latest earlier round that passed
+    them, with its letter: material to borrow from or bring back sentences that tipped the balance
+    (Jake, Oct 29 2026: Quora round 5's new closing failed two checks round 3's passed)."""
+    from src.tailor.grade import letter_text
+
+    found: dict[int, list[str]] = {}
+    for item_id in sorted(i for i in src["failed_ids"] if _is_letter(i)):
+        for r in reversed(rounds):
+            if r["round"] < src["round"] and item_id in r["passed_ids"]:
+                found.setdefault(r["round"], []).append(item_id)
+                break
+    out = []
+    for n, ids in sorted(found.items()):
+        path = round_dir(app_dir, n) / "cover-letter.json"
+        if path.exists():
+            out.append({"round": n, "items": ids, "text": letter_text(read_json(path))})
+    return out
+
+
 def _shared_rate(r: dict[str, Any], shared: set[str]) -> float:
+    """Jev's chance that the items both rounds were asked pass, over the resume's items only. The
+    letter's checks (letter.*) are warnings, not judges (Jake, Oct 29 2026): two letter items out of
+    eight outvoted an 8.8-point ATS gain on Quora Full Stack, and the loop kept an older draft."""
+    shared = {i for i in shared if not _is_letter(i)}
     return sum(p_pass(r["items"][i]) for i in shared) / len(shared) if shared else 1.0
 
 
@@ -462,7 +490,8 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
         reason = "all checks pass and the ATS score meets the target"
     elif prev:
         ref = _best(prev)
-        newly_failed = {i for i in cur["failed_ids"] & ref["passed_ids"] if not _unsure(cur["items"][i], sure)}
+        newly_failed = {i for i in cur["failed_ids"] & ref["passed_ids"]
+                        if not _is_letter(i) and not _unsure(cur["items"][i], sure)}
         if cur["criticals"] > ref["criticals"]:
             regressed = f"regression: round {cur['round']} has more criticals than round {ref['round']}"
         elif newly_failed:
@@ -515,6 +544,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
                 "warnings": [{"code": w["code"], "message": w["message"], "path": w.get("path", "")}
                              for w in _warnings(src["check"])],
                 "sections": _sections(src),
+                "earlier_letters": _earlier_letters(app_dir, rounds, src),
             },
         )
     log(app_dir, "loop", f"{action}: {reason}", rounds=summaries, best_round=best["round"])
