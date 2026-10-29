@@ -200,15 +200,20 @@ def test_parse_notes_reads_verdict_and_sections():
     assert parse_notes("1. no verdict")["verdict"] is None
 
 
-def test_second_pass_sees_earlier_notes_and_responses(tmp_path):
+def test_later_passes_see_earlier_reviews_and_new_text_but_not_what_changed(tmp_path):
+    # Jake, Oct 29 2026: his chats never say what he changed; the reviewer reads the new text.
     app = _app(tmp_path)
     assert review_input(app)["pass"] == 1
     assert _review_done(app, 3)["best_round"] == 3
     out = review_input(app)
     assert out["action"] == "review" and out["pass"] == 2 and out["follow_up"] and out["round"] == 3
     text = (app / "review" / "pass2" / "input.md").read_text(encoding="utf-8")
-    assert "missing Azure experience" in text and "Left as is: Summary opener (keeps the posting title)" in text
-    assert text.index("Your review of the last version") < text.index("# Resume (revised)")
+    assert "missing Azure experience" in text and "Summary opener" not in text
+    assert text.index("# Your review 1") < text.index("Is this better? Is it ready to submit?") < text.index("# Resume (revised)")
+    _review_done(app, 4, text=NOTES_1.replace("Azure", "Snowflake"), n=2)
+    assert review_input(app)["pass"] == 3
+    text = (app / "review" / "pass3" / "input.md").read_text(encoding="utf-8")
+    assert text.index("# Your review 1") < text.index("# Your review 2") < text.index("Snowflake")
 
 
 def test_ready_verdict_asks_for_no_round_and_no_more_passes(tmp_path):

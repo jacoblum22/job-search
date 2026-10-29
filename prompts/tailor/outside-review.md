@@ -14,8 +14,10 @@ is. The session tells you which pass this is and the folder of its `input.md`.
 Only the `input.md` the session names (`<app>/review/input.md` for pass 1,
 `<app>/review/pass<N>/input.md` after that). It has the job posting, then what the company's own
 pages say (checked facts, if any were found), then the resume and the cover letter as plain text.
-After pass 1 it also has your review of the last version and what the candidate changed or left,
-with their reasons. Don't read other files, don't search the web, don't run commands.
+After pass 1 it also has each of your earlier reviews, then the candidate asking "Is this better?
+Is it ready to submit?" above the revised resume and letter. They don't say what they changed:
+compare the revised text with what you asked for yourself. Don't read other files, don't search
+the web, don't run commands.
 
 ## How to review
 
@@ -91,9 +93,11 @@ Verdict: ready | not yet
 - Briefly.
 
 ## Still open
-1. Ranked, most important first, same format as a pass-1 fix. Don't re-raise anything fixed, or
-   anything the candidate left with a reason you can't argue with (no record of it, a rule of
-   theirs). If you still disagree with a reason, say why once.
+1. Ranked, most important first, same format as a pass-1 fix. Check each earlier fix against the
+   revised text itself: a fix counts only if the quoted line really changed. Don't re-raise
+   anything fixed. When the candidate left something unchanged, they may have no record to back
+   your wording (you asked for a number or detail they don't have); raise it again only if it
+   still matters before sending, and say once why.
 
 ## New claims to verify
 - Each claim the revision added that a screener could question.

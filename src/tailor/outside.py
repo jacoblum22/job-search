@@ -13,8 +13,9 @@ changed and what was left in check.md.
 Jake, Oct 29 2026: his own claude.ai reviews (job-application-review skill) never stop after one
 pass. He sends the revised PDFs back with "Is this better? Is it ready to submit?" two to four
 times, the reviewer checks the company's claims, and asks him questions only he can answer. So a
-review pass after the first (`review/pass<N>/`) sees its earlier notes and what was changed or left
-and why, answers in that later-round shape, and gives a verdict. Another round runs only while the
+review pass after the first (`review/pass<N>/`) sees its earlier reviews and the revised text, never
+a list of what was changed (it judges the text itself, as in his chats), answers in that
+later-round shape, and gives a verdict. Another round runs only while the
 verdict is "not yet", up to `loop.review_passes` passes. The verdict, the questions for Jake and the
 interview questions go at the top of check.md.
 """
@@ -217,18 +218,11 @@ def company_facts(app_dir: Path, cfg: dict[str, Any] | None) -> list[str]:
     return out
 
 
-def _response_lines(app_dir: Path, n: int) -> list[str]:
-    lines = []
-    for r in response(app_dir, n):
-        done = "Changed" if str(r.get("action", "")).lower().startswith("change") else "Left as is"
-        lines.append(f"- {done}: {r['note']}" + (f" ({r['why']})" if r.get("why") else ""))
-    return lines
-
-
 def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | None = None) -> dict[str, Any]:
     """Write the next pass's input.md: the posting, what the company's own pages say, the best
-    round's resume and letter as plain text and, after the first pass, the earlier notes and what
-    was done with each. Returns {"action": "stop", "reason"} when no pass is due."""
+    round's resume and letter as plain text and, after the first pass, every earlier review and
+    "Is this better? Is it ready to submit?" (never what was changed). Returns {"action": "stop",
+    "reason"} when no pass is due."""
     app_dir = Path(app_dir)
     n, why = next_pass(app_dir, cfg)
     if n is None:
@@ -246,11 +240,16 @@ def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | No
     facts = company_facts(app_dir, cfg)
     if facts:
         parts += ["# What the company's own pages say", "\n".join(facts)]
+    # Jake, Oct 29 2026: in his own review chats he never says what he changed. The reviewer sees
+    # its earlier reviews, then the revised resume and letter with "Is this better? Is it ready to
+    # submit?", and judges the text itself. A list of what was changed let pass 2 of Jobgether 2868
+    # believe "resume now matches the letter" when the resume still said "fell to none".
+    for k in range(1, n):
+        notes = pass_dir(app_dir, k) / "notes.md"
+        if notes.exists():
+            parts += [f"# Your review {k} (of an earlier version)", notes.read_text(encoding="utf-8").strip()]
     if n > 1:
-        prev = pass_dir(app_dir, n - 1) / "notes.md"
-        parts += ["# Your review of the last version", prev.read_text(encoding="utf-8").strip(),
-                  "# What the candidate changed and what they left, with their reasons",
-                  "\n".join(_response_lines(app_dir, n - 1)) or "(no list given)"]
+        parts += ["# The candidate", "Is this better? Is it ready to submit?"]
     parts += ["# Resume" + (" (revised)" if n > 1 else ""), resume_text(data),
               "# Cover letter" + (" (revised)" if n > 1 else ""), letter_text(letter) if letter else "(no letter)"]
     out = pass_dir(app_dir, n) / "input.md"
