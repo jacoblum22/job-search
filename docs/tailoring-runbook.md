@@ -182,7 +182,10 @@ folder before starting the next. Keep a running note of the outcome for the dige
      These used to run on a later day, after the outside review had read an older draft.
 10. **Outside review (like Jake's own "is this better?" reviews).** When the loop has stopped:
     - `uv run python -m src.tailor review-input "<app>"`. If it prints `"action": "stop"`, go to
-      step 11. Otherwise it wrote the pass's `input.md` (pass 1: `<app>/review/`, later passes:
+      step 11. If it prints `"action": "repair"`, the best round sits more than `loop.wide_gap`
+      under what the evidence allows (or fails a letter check): do that round like `extra-round`
+      does (step 9), then run `review-input` again. A packet must never end `needs_fixes` on a
+      wide gap. Otherwise it wrote the pass's `input.md` (pass 1: `<app>/review/`, later passes:
       `<app>/review/pass<N>/`).
     - Start a subagent (no model override), telling it to follow `prompts/tailor/outside-review.md`
       and giving it the folder path, the pass number and the `input.md` path from the output. It
