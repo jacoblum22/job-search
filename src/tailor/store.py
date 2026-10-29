@@ -111,7 +111,10 @@ def folder_path(value: str | None) -> Path:
     if not value:
         return Path()
     p = Path(value)
-    if not p.is_absolute() and not PureWindowsPath(value).is_absolute():
+    # "/home/..." has no drive, so Windows doesn't call it absolute; it is still another
+    # computer's full path, not one under the repo root.
+    rooted = value.startswith(("/", "\\"))
+    if not rooted and not p.is_absolute() and not PureWindowsPath(value).is_absolute():
         return ROOT / p
     if p.exists():
         return p
