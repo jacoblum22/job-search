@@ -18,7 +18,11 @@
 # By hand, no scrape: .\scripts\run_tailoring.ps1
 # Waiting rounds only (repair or letter rounds on applications up for review, no new jobs):
 #                    .\scripts\run_tailoring.ps1 -ResumeOnly
-# Afterwards run_tailoring_review.ps1 reviews the log and opens a PR for any pipeline
+# -Parallel N (2 by default) runs up to N Claude sessions at once: waiting rounds and unfinished
+# folders start while the scrape runs, then a session per company for the queue's new jobs
+# (docs/tailoring-runbook.md, "Parallel sessions"). -Parallel 1 is one session for everything,
+# as -JobId and -ResumeOnly runs always are.
+# Afterwards run_tailoring_review.ps1 reviews the logs and opens a PR for any pipeline
 # fixes (docs/run-review-task.md); -NoReview skips that.
 
 param(
@@ -28,7 +32,8 @@ param(
     [switch]$NoReview,
     [switch]$Scrape,
     [switch]$NoScrape,
-    [switch]$ResumeOnly
+    [switch]$ResumeOnly,
+    [int]$Parallel = 2
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -61,7 +66,7 @@ if ($ResumeOnly) {
     $queueCmd = "uv run python -m src.tailor queue"
     $mode = "daily cap"
 }
-Log "Starting tailoring run ($mode); transcript $transcript"
+Log "Starting tailoring run ($mode)"
 # While this file names a live process, the dashboard shows the run and won't start another,
 # even after the dashboard server restarts (src/tailor_runner.py). Removed when the run ends.
 $runFile = Join-Path $projectRoot "logs\tailoring.run.json"
@@ -78,30 +83,37 @@ uv sync -q 2>&1 | Out-Null
 
 # Fresh postings first. Start-Process with file redirection, not a pipe: PowerShell 5.1 turns
 # Python's stderr log lines into errors when piped (see run_full_aggregate.ps1).
-if ($Scrape -and -not $NoScrape -and -not $ResumeOnly -and $JobId -le 0) {
-    $scrapeLog = Join-Path $projectRoot "logs\full_aggregate.log"
-    $stdoutTmp = Join-Path $env:TEMP "job-tailoring-scrape-stdout.log"
-    $stderrTmp = Join-Path $env:TEMP "job-tailoring-scrape-stderr.log"
+$scrapeLog = Join-Path $projectRoot "logs\full_aggregate.log"
+$stdoutTmp = Join-Path $env:TEMP "job-tailoring-scrape-stdout.log"
+$stderrTmp = Join-Path $env:TEMP "job-tailoring-scrape-stderr.log"
+
+function Start-Scrape {
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Starting full aggregation (before tailoring)" | Add-Content $scrapeLog
     Log "Scraping every source before picking jobs (log: logs\full_aggregate.log)"
-    $scrapeStart = Get-Date
+    $script:scrapeStart = Get-Date
     try {
         # --wait-lock: if another scrape (the Azure job, the email check) is mid-way, wait for
         # it (up to 30 min) instead of skipping the scrape; --skip-if-fresh: after a full run in
         # the last 6 hours, fetch only what the Azure job leaves here (exit 4 if that's nothing).
-        $proc = Start-Process -FilePath (Join-Path $projectRoot ".venv\Scripts\python.exe") `
+        $p = Start-Process -FilePath (Join-Path $projectRoot ".venv\Scripts\python.exe") `
             -ArgumentList "scripts/aggregate.py", "--wait-lock", "1800", "--skip-if-fresh", "6" `
             -WorkingDirectory $projectRoot `
             -RedirectStandardOutput $stdoutTmp -RedirectStandardError $stderrTmp `
-            -NoNewWindow -Wait -PassThru
-        $code = $proc.ExitCode
+            -NoNewWindow -PassThru
+        $null = $p.Handle   # without this, ExitCode stays empty for a process not started with -Wait
+        return $p
     } catch {
-        $code = "not started: $($_.Exception.Message)"
+        $script:scrapeError = "not started: $($_.Exception.Message)"
+        return $null
     }
+}
+
+function Complete-Scrape($proc) {
+    $code = if ($proc) { $proc.WaitForExit(); $proc.ExitCode } else { $script:scrapeError }
     Get-Content $stdoutTmp, $stderrTmp -ErrorAction SilentlyContinue | Add-Content $scrapeLog
     Remove-Item $stdoutTmp, $stderrTmp -ErrorAction SilentlyContinue
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Done (exit code $code)" | Add-Content $scrapeLog
-    $mins = ((Get-Date) - $scrapeStart).TotalMinutes
+    $mins = ((Get-Date) - $script:scrapeStart).TotalMinutes
     if ($code -eq 0) {
         Log ("Scrape finished in {0:N0} min" -f $mins)
     } elseif ($code -eq 4) {
@@ -116,15 +128,18 @@ if ($Scrape -and -not $NoScrape -and -not $ResumeOnly -and $JobId -le 0) {
 # The evening Chrome task's hand-off (docs/browser-description-task.md): store the
 # descriptions it left in .browser-queue\ and write a fresh queue.json for tonight. Runs
 # here, not in the scrape, because the scrape may run in Azure, where this folder isn't.
-$bqOut = & (Join-Path $projectRoot ".venv\Scripts\python.exe") scripts\browser_queue.py sync 2>&1 | ForEach-Object { "$_" }
-if ($LASTEXITCODE -ne 0) { Log "WARNING: browser queue sync failed (exit $LASTEXITCODE)" }
-$bqOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | ForEach-Object { Log $_ }
+function Sync-BrowserQueue {
+    $bqOut = & (Join-Path $projectRoot ".venv\Scripts\python.exe") scripts\browser_queue.py sync 2>&1 | ForEach-Object { "$_" }
+    if ($LASTEXITCODE -ne 0) { Log "WARNING: browser queue sync failed (exit $LASTEXITCODE)" }
+    $bqOut | Where-Object { $_ -notmatch "UV_NATIVE_TLS" } | ForEach-Object { Log $_ }
+}
 
-# The prompt is everything between the two markers in the runbook.
+# The prompt is everything between the two markers in the runbook; {SCOPE} says which part of
+# the run this Claude session does.
 $doc = Get-Content (Join-Path $projectRoot "docs\tailoring-runbook.md") -Raw -Encoding UTF8
-$prompt = ($doc -split "<!-- prompt start -->", 2)[1]
-$prompt = ($prompt -split "<!-- prompt end -->", 2)[0]
-$prompt = $prompt.Replace("{DATE}", $date).Replace("{QUEUE}", $queueCmd)
+$basePrompt = ($doc -split "<!-- prompt start -->", 2)[1]
+$basePrompt = ($basePrompt -split "<!-- prompt end -->", 2)[0]
+$basePrompt = $basePrompt.Replace("{DATE}", $date).Replace("{QUEUE}", $queueCmd)
 
 $tools = @(
     "Read", "Glob", "Grep", "WebSearch", "Agent",
@@ -136,23 +151,146 @@ $claudeArgs = @("-p", "--output-format", "stream-json", "--verbose", "--strict-m
                 "--permission-mode", "dontAsk", "--allowedTools") + $tools
 if ($MaxBudgetUsd -gt 0) { $claudeArgs += @("--max-budget-usd", "$MaxBudgetUsd") }
 
-$out = $prompt | claude @claudeArgs 2>&1
-$out | ForEach-Object { "$_" } | Set-Content $transcript -Encoding UTF8
-
-# The last stream-json line is the result: the digest text, cost and turn count.
-$result = $null
-foreach ($line in ($out | ForEach-Object { "$_" } | Select-Object -Last 5)) {
-    try { $obj = $line | ConvertFrom-Json; if ($obj.type -eq "result") { $result = $obj } } catch {}
+# One Claude session runs as a background job (its own PowerShell process), so several can run
+# at once. Each writes its own transcript.
+$sessionBlock = {
+    param($root, $prompt, $cliArgs, $transcriptPath)
+    $cliArgs = @($cliArgs)   # a job hands arrays over as lists; splatting needs an array
+    Set-Location $root
+    $enc = New-Object System.Text.UTF8Encoding $false
+    $OutputEncoding = $enc
+    try { [Console]::OutputEncoding = $enc } catch {}
+    $out = $prompt | claude @cliArgs 2>&1
+    $out | ForEach-Object { "$_" } | Set-Content $transcriptPath -Encoding UTF8
 }
-if ($result) {
-    $digest = Join-Path $digestDir "$date.md"
-    Add-Content $digest ("`n<!-- $stamp -->`n" + $result.result) -Encoding UTF8
-    Log ("Finished: {0}, {1} turns, `${2:N2}, {3:N0} min" -f $result.subtype, $result.num_turns,
-         $result.total_cost_usd, ($result.duration_ms / 60000))
-    $result.result | Add-Content $logFile -Encoding UTF8
+$sessions = @()
+
+function Start-Session($label, $scope) {
+    $n = $script:sessions.Count + 1
+    $path = if ($n -eq 1 -and $label -eq "all") { $transcript } else { Join-Path $logDir "${stamp}_$n-$label.jsonl" }
+    $prompt = $basePrompt.Replace("{SCOPE}", $scope)
+    $job = Start-Job -ScriptBlock $sessionBlock -ArgumentList @($projectRoot, $prompt, $claudeArgs, $path)
+    $s = [pscustomobject]@{ Label = $label; Transcript = $path; Job = $job; Result = $null; Done = $false }
+    $script:sessions += $s
+    Log "Started Claude session $n ($label); transcript $path"
+    return $s
+}
+
+function Complete-Session($s) {
+    Receive-Job $s.Job -ErrorAction SilentlyContinue | Out-Null
+    Remove-Job $s.Job -Force -ErrorAction SilentlyContinue
+    $s.Done = $true
+    $lines = if (Test-Path $s.Transcript) { Get-Content $s.Transcript -Encoding UTF8 } else { @() }
+    # The last stream-json line is the result: the digest text, cost and turn count.
+    foreach ($line in ($lines | Select-Object -Last 5)) {
+        try { $obj = $line | ConvertFrom-Json; if ($obj.type -eq "result") { $s.Result = $obj } } catch {}
+    }
+    if ($s.Result) {
+        $digest = Join-Path $digestDir "$date.md"
+        Add-Content $digest ("`n<!-- $stamp $($s.Label) -->`n" + $s.Result.result) -Encoding UTF8
+        Log ("Finished ({0}): {1}, {2} turns, `${3:N2}, {4:N0} min" -f $s.Label, $s.Result.subtype,
+             $s.Result.num_turns, $s.Result.total_cost_usd, ($s.Result.duration_ms / 60000))
+        $s.Result.result | Add-Content $logFile -Encoding UTF8
+    } else {
+        Log "Claude session ($($s.Label)) did not finish normally; see $($s.Transcript)"
+        $lines | Select-Object -Last 10 | Add-Content $logFile -Encoding UTF8
+    }
+}
+
+function Get-JsonList($cmdArgs) {
+    # stdout only: uv and the CLI log to stderr.
+    $raw = & uv run python -m src.tailor @cmdArgs 2>$null | Out-String
+    if ($LASTEXITCODE -ne 0) { Log "WARNING: 'src.tailor $($cmdArgs -join ' ')' failed (exit $LASTEXITCODE)"; return @() }
+    # PowerShell 5.1's ConvertFrom-Json returns a JSON list as one object; the pipe unrolls it.
+    try { return @($raw | ConvertFrom-Json | ForEach-Object { $_ }) } catch { Log "WARNING: could not read the output of 'src.tailor $($cmdArgs -join ' ')'"; return @() }
+}
+
+# Folders of one company go to the same session, one after another, so two sessions never
+# research the same company folder at once.
+function Group-ByCompany($folders) {
+    $groups = [ordered]@{}
+    foreach ($f in $folders) {
+        $company = ""
+        try { $company = (Get-Content (Join-Path $f "app.json") -Raw -Encoding UTF8 | ConvertFrom-Json).company } catch {}
+        $key = ($company -replace "[^A-Za-z0-9]+", "-").ToLower()
+        if (-not $key) { $key = $f }
+        if (-not $groups.Contains($key)) { $groups[$key] = @() }
+        $groups[$key] += $f
+    }
+    # Objects, not nested arrays, which PowerShell would flatten.
+    return @($groups.Values | ForEach-Object { [pscustomobject]@{ Folders = @($_) } })
+}
+
+function Get-FolderScope($folders) {
+    $list = ($folders | ForEach-Object { "- `"$((Resolve-Path $_).Path)`"" }) -join "`n"
+    return "Other Claude sessions are tailoring other folders at the same time. Skip Step A " +
+        "entirely: do not glob for unfinished folders, and do not run ``pending`` or the queue. Do " +
+        "Step B for these folders only, in this order (for a folder that already has some outputs, " +
+        "start at the first step whose output file is missing):`n$list`nNever read or change any " +
+        "other application folder. End with the digest for these folders only."
+}
+
+$parallelRun = $Parallel -gt 1 -and -not $ResumeOnly -and $JobId -le 0
+$doScrape = $Scrape -and -not $NoScrape -and -not $ResumeOnly -and $JobId -le 0
+
+if (-not $parallelRun) {
+    # One session does the whole run, as the runbook's Step A and Step B describe.
+    if ($doScrape) { Complete-Scrape (Start-Scrape) }
+    Sync-BrowserQueue
+    $s = Start-Session "all" "Do all of Step A and Step B below."
+    Wait-Job $s.Job | Out-Null
+    Complete-Session $s
 } else {
-    Log "Claude did not finish normally; see the transcript"
-    $out | Select-Object -Last 10 | ForEach-Object { "$_" } | Add-Content $logFile -Encoding UTF8
+    # Up to $Parallel sessions at once. Waiting rounds and folders an earlier run left unfinished
+    # don't depend on today's postings, so they start while the scrape runs; today's new jobs
+    # are queued once it finishes, a session per company.
+    Log "Running up to $Parallel Claude sessions at once"
+    $todo = New-Object System.Collections.ArrayList
+    $unfinished = @(Get-ChildItem (Join-Path $projectRoot "materials\applications") -Directory -ErrorAction SilentlyContinue |
+        Where-Object {
+            $app = Join-Path $_.FullName "app.json"
+            (Test-Path $app) -and ((Get-Content $app -Raw -Encoding UTF8 | ConvertFrom-Json).status -eq "shortlisted")
+        } | ForEach-Object { $_.FullName })
+    $waiting = @(Get-JsonList @("pending"))
+    if ($waiting.Count -gt 0) {
+        [void]$todo.Add(@{ Label = "waiting"; Scope = "Other Claude sessions are drafting new jobs at the " +
+            "same time. Do Step A step 2 only (the waiting rounds from ``pending``); skip Step A steps 1 " +
+            "and 3 and never touch a folder whose status is ``shortlisted``. End with the digest for " +
+            "these folders only." })
+    }
+    foreach ($g in @(Group-ByCompany $unfinished)) {
+        [void]$todo.Add(@{ Label = "unfinished"; Scope = (Get-FolderScope $g.Folders) })
+    }
+    if ($unfinished.Count -gt 0) { Log "$($unfinished.Count) unfinished folder(s) from an earlier run" }
+
+    $scrapeProc = if ($doScrape) { Start-Scrape } else { $null }
+    $scrapeDone = -not $doScrape -or -not $scrapeProc
+    if ($doScrape -and -not $scrapeProc) { Complete-Scrape $null }
+    $queued = $false
+    while ($true) {
+        if (-not $scrapeDone -and $scrapeProc.HasExited) { Complete-Scrape $scrapeProc; $scrapeDone = $true }
+        if ($scrapeDone -and -not $queued) {
+            $queued = $true
+            Sync-BrowserQueue
+            $qArgs = @("queue") + $(if ($Limit -gt 0) { @("--limit", "$Limit") } else { @() })
+            $new = @(Get-JsonList $qArgs)
+            Log "Queue: $($new.Count) new job(s)"
+            foreach ($g in @(Group-ByCompany $new)) {
+                [void]$todo.Add(@{ Label = "new"; Scope = (Get-FolderScope $g.Folders) })
+            }
+        }
+        foreach ($s in @($sessions | Where-Object { -not $_.Done -and $_.Job.State -in @("Completed", "Failed", "Stopped") })) { Complete-Session $s }
+        $running = @($sessions | Where-Object { -not $_.Done }).Count
+        while ($running -lt $Parallel -and $todo.Count -gt 0) {
+            $t = $todo[0]; $todo.RemoveAt(0)
+            Start-Session $t.Label $t.Scope | Out-Null
+            $running++
+            Start-Sleep -Seconds 5   # stagger the starts a little
+        }
+        if ($queued -and $running -eq 0 -and $todo.Count -eq 0) { break }
+        Start-Sleep -Seconds 10
+    }
+    if (-not $sessions) { Log "Nothing new to tailor"; Add-Content (Join-Path $digestDir "$date.md") "`n<!-- $stamp -->`nNothing new to tailor" -Encoding UTF8 }
 }
 
 # Azure (docs/postgres-mirror.md): once Postgres is the main database (phase 4), back it up to
@@ -190,7 +328,9 @@ if ($tracked) { Log "WARNING: tracked files changed during the run:"; $tracked |
 Log "Done"
 
 # Review the run and fix the pipeline where it went wrong, unless there was nothing to tailor.
-if (-not $NoReview -and -not ($result -and $result.result -match "Nothing new to tailor")) {
-    & (Join-Path $PSScriptRoot "run_tailoring_review.ps1") -Transcript $transcript
+$reviewed = @($sessions | Where-Object { -not ($_.Result -and $_.Result.result -match "Nothing new to tailor") } |
+    Where-Object { Test-Path $_.Transcript } | ForEach-Object { $_.Transcript })
+if (-not $NoReview -and $reviewed.Count -gt 0) {
+    & (Join-Path $PSScriptRoot "run_tailoring_review.ps1") -Transcript $reviewed
 }
 Remove-Item $runFile -ErrorAction SilentlyContinue

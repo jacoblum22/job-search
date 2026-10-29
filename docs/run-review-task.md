@@ -55,7 +55,9 @@ checkout, with my personal files and the run's output, is at {MAIN} (read only).
 **What to read**
 
 1. `{SUMMARY}`: the run's log, one entry per command with its result
-   (cut short), errors and denied commands marked, and the final digest.
+   (cut short), errors and denied commands marked, and the final digest. A parallel run has one
+   section per Claude session ("# Session 1 of 3: ..."), each with its own digest; sessions ran at
+   the same time, so look across all of them.
 2. `docs/tailoring-runbook.md` (the prompt the run followed) and
    `{MAIN}\materials\docs\tailoring-rules.md` (my binding writing rules).
 3. `{TALLY}`: what earlier reviews found, counted by area. An area that keeps coming back

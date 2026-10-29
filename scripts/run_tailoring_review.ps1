@@ -3,8 +3,10 @@
 # script runs the tests, commits, pushes and opens a PR into jake. Nothing is
 # merged automatically. Called by run_tailoring.ps1; can also be run by hand:
 #   .\scripts\run_tailoring_review.ps1 -Transcript logs\tailoring\2026-10-20_0139.jsonl
+# A parallel run passes every session's transcript (-Transcript a.jsonl, b.jsonl); the
+# summary Claude reads has one section per session.
 
-param([Parameter(Mandatory = $true)][string]$Transcript)
+param([Parameter(Mandatory = $true)][string[]]$Transcript)
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $date = Get-Date -Format "yyyy-MM-dd"
@@ -22,8 +24,8 @@ $OutputEncoding = $utf8
 [Console]::OutputEncoding = $utf8
 
 Set-Location $projectRoot
-$Transcript = (Resolve-Path $Transcript).Path
-Log "Starting run review of $Transcript"
+$Transcript = @($Transcript | ForEach-Object { (Resolve-Path $_).Path })
+Log "Starting run review of $($Transcript -join ', ')"
 . (Join-Path $PSScriptRoot "uv_path.ps1")
 if (-not (Add-UvToPath)) { Log "ERROR: uv not found on PATH or in the usual install folders; nothing ran"; exit 1 }
 git fetch origin jake 2>&1 | Out-Null
@@ -34,7 +36,18 @@ if (-not (Test-Path $worktree)) { Log "Could not create worktree"; exit 1 }
 
 # A readable copy of the transcript, inside the worktree so Claude may read it (never committed).
 $summary = Join-Path $worktree ".run-summary.md"
-uv run python scripts\transcript_summary.py $Transcript 2>$null | Set-Content $summary -Encoding UTF8
+if ($Transcript.Count -eq 1) {
+    uv run python scripts\transcript_summary.py $Transcript[0] 2>$null | Set-Content $summary -Encoding UTF8
+} else {
+    Set-Content $summary "" -Encoding UTF8
+    $n = 0
+    foreach ($t in $Transcript) {
+        $n++
+        "# Session $n of $($Transcript.Count): $(Split-Path -Leaf $t)`n" | Add-Content $summary -Encoding UTF8
+        uv run python scripts\transcript_summary.py $t 2>$null | Add-Content $summary -Encoding UTF8
+        "" | Add-Content $summary -Encoding UTF8
+    }
+}
 # What earlier reviews found, by area, so this one can tell a recurring problem from a new one.
 $tallyCsv = Join-Path $notesDir "tally.csv"
 $tallyView = Join-Path $worktree ".run-tally.md"
