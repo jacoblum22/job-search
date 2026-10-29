@@ -215,6 +215,28 @@ def test_tick_approve_and_apply(env):
     assert (env["tmp"] / "dashboard.html").exists()  # the file version is kept current
 
 
+def test_tick_answers_with_the_new_checklist(env):
+    b = next(b for b in review.parse(CHECK) if b["type"] == "item" and b["kind"] != "undo")
+    before = review.open_items(CHECK)
+    status, body = post(env, f"/api/job/{env['jid']}/check", {"line": b["line"], "raw": b["raw"],
+                                                               "option": b["options"][0]["name"], "checked": True})
+    assert status == 200
+    # The page redraws from this answer alone, so it carries the whole list and the count left.
+    assert body["result"]["open_items"] == before - 1
+    assert any(o["checked"] for x in body["result"]["check"] if x.get("line") == b["line"] for o in x["options"])
+
+
+def test_dashboard_file_rebuilt_after_the_answer(env):
+    env["app"].refresh_delay = 60  # as serve.py runs it: rebuilt later, not inside the request
+    out = env["tmp"] / "dashboard.html"
+    assert post(env, f"/api/job/{env['other']}/status", {"status": "dismissed"})[0] == 200
+    assert not out.exists()
+    env["app"].flush_refresh()  # the timer (or shutdown) writes it
+    assert out.exists()
+    env["app"].flush_refresh()  # nothing pending: no-op
+    assert env["app"]._refresh_timer is None
+
+
 def test_status_for_a_job_without_application(env):
     assert post(env, f"/api/job/{env['other']}/status", {"status": "dismissed"})[0] == 200
     conn = connect(env["cfg"]["paths"]["db"])

@@ -18,6 +18,7 @@ import json
 import mimetypes
 import re
 import sqlite3
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -45,8 +46,15 @@ _SERVABLE = {".pdf", ".docx", ".md", ".json", ".yaml"}
 class DashboardApp:
     def __init__(self, cfg: dict[str, Any], db_path: Path, dashboard_path: Path | None = None,
                  port: int = 8765, extra_hosts: tuple[str, ...] = (),
-                 runner: TailoringRunner | None = None) -> None:
+                 runner: TailoringRunner | None = None, refresh_delay: float | None = None) -> None:
         self.cfg = cfg
+        # Every request (and the background dashboard.html rebuild) holds this, so check.md and
+        # jobs.db edits never interleave and the kept Postgres connection is used by one thread at a time.
+        self.lock = threading.RLock()
+        # With a delay, dashboard.html is rebuilt that many seconds after the last change, off the
+        # request: a rebuild reads every job (seconds over Azure), so a button press would wait on it.
+        self.refresh_delay = refresh_delay
+        self._refresh_timer: threading.Timer | None = None
         self.runner = runner or TailoringRunner()
         self.db_path = Path(db_path)
         self._pg = None  # the kept Postgres connection, once the main database is Postgres
@@ -77,8 +85,32 @@ class DashboardApp:
 
     def _refresh_file(self, conn: sqlite3.Connection) -> None:
         """Keep dashboard.html (the file you can open without the server) current too."""
-        if self.dashboard_path:
+        if not self.dashboard_path:
+            return
+        if self.refresh_delay is None:
             generate_dashboard(conn, self.dashboard_path)
+            return
+        with self.lock:
+            if self._refresh_timer is not None:
+                self._refresh_timer.cancel()
+            self._refresh_timer = threading.Timer(self.refresh_delay, self.flush_refresh)
+            self._refresh_timer.daemon = True
+            self._refresh_timer.start()
+
+    def flush_refresh(self) -> None:
+        """Write a pending dashboard.html rebuild now (the timer calls this; so does shutdown)."""
+        with self.lock:
+            if self._refresh_timer is None:
+                return
+            self._refresh_timer.cancel()
+            self._refresh_timer = None
+            conn = self._conn()
+            try:
+                generate_dashboard(conn, self.dashboard_path)
+            except Exception as e:  # noqa: BLE001 - the server keeps running; the next change retries
+                print(f"dashboard.html rebuild failed: {e}")
+            finally:
+                conn.close()
 
     @staticmethod
     def _json(data: Any, status: int = 200) -> Response:
@@ -264,9 +296,10 @@ class DashboardApp:
         folder = self._folder(app)
         blocks = review.tick(folder, line, raw, option, checked)
         # Evidence picks teach every later application, so they're saved now, not only on Approve.
-        lines = (folder / "check.md").read_text(encoding="utf-8").splitlines()
-        rejects.apply_pick(lines[line], self.cfg, app.get("job_id") or job_id)
-        return {"check": blocks}
+        text = (folder / "check.md").read_text(encoding="utf-8")
+        rejects.apply_pick(text.splitlines()[line], self.cfg, app.get("job_id") or job_id)
+        # Sent back whole so the page redraws from this answer without fetching the job again.
+        return {"check": blocks, "open_items": review.open_items(text)}
 
     def _approve(self, conn, job_id, app, data) -> Any:
         app = self._need_app(app)
@@ -326,6 +359,10 @@ DETAILS_PAGE = r"""<!DOCTYPE html>
   button.pick.warn { border-color: #c9a227; color: #e0c060; }
   button.pick.warn.on { background: #c9a227; color: #1a1a1a; }
   button.pick.on { cursor: default; font-weight: 600; } button.pick.review.on { cursor: pointer; }
+  /* Pressed, waiting for the save: shows straight away, before the server answers. */
+  button.saving, button.pick.saving { opacity: .75; cursor: progress; animation: saving 1s ease-in-out infinite alternate; }
+  button.pick:disabled:not(.saving) { opacity: .45; }
+  @keyframes saving { from { filter: brightness(1); } to { filter: brightness(1.35); } }
   .item .details { color: var(--muted); margin-top: 2px; }
   .item.open .text { color: var(--text); font-weight: 600; }
   .line { font-size: 13px; padding: 2px 0; } .line.bullet::before { content: "• "; color: var(--muted); }
@@ -598,30 +635,68 @@ function render() {
 }
 
 // Reviewed toggles; in a pair, the picked button stays picked until the other one is pressed.
+// A press shows at once as "Saving…" (in the look it is about to get) and the item's other buttons
+// wait; the server's answer then redraws the list, or the old state comes back with the error.
+const pending = new Map();  // check.md line -> option being saved
 root.addEventListener('click', async e => {
   const btn = e.target.closest('button.pick');
-  if (!btn) return;
+  if (!btn || btn.disabled) return;
   const line = Number(btn.dataset.line);
   const block = data.app.check.find(b => b.line === line);
   const picked = btn.dataset.checked === 'true';
   if (picked && PAIRS.has(block.kind)) return;
+  if (pending.has(line)) return;
+  pending.set(line, btn.dataset.opt);
+  showPending(line);
   try {
-    await post('check', {line, raw: block.raw, option: btn.dataset.opt, checked: !picked});
+    const result = await post('check', {line, raw: block.raw, option: btn.dataset.opt, checked: !picked});
+    pending.delete(line);
     msgEl.className = '';
-    await load();
-  } catch (err) { say(err.message); await load(); }
+    data.app.check = result.check;
+    data.app.open_items = result.open_items;
+    renderKeepingScroll();
+  } catch (err) {
+    pending.delete(line);
+    say(`Not saved: ${err.message}`);
+    renderKeepingScroll();  // back to the state before the press
+  }
 });
 
+// Mark the pressed button of `line` as saving and hold its neighbours, without a full redraw.
+function showPending(line) {
+  const opt = pending.get(line);
+  root.querySelectorAll(`button.pick[data-line="${line}"]`).forEach(b => {
+    b.disabled = true;
+    if (b.dataset.opt !== opt) return;
+    b.disabled = false;  // stays bright; the click handler ignores it while pending
+    b.classList.add('saving');
+    if (b.dataset.checked === 'true') b.classList.remove('on'); else b.classList.add('on');
+    b.textContent = 'Saving…';
+  });
+}
+
+function renderKeepingScroll() {
+  const y = window.scrollY;
+  render();
+  for (const line of pending.keys()) showPending(line);  // another item still saving keeps its look
+  window.scrollTo(0, y);
+}
+
 root.addEventListener('click', async e => {
-  const act = e.target.dataset && e.target.dataset.act;
-  if (!act) return;
-  e.target.disabled = true;
+  const el = e.target.closest('button[data-act]');
+  const act = el && el.dataset.act;
+  if (!act || el.disabled) return;
+  el.disabled = true;
+  el.classList.add('saving');
+  el.textContent = act === 'approve' ? 'Approving…' : 'Saving…';
   try {
     if (act === 'approve') { await post('approve'); say('Approved. Apply with the files above, then press "I applied".', true); }
-    if (act === 'outcome') { await post('outcome', {outcome: e.target.dataset.val}); say('Saved.', true); }
-    if (act === 'status') { await post('status', {status: e.target.dataset.val}); say('Saved.', true); }
-  } catch (err) { say(err.message); }
+    if (act === 'outcome') { await post('outcome', {outcome: el.dataset.val}); say('Saved.', true); }
+    if (act === 'status') { await post('status', {status: el.dataset.val}); say('Saved.', true); }
+  } catch (err) { say(`Not saved: ${err.message}`); }
+  const y = window.scrollY;
   await load();
+  window.scrollTo(0, y);
 });
 
 load();

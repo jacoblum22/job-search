@@ -12,14 +12,13 @@ run `tailscale serve --bg 8765` on this PC and pass the address it prints as
 Run it with .venv/Scripts/pythonw.exe to keep it out of sight (no console window);
 its output then goes to logs/dashboard.log.
 
-dashboard.html is rewritten after
-every change, so the plain file stays current too.
+dashboard.html is rewritten two seconds after
+the last change (off the request, so buttons answer at once), so the plain file stays current too.
 """
 
 from __future__ import annotations
 
 import sys
-import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -34,14 +33,11 @@ from src.tailor.paths import load_config, resolve
 
 
 def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
-    # One request at a time: check.md and jobs.db edits never interleave.
-    lock = threading.Lock()
-
     class Handler(BaseHTTPRequestHandler):
         def _send(self, method: str) -> None:
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else b""
-            with lock:
+            with app.lock:  # one request at a time
                 status, ctype, data = app.handle(method, self.path, dict(self.headers.items()), body)
             self.send_response(status)
             self.send_header("Content-Type", ctype)
@@ -82,7 +78,7 @@ def main(port: int, no_browser: bool, allow_hosts: tuple[str, ...]) -> None:
         sys.stderr = sys.stderr or log
     cfg = load_config()
     app = DashboardApp(cfg, resolve(cfg, "db"), PROJECT_ROOT / "dashboard.html", port=port,
-                       extra_hosts=allow_hosts)
+                       extra_hosts=allow_hosts, refresh_delay=2.0)
     server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app))
     url = f"http://127.0.0.1:{port}/"
     click.echo(f"Dashboard at {url} (Ctrl+C to stop)")
@@ -94,6 +90,7 @@ def main(port: int, no_browser: bool, allow_hosts: tuple[str, ...]) -> None:
         pass
     finally:
         server.server_close()
+        app.flush_refresh()
 
 
 if __name__ == "__main__":
