@@ -1,8 +1,8 @@
 """Parse check on a rendered PDF: does an ATS-style text extraction read it back correctly?
 
 Generic checks only (text layer, private-use glyphs, page count, contact details, section
-headings and their order) plus a round trip: every bullet, title, company, date range (or
-letter paragraph) of the source has to come back in the extracted text, in order.
+headings and their order, hyphenated words split at a line end) plus a round trip: every bullet,
+title, company, date range (or letter paragraph) of the source has to come back in the extracted text, in order.
 """
 
 from __future__ import annotations
@@ -32,6 +32,14 @@ def _check(code: str, ok: bool, detail: str = "", severity: str = "critical") ->
 def _squash(text: str) -> str:
     """Lower-case letters and digits only: whitespace, hyphens, quotes and bullets all vanish."""
     return re.sub(r"[\W_]+", "", str(text).lower())
+
+
+def hyphen_breaks(text: str) -> list[str]:
+    """Hyphenated words the layout split at a line end ("scikit-" / "learn"). Many text extractors
+    treat a line-final hyphen as a soft hyphen and join the halves as "scikitlearn", so an ATS
+    keyword match on "scikit-learn" fails (Jake, VCH 1403, Oct 27 2026). Fix by rewording or
+    reordering so the line wraps elsewhere."""
+    return [f"{a}-{b}" for a, b in re.findall(r"(\w+)-[ \t]*\n[ \t]*(\w+)", text)]
 
 
 def _read(pdf_path: Path) -> tuple[str, int]:
@@ -135,6 +143,11 @@ def parse_check(pdf_path: Path, source: dict[str, Any], contact: dict[str, Any] 
                          f"{bad_glyphs} private-use or (cid:) glyphs" if bad_glyphs else ""))
     checks.append(_check("one_page", pages == 1, f"{pages} pages",
                          severity="critical" if kind == "resume" else "warning"))
+
+    split = hyphen_breaks(text)
+    checks.append(_check("hyphen_line_breaks", not split,
+                         f"split at a line end (reword so it wraps elsewhere): {', '.join(split)}" if split else "",
+                         severity="warning"))
 
     if contact:
         squashed = _squash(text)
