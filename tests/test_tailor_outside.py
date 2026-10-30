@@ -82,7 +82,7 @@ def test_review_input_sends_jakes_message_the_posting_and_the_two_pdfs(tmp_path,
     (app / "posting.md").write_text("# Data Analyst\n\n- Company: Northwind\n- URL: https://x.test/1\n"
                                     "- Posted: 2026-10-28\n\nBuild data pipelines.", encoding="utf-8")
     out = review_input(app)
-    assert out["round"] == 2 and out["pass"] == 1 and not out["follow_up"] and fake_render == [2]
+    assert out["round"] == 2 and out["pass"] == 1 and fake_render == [2]
     text = (app / "review" / "message.md").read_text(encoding="utf-8")
     assert text.startswith("Could you use the job-application-review skill on these? Here's the posting.\n\n# Data Analyst")
     assert "Company: Northwind" in text and "Build data pipelines." in text
@@ -247,24 +247,19 @@ def test_parse_notes_reads_the_skills_own_verdicts():
     assert first["sections"]["questions only you can answer"] == ["How many sources?"]
 
 
-def test_later_passes_see_earlier_reviews_and_new_text_but_not_what_changed(tmp_path):
-    # Jake, Oct 29 2026: his chats never say what he changed; the reviewer reads the new text.
+def test_every_pass_is_a_fresh_reviewer_with_the_same_opening_and_the_new_text(tmp_path):
+    # Oct 30 2026 bake-off: a brand-new reviewer each round beat one reviewer chat with "Is this better?".
     app = _app(tmp_path)
-    assert review_input(app)["pass"] == 1
+    first = review_input(app)
+    assert first["pass"] == 1 and "follow_up" not in first
+    opening = (app / "review" / "message.md").read_text(encoding="utf-8")
+    assert opening.startswith("Could you use the job-application-review skill")
     assert _review_done(app, 3)["best_round"] == 3
     out = review_input(app)
-    assert out["action"] == "review" and out["pass"] == 2 and out["follow_up"] and out["round"] == 3
-    assert (app / "review" / "pass2" / "message.md").read_text(encoding="utf-8") == "Is this better? Is it ready to submit?\n"
-    assert all("pass2" in p for p in out["attachments"])
-    # For a reviewer started fresh: the earlier turns, never what was changed.
-    conv = (app / "review" / "pass2" / "conversation.md").read_text(encoding="utf-8")
-    assert "missing Azure experience" in conv and "Summary opener" not in conv
-    assert conv.index("Could you use the job-application-review skill") < conv.index("missing Azure experience")
-    _review_done(app, 4, text=NOTES_1.replace("Azure", "Snowflake"), n=2)
-    out = review_input(app)
-    assert out["pass"] == 3
-    conv = (app / "review" / "pass3" / "conversation.md").read_text(encoding="utf-8")
-    assert conv.index("Azure") < conv.index("Is this better?") < conv.index("Snowflake")
+    assert out["action"] == "review" and out["pass"] == 2 and out["round"] == 3
+    assert (app / "review" / "pass2" / "message.md").read_text(encoding="utf-8") == opening
+    assert all("pass2" in p for p in out["attachments"]) and "conversation" not in out
+    assert not (app / "review" / "pass2" / "conversation.md").exists()
 
 
 def test_ready_verdict_asks_for_no_round_and_no_more_passes(tmp_path):
@@ -290,22 +285,6 @@ def test_a_round_that_changed_nothing_ends_the_passes(tmp_path):
     app = _app(tmp_path / "b")
     _review_done(app, 3)
     assert review_input(app)["pass"] == 2  # a round that changed the text still gets reviewed
-
-
-def test_answered_questions_go_with_the_next_is_this_better(tmp_path):
-    """Jake, Oct 29 2026: a question the round can answer from the vault goes in the next message."""
-    app = _app(tmp_path)
-    _review_done(app, 3)
-    assert review_input(app)["pass"] == 2
-    assert (app / "review" / "pass2" / "message.md").read_text(encoding="utf-8").strip() == "Is this better? Is it ready to submit?"
-    rsp = app / "review" / "response.json"
-    write_json(rsp, [{"note": "Summary opener", "action": "left", "why": "x"},
-                     {"question": "Did you use Docker?", "answer": "Only in coursework."}])
-    out = review_input(app)
-    text = (app / "review" / "pass2" / "message.md").read_text(encoding="utf-8")
-    assert text.startswith("Is this better? To answer some of your questions:")
-    assert "- Did you use Docker?\n  Only in coursework." in text and text.strip().endswith("Is it ready to submit?")
-    assert [r["note"] for r in response(app)] == ["Summary opener"]  # an answer is not a note
 
 
 def test_passes_stop_at_the_limit_and_a_round_that_lost_ats_still_gets_reviewed(tmp_path):

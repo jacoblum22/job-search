@@ -180,23 +180,20 @@ folder before starting the next. Keep a running note of the outcome for the dige
      letter-only round), do it like a repair round (`repair.md`; "Letter-only rounds" for kind
      "letter"), run `apply-edits`, `check`, `grade`, `next-round`, then `extra-round` once more.
      These used to run on a later day, after the outside review had read an older draft.
-10. **Outside review (like Jake's own "is this better?" reviews).** When the loop has stopped:
+10. **Outside review (a fresh reviewer each pass).** When the loop has stopped:
     The reviewer is Jake's own review: his job-application-review skill
     (`.claude/skills/job-application-review/SKILL.md`, the same file he uses in claude.ai), sent
     exactly what he sends. Add nothing to what it is told, and don't summarize or edit its reply.
     - `uv run python -m src.tailor review-input "<app>"`. If it prints `"action": "stop"`, go to
       step 11. Otherwise it rendered the resume and letter PDFs (`attachments`) and wrote the
       message Jake would send (`message`) in the pass's folder.
-    - **Pass 1** (`"follow_up": false`): start a subagent with model **sonnet** and effort
-      **medium** (what his review chats run on). Its whole prompt is the text of `message.md`,
-      then a blank line, then `Attached: ` and the two `attachments` paths, comma-separated, in
-      double quotes. Nothing else. Run it in the foreground and wait for its answer, as in step 3.
-      Remember its agent id for this folder.
-    - **Later passes** (`"follow_up": true`): send the same reviewer (SendMessage, its agent id) the
-      text of `message.md`, then a blank line and `Attached: ` with the two new `attachments`
-      paths, so it is one conversation, as in his chats. Only when that reviewer can't be reached
-      (a later day's run), start a fresh one as for pass 1, with `conversation.md`'s text, then
-      a blank line, then the message and attachments.
+    - **Every pass** (Oct 30 2026: a brand-new reviewer each round beat one reviewer chat, in a
+      bake-off on three postings): start a NEW subagent with model **sonnet** and effort
+      **medium** (what his review chats run on), with no history. Its whole prompt is the text of
+      `message.md` (always his opening line and the posting), then a blank line, then `Attached: `
+      and the two `attachments` paths, comma-separated, in double quotes. Nothing else. Run it in
+      the foreground and wait for its answer, as in step 3. Never send it earlier turns, "Is this
+      better?", or what changed.
     - Write the reviewer's reply, unchanged, to the `notes` path the output gave.
     - `uv run python -m src.tailor review-round "<app>"`. If it asks for a round, follow
       `prompts/tailor/repair.md` ("Review round") for that round number, then run `apply-edits`,
@@ -305,8 +302,8 @@ summary; read it before continuing.
    `prompts/tailor/repair.md`, then repeat step 7 with `--round 2` (and 3 at most). When it stops,
    run `... extra-round "$APP"` and do the round it asks for, if any.
 9. **Outside review:** `... review-input "$APP"`; unless it says stop, send a Claude with the
-   job-application-review skill the `message.md` it wrote and the two PDFs (later passes: the same
-   conversation), save its reply unchanged as that pass's `notes.md`, then
+   job-application-review skill the `message.md` it wrote and the two PDFs (a new reviewer every
+   pass), save its reply unchanged as that pass's `notes.md`, then
    `... review-round "$APP"`; if it asks for a round, run repair.md's "Review round", repeat step 7
    for that round, run `next-round` (and the review fix round it may ask for), and go back to
    `review-input` (until the reviewer says ready, up to 6 passes).

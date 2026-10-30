@@ -107,9 +107,10 @@ Everything else in this prompt still applies to the letter.
 
 When `feedback.json` has `"review": true`, the round acts on an outside reviewer's notes (the file
 named in `feedback.json`'s `notes`: `review/notes.md` for the first pass, `review/pass<N>/notes.md`
-for an "is this better?" pass), written by a reader who never saw the vault or the rules. It builds
-on round `B`, and `sections` allow the whole resume and the letter. In a later pass, act on its
-"Still open" and "Mechanical" items; "What it fixed" needs nothing.
+for a later pass), written by a reader who never saw the vault or the rules; every pass is a
+brand-new reviewer who has not seen earlier drafts or notes. It builds on round `B`, and `sections`
+allow the whole resume and the letter. A later reviewer can contradict an earlier one: pick the
+advice that makes most sense, use it, and ignore later advice on that topic.
 
 Read every numbered fix and decide, one by one:
 
@@ -135,7 +136,8 @@ Read every numbered fix and decide, one by one:
 - "Questions only you can answer" and "Interview questions" never hold up the passes. When the
   vault, the posting or the rules answer a question (is the Downloader claim true, did he use
   Docker), answer it in `response.json` as `{"question": "...", "answer": "..."}` (the answer is a
-  fact from the vault, never a guess); it goes to the reviewer with the next "Is this better?".
+  fact from the vault, never a guess); the next reviewer is brand new and never sees it, so also fix
+  the resume or letter wherever the answer should show.
   Apply any fix the question was asking for. A question only Jake can answer stays for him on the
   review page; don't guess it.
 - **Look it up before you ask him.** When a reviewer wants a fact the vault doesn't hold (does the

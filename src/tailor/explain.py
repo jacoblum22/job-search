@@ -64,7 +64,7 @@ ISSUES = ("Automatic checks on the final resume and letter. Pick Keep if it's fi
           "rerun the render and packet steps.")
 NOTES = "Things the pipeline already handled. Nothing to decide; they're here so you know."
 OUTSIDE = ("After the repair rounds, a fresh reviewer that never saw your vault read the posting, resume and "
-           "letter and gave notes, then checked each revised version again (\"is this better?\") until it said "
+           "letter and gave notes, then a new reviewer checked each revised version, until one said "
            "ready or ran out of passes. Each round acted on the notes your vault and rules allow. Nothing to "
            "decide; the changes are in the resume and letter, and in Changes from the base.")
 REVIEWER = ("What the outside reviewer said last, like your own review chats: its verdict, questions only you can "

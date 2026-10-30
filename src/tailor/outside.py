@@ -1,5 +1,5 @@
-"""Step 7b: an outside review of the best draft, the round that acts on it, and "is this better?"
-passes after it until the reviewer says it's ready to submit.
+"""Step 7b: an outside review of the best draft, the round that acts on it, and more passes after it,
+each with a brand-new reviewer, until one says it's ready to submit.
 
 Jake, Oct 25 2026: pasting the posting, the resume and the letter into a fresh Claude and asking
 "what do you think?" caught problems the checks never look for (internal team names, filler words,
@@ -11,22 +11,26 @@ becomes the best unless it adds a critical (loop._finish_letter_round; never dro
 changed and what was left in check.md.
 
 Jake, Oct 29 2026: his own claude.ai reviews (job-application-review skill) never stop after one
-pass. He sends the revised PDFs back with "Is this better? Is it ready to submit?" two to four
-times, the reviewer checks the company's claims, and asks him questions only he can answer. So a
-review pass after the first (`review/pass<N>/`) sees its earlier reviews and the revised text, never
-a list of what was changed (it judges the text itself, as in his chats), answers in that
-later-round shape, and gives a verdict. Another round runs only while the
-verdict is "not yet" ("ready after these changes" counts as not yet), up to `loop.review_passes` passes (6: the
-reviewer always has more suggestions, so the stop is it saying "ready to submit", not a count).
-The verdict, the questions for Jake and the interview questions go at the top of check.md.
+pass, the reviewer checks the company's claims, and asks him questions only he can answer. So more
+passes (`review/pass<N>/`) run after the first, each judging the revised text itself, never a list of
+what was changed, and giving a verdict. Another round runs only while the verdict is "not yet"
+("ready after these changes" counts as not yet), up to `loop.review_passes` passes (6: the reviewer
+always has more suggestions, so the stop is it saying "ready to submit", or a round that changed
+nothing, not a count). The verdict, the questions for Jake and the interview questions go at the
+top of check.md.
+
+Jake, Oct 30 2026 (bake-off on Evismart, Nimble Gravity and Metasys, 3 blind rankers each): a
+brand-new reviewer every pass, sent his same opening message with the revised PDFs, beat one
+reviewer chat with "Is this better?" follow-ups (average rank 1.2 against 2.8 of 3). So there is no
+follow-up message and no carried history: every pass is a fresh reviewer.
 
 Jake, Oct 29 2026 (the Jobgether letter named neither the company nor the role, which each of his
 own review chats made the letter's first fix): the reviewer must be his review, not a summary of
 it. So it is a Claude subagent given his job-application-review skill itself
 (.claude/skills/job-application-review/SKILL.md, a verbatim copy), sent exactly what he sends: "Could
 you use the job-application-review skill on these? Here's the posting." with the posting and the
-resume and letter PDFs attached, then, in the same conversation, "Is this better? Is it ready to
-submit?" with the revised PDFs. Its reply is saved unchanged as notes.md.
+resume and letter PDFs attached (the revised PDFs go to a new reviewer the same way each pass).
+Its reply is saved unchanged as notes.md.
 """
 
 from __future__ import annotations
@@ -241,7 +245,7 @@ def next_pass(app_dir: Path, cfg: dict[str, Any] | None = None) -> tuple[int | N
     from src.tailor.loop import _feedback, unchanged
     built_on = int(_feedback(app_dir, rnd).get("build_on") or 0)
     if built_on and unchanged(app_dir, rnd, built_on):
-        # Jake, Oct 29 2026: advice in, apply what is valid, "is this better?", done when the reviewer
+        # Jake, Oct 29 2026: advice in, apply what is valid, show a reviewer again, done when the reviewer
         # says so OR nothing left is worth applying. A round that changed nothing means every note was
         # judged not worth applying; the reviewer would see the same text and repeat itself (Evismart,
         # Infoblox, Jobgether ran six passes on one text).
@@ -250,7 +254,7 @@ def next_pass(app_dir: Path, cfg: dict[str, Any] | None = None) -> tuple[int | N
         return None, f"the round acting on review pass {last} (round {rnd}) was not kept"
     if last >= _max_passes(cfg):
         return None, f"{last} review passes done"
-    return last + 1, "is this better?"
+    return last + 1, "another review pass"
 
 
 def resume_text(data: dict[str, Any]) -> str:
@@ -284,27 +288,6 @@ def letter_text(letter: dict[str, Any]) -> str:
 
 
 FIRST_MESSAGE = "Could you use the job-application-review skill on these? Here's the posting."
-LATER_MESSAGE = "Is this better? Is it ready to submit?"
-
-
-def answers(app_dir: Path, n: int) -> list[tuple[str, str]]:
-    """The reviewer's questions on pass n that the round answered itself (response.json entries
-    with a "question" and an "answer"), from the vault, the posting or the rules."""
-    p = pass_dir(Path(app_dir), n) / "response.json"
-    data = read_json(p) if p.exists() else []
-    return [(str(r["question"]).strip(), str(r["answer"]).strip()) for r in (data if isinstance(data, list) else [])
-            if isinstance(r, dict) and str(r.get("question") or "").strip() and str(r.get("answer") or "").strip()]
-
-
-def later_message(app_dir: Path, n: int) -> str:
-    """Jake's follow-up after pass n: "Is this better? Is it ready to submit?", with the answers to the
-    reviewer's questions in between when the round had them (Jake, Oct 29 2026: "Is this better? To
-    answer some of your questions..." along with the new resume and letter)."""
-    got = answers(app_dir, n)
-    if not got:
-        return LATER_MESSAGE
-    lines = "\n".join(f"- {q}\n  {a}" for q, a in got)
-    return f"Is this better? To answer some of your questions:\n\n{lines}\n\nIs it ready to submit?"
 
 
 def _posting_body(posting: str) -> str:
@@ -316,10 +299,11 @@ def _posting_body(posting: str) -> str:
 def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | None = None,
                  render: Any = None) -> dict[str, Any]:
     """Get the next pass ready: render the best round's resume and letter PDFs into the pass's
-    folder and write message.md, the message Jake would send (pass 1: his opening line and the
-    posting; later passes: "Is this better? Is it ready to submit?"). Later passes continue the
-    same reviewer conversation; conversation.md holds the earlier turns for a reviewer that has to
-    be started fresh. Returns {"action": "stop", "reason"} when no pass is due."""
+    folder and write message.md, the message Jake would send to a brand-new reviewer (his opening
+    line and the posting). Every pass is a fresh reviewer who has seen nothing before: no "Is this
+    better?" and no earlier turns (the Oct 30 2026 bake-off on Evismart, Nimble Gravity and Metasys
+    ranked a new reviewer each round ahead of one reviewer chat). Returns {"action": "stop",
+    "reason"} when no pass is due."""
     app_dir = Path(app_dir)
     n, why = next_pass(app_dir, cfg)
     if n is None:
@@ -335,25 +319,13 @@ def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | No
         from src.tailor.render import render_round as render
     pdfs = render(app_dir, cfg or {}, int(rnd), out)
     attachments = [pdfs["resume"], pdfs["letter"]]
-    if n == 1:
-        posting = (app_dir / "posting.md").read_text(encoding="utf-8")
-        message = FIRST_MESSAGE + "\n\n" + _posting_body(posting)
-    else:
-        message = later_message(app_dir, n - 1)
+    posting = (app_dir / "posting.md").read_text(encoding="utf-8")
+    message = FIRST_MESSAGE + "\n\n" + _posting_body(posting)
     (out / "message.md").write_text(message + "\n", encoding="utf-8")
-    turns = []
-    for k in range(1, n):
-        msg, notes = pass_dir(app_dir, k) / "message.md", pass_dir(app_dir, k) / "notes.md"
-        if msg.exists() and notes.exists():
-            turns += [f"## Jake (with his resume and cover letter PDFs attached)\n\n{msg.read_text(encoding='utf-8').strip()}",
-                      f"## You\n\n{notes.read_text(encoding='utf-8').strip()}"]
-    if turns:
-        (out / "conversation.md").write_text("\n\n".join(turns) + "\n", encoding="utf-8")
     write_json(out / "reviewed.json", {"round": int(rnd)})
     log(app_dir, "review-input", f"pass {n}, round {rnd}")
-    return {"action": "review", "pass": n, "follow_up": n > 1, "round": int(rnd),
+    return {"action": "review", "pass": n, "round": int(rnd),
             "message": str(out / "message.md"), "attachments": attachments,
-            **({"conversation": str(out / "conversation.md")} if turns else {}),
             "notes": str(out / "notes.md")}
 
 
