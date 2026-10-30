@@ -71,8 +71,13 @@ commands or scripts: this task only reads and writes files in the
    `id` and a `url`. Open only the listings in the file, never more than 15
    from one site in a run. Write each file as soon as you finish that
    posting, so whatever's left waits for the next run. Skip any listing whose `.browser-queue/<id>.md` or
-   `.browser-queue/<id>.fail` already exists. If the file is missing or
-   nothing is left, stop and reply "Nothing to fill in today."
+   `.browser-queue/<id>.fail` already exists. If the file is missing, stop and
+   say so. If every listing already has a file, stop and reply with:
+   when queue.json was written (`generated_at`), how many listings it has,
+   how many already have a `.md` and how many a `.fail`, and "an earlier
+   run since then already did these; tomorrow's list is written at 9 AM".
+   Each day's list holds at most 15 per site, so a second run on the same
+   day finds nothing, and that is expected.
 2. For each listing, open its `url` in a new Chrome tab. Expand the
    description if it's collapsed ("See more" / "Show more") and read the full
    job description: the role, responsibilities, qualifications, pay and
