@@ -29,16 +29,17 @@ CREATE TABLE IF NOT EXISTS applications (
     updated_at TEXT,
     outcome TEXT,
     outcome_at TEXT,
-    review_flags TEXT
+    review_flags TEXT,
+    applied_at TEXT
 );
 """
 
 # Columns added after the first release; ensure_table adds them to older databases.
-_ADDED_COLUMNS = {"review_flags": "TEXT"}
+_ADDED_COLUMNS = {"review_flags": "TEXT", "applied_at": "TEXT"}
 
 _SETTABLE = {
     "folder", "status", "tier", "score", "gate_flags", "flagged", "queue_rank",
-    "base_id", "created_at", "outcome", "outcome_at", "review_flags",
+    "base_id", "created_at", "outcome", "outcome_at", "review_flags", "applied_at",
 }
 
 

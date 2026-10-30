@@ -468,6 +468,13 @@ def record_outcome(app_dir: Path, cfg: dict[str, Any], outcome: str) -> dict[str
     fields: dict[str, Any] = {"outcome": outcome, "outcome_at": at}
     if outcome == "applied":
         fields["status"] = "applied"
+    if outcome == "applied" and not app_dir_applied_at(app_dir):
+        fields["applied_at"] = at  # the first "I applied"; the daily goal counts this, later outcomes don't move it
     app = appdir.log(app_dir, "outcome", outcome, **fields)
-    _sync(app_dir, cfg, app, app["status"], outcome=outcome, outcome_at=at)
+    extra = {"applied_at": fields["applied_at"]} if "applied_at" in fields else {}
+    _sync(app_dir, cfg, app, app["status"], outcome=outcome, outcome_at=at, **extra)
     return {"status": app["status"], "outcome": outcome, "outcome_at": at}
+
+
+def app_dir_applied_at(app_dir: Path) -> str | None:
+    return appdir.load_app(app_dir).get("applied_at")

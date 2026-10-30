@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 
+from src import goal_ui
 from src.db import grouped_jobs
 from src.search_match import INTERNSHIP_TITLE_RE as _INTERNSHIP_RE
 from src.tailor import store
@@ -157,7 +158,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .share { display: flex; align-items: center; gap: 8px; } .share .track { flex: 1; background: #10131a; border-radius: 999px; height: 6px; overflow: hidden; }
   .share .fill { height: 100%; background: linear-gradient(90deg, #3a7d44, #6fcf7f); border-radius: 999px; }
   .share span { width: 36px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
-</style>
+__GOAL_CSS__</style>
 </head>
 <body>
 <div class="wrap">
@@ -166,6 +167,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <h1>Job Aggregator Dashboard</h1>
     <div class="meta">Generated __GENERATED_AT__ &middot; __TOTAL__ postings across __SOURCES__ sources</div>
   </div>
+  __GOAL_BAR__
   <div class="runbox" id="runBox" hidden>
     <label for="runLimit">Jobs</label>
     <input type="number" id="runLimit" min="1" max="10" value="3">
@@ -275,6 +277,15 @@ window.addEventListener('pageshow', async () => {
     render();
   } catch (_) { location.reload(); }
 });
+__GOAL_JS__
+// The daily goal bar: today's "I applied" count, refreshed when this tab is looked at again.
+if (SERVER) {
+  const bar = document.getElementById('goalBar');
+  const refreshGoal = () => fetch('/api/goal').then(r => r.json()).then(g => goalBar(bar, g)).catch(() => {});
+  refreshGoal();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshGoal(); });
+  setInterval(refreshGoal, 60000);
+}
 // Run tailoring: starts scripts/run_tailoring.ps1 -Limit N on the PC the server runs on.
 if (SERVER) {
   const box = document.getElementById('runBox'), btn = document.getElementById('runBtn');
@@ -730,6 +741,9 @@ def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
         .replace("__TOTAL__", str(len(rows)))
         .replace("__SOURCES__", str(len(all_sources)))
         .replace("__SERVER__", "true" if server else "false")
+        .replace("__GOAL_BAR__", goal_ui.BAR_HTML)
+        .replace("__GOAL_CSS__", goal_ui.CSS)
+        .replace("__GOAL_JS__", goal_ui.JS)
         # Job descriptions are untrusted external content — escape "</" so a
         # description containing literal "</script>" can't break out of the tag.
         .replace("__JOBS_JSON__", json.dumps(rows).replace("</", "<\\/"))
