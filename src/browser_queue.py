@@ -158,7 +158,8 @@ def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int | None = None,
     """Write queue.json for the Chrome task: everything pending() lists (the
     whole backlog, newest first within each source), less any listing whose
     result file is already waiting to be imported. The task itself takes the
-    next DAILY_PER_SOURCE listings per source that have no file yet on each run,
+    next 15 listings per source with no file yet on each run (the cap is in its
+    prompt, docs/browser-description-task.md),
     so every run, scheduled or by hand, does 15 more per source.
     """
     ensure_schema(conn)
