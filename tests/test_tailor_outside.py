@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 import yaml
@@ -258,7 +259,9 @@ def test_every_pass_is_a_fresh_reviewer_with_the_same_opening_and_the_new_text(t
     out = review_input(app)
     assert out["action"] == "review" and out["pass"] == 2 and out["round"] == 3
     assert (app / "review" / "pass2" / "message.md").read_text(encoding="utf-8") == opening
-    assert all("pass2" in p for p in out["attachments"]) and "conversation" not in out
+    # The PDFs go to the reviewer from a folder outside the packet, so it can't read earlier notes.
+    assert all(Path(p).exists() and "pass2" in p and str(app) not in p for p in out["attachments"])
+    assert "conversation" not in out
     assert not (app / "review" / "pass2" / "conversation.md").exists()
 
 
