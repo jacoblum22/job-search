@@ -98,14 +98,15 @@ def _same_description(a: str | None, b: str | None) -> bool:
 def run_dedup(conn: sqlite3.Connection, since_days: int = 45) -> int:
     """Merge matching jobs (first seen within `since_days`) into shared dedup groups.
 
-    A job that matches representatives of several groups joins all of them into one: a job that
-    only joined the first match left the others split (61 pairs in Oct 2026: Fortinet, Amazon,
-    Turing, Cisco ...). Returns the number of jobs whose dedup_group_id was changed.
+    A job that matches rows of several groups joins all of them into one: a job that only joined the
+    first match left the others split (61 pairs in Oct 2026: Fortinet, Amazon, Turing, Cisco ...).
+    Returns the number of jobs whose dedup_group_id was changed.
     """
     candidates = jobs_for_dedup(conn, since_days=since_days)
 
-    # One representative row per known cluster; `parent` maps a group id to the group it was merged into.
-    representatives: list[sqlite3.Row] = []
+    # `parent` maps a group id to the group it was merged into. Every job is compared with every
+    # earlier job (not one representative per group): two rows can match each other while their
+    # groups' first rows don't (Fortinet, Turing: 37 pairs stayed split after the first fix).
     parent: dict[str, str] = {}
 
     def find(g: str) -> str:
@@ -113,19 +114,15 @@ def run_dedup(conn: sqlite3.Connection, since_days: int = 45) -> int:
             g = parent[g]
         return g
 
-    for job in candidates:
-        matches = [rep for rep in representatives if _is_match(job, rep)]
-        if not matches:
-            representatives.append(job)
-            continue
-        target = find(matches[0]["dedup_group_id"])
-        for other in matches[1:]:
-            g = find(other["dedup_group_id"])
-            if g != target:
-                parent[g] = target
+    for i, job in enumerate(candidates):
         job_group = find(job["dedup_group_id"])
-        if job_group != target:
-            parent[job_group] = target
+        for other in candidates[:i]:
+            other_group = find(other["dedup_group_id"])
+            if other_group == job_group:
+                continue  # already together
+            if _is_match(job, other):
+                parent[job_group] = other_group  # the earlier group wins
+                job_group = other_group
 
     # Rewrite every row of a merged group, including rows older than the candidate window.
     merged_count = 0
