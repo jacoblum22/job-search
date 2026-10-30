@@ -50,11 +50,15 @@ def queue(limit, job_id):
 @APP
 def requirements(app_dir):
     """Step 1: validate and normalize the requirements.json Claude wrote."""
+    from src.tailor.company import company_dir
     from src.tailor.requirements import normalize
 
-    data = normalize(app_dir, load_config())
+    cfg = load_config()
+    data = normalize(app_dir, cfg)
     # The full file is in requirements.json; print what the run needs to go on, including what was dropped.
+    # company_dir is where company research saves and the letter reads facts; the run never builds the slug.
     _out({"file": str(app_dir / "requirements.json"), "title": data.get("title"), "company": data.get("company"),
+          "company_dir": str(company_dir(cfg, data.get("company") or "")),
           "requirements": [{k: r.get(k) for k in ("id", "kind", "terms")}
                            for r in data.get("requirements") or [] if isinstance(r, dict)],
           **(data.get("_normalized") or {})})
@@ -117,7 +121,8 @@ def passages(ids):
 @main.command()
 @click.argument("query")
 def why(query):
-    """One application's status and what is left to review: a job id or words from the folder name."""
+    """One application's status and what is left to review: a folder path, a job id or words from
+    the folder name."""
     from src.tailor.why import find, summarize
 
     cfg = load_config()

@@ -133,6 +133,19 @@ def test_review_round_is_kept_whatever_its_ats_but_a_critical_gets_a_fix_round(t
             assert out["action"] == "repair" and out["best_round"] == 2
 
 
+def test_a_repair_after_a_review_round_never_brings_back_an_older_round(tmp_path):
+    # Nexthop, Oct 30 2026: a gap round after the reviews made a pre-review round the best again.
+    app = _app(tmp_path)
+    (app / "review").mkdir()
+    (app / "review" / "notes.md").write_text("1. x", encoding="utf-8")
+    review_round(app)
+    add_round(app, 3, 60, ats=50)
+    assert next_round(app, CFG)["best_round"] == 3
+    write_json(app / "drafts" / "r4" / "feedback.json", {"round": 4, "build_on": 3, "revisit": True})
+    add_round(app, 4, 61, ats=51)
+    assert next_round(app, CFG)["best_round"] in (3, 4)
+
+
 def test_review_round_with_a_new_critical_gets_one_fix_round(tmp_path):
     app = _app(tmp_path)
     (app / "review").mkdir()

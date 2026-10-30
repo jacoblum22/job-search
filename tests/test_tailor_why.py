@@ -43,6 +43,8 @@ def test_find_by_job_id_or_folder_words(tmp_path):
     assert why.find(cfg, "904") == [app]
     assert why.find(cfg, "amazon icqa") == [app]
     assert why.find(cfg, "905") == [] and why.find(cfg, "amazon scientist") == []
+    # The run passes the full folder path, as it does to every other command.
+    assert why.find(cfg, str(app)) == [app]
 
 
 def test_summary_says_what_set_the_status(tmp_path):

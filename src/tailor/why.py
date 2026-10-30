@@ -22,7 +22,10 @@ _COMMON = {"data", "analyst", "analytics", "analysis", "scientist", "science", "
 
 
 def find(cfg: dict[str, Any], query: str) -> list[Path]:
-    """Application folders matching `query`: a job id, or words that all appear in the folder name."""
+    """Application folders matching `query`: a folder path, a job id, or words that all appear in the
+    folder name."""
+    if (Path(query) / "app.json").is_file():
+        return [Path(query)]
     root = resolve(cfg, "applications")
     folders = sorted(p.parent for p in root.glob("*/app.json"))
     q = query.strip()
