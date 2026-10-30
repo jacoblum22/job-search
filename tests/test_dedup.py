@@ -109,3 +109,18 @@ def test_dedup_also_moves_rows_older_than_the_window_with_their_group():
     conn.commit()
     run_dedup(conn)
     assert len({r[0] for r in conn.execute("SELECT dedup_group_id FROM jobs")}) == 1
+
+
+def test_two_rows_that_match_each_other_merge_even_when_their_groups_first_rows_do_not(monkeypatch):
+    import datetime as dt
+
+    from src import dedup
+
+    now = dt.datetime.now(dt.timezone.utc)
+    iso = lambda days: (now - dt.timedelta(days=days)).isoformat(timespec="seconds")  # noqa: E731
+    conn = _db_with([("A", "g1", iso(5)), ("B", "g2", iso(4)), ("C", "g3", iso(3)), ("D", "g4", iso(2))])
+    ids = {r["company"]: r["id"] for r in conn.execute("SELECT id, company FROM jobs")}
+    pairs = {frozenset({ids["A"], ids["C"]}), frozenset({ids["B"], ids["D"]}), frozenset({ids["C"], ids["D"]})}
+    monkeypatch.setattr(dedup, "_is_match", lambda a, b: frozenset({a["id"], b["id"]}) in pairs)
+    dedup.run_dedup(conn)
+    assert len({r[0] for r in conn.execute("SELECT dedup_group_id FROM jobs")}) == 1
