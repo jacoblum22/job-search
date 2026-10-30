@@ -150,6 +150,8 @@ rules, so use judgment):
   says there were more he can't name.
 - Keep the posting's title words in the summary's first sentence even when the reviewer suggests
   another opener: the ATS title match depends on it.
+- Every sentence in the summary has a verb, and parentheses there name only tools he used, never
+  a topic tag like "(data engineering)".
 - No test counts ("a pytest suite"): they go stale and read as padding.
 - Ownership verbs only for what he did: "fixed both" when he made the fix, "traced the cause" when
   someone else changed it. "Across teams", not "every team".
