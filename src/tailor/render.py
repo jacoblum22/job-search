@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import yaml
+from pypdf import PdfWriter
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
@@ -245,6 +246,37 @@ def _stems(app_dir: Path, app: dict[str, Any], name: str) -> tuple[str, str]:
     return f"{name} Resume - {company}", f"{name} Cover Letter - {company}"
 
 
+def combined_stem(resume_stem: str, letter_stem: str) -> str:
+    """'<name> Resume - <co>' + '<name> Cover Letter - <co>' -> '<name> Resume and Cover Letter - <co>'."""
+    return resume_stem.replace(" Resume - ", " Resume and Cover Letter - ", 1)
+
+
+def merge_pdfs(pdfs: list[Path], out: Path) -> Path:
+    """One PDF with every page of `pdfs`, in order (resume first, then the letter)."""
+    writer = PdfWriter()
+    for pdf in pdfs:
+        writer.append(str(pdf))
+    with open(out, "wb") as f:
+        writer.write(f)
+    writer.close()
+    return out
+
+
+def combine_final(app_dir: Path) -> dict[str, Any]:
+    """Write the combined PDF from the resume and letter PDFs already in final/ (no rerender, so an
+    approved packet's files are untouched). Used to backfill packets rendered before the combined file existed."""
+    final = Path(app_dir) / "final"
+    parse_path = final / "parse.json"
+    parse = read_json(parse_path) if parse_path.exists() else {}
+    names = [(parse.get(k) or {}).get("pdf") for k in ("resume", "letter")]
+    if not all(names) or not all((final / n).is_file() for n in names):
+        raise TailorError(f"{app_dir}: final/ has no rendered resume and letter to combine")
+    out = merge_pdfs([final / n for n in names], final / f"{combined_stem(Path(names[0]).stem, Path(names[1]).stem)}.pdf")
+    pages = sum(parse[k].get("pages") or 0 for k in ("resume", "letter"))
+    write_json(parse_path, {**parse, "combined": {"pdf": out.name, "pages": pages}})
+    return {"pdf": out.name, "pages": pages}
+
+
 def _render_into(app_dir: Path, data: dict[str, Any], letter: dict[str, Any], contact: dict[str, str],
                  out_dir: Path, resume_stem: str, letter_stem: str) -> tuple[dict, dict, dict, list[str]]:
     """Fit the resume to one page and render both documents into `out_dir`: (fitted resume data,
@@ -299,11 +331,15 @@ def run_render(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     resume_stem, letter_stem = _stems(app_dir, app, name)
     # A rerender under another name (a title added, a rule changed) would leave the old files
     # beside the new ones, and either could get uploaded.
-    for old in [*final.glob(f"{name} Resume - *"), *final.glob(f"{name} Cover Letter - *")]:
-        if old.suffix.lower() in (".pdf", ".docx") and old.stem not in (resume_stem, letter_stem):
+    combined = combined_stem(resume_stem, letter_stem)
+    for old in [*final.glob(f"{name} Resume - *"), *final.glob(f"{name} Cover Letter - *"),
+                *final.glob(f"{name} Resume and Cover Letter - *")]:
+        if old.suffix.lower() in (".pdf", ".docx") and old.stem not in (resume_stem, letter_stem, combined):
             old.unlink()
 
     fitted, res, let, dropped = _render_into(app_dir, data, letter, contact, final, resume_stem, letter_stem)
+
+    combined_pdf = merge_pdfs([res["pdf"], let["pdf"]], final / f"{combined}.pdf")
 
     resume_check = parse_check(res["pdf"], {**fitted, "kind": "resume"}, contact)
     letter_check = parse_check(let["pdf"], {**letter, "kind": "letter"}, contact)
@@ -312,6 +348,7 @@ def run_render(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
         "ok": ok,
         "resume": {**resume_check, "pdf": res["pdf"].name, "docx": res["docx"].name, "pages": res["pages"]},
         "letter": {**letter_check, "pdf": let["pdf"].name, "docx": let["docx"].name, "pages": let["pages"]},
+        "combined": {"pdf": combined_pdf.name, "pages": res["pages"] + let["pages"]},
         "dropped": dropped,
         "sources": {"resume": str(resume_src.relative_to(app_dir)), "letter": str(letter_src.relative_to(app_dir))},
     }

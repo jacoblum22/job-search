@@ -19,6 +19,7 @@ dependencies = [
     "google-api-python-client>=2.200.0",
     "msal>=1.31",
     "pdfplumber>=0.11.10",
+    "pypdf>=5.0",
     # Word COM automation for DOCX→PDF on Windows; a regular dependency so a plain `uv sync`
     # (which drops optional extras) can't remove it.
     "pywin32>=306; sys_platform == 'win32'",

@@ -190,6 +190,13 @@ def test_run_render_end_to_end(tmp_path):
     for name in ("Alex Rivera Resume - Acme Corp.pdf", "Alex Rivera Cover Letter - Acme Corp.docx",
                  "resume.yaml", "cover-letter.json", "parse.json"):
         assert (final / name).exists(), name
+    combined = final / "Alex Rivera Resume and Cover Letter - Acme Corp.pdf"
+    assert combined.exists()
+    assert resume_mod.pdf_page_count(combined) == out["resume"]["pages"] + out["letter"]["pages"]
+    assert out["combined"]["pdf"] == combined.name
+    combined.unlink()
+    from src.tailor.render import combine_final
+    assert combine_final(app)["pdf"] == combined.name and combined.exists()
     app_json = json.loads((app / "app.json").read_text(encoding="utf-8"))
     assert app_json["status"] == "drafted" and app_json["history"][-1]["step"] == "render"
 
