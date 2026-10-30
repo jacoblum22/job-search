@@ -49,6 +49,29 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Skills review, Oct 30 2026.
+    ("Go Fast, Be Agile: Widen our competitive advantage", "Agile/Scrum"),
+    ("We use Tofu, a fraud detection tool, to validate the authenticity of applications",
+     "fraud detection / prevention"),
+    ("translating needs into clear, structured outputs", "LLM structured outputs"),
+    ("turning physiological and behavioral data into safe, structured outputs", "LLM structured outputs"),
+    ("building security guardrails directly into CI/CD pipelines", "AI guardrails / hallucination mitigation"),
+    ("Anticipate failure modes, build guardrails, and follow through on post-incident learnings",
+     "AI guardrails / hallucination mitigation"),
+    ("multi-Agent AI design patterns", "design patterns"),
+    ("Define and implement secure design patterns", "design patterns"),
+    ("Senior Director of Data Science and the Data Science team", "data science"),
+    ("Women in Data Science × SAP Case Competition, March 2024", "data science"),
+    ("lead technical discussions with enterprise stakeholders", "advertising / ad tech"),
+    ("SOC 2 Type II compliance", "security operations (SIEM / SOC)"),
+    ("update the weights and biases of the network", "Weights & Biases"),
+    ("Thanks, Erwin from the recruiting team", "erwin"),
+    ("work in hybrid mode, or remotely", "Mode"),
+    ("we make it easy to sip coffee", "telephony / VoIP (SIP, WebRTC)"),
+    ("our cloud functions scale on demand", "Google Cloud Run / Cloud Functions"),
+    ("Azure Cloud Storage accounts", "Google Cloud Storage"),
+    ("summarize research findings", "Langfuse / Arize Phoenix"),
+    ("Make sure you apply before Friday", "workflow automation (Zapier / n8n / Make)"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +226,89 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Skills review, Oct 30 2026: real posting wording, new skills.
+    ("Experience with Rust and/or Golang", "Rust"),
+    ("Programming in Elixir, Go, Python, Rust, or similar languages", "Elixir"),
+    ("frameworks such as Google's Agent Development Kit (ADK), LangChain, or equivalent", "Google ADK"),
+    ("Skilled with data visualization libraries (D3, Leaflet, etc)", "D3.js"),
+    ("Experience building and maintaining production Ruby on Rails applications", "Ruby on Rails"),
+    ("using tools such as Tableau, Power BI, Mode, or similar technology", "Mode"),
+    ("Snowflake, dbt, Hightouch, Fivetran, Looker, Stripe, Salesforce, Orb", "Hightouch"),
+    ("Exposure to Stripe, Salesforce, or Orb in billing and finance contexts", "Orb"),
+    ("Snowflake's unstructured data capabilities (Directory Tables, Scoped URLs, Snowpark)", "Snowpark"),
+    ("Leverage Erwin Data Intelligence for metadata and lineage tracking", "erwin"),
+    ("Strong understanding of data governance, data lineage, master data management, and data profiling",
+     "master data management"),
+    ("Instrument applications with tracing and structured logging (e.g. OpenTelemetry, Cloud Trace)", "OpenTelemetry"),
+    ("Airflow / Cloud Composer, Dataflow, Kubeflow, or similar", "Kubeflow"),
+    ("Langfuse, Arize Phoenix, Weights & Biases, Vertex AI Evaluation, or equivalent", "Weights & Biases"),
+    ("Langfuse, Arize Phoenix, Weights & Biases, Vertex AI Evaluation, or equivalent", "Langfuse / Arize Phoenix"),
+    ("primarily using Cloud Run, Cloud Functions, and Vertex AI", "Google Cloud Run / Cloud Functions"),
+    ("Able to troubleshoot and debug issues on basic networking, knowledge of Wireshark", "Wireshark"),
+    ("including code documentation (ie: Doxygen, Sphinx) and user guides", "Sphinx / Doxygen"),
+    ("Telephony and voice infrastructure, including PSTN, SIP trunking, PBX, and call routing",
+     "telephony / VoIP (SIP, WebRTC)"),
+    ("access controls, and release management", "release management"),
+    ("Microservices and event-driven architectures", "event-driven architecture"),
+    ("Reliability engineering or SRE experience", "site reliability engineering (SRE)"),
+    ("security tools such as SIEM, IDS, Anti-Virus, EDR, WAF, and DLP", "security operations (SIEM / SOC)"),
+    ("designing, implementing, and maintaining cryptographic systems", "cryptography"),
+    ("understanding of object-oriented coding and design, design patterns", "design patterns"),
+    ("human-in-the-loop AI workflows", "human-in-the-loop"),
+    ("Apply appropriate guardrails, input/output validation, and human-in-the-loop checks",
+     "AI guardrails / hallucination mitigation"),
+    ("Familiar with prompt engineering and techniques to reduce hallucination",
+     "AI guardrails / hallucination mitigation"),
+    ("Experiment with AI agents, tool/function calling, structured outputs", "LLM structured outputs"),
+    ("Speech-to-Text, Text-to-Speech, Voice Activity Detection", "speech / voice AI"),
+    ("Self-Correction and Reinforcement Learning from execution feedback", "reinforcement learning"),
+    ("data cleaning, feature engineering, and dimensionality reduction", "dimensionality reduction"),
+    ("Conduct model training and hyperparameter tuning", "hyperparameter tuning"),
+    ("Bayesian methods, HMMs, graphical models, dimension reduction", "probabilistic graphical models / HMMs"),
+    ("optimization, probability, statistical modeling, econometrics, or control theory", "econometrics"),
+    ("apply data science to complex product and business problems", "data science"),
+    ("low-code orchestration (n8n, Make, Zapier or similar)", "workflow automation (Zapier / n8n / Make)"),
+    ("Fraud Prevention Analyst", "fraud detection / prevention"),
+    ("Manage and resolve chargebacks, disputes, and payment reconciliation", "fraud detection / prevention"),
+    ("Prior experience in e-commerce specifically", "e-commerce / online marketplaces"),
+    ("preferably within a supply chain, retail, or consumer goods environment", "supply chain"),
+    ("Familiarity with ads systems, auction theory, or related marketplace optimization problems",
+     "advertising / ad tech"),
+    ("No previous trust and safety experience is required", "trust & safety / content moderation"),
+    ("data engineering, analytics engineering, or revenue operations context", "revenue operations (RevOps)"),
+    ("familiar with post-silicon validation methodologies", "semiconductor / silicon validation"),
+    # Fixes to existing entries.
+    ("Azure Data Lake, Azure Synapse, and Data Bricks", "Databricks"),
+    ("data pipelines, primarily utilizing SparkSQL and Pyspark", "Spark/PySpark"),
+    ("Knowledge of data engineering concepts including data ingestion, integration, transformation", "data pipelines"),
+    ("Strong command of at least one data orchestration tool", "data pipelines"),
+    ("high standards for data accuracy and validation", "data quality / validation"),
+    ("Perform data profiling and quality assessments", "data quality / validation"),
+    ("privacy and regulatory standards (e.g., FOIP, GDPR)", "data privacy / security"),
+    ("Exposure to infrastructure-as-code (Terraform, AWS CDK)", "Terraform/IaC"),
+    ("Design and conduct A/B experiments", "A/B testing / experimentation"),
+    ("design experiments, and interpret results", "A/B testing / experimentation"),
+    ("offline evaluations, online experiments, and production monitoring", "A/B testing / experimentation"),
+    ("offline evaluations, online experiments, and production monitoring", "LLM / AI evaluation"),
+    ("Create evaluation sets and automated tests", "LLM / AI evaluation"),
+    ("Build approaches for evaluating and testing AI systems", "LLM / AI evaluation"),
+    ("Demonstrated learning agility, attention to detail", "curiosity / learning"),
+    ("a demonstrated ability to pick up new languages quickly", "curiosity / learning"),
+    ("Fast learner with good communication skills", "curiosity / learning"),
+    ("Customer Acquisition Cost (CAC), Return on Ad Spend (ROAS)", "marketing analytics / attribution"),
+    ("Experience with process modeling tools (e.g., Engage Process Modeler, Visio)", "process improvement"),
+    ("Knowledge of common critical network protocols", "networking (TCP/IP)"),
+    ("Applied understanding of the OSI model", "networking (TCP/IP)"),
+    ("Experience in object detection, recognition, and tracking", "computer vision"),
+    ("neural networks, and ensemble methods", "machine learning"),
+    ("ingestion, parsing, chunking, embedding, indexing", "RAG (retrieval-augmented generation)"),
+    ("Implement hybrid retrieval", "search / information retrieval"),
+    ("agentic architectures, tool use or multi-agent workflows", "AI agents / agentic AI / MCP"),
+    ("structured logging, metrics, distributed tracing", "pipeline monitoring / alerting"),
+    ("balance between independent work and teamwork", "independent / self-starter"),
+    ("API-based data connectors (REST/SOAP, webhooks, file-based transfers)", "APIs / REST"),
+    ("RESTful APIs, and OAuth2", "IAM (identity and access management)"),
+    ("BigQuery, Cloud Storage, and Dataflow", "Google Cloud Storage"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -237,6 +343,25 @@ def test_oct_20_review_products_and_concepts():
         assert _is_tool(product), product
         assert product in taxonomy.TOOL_TYPES, product
         assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+
+
+def test_oct_30_review_products_and_concepts():
+    for name in ["master data management", "design patterns", "telephony / VoIP (SIP, WebRTC)", "release management",
+                 "event-driven architecture", "site reliability engineering (SRE)",
+                 "security operations (SIEM / SOC)", "cryptography", "data science", "human-in-the-loop",
+                 "fraud detection / prevention", "supply chain"]:
+        assert not _is_tool(name), name
+    for name in ["Elixir", "Google ADK", "D3.js", "Ruby on Rails", "Mode", "Hightouch", "Orb", "Snowpark", "erwin",
+                 "OpenTelemetry", "Kubeflow", "Weights & Biases", "Langfuse / Arize Phoenix",
+                 "Google Cloud Run / Cloud Functions", "Wireshark", "Sphinx / Doxygen",
+                 "workflow automation (Zapier / n8n / Make)"]:
+        assert _is_tool(name), name
+        assert name in taxonomy.TOOL_TYPES, name
+    for product, platform in [("Snowpark", "Snowflake"), ("Google Cloud Run / Cloud Functions", "GCP"),
+                              ("Ruby on Rails", "Ruby"), ("Kubeflow", "MLOps"), ("D3.js", "JavaScript")]:
+        assert taxonomy.RELATED[product] == platform
+    for platform in set(taxonomy.RELATED.values()):
         assert taxonomy.category(platform), platform
 
 
