@@ -171,6 +171,8 @@ rules, so use judgment):
   Circle") rather than being cut, when the story needs them.
 - A letter opener names what the job needs and how his work lines up with it as a whole; a single
   narrow example goes in paragraph 2, not the opener.
+- Paragraph 1 names the role, and "I'm applying for the X role at Y" is allowed (only the banned
+  openers in the cover-letter rules are not). If the reviewer asks you to state the role, do it.
 - A company figure the reviewer questions: use the wording in `facts.json` or the posting exactly,
   or drop it.
 
