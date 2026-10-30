@@ -36,6 +36,8 @@ Its reply is saved unchanged as notes.md.
 from __future__ import annotations
 
 import re
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -318,7 +320,16 @@ def review_input(app_dir: Path, rnd: int | None = None, cfg: dict[str, Any] | No
     if render is None:
         from src.tailor.render import render_round as render
     pdfs = render(app_dir, cfg or {}, int(rnd), out)
-    attachments = [pdfs["resume"], pdfs["letter"]]
+    # Copies in a folder outside the packet: a reviewer that is handed a path inside review/pass<N>/
+    # can read the earlier notes beside it (Oct 30 2026 rerun: Evismart, Nexthop and Metasys reviewers
+    # said they had read the first pass), and every pass is meant to be a reviewer that has seen nothing.
+    neutral = Path(tempfile.gettempdir()) / "job-search-review" / f"{app_dir.name}-pass{n}"
+    neutral.mkdir(parents=True, exist_ok=True)
+    attachments = []
+    for key in ("resume", "letter"):
+        copy = neutral / Path(pdfs[key]).name
+        shutil.copyfile(pdfs[key], copy)
+        attachments.append(str(copy))
     posting = (app_dir / "posting.md").read_text(encoding="utf-8")
     message = FIRST_MESSAGE + "\n\n" + _posting_body(posting)
     (out / "message.md").write_text(message + "\n", encoding="utf-8")

@@ -191,8 +191,9 @@ folder before starting the next. Keep a running note of the outcome for the dige
       bake-off on three postings): start a NEW subagent with model **sonnet** and effort
       **medium** (what his review chats run on), with no history. Its whole prompt is the text of
       `message.md` (always his opening line and the posting), then a blank line, then `Attached: `
-      and the two `attachments` paths, comma-separated, in double quotes. Nothing else. Run it in
-      the foreground and wait for its answer, as in step 3. Never send it earlier turns, "Is this
+      and the two `attachments` paths, comma-separated, in double quotes (copies in a temp folder
+      outside the packet, so the reviewer can't read earlier passes' notes; never give it a path
+      inside the packet). Nothing else. Run it in the foreground and wait for its answer, as in step 3. Never send it earlier turns, "Is this
       better?", or what changed.
     - Write the reviewer's reply, unchanged, to the `notes` path the output gave.
     - `uv run python -m src.tailor review-round "<app>"`. If it asks for a round, follow
