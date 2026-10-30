@@ -111,6 +111,8 @@ role. If the vault has no `motivation.*` passages, keep movement 3 to one senten
    - Mix sentence lengths: some of 3-7 words, some of 20-30.
    - Banned openers: "I am writing to apply", "I am excited to apply", "As a passionate", "Please
      accept this letter".
+   - Paragraph 1 must name the role. "I'm applying for the X role at Y" is fine; only the four
+     phrases above are banned. Name the company somewhere in the letter.
    - Bold nothing (the letter is rendered plain).
    - The candidate's guardrails come from the rules file. Spell a posting term the way the posting
      does (US or Canadian).
