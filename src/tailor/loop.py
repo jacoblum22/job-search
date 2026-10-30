@@ -354,6 +354,21 @@ def _best(rounds: list[dict[str, Any]]) -> dict[str, Any]:
     return min(rounds, key=lambda r: (r["criticals"], -pick(r), -r["score"], r["round"]))
 
 
+def _since_review(app_dir: Path, rounds: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The rounds a later repair may keep: from the last review round the loop kept (or, when it
+    added a critical, the round it was judged against) onward. A review round is kept whatever its
+    ATS, so an older round must not win it back on score (Nexthop, Oct 30 2026: a gap round after
+    nine review rounds made round 6 the best again, from before the hand revision they reviewed)."""
+    by_n = {r["round"]: r for r in rounds}
+    for r in reversed(rounds):
+        fb = _feedback(app_dir, r["round"])
+        if fb.get("review") or fb.get("review_fix"):
+            base = by_n.get(fb.get("compare_to", fb.get("build_on")))
+            floor = r["round"] if base is None or r["criticals"] <= base["criticals"] else base["round"]
+            return [x for x in rounds if x["round"] >= floor]
+    return rounds
+
+
 def _section_of(path: str, doc: str) -> str | None:
     if doc == "letter" or path.startswith("letter"):
         return "letter"
@@ -456,12 +471,14 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     sure = loop_cfg.get("regression_min_confidence", 0.6)
     today = _todays_ats(app_dir, cfg)
     rounds = [_load(app_dir, n, today) for n in nums]
-    cur, prev = rounds[-1], rounds[:-1]
-    best = _best(rounds)
+    cur = rounds[-1]
 
     side = _feedback(app_dir, cur["round"])
-    if (side.get("letter_only") or side.get("review") or side.get("review_fix")) and prev:
+    if (side.get("letter_only") or side.get("review") or side.get("review_fix")) and len(rounds) > 1:
         return _finish_letter_round(app_dir, rounds, cur, side, review=bool(side.get("review") or side.get("review_fix")))
+    pool = _since_review(app_dir, rounds)
+    prev = pool[:-1]
+    best = _best(pool)
 
     # Jake, Oct 23 2026: more than `wide_gap` points under what the evidence allows isn't acceptable,
     # so while the best round is that far off and the last round still raised its ATS, the loop gets

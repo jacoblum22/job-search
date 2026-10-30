@@ -143,8 +143,9 @@ folder before starting the next. Keep a running note of the outcome for the dige
 
 1. **Requirements (Claude).** Follow `prompts/tailor/requirements.md`; write `<app>/requirements.json`.
 2. `uv run python -m src.tailor requirements "<app>"`. Read the output: note what was dropped.
-3. **Company research (only if stale).** Look in `materials/companies/<company-slug>/facts.json` (the slug is the
-   company name in lowercase with every run of other characters turned into one `-`). If it has at
+3. **Company research (only if stale).** Look in `<company_dir>/facts.json`, where `company_dir` is
+   the folder step 2 printed (use it as printed everywhere below; don't build the slug yourself,
+   the letter reads facts only from that folder). If it has at
    least 3 facts and the newest `read` is under 30 days old, skip. Otherwise start a subagent with
    model **haiku**, telling it to follow `prompts/tailor/company-research.md`, and give it the company
    name, the company folder path, the application folder path and the "How to run commands" paragraph
@@ -152,7 +153,7 @@ folder before starting the next. Keep a running note of the outcome for the dige
    (web fetch is not available); it writes only inside that company folder. Run it in the
    foreground (never `run_in_background`) and wait for its answer: this run is unattended, and a turn
    that ends while a subagent is still working ends the run with nothing drafted. Then run
-   `uv run python -m src.tailor company-verify "materials/companies/<company-slug>"`.
+   `uv run python -m src.tailor company-verify "<company_dir>"`.
    If research finds nothing usable, continue; the letter then uses the posting alone and the digest says so.
 4. `uv run python -m src.tailor evidence "<app>"`.
 5. `uv run python -m src.tailor base "<app>"`.
