@@ -1,8 +1,8 @@
 """Browser pieces of the daily application goal, shared by the dashboard (the bar) and the
 details page (the toast and confetti when "I applied" is pressed)."""
 
-# Emoji stops along the bar, as a share of the goal.
-STOPS = [(0, "🙂"), (0.5, "😄"), (0.8, "🤩"), (1, "🎉")]
+# Emoji stops along the bar, as a share of the goal: from crying at zero to star eyes at the goal.
+STOPS = [(0, "😭"), (0.2, "😟"), (0.4, "😐"), (0.6, "🙂"), (0.8, "😄"), (1, "🤩")]
 
 CSS = """
   .goalbar { flex: 1 1 260px; max-width: 380px; align-self: center; margin: 0 auto; }
