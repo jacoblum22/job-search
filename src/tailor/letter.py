@@ -28,9 +28,12 @@ _KEEN = re.compile(
 )
 # The gap-with-a-bridge sentence cover-letter.md recommends ("I haven't used Marketo, but at ...")
 # denies the tools it names; group 1 is the denied part, up to the clause where the bridge starts.
+# A comma list ("Hadoop, Spark or Hive") is denied whole: each later item is at most four words and
+# can't open a clause (Princeton IT Services, Oct 30 2026: only Hadoop counted, Spark was "invented").
 _DENIED = re.compile(
     r"\b(?:ha(?:ve|s)n['’]t|ha(?:ve|s)\s+not|(?:ha(?:ve|s)\s+)?never)\s+(?:yet\s+)?(?:used|worked\s+with|touched)\s+"
-    r"([^.;:,\n]+?)(?=\s+(?:yet|but)\b|[.;:,\n]|$)",
+    r"([^.;:,\n]+?(?:,\s*(?!(?:but|yet|so|though|although|while|which|since|because|instead)\b)"
+    r"(?:(?:and|or)\s+)?[^\s.;:,\n]+(?:\s+[^\s.;:,\n]+){0,3}?)*)(?=\s+(?:yet|but)\b|[.;:,\n]|$)",
     re.I,
 )
 

@@ -127,16 +127,20 @@ def show(app_dir: Path, cfg: dict[str, Any], *, passages: bool = False, posting:
 
 def vault(cfg: dict[str, Any], terms: list[str], *, claims_only: bool = False) -> list[dict[str, Any]]:
     """Passages whose text has every term (case-blind, whole word at the start, so 'Docker' finds
-    'Dockerfile' but 'R' doesn't find every word with an r)."""
+    'Dockerfile' but 'R' doesn't find every word with an r), or says it the way `wording.same` counts
+    as the same, as the grade does (Pattison, Oct 30 2026: the grade asked for "data analytics" on a
+    "data analysis" passage, and this search found nothing, so the run called it unbacked)."""
+    from src.tailor import wording
     from src.tailor.sources import load_index
 
-    rx = [re.compile(rf"(?<!\w){re.escape(t)}", re.IGNORECASE) for t in terms if t.strip()]
+    terms = [t for t in terms if t.strip()]
+    rx = [re.compile(rf"(?<!\w){re.escape(t)}", re.IGNORECASE) for t in terms]
     out = []
     for pid, p in load_index(cfg).items():
         text = str(p.get("text") or "")
         if claims_only and p.get("use") != "claim":
             continue
-        if rx and all(r.search(text) for r in rx):
+        if rx and all(r.search(text) or wording.same(t, text) for r, t in zip(rx, terms)):
             out.append({"id": pid, "where": explain.passage_label(pid, {pid: p}), "use": p.get("use"),
                         "text": text.strip()})
     return out

@@ -190,10 +190,11 @@ few words. Jake reads these in check.md.
 
 ## Review fix rounds
 
-When `feedback.json` has `"review_fix": true`, the review round before it added a critical. The
-round builds on that review round (`build_on`) and keeps everything it changed; fix only the lines
-in `criticals`, the way rule 2 and rule 3 say (use the vault's wording for a skill, cut an unbacked
-number), and copy the letter unless a critical is in it. `next-round` then compares this round
+When `feedback.json` has `"review_fix": true`, the review round before it added a critical or a
+warning such as text copied from the posting. The round builds on that review round (`build_on`)
+and keeps everything it changed; fix only the lines in `criticals` and `warnings`, the way rule 2
+and rule 3 say (use the vault's wording for a skill, cut an unbacked number, reword a copied
+phrase), and copy the letter unless one of them is in it. `next-round` then compares this round
 with the round the review read (`compare_to`) and keeps it unless a critical is still there.
 
 ## Output

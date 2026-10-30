@@ -92,7 +92,13 @@ def letter_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
         return None
     warnings = [w for w in recheck(app_dir, best, cfg).get("warnings") or []
                 if w.get("doc") == "letter" and w.get("code") in _ROUND_WARNINGS]
-    soft = soft_for_letter(app_dir, best, cfg)
+    # A soft skill an earlier letter round was already asked for and couldn't honestly name isn't
+    # asked again when review rounds move the best round (Zesty.ai, Oct 30 2026: "fast-paced" in
+    # rounds 4 and 12, both left unchanged).
+    asked = {t for n in dirs if _feedback(app_dir, n).get("letter_only")
+             for f in _feedback(app_dir, n).get("failed_items") or [] if f.startswith(LETTER_SOFT)
+             for t in f[len(LETTER_SOFT):].rstrip(".").split(", ")}
+    soft = [t for t in soft_for_letter(app_dir, best, cfg) if t not in asked]
     if not warnings and not soft:
         return None
     keep = soft_in_letter(app_dir, best, cfg)
@@ -150,7 +156,10 @@ def gap_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any] | None:
     rdir = round_dir(app_dir, best)
     if best not in dirs or not (rdir / "grade.json").exists():
         return None
-    if any(_feedback(app_dir, n).get("revisit") and _feedback(app_dir, n).get("build_on") == best for n in dirs):
+    # A repair round built on the best round that changed nothing already found no honest edit
+    # (Pattison Data Analyst 1, Oct 30 2026: round 5 changed nothing and round 6 was asked the same items).
+    if any(_feedback(app_dir, n).get("build_on") == best and not _feedback(app_dir, n).get("letter_only")
+           and (_feedback(app_dir, n).get("revisit") or unchanged(app_dir, n, best)) for n in dirs):
         return None
     req = read_json(app_dir / "requirements.json")
     evidence = graded_evidence(app_dir, cfg, req)
@@ -397,9 +406,14 @@ def _finish_letter_round(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[
     # A review fix round builds on the review round but is judged against the round the review read.
     build_on = feedback.get("compare_to", feedback.get("build_on"))
     base = next((r for r in rounds if r["round"] == build_on), None) or _best(rounds[:-1])
-    if (review and feedback.get("review") and cur["criticals"] > base["criticals"]
+    # A round-worthy warning the review round brought in (Banco Plata, Oct 30 2026: a bullet copying 8
+    # posting words shipped, since review rounds were only ever repaired for criticals).
+    had = {(w.get("code"), w.get("path")) for w in base["check"].get("warnings") or []}
+    added = [w for w in _warnings(cur["check"]) if w.get("code") in _ROUND_WARNINGS
+             and (w.get("code"), w.get("path")) not in had]
+    if (review and feedback.get("review") and (cur["criticals"] > base["criticals"] or added)
             and not unchanged(app_dir, cur["round"], base["round"])):
-        return _review_fix(app_dir, rounds, cur, base, feedback)
+        return _review_fix(app_dir, rounds, cur, base, feedback, added)
     if cur["criticals"] <= base["criticals"]:
         what = "the outside review acted on" if review else "round {0}'s resume with the new letter".format(base["round"])
         best, reason = cur, f"{'review' if review else 'letter'} round done: round {cur['round']} is {what}"
@@ -419,7 +433,7 @@ def _finish_letter_round(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[
 
 
 def _review_fix(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[str, Any], base: dict[str, Any],
-                feedback: dict[str, Any]) -> dict[str, Any]:
+                feedback: dict[str, Any], added: list[dict[str, Any]] = ()) -> dict[str, Any]:
     """A review round that added a critical gets one round fixing only the flagged lines, built on
     it, instead of losing every change it made (Infoblox, Oct 28 2026: "AI agent" wording drew two
     invented_skill criticals and about 240 words of review fixes were thrown away). The fix round is
@@ -434,11 +448,13 @@ def _review_fix(app_dir: Path, rounds: list[dict[str, Any]], cur: dict[str, Any]
         "review_pass": feedback.get("review_pass", 1),
         "criticals": crit,
         "failed_items": [],
-        "warnings": [],
-        "sections": _sections({"check": {"criticals": crit}, "grade": {}}),
+        "warnings": [{"code": w["code"], "message": w["message"], "path": w.get("path", "")} for w in added],
+        "sections": _sections({"check": {"criticals": crit, "warnings": list(added)}, "grade": {}}),
     }
     write_json(round_dir(app_dir, nxt) / "feedback.json", fb)
-    reason = (f"review round {cur['round']} added {cur['criticals'] - base['criticals']} critical(s): "
+    what = ([f"{cur['criticals'] - base['criticals']} critical(s)"] if cur["criticals"] > base["criticals"] else []) + \
+           ([", ".join(sorted({w["code"] for w in added}))] if added else [])
+    reason = (f"review round {cur['round']} added {' and '.join(what)}: "
               f"round {nxt} fixes only those lines and keeps the rest of the review's changes")
     summaries = [{"round": r["round"], "score": r["score"], "criticals": r["criticals"], "failed_items": r["failed_items"]}
                  for r in rounds]

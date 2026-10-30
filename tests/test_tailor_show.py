@@ -102,6 +102,16 @@ def test_vault_finds_word_starts_and_can_skip_interview_only(tmp_path):
     assert show.vault(cfg, ["ocker"]) == []  # word starts only
 
 
+def test_vault_finds_what_the_grade_counts_as_the_same_wording(tmp_path):
+    # Pattison, Oct 30 2026: the grade asked for "data analytics" on a "data analysis" passage and
+    # this search said the vault had none.
+    cfg = _cfg(tmp_path)
+    assert [p["id"] for p in show.vault(cfg, ["window-function"])] == ["algaecal.sql-daily"]
+    write_json(tmp_path / "vault-index.json", {"passages": [
+        {"id": "lab.analysis", "file": "work/lab.md", "use": "claim", "text": "Did the data analysis in R."}]})
+    assert [p["id"] for p in show.vault(cfg, ["data analytics"])] == ["lab.analysis"]
+
+
 def test_sent_searches_shipped_lines_and_filters_by_status_or_outcome(tmp_path):
     cfg = _cfg(tmp_path)
     _app(tmp_path)

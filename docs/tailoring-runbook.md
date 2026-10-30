@@ -199,7 +199,8 @@ folder before starting the next. Keep a running note of the outcome for the dige
     - `uv run python -m src.tailor review-round "<app>"`. If it asks for a round, follow
       `prompts/tailor/repair.md` ("Review round") for that round number, then run `apply-edits`,
       `check`, `grade` with `--round N`, and `next-round`. It ends the loop and keeps the review
-      round, whatever its ATS score; if the review round added a critical, `next-round` asks for
+      round, whatever its ATS score; if the review round added a critical (or a warning worth a
+      round, such as text copied from the posting), `next-round` asks for
       one review fix round instead: follow repair.md ("Review fix rounds"), run `apply-edits`,
       `check`, `grade` and `next-round` once more. Then go back to the first bullet:
       `review-input` decides whether another pass is due (it stops when the reviewer says ready,
