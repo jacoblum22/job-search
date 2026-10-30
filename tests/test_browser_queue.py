@@ -103,3 +103,15 @@ def test_queue_reaches_the_backlog_15_per_site(tmp_path):
         upsert_job(conn, Job("linkedin", str(n + 100), "Data Analyst", "Acme", "Vancouver, BC",
                              "snippet", url=f"https://www.linkedin.com/jobs/view/{n + 100}"))
     assert len(browser_queue.export_queue(conn, tmp_path / "q")) == 15
+
+
+def test_queue_json_counts_the_backlog_beyond_todays_list(tmp_path):
+    conn = _conn(tmp_path)
+    for n in range(5, 25):
+        upsert_job(conn, Job("linkedin", str(n), f"Data Analyst {n}", "Acme", "Vancouver, BC",
+                             "snippet", url=f"https://www.linkedin.com/jobs/view/{n}"))
+    conn.commit()
+    browser_queue.export_queue(conn, tmp_path / "q")
+    payload = json.loads((tmp_path / "q" / "queue.json").read_text())
+    assert len(payload["listings"]) == 15
+    assert payload["backlog_after_this_list"] == {"linkedin": 9}

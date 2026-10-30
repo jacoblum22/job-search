@@ -157,13 +157,29 @@ def _result_ids(queue_dir: Path) -> set[int]:
 
 def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int | None = None,
                  limit: int | None = DAILY_PER_SOURCE) -> list[dict]:
-    """Write queue.json for the Chrome task: what pending() lists, less any
-    listing whose result file is already waiting to be imported."""
+    """Write queue.json for the Chrome task: the next `limit` listings per
+    source from pending(), less any whose result file is already waiting to be
+    imported. `backlog` counts what's still waiting beyond today's list, so the
+    task can say the day's list is done without calling the backlog empty.
+    """
     ensure_schema(conn)
     queue_dir.mkdir(parents=True, exist_ok=True)
     waiting = _result_ids(queue_dir)
-    listings = [r for r in pending(conn, days=days, limit=limit) if r["id"] not in waiting]
-    payload = {"generated_at": _now().isoformat(timespec="seconds"), "listings": listings}
+    todo = [r for r in pending(conn, days=days) if r["id"] not in waiting]
+    taken: dict[str, int] = {}
+    listings: list[dict] = []
+    backlog: dict[str, int] = {}
+    for r in todo:
+        if limit is None or taken.get(r["source"], 0) < limit:
+            taken[r["source"]] = taken.get(r["source"], 0) + 1
+            listings.append(r)
+        else:
+            backlog[r["source"]] = backlog.get(r["source"], 0) + 1
+    payload = {
+        "generated_at": _now().isoformat(timespec="seconds"),
+        "backlog_after_this_list": backlog,
+        "listings": listings,
+    }
     tmp = queue_dir / (QUEUE_FILE + ".tmp")
     tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     tmp.replace(queue_dir / QUEUE_FILE)

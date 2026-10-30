@@ -72,12 +72,14 @@ commands or scripts: this task only reads and writes files in the
    from one site in a run. Write each file as soon as you finish that
    posting, so whatever's left waits for the next run. Skip any listing whose `.browser-queue/<id>.md` or
    `.browser-queue/<id>.fail` already exists. If the file is missing, stop and
-   say so. If every listing already has a file, stop and reply with:
-   when queue.json was written (`generated_at`), how many listings it has,
-   how many already have a `.md` and how many a `.fail`, and "an earlier
-   run since then already did these; tomorrow's list is written at 9 AM".
-   Each day's list holds at most 15 per site, so a second run on the same
-   day finds nothing, and that is expected.
+   say so. If every listing already has a file, the day's list is done:
+   reply with when `queue.json` was written (`generated_at`), how many of its
+   listings have a `.md` and how many a `.fail`, and the
+   `backlog_after_this_list` counts per site (postings still waiting beyond
+   today's list), and say tomorrow's list is written at 9 AM. Each day's list
+   is at most 15 per site, so a second run the same day does no more. Only
+   say there is nothing left to fill when the list is empty and
+   `backlog_after_this_list` is empty too.
 2. For each listing, open its `url` in a new Chrome tab. Expand the
    description if it's collapsed ("See more" / "Show more") and read the full
    job description: the role, responsibilities, qualifications, pay and
