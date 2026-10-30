@@ -372,6 +372,11 @@ def set_dedup_group(conn: sqlite3.Connection, job_id: int, dedup_group_id: str) 
     conn.execute("UPDATE jobs SET dedup_group_id = ? WHERE id = ?", (dedup_group_id, job_id))
 
 
+def set_dedup_groups(conn: sqlite3.Connection, from_group: str, to_group: str) -> int:
+    """Move every row of one dedup group into another; returns rows changed."""
+    return conn.execute("UPDATE jobs SET dedup_group_id = ? WHERE dedup_group_id = ?", (to_group, from_group)).rowcount
+
+
 _STATUS_RANK = {"new": 0, "expired": 1, "dismissed": 2, "applied": 3}
 
 
