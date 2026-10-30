@@ -498,3 +498,16 @@ def test_dashboard_has_goal_bar(env):
     conn = connect(env["cfg"]["paths"]["db"])
     assert 'id="goalBar"' in render_dashboard(conn, server=True)
     conn.close()
+
+
+def test_applied_at_backfilled_from_history_when_column_added(env):
+    from src.tailor.packet import record_outcome
+
+    record_outcome(env["dir"], env["cfg"], "applied")
+    record_outcome(env["dir"], env["cfg"], "interview")  # outcome moved on, so only history remembers
+    conn = connect(env["cfg"]["paths"]["db"])
+    conn.execute("ALTER TABLE applications DROP COLUMN applied_at")
+    conn.commit()
+    store.ensure_table(conn)
+    assert conn.execute("SELECT applied_at FROM applications WHERE job_id = ?", (env["jid"],)).fetchone()[0]
+    conn.close()
