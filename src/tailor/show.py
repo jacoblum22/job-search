@@ -80,6 +80,8 @@ def _final_files(app_dir: Path) -> list[str]:
         r = parse.get(kind) or {}
         if r.get("pdf"):
             out.append(f"{r['pdf']} ({r.get('pages')} page(s), parse {'ok' if r.get('ok') else 'FAILED'})")
+    if (parse.get("combined") or {}).get("pdf"):
+        out.append(f"{parse['combined']['pdf']} ({parse['combined'].get('pages')} page(s), resume then letter)")
     stems = {Path(s.split(" (")[0]).stem for s in out}
     # A pdf the last render didn't write is a leftover that could get uploaded by mistake.
     out += [f"{p.name} (not from the last render: delete it?)" for p in sorted(final.glob("*.pdf"))

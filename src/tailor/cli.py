@@ -297,6 +297,15 @@ def render(app_dir):
 
 @main.command()
 @APP
+def combine(app_dir):
+    """Write the combined resume + cover letter PDF from the PDFs already in final/ (backfill; no rerender)."""
+    from src.tailor.render import combine_final
+
+    _out(combine_final(app_dir))
+
+
+@main.command()
+@APP
 def packet(app_dir):
     """Step 10: fit-notes.md, check.md and the status update."""
     from src.tailor.packet import run_packet
