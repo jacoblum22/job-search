@@ -42,8 +42,7 @@ SNIPPET_MAX_CHARS = 1000  # same threshold as src/enrich.py
 MIN_FULL_CHARS = 300
 BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet", "jobright", "wellfound")
 RETRY_AFTER = timedelta(days=3)
-# Listings per site on each night's queue; Jake's cap, so no account is hit too hard.
-DAILY_PER_SOURCE = 15
+
 # enrich_attempts.ok: 1 = filled, 0 = plain HTTP fetch failed, -1 = the
 # browser couldn't read it either (retried after RETRY_AFTER).
 BROWSER_FAILED = -1
@@ -66,9 +65,8 @@ def _now() -> datetime:
 def pending(conn: sqlite3.Connection, *, days: int | None = None, limit: int | None = None) -> list[dict]:
     """Listings still holding a snippet that a browser could fill, newest
     first. With `days`, only listings first seen that recently; with `limit`,
-    at most that many per source. The nightly queue takes 15 per site (more
-    a night could get Jake's accounts flagged) from the whole backlog, with
-    no date window, so older listings come up once the new ones are read.
+    at most that many per source. The Chrome task's queue.json uses neither: it
+    lists the whole backlog and the task opens the next 15 per site per run.
 
     BROWSER_SOURCES always qualify. Any other source qualifies as soon as the
     plain HTTP fetch (src/enrich.py) has failed on it. A listing the browser
@@ -156,30 +154,18 @@ def _result_ids(queue_dir: Path) -> set[int]:
 
 
 def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int | None = None,
-                 limit: int | None = DAILY_PER_SOURCE) -> list[dict]:
-    """Write queue.json for the Chrome task: the next `limit` listings per
-    source from pending(), less any whose result file is already waiting to be
-    imported. `backlog` counts what's still waiting beyond today's list, so the
-    task can say the day's list is done without calling the backlog empty.
+                 limit: int | None = None) -> list[dict]:
+    """Write queue.json for the Chrome task: everything pending() lists (the
+    whole backlog, newest first within each source), less any listing whose
+    result file is already waiting to be imported. The task itself takes the
+    next DAILY_PER_SOURCE listings per source that have no file yet on each run,
+    so every run, scheduled or by hand, does 15 more per source.
     """
     ensure_schema(conn)
     queue_dir.mkdir(parents=True, exist_ok=True)
     waiting = _result_ids(queue_dir)
-    todo = [r for r in pending(conn, days=days) if r["id"] not in waiting]
-    taken: dict[str, int] = {}
-    listings: list[dict] = []
-    backlog: dict[str, int] = {}
-    for r in todo:
-        if limit is None or taken.get(r["source"], 0) < limit:
-            taken[r["source"]] = taken.get(r["source"], 0) + 1
-            listings.append(r)
-        else:
-            backlog[r["source"]] = backlog.get(r["source"], 0) + 1
-    payload = {
-        "generated_at": _now().isoformat(timespec="seconds"),
-        "backlog_after_this_list": backlog,
-        "listings": listings,
-    }
+    listings = [r for r in pending(conn, days=days, limit=limit) if r["id"] not in waiting]
+    payload = {"generated_at": _now().isoformat(timespec="seconds"), "listings": listings}
     tmp = queue_dir / (QUEUE_FILE + ".tmp")
     tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     tmp.replace(queue_dir / QUEUE_FILE)

@@ -65,21 +65,18 @@ scraper couldn't get. Nobody is watching this run. Don't run any shell
 commands or scripts: this task only reads and writes files in the
 `.browser-queue` folder and uses Chrome.
 
-1. Read `.browser-queue/queue.json`. Its `listings` are up to 15 postings
-   per site (LinkedIn, Indeed, Glassdoor, Jobright, Wellfound, CareerJet,
-   plus any other site whose page the scraper couldn't load), each with an
-   `id` and a `url`. Open only the listings in the file, never more than 15
-   from one site in a run. Write each file as soon as you finish that
-   posting, so whatever's left waits for the next run. Skip any listing whose `.browser-queue/<id>.md` or
-   `.browser-queue/<id>.fail` already exists. If the file is missing, stop and
-   say so. If every listing already has a file, the day's list is done:
-   reply with when `queue.json` was written (`generated_at`), how many of its
-   listings have a `.md` and how many a `.fail`, and the
-   `backlog_after_this_list` counts per site (postings still waiting beyond
-   today's list), and say tomorrow's list is written at 9 AM. Each day's list
-   is at most 15 per site, so a second run the same day does no more. Only
-   say there is nothing left to fill when the list is empty and
-   `backlog_after_this_list` is empty too.
+1. Read `.browser-queue/queue.json`. Its `listings` are every posting still
+   missing a description (LinkedIn, Indeed, Glassdoor, Jobright, Wellfound,
+   CareerJet, plus any other site whose page the scraper couldn't load),
+   each with an `id` and a `url`; there may be a few hundred. Skip any
+   listing whose `.browser-queue/<id>.md` or `.browser-queue/<id>.fail`
+   already exists. From the rest, take the first 15 per site in the order
+   they appear, and never open more than 15 from one site in a run (more
+   could get my accounts flagged). A run opens 15 more per site even if an
+   earlier run today already did some. Write each file as soon as you finish
+   that posting. If the file is missing, stop and say so. Only when no
+   listing is left without a file, stop and reply "Nothing to fill in: every
+   listing in queue.json (written <generated_at>) already has a file."
 2. For each listing, open its `url` in a new Chrome tab. Expand the
    description if it's collapsed ("See more" / "Show more") and read the full
    job description: the role, responsibilities, qualifications, pay and
@@ -103,7 +100,8 @@ commands or scripts: this task only reads and writes files in the
      that changes my accounts.
    - Close the tab when you're done with it, and pause a few seconds between
      postings.
-3. Reply with how many you filled in, which failed and why (one line each),
+3. Reply with how many you filled in, how many listings per site are still
+   waiting in queue.json without a file, which failed and why (one line each),
    and any that look like a strong fit for an entry-level data science,
    analyst, ML or junior software role in Vancouver or remote Canada. If a
    step was blocked by a permission prompt, name the exact tool so it can be
