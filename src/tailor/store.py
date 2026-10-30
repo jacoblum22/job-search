@@ -29,16 +29,17 @@ CREATE TABLE IF NOT EXISTS applications (
     updated_at TEXT,
     outcome TEXT,
     outcome_at TEXT,
-    review_flags TEXT
+    review_flags TEXT,
+    applied_at TEXT
 );
 """
 
 # Columns added after the first release; ensure_table adds them to older databases.
-_ADDED_COLUMNS = {"review_flags": "TEXT"}
+_ADDED_COLUMNS = {"review_flags": "TEXT", "applied_at": "TEXT"}
 
 _SETTABLE = {
     "folder", "status", "tier", "score", "gate_flags", "flagged", "queue_rank",
-    "base_id", "created_at", "outcome", "outcome_at", "review_flags",
+    "base_id", "created_at", "outcome", "outcome_at", "review_flags", "applied_at",
 }
 
 
@@ -59,6 +60,22 @@ def ensure_table(conn: sqlite3.Connection) -> None:
     for col, kind in _ADDED_COLUMNS.items():
         if col not in have:
             conn.execute(f"ALTER TABLE applications ADD COLUMN {col} {kind}")
+    conn.commit()
+    if "applied_at" not in have and have:
+        _backfill_applied_at(conn)
+
+
+def _backfill_applied_at(conn: sqlite3.Connection) -> None:
+    """Fill applied_at from each app.json's history (its first 'applied' outcome), once, when the
+    column is added, so applications marked applied before it existed still count for their day."""
+    for job_id, folder in conn.execute("SELECT job_id, folder FROM applications").fetchall():
+        try:
+            history = json.loads((folder_path(folder) / "app.json").read_text(encoding="utf-8")).get("history") or []
+        except (OSError, ValueError):
+            continue
+        at = next((h["at"] for h in history if h.get("step") == "outcome" and h.get("note") == "applied"), None)
+        if at:
+            conn.execute("UPDATE applications SET applied_at = ? WHERE job_id = ?", (at, job_id))
     conn.commit()
 
 

@@ -465,3 +465,49 @@ def test_run_started_before_a_server_restart_still_counts(env):
     assert get(env, "/api/tailoring")[1]["running"] is False
     assert post(env, "/api/tailoring", {"limit": 2})[0] == 200
     assert launched == [2]
+
+
+# --- daily goal ------------------------------------------------------------
+
+
+def test_goal_counts_first_applied_once_in_local_day(env):
+    jid = env["jid"]
+    assert get(env, "/api/goal")[1] == {"done": 0, "goal": 10, "date": get(env, "/api/goal")[1]["date"]}
+    status, body = post(env, f"/api/job/{jid}/outcome", {"outcome": "applied"})
+    assert status == 200 and body["result"]["goal"]["done"] == 1
+    # A later outcome (interview) must not move or double the count.
+    post(env, f"/api/job/{jid}/outcome", {"outcome": "interview"})
+    assert get(env, "/api/goal")[1]["done"] == 1
+
+
+def test_goal_day_is_pacific(env):
+    from datetime import datetime, timezone
+
+    from src import goal
+
+    conn = connect(env["cfg"]["paths"]["db"])
+    conn.execute("UPDATE applications SET applied_at = '2026-10-31T03:00:00Z' WHERE job_id = ?", (env["jid"],))
+    conn.commit()
+    # 03:00 UTC on Oct 31 is 20:00 on Oct 30 in Vancouver.
+    assert goal.applied_today(conn, env["cfg"], datetime(2026, 10, 31, 5, 0, tzinfo=timezone.utc))["done"] == 1
+    assert goal.applied_today(conn, env["cfg"], datetime(2026, 10, 31, 8, 0, tzinfo=timezone.utc))["done"] == 0
+    conn.close()
+
+
+def test_dashboard_has_goal_bar(env):
+    conn = connect(env["cfg"]["paths"]["db"])
+    assert 'id="goalBar"' in render_dashboard(conn, server=True)
+    conn.close()
+
+
+def test_applied_at_backfilled_from_history_when_column_added(env):
+    from src.tailor.packet import record_outcome
+
+    record_outcome(env["dir"], env["cfg"], "applied")
+    record_outcome(env["dir"], env["cfg"], "interview")  # outcome moved on, so only history remembers
+    conn = connect(env["cfg"]["paths"]["db"])
+    conn.execute("ALTER TABLE applications DROP COLUMN applied_at")
+    conn.commit()
+    store.ensure_table(conn)
+    assert conn.execute("SELECT applied_at FROM applications WHERE job_id = ?", (env["jid"],)).fetchone()[0]
+    conn.close()

@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs
 
+from src import goal, goal_ui
 from src.dashboard import (
     app_summary,
     dashboard_rows,
@@ -153,6 +154,8 @@ class DashboardApp:
                 conn.close()
         if path == "/api/tailoring":
             return self._json(self.runner.status())
+        if path == "/api/goal":
+            return self._json(self._goal())
         if path == "/api/rows":
             return self._rows(query)
         m = _JOB.match(path)
@@ -160,7 +163,7 @@ class DashboardApp:
             return self._error("not found", 404)
         job_id, rest = int(m[1]), m[2] or ""
         if path.startswith("/job/") and rest == "":
-            return 200, "text/html; charset=utf-8", DETAILS_PAGE.encode()
+            return 200, "text/html; charset=utf-8", DETAILS_PAGE.replace('__GOAL_CSS__', goal_ui.CSS).replace('__GOAL_JS__', goal_ui.JS).encode()
         if path.startswith("/api/job/") and rest == "":
             return self._details(job_id)
         if path.startswith("/job/") and rest.startswith("/file/"):
@@ -232,6 +235,13 @@ class DashboardApp:
                                 and not p.name.startswith("~$")) if final.is_dir() else [],
             }
         return self._json(out)
+
+    def _goal(self) -> dict[str, Any]:
+        conn = self._conn()
+        try:
+            return goal.applied_today(conn, self.cfg)
+        finally:
+            conn.close()
 
     def _file(self, job_id: int, name: str) -> Response:
         from urllib.parse import unquote
@@ -310,7 +320,8 @@ class DashboardApp:
         outcome = str(data.get("outcome", ""))
         if outcome not in OUTCOMES:
             raise TailorError(f"outcome must be one of {', '.join(OUTCOMES)}")
-        return record_outcome(self._folder(app), self.cfg, outcome)
+        result = record_outcome(self._folder(app), self.cfg, outcome)
+        return {**result, "goal": goal.applied_today(conn, self.cfg)} if outcome == "applied" else result
 
     def _status(self, conn, job_id, app, data) -> Any:
         status = str(data.get("status", ""))
@@ -318,7 +329,8 @@ class DashboardApp:
             raise TailorError(f"status must be one of {', '.join(JOB_STATUSES)}")
         if app and status == "applied":
             # Keeps the application's record (and its outcome history) in step.
-            return record_outcome(self._folder(app), self.cfg, "applied")
+            return {**record_outcome(self._folder(app), self.cfg, "applied"),
+                    "goal": goal.applied_today(conn, self.cfg)}
         return {"changed": set_job_status(conn, job_id, status)}
 
 
@@ -391,7 +403,7 @@ DETAILS_PAGE = r"""<!DOCTYPE html>
   .posting h4 { margin: 16px 0 6px; font-size: 14px; } .posting h4:first-child { margin-top: 0; }
   .posting p { margin: 6px 0; } .posting ul, .posting ol { margin: 6px 0; padding-left: 22px; }
   .posting li { margin: 2px 0; }
-</style>
+__GOAL_CSS__</style>
 </head>
 <body>
 <div class="wrap">
@@ -400,6 +412,7 @@ DETAILS_PAGE = r"""<!DOCTYPE html>
   <div id="root"><p class="meta">Loading&hellip;</p></div>
 </div>
 <script>
+__GOAL_JS__
 // Coming from the dashboard, going back reuses the page the browser kept (instant, same scroll and
 // filters) instead of building it again. A change made here marks the job stale so that row updates.
 document.getElementById('back').addEventListener('click', e => {
@@ -431,6 +444,8 @@ async function post(action, body) {
   const j = await r.json().catch(() => ({error: 'The server sent something unreadable.'}));
   if (!r.ok) throw new Error(j.error || r.statusText);
   markDashboardStale();
+  const g = j.result && j.result.goal;
+  if (g) { goalToast(g); if (g.done === g.goal) confetti(); }
   return j.result;
 }
 

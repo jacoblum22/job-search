@@ -624,6 +624,10 @@ score:
 
 # ─── Tailoring pipeline (src/tailor, docs/tailoring-contract.md) ───────
 
+goal:
+  daily_applications: 10      # the dashboard's progress bar counts each "I applied" toward this
+  timezone: America/Vancouver # whose day it is, for "today"
+
 tailor:
   # paths: {}            # override any of src/tailor/paths.py DEFAULT_PATHS
   daily_cap: 3           # application folders created per run
