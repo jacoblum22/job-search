@@ -138,6 +138,14 @@ Read every numbered fix and decide, one by one:
   fact from the vault, never a guess); it goes to the reviewer with the next "Is this better?".
   Apply any fix the question was asking for. A question only Jake can answer stays for him on the
   review page; don't guess it.
+- **Look it up before you ask him.** When a reviewer wants a fact the vault doesn't hold (does the
+  project have CI or logging, how many rows or postings it handles, which tests exist), look in
+  the code first: the job-search repo in this folder (workflows, logging calls, tests, the
+  database) and Jake's other project repos on GitHub. A fact found there, with the file or query
+  that shows it, can be written into the resume or letter and answered in `response.json`. If the
+  code can't tell you, answer "I don't know" and leave that detail out; never estimate. Only
+  something that lives in his memory (what he did at AlgaeCal, how many of something he traced) is
+  Jake's to answer, and it goes on the review page, not into the pass.
 
 **How Jake usually decides on reviewer advice** (his own reviews, Oct 25-28 2026; advice, not
 rules, so use judgment):
