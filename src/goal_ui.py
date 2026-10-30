@@ -2,7 +2,7 @@
 details page (the toast and confetti when "I applied" is pressed)."""
 
 # Emoji stops along the bar, as a share of the goal.
-STOPS = [(0, "🌱"), (0.5, "🔥"), (0.8, "🚀"), (1, "🎉")]
+STOPS = [(0, "🙂"), (0.5, "😄"), (0.8, "🤩"), (1, "🎉")]
 
 CSS = """
   .goalbar { flex: 1 1 260px; max-width: 380px; align-self: center; margin: 0 auto; }
