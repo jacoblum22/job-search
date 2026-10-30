@@ -43,3 +43,69 @@ def test_same_posting_under_a_parent_company_name_matches():
 
 def test_different_title_never_matches():
     assert not _is_match(_row(), _row(title="Senior Marketing Manager"))
+
+
+def test_company_that_differs_only_by_a_suffix_matches_when_the_text_agrees():
+    # Pacific Reach (LinkedIn) vs Pacific Reach Properties (Glassdoor), Oct 2026: company 70, text 85.
+    a = _row(company="Pacific Reach", location="Vancouver, BC (On-site)")
+    b = _row(company="Pacific Reach Properties", location="Vancouver", description=DESC + " Apply now.")
+    assert _is_match(a, b)
+    assert _is_match(_row(company="WSP"), _row(company="WSP Canada"))
+
+
+def test_suffix_only_company_match_needs_agreeing_text():
+    # Apple posts many roles under one title; a different text is a different job.
+    other = "Totally different role description about warehouse forecasting and logistics. " * 10
+    assert not _is_match(_row(company="Apple"), _row(company="Apple Inc.", description=other))
+    assert not _is_match(_row(company="Apple", description=""), _row(company="Apple Inc.", description=""))
+
+
+def test_amazon_is_not_amazon_web_services():
+    other = "Totally different role description about warehouse forecasting and logistics. " * 10
+    assert not _is_match(_row(company="Amazon", location="Seattle"), _row(company="Amazon Web Services", location="Seattle", description=other))
+    assert not _is_match(_row(company="Amazon"), _row(company="Amazon Development Centre", description=other))
+
+
+def test_location_punctuation_does_not_hide_a_match():
+    assert _is_match(_row(location="Vancouver, BC (On-site)", description=""), _row(location="Vancouver", description=""))
+
+
+def _db_with(rows):
+    from src import db
+
+    conn = db.connect(":memory:")
+    for i, (company, group, seen) in enumerate(rows, 1):
+        conn.execute(
+            "INSERT INTO jobs (dedup_group_id, source, external_id, title, company, location, description, "
+            "first_seen, last_seen) VALUES (?, ?, ?, 'Data Analyst', ?, 'Vancouver', ?, ?, ?)",
+            (group, f"s{i}", str(i), company, DESC, seen, seen),
+        )
+    conn.commit()
+    return conn
+
+
+def test_a_job_that_matches_two_groups_joins_them_all():
+    from src.dedup import run_dedup
+
+    import datetime as dt
+
+    now = dt.datetime.now(dt.timezone.utc)
+    iso = lambda days: (now - dt.timedelta(days=days)).isoformat(timespec="seconds")  # noqa: E731
+    # Rows 1 and 2 are the same job in different groups and so is row 3 (which matches both).
+    conn = _db_with([("Fortinet", "g1", iso(5)), ("Fortinet", "g2", iso(4)), ("Fortinet", "g3", iso(3))])
+    run_dedup(conn)
+    assert len({r[0] for r in conn.execute("SELECT dedup_group_id FROM jobs")}) == 1
+
+
+def test_dedup_also_moves_rows_older_than_the_window_with_their_group():
+    import datetime as dt
+
+    from src.dedup import run_dedup
+
+    now = dt.datetime.now(dt.timezone.utc)
+    iso = lambda days: (now - dt.timedelta(days=days)).isoformat(timespec="seconds")  # noqa: E731
+    conn = _db_with([("Fortinet", "old", iso(100)), ("Fortinet", "g1", iso(5)), ("Fortinet", "g2", iso(4))])
+    conn.execute("UPDATE jobs SET dedup_group_id = 'g1' WHERE id = 1")  # an old row in g1
+    conn.commit()
+    run_dedup(conn)
+    assert len({r[0] for r in conn.execute("SELECT dedup_group_id FROM jobs")}) == 1
