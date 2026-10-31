@@ -28,9 +28,12 @@ _KEEN = re.compile(
 )
 # The gap-with-a-bridge sentence cover-letter.md recommends ("I haven't used Marketo, but at ...")
 # denies the tools it names; group 1 is the denied part, up to the clause where the bridge starts.
+# A list ("Redshift, Tableau or GA4") goes on past commas, one short item at a time, but never into
+# a clause that starts the bridge (", but I ...", ", though ...").
 _DENIED = re.compile(
     r"\b(?:ha(?:ve|s)n['’]t|ha(?:ve|s)\s+not|(?:ha(?:ve|s)\s+)?never)\s+(?:yet\s+)?(?:used|worked\s+with|touched)\s+"
-    r"([^.;:,\n]+?)(?=\s+(?:yet|but)\b|[.;:,\n]|$)",
+    r"([^.;:,\n]+?(?:,\s*(?:(?:or|and|nor)\s+)?(?!(?:but|though|although|yet|so|while|which|instead|only|i|my)\b)"
+    r"[^\s.;:,\n]+(?:\s+[^\s.;:,\n]+){0,3})*)(?=\s+(?:yet|but)\b|[.;:,\n]|$)",
     re.I,
 )
 

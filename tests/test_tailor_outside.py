@@ -165,6 +165,23 @@ def test_review_round_with_a_new_critical_gets_one_fix_round(tmp_path):
     assert kept(app, 1) is False
 
 
+def test_a_fix_round_that_only_cites_still_sends_the_review_round_to_a_reviewer(tmp_path):
+    # Five and Fly, Oct 30 2026: the fix round's text matched the review round it built on, so the
+    # passes stopped as "changed nothing" though no reviewer had read the review round's rewrite.
+    app = _app(tmp_path)
+    assert review_input(app)["pass"] == 1
+    (app / "review" / "notes.md").write_text("Verdict: not yet\n1. x", encoding="utf-8")
+    review_round(app)
+    edited = {**RESUME, "summary": {**RESUME["summary"], "text": "Data analyst, rewritten."}}
+    for n, criticals in ((3, [crit("summary")]), (4, [])):
+        add_round(app, n, 74, ats=67, criticals=criticals)
+        (app / "drafts" / f"r{n}" / "resume.yaml").write_text(yaml.safe_dump(edited, sort_keys=False), encoding="utf-8")
+        write_json(app / "drafts" / f"r{n}" / "cover-letter.json", LETTER)
+        next_round(app, CFG)
+    write_json(app / "app.json", {**json.loads((app / "app.json").read_text()), "best_round": 4})
+    assert review_input(app)["pass"] == 2
+
+
 def test_a_round_made_after_the_review_gets_another_pass(tmp_path):
     # Nexthop, Oct 27 2026: gap rounds after the review shipped a draft no reviewer read.
     app = _app(tmp_path)
