@@ -630,7 +630,7 @@ goal:
 
 tailor:
   # paths: {}            # override any of src/tailor/paths.py DEFAULT_PATHS
-  daily_cap: 3           # application folders created per run
+  daily_cap: 10          # application folders created per run
   tiers: [A]             # eligible tiers, in queue order (Jake: the daily run tailors A-tier only)
   min_description_chars: 1000
   fresh_days: 14         # within a tier, jobs posted in the last N days are drafted first (old ones may have closed)
