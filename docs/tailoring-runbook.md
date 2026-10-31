@@ -144,7 +144,8 @@ folder before starting the next. Keep a running note of the outcome for the dige
 1. **Requirements (Claude).** Follow `prompts/tailor/requirements.md`; write `<app>/requirements.json`.
 2. `uv run python -m src.tailor requirements "<app>"`. Read the output: note what was dropped.
 3. **Company research (only if stale).** Look in `materials/companies/<company-slug>/facts.json` (the slug is the
-   company name in lowercase with every run of other characters turned into one `-`). If it has at
+   company name in lowercase with every run of other characters turned into one `-`, and no `-` at
+   either end: "Acme Inc." is `acme-inc`; `company-fetch` refuses a folder ending in `-`). If it has at
    least 3 facts and the newest `read` is under 30 days old, skip. Otherwise start a subagent with
    model **haiku**, telling it to follow `prompts/tailor/company-research.md`, and give it the company
    name, the company folder path, the application folder path and the "How to run commands" paragraph

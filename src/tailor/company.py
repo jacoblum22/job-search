@@ -37,6 +37,16 @@ def company_dir(cfg: dict[str, Any], name: str) -> Path:
     return resolve(cfg, "companies") / company_slug(name)
 
 
+def _check_dir_name(directory: Path) -> None:
+    # The letter check reads facts from company_slug(name), which has no dash at either end. A
+    # folder named "wesgar-inc-" (for "Wesgar Inc.") is never read: Tiger Analytics and Wesgar,
+    # Oct 31 2026, each had their research copied by hand into the right folder.
+    name = directory.name
+    if name != name.strip("-"):
+        raise TailorError(f"company folder {name!r} starts or ends with '-'; use "
+                          f"{str(directory.with_name(name.strip('-')))!r} (the slug has no dash at either end)")
+
+
 def is_stale(directory: Path, days: float) -> bool:
     """True when facts.json is missing or older than `days` days."""
     facts = Path(directory) / "facts.json"
@@ -174,6 +184,7 @@ def fetch_page(directory: Path, url: str, timeout: float = 30.0) -> dict[str, An
     import httpx
 
     directory = Path(directory)
+    _check_dir_name(directory)
     skipped = _skipped_host(url)
     if skipped:
         raise TailorError(f"{url} is a job board, profile or social site ({skipped.strip('.')}); "
@@ -228,6 +239,7 @@ def verify_company(directory: Path) -> dict[str, Any]:
     ``notes.md`` belongs to the research step and is left alone.
     """
     directory = Path(directory)
+    _check_dir_name(directory)
     facts_path = directory / "facts.json"
     facts = read_json(facts_path)
     if not isinstance(facts, list):
