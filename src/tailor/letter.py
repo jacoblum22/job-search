@@ -27,10 +27,12 @@ _KEEN = re.compile(
     re.I,
 )
 # The gap-with-a-bridge sentence cover-letter.md recommends ("I haven't used Marketo, but at ...")
-# denies the tools it names; group 1 is the denied part, up to the clause where the bridge starts.
+# denies the tools it names; group 1 is the denied part, up to the clause where the bridge starts,
+# and group 2 a ", nor X" added to it ("I haven't used OCR yet, nor Dataflow": Tiger Analytics, Oct 31 2026).
 _DENIED = re.compile(
-    r"\b(?:ha(?:ve|s)n['’]t|ha(?:ve|s)\s+not|(?:ha(?:ve|s)\s+)?never)\s+(?:yet\s+)?(?:used|worked\s+with|touched)\s+"
-    r"([^.;:,\n]+?)(?=\s+(?:yet|but)\b|[.;:,\n]|$)",
+    r"\b(?:ha(?:ve|s)n['’]t|ha(?:ve|s)\s+not|(?:ha(?:ve|s)\s+)?never)\s+(?:yet\s+)?(?:used|worked\s+(?:with|in)|touched)\s+"
+    r"([^.;:,\n]+?)(?=\s+(?:yet|but)\b|[.;:,\n]|$)"
+    r"(?:(?:\s+yet)?,?\s+nor\s+([^.;:,\n]+?)(?=\s+(?:yet|but)\b|[.;:,\n]|$))?",
     re.I,
 )
 
@@ -177,10 +179,15 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
         keen_ok = {s for sent in _SENTENCE.split(text) if _KEEN.search(sent)
                    for s in taxonomy.find(sent) & must_terms}
         # A posting tool the letter says it hasn't used is a gap, not a claim (must or nice-to-have).
-        keen_ok |= {s for m in _DENIED.finditer(text) for s in taxonomy.find(m.group(1)) & posting_terms}
+        keen_ok |= {s for m in _DENIED.finditer(text)
+                    for s in taxonomy.find(f"{m.group(1)}\n{m.group(2) or ''}") & posting_terms}
         # As on the resume, a confirmed (skill, passage) pair backs the skill where that passage is cited.
         srcs = p.get("sources") or []
-        for skill in sorted(taxonomy.find(text) - vault_skills - fact_skills - keen_ok):
+        # Naming the role applied for is not a claim: "the Software Developer – NetSuite role" read as an
+        # ERP claim, so the letter could not use the posting's title (O'Dell HVAC, Oct 31 2026).
+        title = str(req.get("title") or "").strip()
+        claimed = re.sub(re.escape(title), " ", text, flags=re.I) if title else text
+        for skill in sorted(taxonomy.find(claimed) - vault_skills - fact_skills - keen_ok):
             if taxonomy.is_hard(skill) and not any((rejects.key(skill), sid) in confirmed for sid in srcs):
                 crit("invented_skill", f"{where}: mentions {skill}, which the passages it cites don't back", where, term=skill)
         for m in _FAMILIAR.finditer(text):
