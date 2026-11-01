@@ -713,7 +713,12 @@ def _mark_fit_gaps(items, must_reqs, evidence, text, cfg, data) -> None:
             # was sent back to repair every round, beyond what the dates cover).
             it["fit_gap"] = ["years of experience"]
             continue
-        unbacked = [t for t in terms if not _is_backed(t, backed)]
+        if not terms and not _req_passage(it["id"][5:], r, evidence):
+            # No skill terms and no vault passage behind it (a driver's licence, on-site visits): no
+            # rewrite can show it (Wesgar, Nov 1 2026: two gap rounds asked for a bullet naming "the tool").
+            it["fit_gap"] = ["not in the vault"]
+            continue
+        unbacked =[t for t in terms if not _is_backed(t, backed)]
         if unbacked and all(_credit(t, text, syn) > 0 for t in terms if t not in unbacked):
             it["fit_gap"] = unbacked
 

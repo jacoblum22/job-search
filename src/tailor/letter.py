@@ -28,9 +28,10 @@ _KEEN = re.compile(
 )
 # The gap-with-a-bridge sentence cover-letter.md recommends ("I haven't used Marketo, but at ...")
 # denies the tools it names; group 1 is the denied part, up to the clause where the bridge starts.
+# A dot inside a name ("Node.js", "ASP.NET") isn't the sentence's end (Verdix, Nov 1 2026).
 _DENIED = re.compile(
     r"\b(?:ha(?:ve|s)n['’]t|ha(?:ve|s)\s+not|(?:ha(?:ve|s)\s+)?never)\s+(?:yet\s+)?(?:used|worked\s+with|touched)\s+"
-    r"([^.;:,\n]+?)(?=\s+(?:yet|but)\b|[.;:,\n]|$)",
+    r"((?:[^.;:,\n]|\.(?=\w))+?)(?=\s+(?:yet|but)\b|\.(?!\w)|[;:,\n]|$)",
     re.I,
 )
 
