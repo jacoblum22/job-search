@@ -42,10 +42,10 @@ nobody has tailored yet; `-JobId 812` tailors that job instead; `-MaxBudgetUsd 5
 .\scripts\run_tailoring.ps1 -Limit 1
 ```
 
-Register the daily run once the test looks right (Monday to Friday at 9:00 AM, no weekend runs; change `/ST` to taste):
+Register the daily run once the test looks right (daily at 9:00 AM; the script itself skips Saturday and Sunday when started with `-Scrape`; change `/ST` to taste):
 
 ```powershell
-schtasks /Create /TN "JobSearch-Tailoring" /SC WEEKLY /D MON,TUE,WED,THU,FRI /ST 09:00 /F `
+schtasks /Create /TN "JobSearch-Tailoring" /SC DAILY /ST 09:00 /F `
   /TR "powershell -NoProfile -ExecutionPolicy Bypass -File `"$PWD\scripts\run_tailoring.ps1`" -Scrape"
 ```
 
