@@ -65,13 +65,13 @@ scraper couldn't get. Nobody is watching this run. Don't run any shell
 commands or scripts: this task only reads and writes files in the
 `.browser-queue` folder and uses Chrome.
 
-0. Pick a browser first. If the Chrome tools say more than one browser is
-   connected (e.g. "Browser 1" and "Browser 2"), don't ask anyone: nobody is
-   here, and I'm telling you to choose. Call `list_connected_browsers`,
-   `select_browser` with the first one's `deviceId`, then
-   `tabs_context_mcp`. If that errors or hangs, select the next one and try
-   again. Use the first that works. If none works, write no files and reply
-   naming the error.
+0. Use the desktop's Chrome, nothing else. Call `list_connected_browsers`
+   first. My laptop's Chrome may be connected too and must never be used. If
+   more than one browser is connected, don't ask anyone (nobody is here; I'm
+   telling you which). Call `select_browser` with deviceId `<desktop deviceId, filled in when pasting>`, then
+   `tabs_context_mcp`. If that deviceId isn't in the list, or the call
+   fails, write no files and reply that the desktop's Chrome isn't
+   connected; don't fall back to another browser.
 1. Read `.browser-queue/queue.json`. Its `listings` are every posting still
    missing a description (LinkedIn, Indeed, Glassdoor, Jobright, Wellfound,
    CareerJet, plus any other site whose page the scraper couldn't load),
