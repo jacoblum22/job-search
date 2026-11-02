@@ -61,8 +61,12 @@ each through a real story from its cited passage, not as a list of names.
    (the only part checked against the source); a number or name only in its `fact` sentence fails.
    **Introduce the researched fact as research** ("Researching your company, I found...", "One thing
    I noticed...") instead of dropping it in unannounced. Keep it short: name the thing and what it
-   does, without dates or detail the point doesn't need. Don't force a clever link between the fact
-   and the job.
+   does, without dates or detail the point doesn't need. **Choose the fact the closing ask can follow
+   from:** of the facts available, use the one that relates to what the candidate would want to talk
+   about at the end (a fact about Quora's 100+ models in production leads naturally to "how your team
+   evaluates its models in production"; a fact about a payments launch does not lead to a question
+   about a data warehouse). If no available fact relates to anything the candidate would discuss, use
+   no researched fact at all and tie the close to the posting's own work instead.
    **Name the value, then show it with the fact.** State one of the candidate's real motivations
    plainly as something they value ("One thing I really value is...", "Something I enjoy seeing
    is..."), using only what the `motivation.*` passages say, then give the researched fact as an
@@ -77,7 +81,11 @@ each through a real story from its cited passage, not as a list of names.
    how your team reports marketing-sourced pipeline").
    Say it once: no "I would like..." sentence at the end of movement 3 that the close then repeats.
    The close must follow on from movement 3 (for example "I would like to be part of that kind of
-   work, ..."), so it reads as one thought, not a separate sign-off. No
+   work, ..."), so it reads as one thought, not a separate sign-off. **It must pick up the researched
+   fact itself:** "I would like to talk about how I could help ..." or a question about the very thing
+   the fact named ("... measures what players do with changes like these"), never "I would like to
+   talk about the role" in general and never a new subject the fact did not raise. Read the fact
+   and the close together: a reader should not wonder why the fact was brought up. No
    "thank you for your consideration", no "I look forward to hearing from you".
    Don't point to the candidate's GitHub, LinkedIn, email or phone anywhere in the letter, even
    when the posting asks for examples of past work: the heading above the letter already carries
