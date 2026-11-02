@@ -627,6 +627,19 @@ def test_letter_warnings(tmp_path):
     assert {"no_company_fact", "paragraph_count", "ai_phrase", "keen_to_grow", "familiar_absent_term"} <= ws
 
 
+def test_letter_flags_a_where_clause_in_the_first_sentence_only(tmp_path):
+    first = "I'm applying for the Engineer role at Y, where engineers build X. I did SQL daily."
+    paras = [{"text": first, "sources": ["northwind.sql-daily"], "company_facts": []},
+             {"text": "At Z, where I worked, I wrote SQL.", "sources": ["northwind.sql-daily"], "company_facts": []}]
+    res, _ = letter_check(tmp_path / "a", with_(paragraphs=paras))
+    hits = [w for w in res["warnings"] if w["code"] == "opener_where"]
+    assert len(hits) == 1 and hits[0]["path"] == "paragraphs[0]"
+    assert hits[0]["data"]["term"].startswith("where engineers")
+    paras[0] = {**paras[0], "text": "I'm applying for the Engineer role at Y. I did SQL daily, where it counted."}
+    res, _ = letter_check(tmp_path / "b", with_(paragraphs=paras))
+    assert "opener_where" not in codes(res["warnings"])
+
+
 def test_skill_pattern_ending_mid_word_still_finds_vault_wording():
     # "data warehous" and "visualiz" are patterns that stop inside a word; the wording
     # must be the whole word, or "data warehouse" in a vault passage never backs it.

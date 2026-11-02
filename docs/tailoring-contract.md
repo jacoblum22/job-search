@@ -334,7 +334,7 @@ when the evidence can't reach 70, otherwise "ATS score below 70" (a wording gap)
 [paths of sections allowed to change]}`. Claude may only edit inside `sections`.
 
 `warnings` holds the warnings that start a round and the ones that only ride along with one
-(`skill_only_in_list`, `ai_phrase`, `keyword_coverage_dropped`, Jev's `jev_unsupported` doubts, ...),
+(`skill_only_in_list`, `ai_phrase`, `opener_where`, `keyword_coverage_dropped`, Jev's `jev_unsupported` doubts, ...),
 and `sections` covers their lines too. Other keys mark the kind of round: `build_on` (the round it
 starts from), `letter_only`, `revisit` (a gap round), `review` + `review_pass` (acts on an outside
 review), and `review_fix` + `compare_to` (fixes only the criticals a review round added, judged
