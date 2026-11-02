@@ -281,3 +281,65 @@ def test_owasp_is_its_own_skill_not_data_privacy():
     assert tx.canonical("OWASP Top 10") == "secure coding / OWASP"
     assert tx.canonical("secure coding practices") == "secure coding / OWASP"
     assert tx.canonical("data security") == "data privacy / security"
+
+
+# Daily review, Nov 2 2026: real posting wording, and the false matches each entry guards against.
+@pytest.mark.parametrize("text, skill", [
+    ('Fluency in Python, Node or other imperative language.', 'Node.js'),
+    ('HTML, CSS, JS, TypeScript, and Node - Knowledge', 'Node.js'),
+    ('Platform: Node, TypeScript, React, Postgres', 'Node.js'),
+    ('using Terraform for IaC/CI-CD', 'CI/CD'),
+    ('using Terraform for IaC/CI-CD', 'Terraform/IaC'),
+    ('some IaC (Terraform or CDK)', 'Terraform/IaC'),
+    ('Build and deploy machine learning models into production environments', 'MLOps'),
+    ('Develop, validate, and deploy statistical and predictive models', 'MLOps'),
+    ('writing tests; diagnosing problems in a deployed serverless environment', 'testing (unit/automated)'),
+    ('writing basic tests', 'testing (unit/automated)'),
+    ('parallel and distributed computing, high-performance computing', 'distributed systems'),
+    ('parallel and distributed computing, high-performance computing', 'high-performance computing (HPC)'),
+    ('High-Performance Computing (HPC) experience.', 'high-performance computing (HPC)'),
+    ('Familiarity Atlassian, GitHub, Notion, or Slack APIs', 'Jira/Confluence'),
+    ('working with Service Now and Atlassian APIs', 'Jira/Confluence'),
+    ('Secure development practices, performance optimization, debugging in production', 'secure coding / OWASP'),
+    ('Support month-end and quarter-end reporting cycles', 'accounting (GAAP / IFRS)'),
+    ('the need for fast iteration during month- and quarter-end', 'accounting (GAAP / IFRS)'),
+    ('Assist with month-end and year-end close processes', 'accounting (GAAP / IFRS)'),
+    ('Support monthly financial close processes', 'accounting (GAAP / IFRS)'),
+    ('highly experienced, disciplined, and self-propelled', 'independent / self-starter'),
+    ('Processing confidential data and information according to guidelines', 'discretion / confidentiality'),
+    ('the ability to build and use agent harnesses and automated workflows', 'AI agents / agentic AI / MCP'),
+    ('written in Python, Rust, SQL, Javascript/TypeScript, and Nix', 'Nix'),
+    ('Experience with Nix or reproducible development environments', 'Nix'),
+    ('mentorship, knowledge sharing, pair programming, and feedback', 'pair programming'),
+    ('you might pair-program with a junior engineer', 'pair programming'),
+    ('They pair program because two brains write better code', 'pair programming'),
+])
+def test_nov_2_review_matches(text, skill):
+    assert skill in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text, wrong", [
+    ('Each Node in the cluster runs a kubelet', 'Node.js'),
+    ('VS Code or Node-based build tools', 'Node.js'),
+    ('over 5,500 deployed AI models', 'MLOps'),
+    ('you will write skills tests during the interview', 'testing (unit/automated)'),
+    ('Strong understanding of AI, model optimization, and deployment strategies', 'optimization / OR'),
+    ('Atlassian is hiring an AI Researcher', 'Jira/Confluence'),
+    ('At Atlassian, we build tools for teams', 'Jira/Confluence'),
+    ('contributes to improving Atlassian products and Atlassian Intelligence features', 'Jira/Confluence'),
+    ('we partner with clients to End Month End', 'accounting (GAAP / IFRS)'),
+    ('AMD is powering the next generation of supercomputing, high-performance computing, cloud, and AI', 'high-performance computing (HPC)'),
+    ('In the rapidly expanding world of AI and HPC, solid system level integration', 'high-performance computing (HPC)'),
+    ('high-density AI, HPC, and other advanced-computing environments', 'high-performance computing (HPC)'),
+    ('Linux and *nix systems', 'Nix'),
+    ('60 Minutes with Team (pair programming session in CoderPad)', 'pair programming'),
+    ('Technical Skills Evaluation - 60min Pair Programming 4. Meet the Team', 'pair programming'),
+])
+def test_nov_2_review_false_matches(text, wrong):
+    assert wrong not in taxonomy.find(text)
+
+
+def test_nov_2_review_types():
+    assert "DevOps tool" in taxonomy.TOOL_TYPES["Nix"]
+    assert not _is_tool("high-performance computing (HPC)")
+    assert not _is_tool("pair programming")
