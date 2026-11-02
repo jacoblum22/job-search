@@ -143,6 +143,9 @@ These aren't checks; they're what a good reviewer noticed on past letters (Point
   work up, and I check the result before anyone relies on it") repeats the point instead of adding
   to it (humanizer: one-line closers). End the paragraph on the last concrete fact ("each one
   read by hand"); keep a closing sentence only if it adds a new fact or consequence.
+- **No "where ..." clause on the role.** "I'm applying for the Engineer role at Y, where engineers
+  build X" hands the employer's own work back to them, and nothing later in the letter uses it. Write
+  "I'm applying for the Engineer role at Y." and go on. (The check `opener_where` flags it.)
 - **State the fact; don't stage it.** A sentence that hands the posting's own words back as a
   thesis about the candidate ("Turning recurring marketing reports into data people can trust is
   work I did every day") signals relevance instead of showing it, and reads as machine-written

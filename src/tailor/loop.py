@@ -208,7 +208,7 @@ _ROUND_WARNINGS = {"term_stuffing", "verbatim_posting_copy", "duplicate_bullets"
 # Jev's doubt about a line were shown every round and never reached a repair round (PointClickCare
 # carried 3 phrase warnings through all 3 rounds; humanize found them only after the outside review).
 _RIDE_WARNINGS = {"skill_only_in_list", "too_many_skills", "bullet_count", "paragraph_count",
-                  "ai_phrase", "keyword_coverage_dropped", "jev_unsupported"}
+                  "ai_phrase", "keyword_coverage_dropped", "jev_unsupported", "opener_where"}
 
 
 def _warnings(check: dict[str, Any]) -> list[dict[str, Any]]:

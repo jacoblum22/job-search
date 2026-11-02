@@ -20,6 +20,7 @@ _GENERIC = re.compile(
 )
 _HONORIFIC = re.compile(r"\b(?:mr|mrs|ms|miss|mx|dr|prof)\b\.?", re.I)
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
+_WHERE = re.compile(r"\bwhere\b.*", re.I)
 _FAMILIAR = re.compile(r"\bfamiliar(?:ity)? with\s+([^.;:\n]{1,80})", re.I)
 _KEEN = re.compile(
     r"\b(?:keen|eager|excited|looking|hoping|hope|want|wanting|ready)\s+to\s+(?:grow|learn|develop|build)\b"
@@ -223,4 +224,11 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
     for i, p in enumerate(paras):
         for h in phrases.scan(str(p.get("text", "")), ctx["posting"], ctx["own_texts"], letter=True):
             warn("ai_phrase", f"paragraphs[{i}]: {h.code} {h.phrase!r}", f"paragraphs[{i}]")
+    # Jake, Nov 2 2026: "I'm applying for the X role at Y, where Y's engineers do Z" tells the employer about
+    # its own work and nothing picks it up (Nexthop, Quora x2). Deleting the clause is the usual fix.
+    first = _SENTENCE.split(str(paras[0].get("text", "")).strip())[0] if paras else ""
+    m = _WHERE.search(first)
+    if m:
+        warn("opener_where", "the first sentence has a 'where ...' clause; if it describes the employer, "
+             "delete it", "paragraphs[0]", term=first[m.start():])
     return out

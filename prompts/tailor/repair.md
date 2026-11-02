@@ -42,7 +42,8 @@ already passed.
    with the item as `value`). A critical on a skills item is fixed the same way: `remove` the item,
    then `add_skill` it in the vault's wording if the critical names one.
    Some warnings only ride along with a round that runs anyway; answer them while you are in those
-   lines: `ai_phrase` (reword the named phrase plainly, as `humanize.md` describes; a phrase the
+   lines: `opener_where` (delete the "where ..." clause from the letter's first sentence when the
+   sentence still reads fine without it), `ai_phrase` (reword the named phrase plainly, as `humanize.md` describes; a phrase the
    posting uses stays), `keyword_coverage_dropped` (put the named term back in a line in `sections`
    that already says it in the cited passage's words) and `jev_unsupported` (rule 10).
 3. **An unsourced number is removed, or replaced with a number the cited passage actually states.**

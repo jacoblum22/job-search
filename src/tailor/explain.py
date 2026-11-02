@@ -380,6 +380,8 @@ _ISSUES: dict[str, tuple[str, str]] = {
     "directed_opener": ("This project bullet opens with \"Directed\".",
                         "It reads as prompting a chatbot; the (AI-assisted build) label already says how it was made."),
     "test_count": ("This bullet gives a test count ({term}).", "Counts go stale and read as padding; \"a pytest suite\" says it."),
+    "opener_where": ("The letter's first sentence has a \"where ...\" clause ({term}).",
+                     "It tells the employer about its own work. Deleting the clause usually fixes it."),
     "ai_phrase": ("This wording is a phrase AI writing tends to use ({term}).",
                   "Recruiters increasingly spot and discount it."),
     "jev_unsupported": ("Jev doesn't think this line is backed by the vault passages it cites.",
