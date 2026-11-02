@@ -13,7 +13,10 @@
       "mcp__claude-in-chrome__computer",
       "mcp__claude-in-chrome__browser_batch",
       "mcp__claude-in-chrome__list_connected_browsers",
-      "mcp__claude-in-chrome__select_browser"
+      "mcp__claude-in-chrome__select_browser",
+      "PowerShell(Get-ScheduledTask -TaskName JobSearch-*)",
+      "PowerShell(Set-ScheduledTask -TaskName JobSearch-*)",
+      "PowerShell(Export-ScheduledTask -TaskName JobSearch-*)"
     ]
   }
 }
