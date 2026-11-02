@@ -22,6 +22,9 @@
 # folders start while the scrape runs, then a session per company for the queue's new jobs
 # (docs/tailoring-runbook.md, "Parallel sessions"). -Parallel 1 is one session for everything,
 # as -JobId and -ResumeOnly runs always are.
+# Weekends: the scheduled run (-Scrape) does nothing on Saturday or Sunday and exits at once
+# (Jake, Nov 2 2026), so the Windows task never needs editing. Runs by hand or from the
+# dashboard's Run button (no -Scrape) still work any day.
 # Afterwards run_tailoring_review.ps1 reviews the logs and opens a PR for any pipeline
 # fixes (docs/run-review-task.md); -NoReview skips that.
 
@@ -46,6 +49,12 @@ $digestDir = Join-Path $projectRoot "materials\tailor\digests"
 New-Item -ItemType Directory -Force -Path $logDir, $digestDir | Out-Null
 
 function Log($msg) { "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $msg" | Add-Content $logFile -Encoding UTF8 }
+
+# No scheduled runs on weekends. Only the scheduled task passes -Scrape; by-hand runs go on.
+if ($Scrape -and (Get-Date).DayOfWeek -in @([DayOfWeek]::Saturday, [DayOfWeek]::Sunday)) {
+    Log "Weekend: scheduled run skipped (run by hand without -Scrape if needed)"
+    exit 0
+}
 
 # PowerShell 5.1 pipes text to native programs as ASCII unless told otherwise.
 $utf8 = New-Object System.Text.UTF8Encoding $false
