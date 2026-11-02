@@ -132,6 +132,7 @@ def main() -> int:
     out = Path("logs") / "jev-opener-test.md"
     out.parent.mkdir(exist_ok=True)
     out.write_text("\n".join(lines), encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     print("\n".join(lines))
     u = client.usage
     print(f"requests={u.requests} est_cost=${u.est_cost_usd:.6f}")
