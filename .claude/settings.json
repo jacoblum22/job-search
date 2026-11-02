@@ -11,7 +11,9 @@
       "mcp__claude-in-chrome__read_page",
       "mcp__claude-in-chrome__find",
       "mcp__claude-in-chrome__computer",
-      "mcp__claude-in-chrome__browser_batch"
+      "mcp__claude-in-chrome__browser_batch",
+      "mcp__claude-in-chrome__list_connected_browsers",
+      "mcp__claude-in-chrome__select_browser"
     ]
   }
 }
