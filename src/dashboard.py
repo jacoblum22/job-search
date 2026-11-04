@@ -712,6 +712,10 @@ def dashboard_rows(conn: sqlite3.Connection, only_ids: set[int] | None = None) -
         r["app"] = app_summary(apps[app_id]) if app_id is not None else None
         if app_id is not None:
             r["id"] = app_id  # the details page looks the application up by its job id
+        if r["app"] and r.get("status") == "applied" and r["app"]["status"] != "applied":
+            # You applied (the job says so) but the application still reads as waiting on review:
+            # show it as applied, with no review flags, whatever the application row says.
+            r["app"] = {**r["app"], "status": "applied", "label": "Applied", "flags": []}
         status = r["app"]["status"] if r["app"] else None
         r["app_sort"] = _APP_ORDER.index(status) if status in _APP_ORDER else 99
         # A closed posting's application can't be sent, so it isn't pinned as waiting on you.

@@ -183,12 +183,18 @@ def get_app(conn: sqlite3.Connection, job_id: int) -> dict[str, Any] | None:
     return out
 
 
+_NOT_APPLIED = ("shortlisted", "drafting", "needs_fixes", "ready_for_review", "approved")
+
+
 def set_status(conn: sqlite3.Connection, job_id: int, status: str, **fields: Any) -> None:
     """Update status (and any other known column) for one application; no-op if absent."""
     bad = set(fields) - _SETTABLE
     if bad:
         raise ValueError(f"unknown applications columns: {sorted(bad)}")
-    fields["status"] = status
+    # Once you've applied, no later pipeline step (a run that was still drafting, a re-run, an
+    # approve) may move the application back to "ready for review". Only an outcome moves it on.
+    cur = conn.execute("SELECT status FROM applications WHERE job_id = ?", (job_id,)).fetchone()
+    fields["status"] = "applied" if cur and cur[0] == "applied" and status in _NOT_APPLIED else status
     fields["updated_at"] = now()
     sets = ", ".join(f"{c} = :{c}" for c in fields)
     conn.execute(f"UPDATE applications SET {sets} WHERE job_id = :job_id", {**fields, "job_id": job_id})

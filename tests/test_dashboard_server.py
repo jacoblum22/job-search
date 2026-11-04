@@ -513,6 +513,44 @@ def test_applied_at_backfilled_from_history_when_column_added(env):
     conn.close()
 
 
+# --- applied stays applied (Toptal, Nov 4 2026) ------------------------------
+
+
+def test_pipeline_steps_cannot_move_an_applied_application_back_to_review(env):
+    """A run still drafting when you clicked 'I applied' wrote ready_for_review afterwards."""
+    from src.tailor.packet import record_outcome, _sync
+    cfg, jid, d = env["cfg"], env["jid"], env["dir"]
+    record_outcome(d, cfg, "applied")
+    app = appdir.load_app(d)
+    _sync(d, cfg, appdir.log(d, "packet", "ready_for_review, 0 critical(s)", status="ready_for_review"),
+          "ready_for_review", review_flags=json.dumps(["weaker_fit"]))
+    conn = connect(cfg["paths"]["db"])
+    assert store.get_app(conn, jid)["status"] == "applied"
+    assert appdir.load_app(d)["status"] == "applied"
+    assert conn.execute("SELECT status FROM jobs WHERE id = ?", (jid,)).fetchone()[0] == "applied"
+    conn.close()
+
+
+def test_dashboard_shows_applied_when_job_is_applied_but_application_row_lags(env):
+    conn = connect(env["cfg"]["paths"]["db"])
+    conn.execute("UPDATE jobs SET status = 'applied' WHERE id = ?", (env["jid"],))
+    conn.commit()
+    html = render_dashboard(conn)
+    conn.close()
+    rows = json.loads(html.split('type="application/json">')[1].split("</script>")[0])
+    row = {r["title"]: r for r in rows}["Junior Analyst"]
+    assert row["app"]["label"] == "Applied" and row["app"]["flags"] == [] and row["pin"] == 99
+
+
+def test_pipeline_step_commands_refuse_an_applied_application(env):
+    from click.testing import CliRunner
+    from src.tailor.cli import main
+    from src.tailor.packet import record_outcome
+    record_outcome(env["dir"], env["cfg"], "applied")
+    for cmd in (["render"], ["packet"], ["humanize-apply"], ["apply-edits", "--round", "10"]):
+        res = CliRunner().invoke(main, [cmd[0], str(env["dir"]), *cmd[1:]])
+        assert res.exit_code != 0 and "already applied" in str(res.exception or res.output), cmd
+
 # --- Job Autofill diagnostics --------------------------------------------
 
 
