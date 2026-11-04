@@ -40,6 +40,18 @@ param(
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
+
+# A long-lived login for the scheduled task: `claude setup-token`, then put
+# CLAUDE_CODE_OAUTH_TOKEN=<token> in .env (git-ignored). The Claude CLI uses it instead of the
+# shared refresh-token file, which parallel sessions and the desktop app can invalidate.
+if (-not $env:CLAUDE_CODE_OAUTH_TOKEN) {
+    $envFile = Join-Path $projectRoot ".env"
+    if (Test-Path $envFile) {
+        foreach ($l in Get-Content $envFile -Encoding UTF8) {
+            if ($l -match '^\s*CLAUDE_CODE_OAUTH_TOKEN\s*=\s*"?([^"\s#]+)"?') { $env:CLAUDE_CODE_OAUTH_TOKEN = $Matches[1]; break }
+        }
+    }
+}
 $date = Get-Date -Format "yyyy-MM-dd"
 $stamp = Get-Date -Format "yyyy-MM-dd_HHmm"
 $logDir = Join-Path $projectRoot "logs\tailoring"
