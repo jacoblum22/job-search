@@ -40,6 +40,18 @@ param(
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
+
+# A long-lived login for the scheduled task: `claude setup-token`, then put
+# CLAUDE_CODE_OAUTH_TOKEN=<token> in .env (git-ignored). The Claude CLI uses it instead of the
+# shared refresh-token file, which parallel sessions and the desktop app can invalidate.
+if (-not $env:CLAUDE_CODE_OAUTH_TOKEN) {
+    $envFile = Join-Path $projectRoot ".env"
+    if (Test-Path $envFile) {
+        foreach ($l in Get-Content $envFile -Encoding UTF8) {
+            if ($l -match '^\s*CLAUDE_CODE_OAUTH_TOKEN\s*=\s*"?([^"\s#]+)"?') { $env:CLAUDE_CODE_OAUTH_TOKEN = $Matches[1]; break }
+        }
+    }
+}
 $date = Get-Date -Format "yyyy-MM-dd"
 $stamp = Get-Date -Format "yyyy-MM-dd_HHmm"
 $logDir = Join-Path $projectRoot "logs\tailoring"
@@ -173,6 +185,8 @@ $sessionBlock = {
     $out | ForEach-Object { "$_" } | Set-Content $transcriptPath -Encoding UTF8
 }
 $sessions = @()
+$failedSessions = 0
+$authFailed = $false
 
 function Start-Session($label, $scope) {
     $n = $script:sessions.Count + 1
@@ -194,13 +208,25 @@ function Complete-Session($s) {
     foreach ($line in ($lines | Select-Object -Last 5)) {
         try { $obj = $line | ConvertFrom-Json; if ($obj.type -eq "result") { $s.Result = $obj } } catch {}
     }
-    if ($s.Result) {
+    if ($s.Result -and ($s.Result.is_error -eq $true -or $s.Result.subtype -ne "success")) {
+        # A session that died (expired login, API error, budget) still prints a result line, with
+        # is_error set and 0 tokens. Count it as a failure, never as a clean "success".
+        $script:failedSessions++
+        $msg = "$($s.Result.result)"
+        Log ("FAILED ({0}): {1} - {2}; see {3}" -f $s.Label, $s.Result.subtype, $msg, $s.Transcript)
+        if ($msg -match "authenticate|OAuth|/login|login") {
+            $script:authFailed = $true
+            if ($script:todo) { $script:todo.Clear() }   # the other queued sessions would die the same way
+            Log "Claude login has expired: run 'claude /login' on this PC. The unfinished folders are picked up by the next run."
+        }
+    } elseif ($s.Result) {
         $digest = Join-Path $digestDir "$date.md"
         Add-Content $digest ("`n<!-- $stamp $($s.Label) -->`n" + $s.Result.result) -Encoding UTF8
         Log ("Finished ({0}): {1}, {2} turns, `${3:N2}, {4:N0} min" -f $s.Label, $s.Result.subtype,
              $s.Result.num_turns, $s.Result.total_cost_usd, ($s.Result.duration_ms / 60000))
         $s.Result.result | Add-Content $logFile -Encoding UTF8
     } else {
+        $script:failedSessions++
         Log "Claude session ($($s.Label)) did not finish normally; see $($s.Transcript)"
         $lines | Select-Object -Last 10 | Add-Content $logFile -Encoding UTF8
     }
@@ -339,7 +365,11 @@ Log "Done"
 # Review the run and fix the pipeline where it went wrong, unless there was nothing to tailor.
 $reviewed = @($sessions | Where-Object { -not ($_.Result -and $_.Result.result -match "Nothing new to tailor") } |
     Where-Object { Test-Path $_.Transcript } | ForEach-Object { $_.Transcript })
-if (-not $NoReview -and $reviewed.Count -gt 0) {
+if (-not $NoReview -and -not $authFailed -and $reviewed.Count -gt 0) {
     & (Join-Path $PSScriptRoot "run_tailoring_review.ps1") -Transcript $reviewed
 }
 Remove-Item $runFile -ErrorAction SilentlyContinue
+if ($failedSessions -gt 0) {
+    Log "WARNING: $failedSessions Claude session(s) failed; the scheduled task now reports exit code 2"
+    exit 2
+}
