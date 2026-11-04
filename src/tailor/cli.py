@@ -12,7 +12,7 @@ from pathlib import Path
 
 import click
 
-from src.tailor import TailorError
+from src.tailor import TailorError, appdir
 from src.tailor.paths import load_config, resolve
 
 
@@ -28,6 +28,19 @@ def _out(result) -> None:
 
 APP = click.argument("app_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
 ROUND = click.option("--round", "rnd", type=int, required=True, help="Draft round number (1, 2, 3)")
+
+
+def _not_applied(app_dir: Path) -> None:
+    """Refuse a pipeline step on an application you've already applied with. A letter round that was
+    still running when you clicked 'I applied' (Toptal, Nov 4 2026) re-rendered final/ and put the
+    application back to 'ready for review'. Hand edits after applying go through revise-start/done."""
+    try:
+        status = appdir.load_app(app_dir).get("status")
+    except (OSError, ValueError):
+        return
+    if status == "applied":
+        raise TailorError(f"{app_dir.name} is already applied; its draft is left alone "
+                          "(use revise-start/revise-done to change it by hand)")
 
 
 @click.group()
@@ -209,6 +222,7 @@ def apply_edits_cmd(app_dir, rnd):
     """Step 4: apply Claude's edits to the base through the gates."""
     from src.tailor.edits import apply_edits
 
+    _not_applied(app_dir)
     res = apply_edits(app_dir, rnd, load_config())
     # Before/after text of every edit is in applied.json; print only what needs attention.
     res["applied"] = [(a.get("edit") or {}).get("path") for a in res.get("applied") or []]
@@ -283,6 +297,7 @@ def humanize_apply_cmd(app_dir):
     """Step 8b: apply Claude's line patches with the number and style guards."""
     from src.tailor.humanize import humanize_apply
 
+    _not_applied(app_dir)
     _out(humanize_apply(app_dir, load_config()))
 
 
@@ -292,6 +307,7 @@ def render(app_dir):
     """Step 9: render, fit to one page, parse check."""
     from src.tailor.render import run_render
 
+    _not_applied(app_dir)
     _out(run_render(app_dir, load_config()))
 
 
@@ -310,6 +326,7 @@ def packet(app_dir):
     """Step 10: fit-notes.md, check.md and the status update."""
     from src.tailor.packet import run_packet
 
+    _not_applied(app_dir)
     cfg = load_config()
     _out(run_packet(app_dir, cfg))
     _refresh_dashboard(cfg)

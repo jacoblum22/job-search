@@ -540,3 +540,13 @@ def test_dashboard_shows_applied_when_job_is_applied_but_application_row_lags(en
     rows = json.loads(html.split('type="application/json">')[1].split("</script>")[0])
     row = {r["title"]: r for r in rows}["Junior Analyst"]
     assert row["app"]["label"] == "Applied" and row["app"]["flags"] == [] and row["pin"] == 99
+
+
+def test_pipeline_step_commands_refuse_an_applied_application(env):
+    from click.testing import CliRunner
+    from src.tailor.cli import main
+    from src.tailor.packet import record_outcome
+    record_outcome(env["dir"], env["cfg"], "applied")
+    for cmd in (["render"], ["packet"], ["humanize-apply"], ["apply-edits", "--round", "10"]):
+        res = CliRunner().invoke(main, [cmd[0], str(env["dir"]), *cmd[1:]])
+        assert res.exit_code != 0 and "already applied" in str(res.exception or res.output), cmd
