@@ -511,3 +511,28 @@ def test_applied_at_backfilled_from_history_when_column_added(env):
     store.ensure_table(conn)
     assert conn.execute("SELECT applied_at FROM applications WHERE job_id = ?", (env["jid"],)).fetchone()[0]
     conn.close()
+
+
+# --- Job Autofill diagnostics --------------------------------------------
+
+
+def test_autofill_diagnostics_saved_and_merged(env):
+    ext = {**H, "Origin": "chrome-extension://abcdef", "Content-Type": "application/json"}
+    run = {"ts": "2026-11-04T20:00:00Z", "url": "https://x.example/apply", "frame": "top", "counts": {"fields": 3}}
+    status, body = post(env, "/api/autofill-diagnostics", {"runs": [run]}, ext)
+    assert status == 200 and body["total"] == 1
+    again = {**run, "counts": {"fields": 4}}
+    other = {**run, "ts": "2026-11-04T20:05:00Z"}
+    status, body = post(env, "/api/autofill-diagnostics", {"runs": [again, other]}, ext)
+    assert body == {"ok": True, "saved": 2, "total": 2}
+    from src.tailor.paths import resolve
+
+    saved = json.loads(resolve(env["cfg"], "autofill_diagnostics").read_text(encoding="utf-8"))
+    assert [r["counts"]["fields"] for r in saved["runs"]] == [4, 3]
+
+
+def test_autofill_diagnostics_only_accepts_extension_origin(env):
+    web = {**H, "Origin": "https://evil.example", "Content-Type": "application/json"}
+    assert post(env, "/api/autofill-diagnostics", {"runs": []}, web)[0] == 403
+    ext = {**H, "Origin": "chrome-extension://abc", "Content-Type": "application/json"}
+    assert post(env, "/api/tailoring", {}, ext)[0] == 403  # the exception is for this one path only

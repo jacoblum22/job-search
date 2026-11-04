@@ -23,6 +23,7 @@ DEFAULT_PATHS = {
     "unknown_terms": "materials/tailor/unknown-terms.csv",
     "skill_record": "materials/tailor/skill-record.json",
     "jev_cache": "materials/tailor/jev-cache.json",
+    "autofill_diagnostics": "materials/autofill/diagnostics.json",
 }
 
 

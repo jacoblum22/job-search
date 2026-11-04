@@ -35,10 +35,12 @@ from src.db import JOB_STATUSES, backend, connect, is_main, set_job_status
 from src.posting_status import closed_reason, due_date, seen_date
 from src.retention import posted_on
 from src.tailor import TailorError, rejects, review, store
+from src.tailor.paths import resolve
 from src.tailor.packet import OUTCOMES, approve, record_outcome
 from src.tailor_runner import TailoringRunner
 
 Response = tuple[int, str, bytes]
+_DIAG_PATH = "/api/autofill-diagnostics"
 _JOB = re.compile(r"^/(?:api/)?job/(\d+)(/.*)?$")
 # Files from an application's final/ folder the details page may link to.
 _SERVABLE = {".pdf", ".docx", ".md", ".json", ".yaml"}
@@ -130,7 +132,9 @@ class DashboardApp:
             if method == "GET":
                 return self._get(path, query)
             if method == "POST":
-                if headers.get("origin") not in self.origins:
+                # The Job Autofill extension reports page diagnostics from its own origin.
+                extension = path == _DIAG_PATH and (headers.get("origin") or "").startswith("chrome-extension://")
+                if headers.get("origin") not in self.origins and not extension:
                     return self._error("cross-site request refused", 403)
                 if not headers.get("content-type", "").startswith("application/json"):
                     return self._error("send JSON", 415)
@@ -269,7 +273,28 @@ class DashboardApp:
 
     # --- changes --------------------------------------------------------
 
+    def _autofill_diagnostics(self, data: dict[str, Any]) -> Response:
+        """Keep the Job Autofill extension's per-page run records in materials/autofill/ (git-ignored,
+        they hold what was on the form). Runs merge into one file by (ts, url, frame); newest 300 kept."""
+        runs = [r for r in data.get("runs", []) if isinstance(r, dict)][:200]
+        path = resolve(self.cfg, "autofill_diagnostics")
+        try:
+            kept = json.loads(path.read_text(encoding="utf-8")).get("runs", [])
+        except (OSError, ValueError, AttributeError):
+            kept = []
+        by_key = {(r.get("ts"), r.get("url"), r.get("frame")): r for r in kept if isinstance(r, dict)}
+        for r in runs:
+            by_key[(r.get("ts"), r.get("url"), r.get("frame"))] = r
+        merged = sorted(by_key.values(), key=lambda r: str(r.get("ts") or ""))[-300:]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"runs": merged}, indent=1), encoding="utf-8")
+        tmp.replace(path)
+        return self._json({"ok": True, "saved": len(runs), "total": len(merged)})
+
     def _post(self, path: str, data: dict[str, Any]) -> Response:
+        if path == _DIAG_PATH:
+            return self._autofill_diagnostics(data)
         if path == "/api/tailoring":
             return self._json({"ok": True, "result": self.runner.start(data.get("limit"))})
         m = _JOB.match(path)
