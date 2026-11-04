@@ -145,6 +145,8 @@ def humanized(app_dir: Path, name: str) -> Path | None:
 def log(app_dir: Path, step: str, note: str = "", **fields: Any) -> dict[str, Any]:
     """Append to app.json history (and set any top-level fields); returns the updated app."""
     app = load_app(app_dir)
+    if app.get("status") == "applied" and fields.get("status") in ("shortlisted", "drafting", "needs_fixes", "ready_for_review", "approved"):
+        fields = {k: v for k, v in fields.items() if k != "status"}  # applied stays applied
     app.update(fields)
     app.setdefault("history", []).append({"at": now(), "step": step, "note": note})
     save_app(app_dir, app)
