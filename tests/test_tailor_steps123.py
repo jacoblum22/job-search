@@ -444,10 +444,10 @@ def test_weak_requirement_offers_this_shows_it(env, tmp_path):
     reqs = {r["id"]: r for r in appdir.read_json(app / "requirements.json")["requirements"]}
     md = "\n".join(packet._suggestions(app, reqs, _idx(cfg), cfg)) + "\n"
     line = next(ln for ln in md.splitlines() if "<!-- confirm:" in ln)
-    assert line.startswith("- [ ] Doesn't show it  - [ ] This shows it  Collaboration/teamwork:")
+    assert line.startswith("- [x] Doesn't show it  - [ ] This shows it  Collaboration/teamwork:")  # default: no
     assert line.endswith("<!-- confirm: collaboration/teamwork | soft.data-team -->")
     item = next(b for b in review.parse(md) if b["type"] == "item")
-    assert item["kind"] == "confirm" and review.undecided(md) == [line]
+    assert item["kind"] == "confirm" and review.undecided(md) == []
     picked = review.set_box(md, item["line"], line, "This shows it", True)
     with pytest.raises(TailorError):  # a pick can be swapped, not cleared
         review.set_box(picked, item["line"], picked.splitlines()[item["line"]], "This shows it", False)

@@ -367,6 +367,16 @@ def _is_degree(r: dict[str, Any]) -> bool:
     return degree_level(f"{r.get('text', '')} {r.get('quote', '')}") is not None
 
 
+_AUTH = re.compile(r"\b(?:legally\s+)?(?:authori[sz]ed|authori[sz]ation|eligible|eligibility|entitled)\b[^.]{0,40}\bwork\b[^.]{0,30}\bcanada\b|"
+                   r"\bright to work in canada\b|\bwork\b[^.]{0,20}\bcanada\b[^.]{0,30}\b(?:authori[sz]|eligib)", re.I)
+
+
+def _is_authorization(r: dict[str, Any]) -> bool:
+    """"Legal authorization to work in Canada": Jake has it, and no resume bullet shows it, so asking Jev
+    can only fail (Nov 4 2026 audit: it showed up on review pages as a Jev "no" every time)."""
+    return bool(_AUTH.search(f"{r.get('text', '')} {r.get('quote', '')}"))
+
+
 def _is_soft(r: dict[str, Any]) -> bool:
     """Every term of the requirement is a soft skill ("empathy with customers")."""
     terms = r.get("terms") or []
@@ -433,6 +443,8 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
         if r.get("weight") == "boilerplate":
             # Eligibility lines ("18 years of age or older") aren't work a bullet can show; evidence
             # skips them too (Amazon SDE, Oct 29 2026: one sent a repair round that changed nothing).
+            continue
+        if r.get("kind") == "must" and _is_authorization(r):
             continue
         if r.get("kind") == "must" and _is_degree(r):
             # A degree is shown by the education section, not by a bullet that names a tool.

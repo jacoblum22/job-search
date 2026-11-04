@@ -148,17 +148,17 @@ def test_packet_and_approve_gate(cfg):
     assert "Strong SQL" in notes and "75.0%" in notes and "Interview prep" in notes
     assert "Looker" in notes and "Must-have: Strong SQL" in notes
     check = (d / "check.md").read_text()
-    assert check.index("Gate flags: review before applying") < check.index("Score: 76.2")
-    assert "- [ ] Reviewed  This may be a co-op or student work term." in check
-    assert "- [ ] Keep  - [ ] Remove  Summary: em dash" in check  # an unknown code keeps its message
-    assert "- [ ] Keep  - [ ] Remove  p: Jev doesn't think this line is backed" in check
+    assert check.index("Fit summary: review before applying") < check.index("Score: 76.2")
+    assert "  - This may be a co-op or student work term." in check
+    assert "- [x] Keep  - [ ] Remove  Summary: em dash" in check  # an unknown code keeps its message
+    assert "- [x] Keep  - [ ] Remove  p: Jev doesn't think this line is backed" in check
     assert "  - Before: old\n  - After: new" in check and "- **Summary**" in check
     assert check.count("\n> ") >= 4  # each section opens with a note saying what it's for
     conn = store.connect(cfg["paths"]["db"])
     assert store.get_app(conn, jid)["status"] == "ready_for_review"
 
     with pytest.raises(TailorError):
-        approve(d, cfg)
+        approve(d, cfg)  # the Fit summary's Reviewed is still open
     ticked = []
     for line in check.splitlines():
         if "Reviewed" in line:
@@ -261,14 +261,14 @@ def test_packet_lists_evidence_drops(cfg):
     run_packet(d, cfg)
     check = (d / "check.md").read_text()
     assert "## Evidence set aside" in check
-    line = next(x for x in check.splitlines() if "Undo" in x and x.startswith("- [ ]"))
-    assert line == ("- [ ] Set aside  - [ ] Undo  Microsoft Access: not counted from firmament.oauth-2-0. "
+    line = next(x for x in check.splitlines() if "Undo" in x and x.startswith("- [x]"))
+    assert line == ("- [x] Set aside  - [ ] Undo  Microsoft Access: not counted from firmament.oauth-2-0. "
                     "<!-- undo: Microsoft Access | firmament.oauth-2-0 -->")
     assert "  - Why: OAuth access tokens." in check
     assert check.index("Evidence set aside") < check.index("Changes from the base")
     # Every section with buttons comes before the read-only ones (Jake, Oct 22 2026).
     assert check.index("## Remaining issues") < check.index("## Grade") < check.index("## Changes from the base")
-    assert "- [ ]" not in check[check.index("## Grade"):]
+    assert "- [ ]" not in check[check.index("## Grade"):] and "- [x]" not in check[check.index("## Grade"):]
     # The pair in the comment is what approve uses to undo the reject.
     from src.tailor import rejects
     assert rejects._UNDO.match(line.replace("[ ] Undo", "[x] Undo"))["passage"] == "firmament.oauth-2-0"
@@ -306,10 +306,10 @@ def test_packet_flags_ats_below_floor(cfg):
     res = run_packet(d, cfg)
     assert res["below_ats_floor"] is True
     check = (d / "check.md").read_text()
-    assert "## ATS score below 70: review before applying" in check
-    assert "- [ ] Reviewed  ATS 51.3 is below the 70 minimum; your evidence could reach about 70.7, so the gap is wording." in check
-    assert "doesn't use the posting's words:\n    - data analysis\n    - presentations" in check
-    assert "your vault doesn't show them in these words:\n    - SPSS\n" in check
+    assert "## Fit summary: review before applying" in check
+    assert "  - ATS 51.3 is below the 70 minimum; your evidence could reach about 70.7, so the gap is wording." in check
+    assert "doesn't use the posting's words:\n      - data analysis\n      - presentations" in check
+    assert "your vault doesn't show them in these words:\n      - SPSS\n" in check
     assert "ATS score below" not in check.split("## Grade")[1]  # flag sits above the grade
     with pytest.raises(TailorError):
         approve(d, cfg)  # the Reviewed line must be ticked first
@@ -324,9 +324,9 @@ def test_packet_below_floor_with_no_unused_terms_does_not_promise_a_wording_fix(
                 unused_terms=[], unbacked_terms=["SPSS"])
     g.write_text(json.dumps(data))
     check = (d / "check.md").read_text() if run_packet(d, cfg) else ""
-    assert "## ATS score below 70: review before applying" in check
+    assert "## Fit summary: review before applying" in check
     assert "the gap is wording" not in check and "another repair round could raise" not in check
-    assert "- [ ] Reviewed  ATS 68.4 is below the 70 minimum; your evidence could reach about 70.4, " \
+    assert "  - ATS 68.4 is below the 70 minimum; your evidence could reach about 70.4, " \
            "but no backed term is left to add." in check
 
 
@@ -340,10 +340,10 @@ def test_packet_calls_a_low_ceiling_a_weaker_fit(cfg):
     res = run_packet(d, cfg)
     assert res["weaker_fit"] is True
     check = (d / "check.md").read_text()
-    assert "## Weaker fit: review before applying" in check
+    assert "## Fit summary: review before applying" in check
     assert "the best this resume could reach is about 66.0, under the 70 minimum" in check
-    assert "your vault doesn't show them in these words:\n    - SPSS\n    - healthcare data" in check
-    assert "doesn't use the posting's words:\n    - None" in check  # both lists always shown
+    assert "your vault doesn't show them in these words:\n      - SPSS\n      - healthcare data" in check
+    assert "doesn't use the posting's words:\n      - None" in check  # both lists always shown
 
 
 def test_gate_judges_against_the_closest_base(cfg):
@@ -436,3 +436,19 @@ def test_packet_lists_what_the_review_round_did_with_each_note(cfg):
     assert "- Changed: Summary names the Loyalty team: now says business teams" in section
     assert "- Left as is: Quantify the Apps Script time saved: no number in the vault" in section
     assert check.index("## Remaining issues") < check.index("## Outside review")  # read-only, after the buttons
+
+
+def test_fit_summary_is_one_box_and_decisions_start_on_their_defaults(cfg):
+    _, d = _packet_app(cfg)
+    g = d / "drafts" / "r1" / "grade.json"
+    data = json.loads(g.read_text())
+    data.update(ats={"total": 51.3, "components": {}}, ats_ceiling=70.7, unused_terms=["data analysis"], unbacked_terms=[])
+    g.write_text(json.dumps(data))
+    run_packet(d, cfg)
+    check = (d / "check.md").read_text()
+    assert check.count("## Fit summary") == 1
+    assert "## Gate flags" not in check and "## Weaker fit" not in check and "## ATS score below" not in check
+    assert check.count("- [ ] Reviewed  ") >= 1
+    from src.tailor import review
+    # The only boxes left to click are the Fit summary's Reviewed (and whatever else needs a real look).
+    assert all("Reviewed" in x for x in review.undecided(check))

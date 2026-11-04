@@ -18,8 +18,11 @@ from src.resume import iter_bullets
 # Section blurbs (rendered as "> " notes under each heading)
 # ---------------------------------------------------------------------------
 
-INTRO = ("Your review list for this application. Every item needs a decision before you can approve. "
+INTRO = ("Your review list. Most items start on the answer you pick nearly every time; change one only if you disagree. "
          "A decision only records your call: nothing here edits the resume or letter.")
+FIT_SUMMARY = ("Everything about how well this job fits you, in one place: the screening answers, the ATS score and "
+               "the must-haves not clearly shown. Mark it Reviewed once you have decided the job is worth applying to. "
+               "None of it removes a job.")
 GATE = ("Before tailoring, Jev (a small AI model the pipeline asks cheap yes/no questions) screened the "
         "posting. These answers came back against this job. They never remove a job; they only move it "
         "down the list. Mark it Reviewed once you've decided the job is still worth applying to.")
@@ -32,44 +35,20 @@ WORDING_GAP = ("Here the gap is wording: your vault backs more of the posting's 
                "the terms below are the words to work in if you edit a line yourself.")
 NO_WORDING_LEFT = ("Here no repair round can help: every hard skill your vault backs is already on the resume "
                    "in the posting's words, so what's left is how close the match is, not missing wording.")
-GRADE = ("The score is 60% the ATS estimate and 40% the share of Jev's checks the resume passed. The ATS "
-         "estimate has five parts: keywords (the posting's terms that appear in the resume), skills (the "
-         "required skills it names), title (how close your titles and headline are to this job title), "
-         "sections (standard headings an ATS expects) and dates (dates it can read).")
-JEV_NO = ("After writing, Jev checked the resume and letter with yes/no questions. These are the answers "
-          "that came back the wrong way. Jev can be wrong, so read the part it's about and decide. "
-          "If Jev is right, it's a real gap: be ready to speak to it in an interview, or fix the line. "
-          "If Jev is wrong, there's nothing to do. Mark it Reviewed either way.")
+GRADE = "Score = 60% ATS estimate (keywords, skills, title, sections, dates) + 40% share of Jev's checks passed."
+JEV_NO = "Jev's yes/no checks that came back the wrong way. Jev can be wrong: if it's right, fix the line or be ready to speak to it; if not, nothing to do. Mark Reviewed either way."
 JEV_NO_EVIDENCE = ("Jev also turned down these plain-word matches when looking for evidence, so the "
                    "resume doesn't use them. Nothing to decide: if one is wrong, make the vault passage "
                    "say it more clearly and rerun.")
-DROPS = ("Before writing, the pipeline looks for vault passages that prove each skill the posting asks "
-         "for. These passages use the word but don't show you have the skill, so they were set aside and the "
-         "resume doesn't lean on them. For each, pick Correctly set aside if that's right, or Shows the skill if "
-         "the passage really does show it (Set aside or Undo in check.md); approving with Shows the skill "
-         "lets later applications use it again.")
-SUGGESTED = ("The posting asks for these and the vault didn't back them well. Jev was asked about each "
-             "passage below and said no or wasn't sure. If one does show the skill, pick This shows it: "
-             "approving saves the match, so every later application counts it without asking Jev. Pick "
-             "Doesn't show it to stop it being suggested again. This resume was written without these "
-             "passages; to use one here, rerun from the evidence step after approving.")
-ADDS = ("The plan read these passages and found they show a skill the word matching missed, so this "
-        "resume could use them. Pick This shows it if that's right, or Doesn't show it if not; approving "
-        "records the choice for every later application. Doesn't show it doesn't change this resume, so "
-        "if a line leans on that passage, fix the line yourself.")
+DROPS = "Vault passages that use a posting's word without showing the skill were set aside and the resume doesn't lean on them. Starts on Set aside; pick Undo if a passage does show the skill."
+SUGGESTED = "Jev wasn't sure these passages show a skill the posting asks for. Starts on Doesn't show it; pick This shows it to save the match for every later application."
+ADDS = "The plan found these passages show a skill the word match missed. Starts on This shows it; pick Doesn't show it if not (the choice is saved for later applications)."
 CHANGES = ("Every line this resume says differently from the {base} base resume. Read each one and "
            "make sure you're comfortable defending it in an interview.")
-ISSUES = ("Automatic checks on the final resume and letter. Pick Keep if it's fine as it is, or Remove if "
-          "you'll change it before applying. Remove only records your choice: edit the file yourself, then "
-          "rerun the render and packet steps.")
+ISSUES = "Automatic checks on the final resume and letter. Starts on Keep; pick Remove if you'll change the line before applying (it only records your choice)."
 NOTES = "Things the pipeline already handled. Nothing to decide; they're here so you know."
-OUTSIDE = ("After the repair rounds, a fresh reviewer that never saw your vault read the posting, resume and "
-           "letter and gave notes, then a new reviewer checked each revised version, until one said "
-           "ready or ran out of passes. Each round acted on the notes your vault and rules allow. Nothing to "
-           "decide; the changes are in the resume and letter, and in Changes from the base.")
-REVIEWER = ("What the outside reviewer said last, like your own review chats: its verdict, questions only you can "
-            "answer, claims to check and interview questions. Nothing to tick. Answer a question by adding the fact "
-            "to your vault (revise-job-application), and prepare the interview answers.")
+OUTSIDE = "A fresh reviewer that never saw your vault read the posting, resume and letter, and later reviewers checked each revision, until one said ready or the passes ran out. Nothing to decide; changes are already in the files."
+REVIEWER = "The outside reviewer's last verdict, questions only you can answer, claims to check and interview questions. Nothing to tick."
 
 # ---------------------------------------------------------------------------
 # Where in the resume
@@ -390,6 +369,14 @@ _ISSUES: dict[str, tuple[str, str]] = {
     "letter_shape": ("The cover letter file has a formatting problem.", "It may not render correctly."),
     "familiar_absent_term": ("The letter says you're familiar with {term}, but the vault doesn't show it.",
                              "Only claim familiarity you can back up."),
+    "every_team": ("This says the work was used by {term}.",
+                   "The vault says dashboards were used across teams; \"every team\" is more than you can back."),
+    "datathon_claim": ("This claims the \"{term}\" result without saying you were a top-10 finalist.",
+                       "The vault's result is 78.72% accuracy as a top-10 finalist; leaving that out overstates it."),
+    "coursework_skill": ("{term} is in your skills list, but the vault backs it through coursework only.",
+                         "Listed plainly it reads as work experience."),
+    "opener_names_job": ("The first paragraph doesn't name the role or the company.",
+                         "A recruiter should see which job this is for in the first sentence."),
     "keen_to_grow": ("The letter says it's keen to learn or grow more than once.",
                      "Once reads as eager; more reads as inexperienced."),
     "course_grade": ("The letter uses a course grade as evidence ({term}).",

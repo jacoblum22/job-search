@@ -92,6 +92,26 @@ def check_greeting(letter: dict[str, Any], contact: dict[str, Any] | None) -> tu
     return _contact_ok(name, contact_name), name
 
 
+_NAME_STOP = frozenset("inc ltd llc corp corporation company co the of and a an for at in on to canada canadian".split())
+
+
+def _words(text: str) -> list[str]:
+    return [w for w in re.findall(r"[a-z0-9]+", text.lower()) if w not in _NAME_STOP]
+
+
+def _name_missing(para: str, company: str, title: str) -> list[str]:
+    """['the company', 'the role'] for whichever of the two paragraph 1 never names."""
+    have = set(re.findall(r"[a-z0-9]+", para.lower()))
+    missing = []
+    cw = _words(company)
+    if cw and cw[0] not in have:
+        missing.append("the company")
+    tw = _words(re.split(r"[(\[,|-]", title)[0])
+    if tw and sum(w in have for w in tw) < max(1, round(len(tw) * 0.6)):
+        missing.append("the role")
+    return missing
+
+
 def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
     """Return {"criticals", "warnings", "greeting_reset"}; resets an unverified greeting in the file.
 
@@ -221,6 +241,22 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
         warn("keen_to_grow", "more than one 'keen to grow' style phrase")
     for m in _GRADE.finditer(full):
         warn("course_grade", f"course grade used as evidence: {m.group(0)!r}", term=m.group(0))
+    from src.tailor.checks import _TEST_COUNT, line_issues  # lazy, as above
+    for i, p in enumerate(paras):
+        tc = _TEST_COUNT.search(str(p.get("text", "")))
+        if tc:
+            warn("test_count", f"paragraphs[{i}]: {tc.group(0)!r}: say 'a pytest suite' or name specific verification",
+                 f"paragraphs[{i}]", term=tc.group(0))
+        for code, msg, data in line_issues(str(p.get("text", ""))):
+            warn(code, f"paragraphs[{i}]: {msg}", f"paragraphs[{i}]", **data)
+    # Oct 30 2026 verdict, D: about three quarters of letters never name the role and the company
+    # in paragraph 1.
+    if paras:
+        want = _name_missing(str(paras[0].get("text", "")), str(req.get("company") or ctx.get("company") or ""),
+                             str(req.get("title") or ""))
+        if want:
+            warn("opener_names_job", "paragraph 1 doesn't name " + " or ".join(want) + "; say which role "
+                 "you are applying for and where, in the first sentence", "paragraphs[0]", missing=want)
     for i, p in enumerate(paras):
         for h in phrases.scan(str(p.get("text", "")), ctx["posting"], ctx["own_texts"], letter=True):
             warn("ai_phrase", f"paragraphs[{i}]: {h.code} {h.phrase!r}", f"paragraphs[{i}]")

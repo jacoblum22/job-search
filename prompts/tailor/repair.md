@@ -41,6 +41,10 @@ already passed.
    sentence that only names it), or take it out of the list (a `remove` edit on `skills/<group id>`
    with the item as `value`). A critical on a skills item is fixed the same way: `remove` the item,
    then `add_skill` it in the vault's wording if the critical names one.
+   The wording rules from the Oct 30 verdict each get their own round: `every_team` (write "used across
+   teams"), `datathon_claim` (say "top-10 finalist" next to the accuracy claim), `coursework_skill` (take
+   the plain item out of the skills list, or mark it as coursework) and `opener_names_job` (the letter's
+   first sentence names the role and the company).
    Some warnings only ride along with a round that runs anyway; answer them while you are in those
    lines: `opener_where` (delete the "where ..." clause from the letter's first sentence when the
    sentence still reads fine without it), `ai_phrase` (reword the named phrase plainly, as `humanize.md` describes; a phrase the
