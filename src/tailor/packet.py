@@ -192,13 +192,16 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     lines = ["# Check", ""] + _note(explain.INTRO) + _reviewer_lines(app_dir, rd, cfg)
     if gate.get("checked") is False:
         lines += ["Gate not checked: Jev is not configured.", ""]
-    if gate_flags:
-        lines += ["## Gate flags: review before applying", ""] + _note(explain.GATE)
-        for f in gate_flags:
-            head, details = explain.gate_flag(f)
-            lines.append(f"- [ ] Reviewed  {head}")
-            lines += [f"  - {d}" for d in details]
-        lines.append("")
+    # One Fit summary replaces the gate flags, the ATS floor, the Weaker fit note and Jev's must-have
+    # answers: they were the same fact shown three or four times, ticked the same way every time
+    # (Nov 4 2026 audit: 41 packets, 100% Reviewed). Items collect here; the section goes in last.
+    fit_pos = len(lines)
+    fit: list[str] = []
+    fit_note = ""
+    for f in gate_flags:
+        head, details = explain.gate_flag(f)
+        fit.append(f"  - {head}")
+        fit += [f"    - {d}" for d in details]
     dropped = ((_opt_json(app_dir / "final" / "parse.json") or {}).get("dropped")) or []
     if dropped:
         # Rendering cut these to fit one page; nobody chose to, so say so.
@@ -218,29 +221,26 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
         unbacked = grade.get("unbacked_terms") or []
         ceiling = grade.get("ats_ceiling")
         if grade.get("fit_gap"):
-            lines += ["## Weaker fit: review before applying", ""]
-            lines += _note(f"{explain.FIT} {explain.FIT_GAP}")
-            lines.append(f"- [ ] Reviewed  ATS {ats_total} out of 100. Even using every skill your vault backs, "
+            fit_note = explain.FIT_GAP
+            fit.append(f"  - ATS {ats_total} out of 100. Even using every skill your vault backs, "
                          f"the best this resume could reach is about {ceiling}, under the {floor:g} minimum.")
         elif unused or grade.get("title_missing"):
-            lines += [f"## ATS score below {floor:g}: review before applying", ""]
-            lines += _note(f"{explain.FIT} {explain.WORDING_GAP}")
+            fit_note = explain.WORDING_GAP
             title = grade.get("title_missing")
-            lines.append(f"- [ ] Reviewed  ATS {ats_total} is below the {floor:g} minimum"
+            fit.append(f"  - ATS {ats_total} is below the {floor:g} minimum"
                          + (f"; your evidence could reach about {ceiling}, so the gap is wording."
                             if ceiling is not None else ".")
                          + (f' The summary doesn\'t open with the job title "{title}" yet.' if title else ""))
         else:
             # No backed term is left to work in, so calling it a wording gap would promise a fix that isn't there.
-            lines += [f"## ATS score below {floor:g}: review before applying", ""]
-            lines += _note(f"{explain.FIT} {explain.NO_WORDING_LEFT}")
-            lines.append(f"- [ ] Reviewed  ATS {ats_total} is below the {floor:g} minimum"
+            fit_note = explain.NO_WORDING_LEFT
+            fit.append(f"  - ATS {ats_total} is below the {floor:g} minimum"
                          + (f"; your evidence could reach about {ceiling}, but no backed term is left to add."
                             if ceiling is not None else "."))
 
         def term_list(label: str, terms: list[str]) -> None:
-            lines.append(f"  - {label}:")
-            lines.extend([f"    - {t}" for t in terms] or ["    - None"])
+            fit.append(f"    - {label}:")
+            fit.extend([f"      - {t}" for t in terms] or ["      - None"])
 
         term_list("The posting asks for these and your vault doesn't show them in these words", unbacked)
         term_list("Your vault shows these but the resume doesn't use the posting's words", unused)
@@ -248,9 +248,8 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
             term_list("Soft skills your vault shows that neither the resume nor the letter names (they don't "
                       "count in the ATS score; the letter is the place for the ones no line fits)", unused_soft)
         if unbacked:
-            lines.append("  - If you do have something in the first list, add it to your experience vault and "
-                         "rerun from the evidence step: the resume can only claim what the vault shows.")
-        lines.append("")
+            fit.append("    - If you do have something in the first list, add it to your experience vault and "
+                       "rerun from the evidence step: the resume can only claim what the vault shows.")
     # Sections with buttons come first; the read-only ones (grade, changes, handled) go after them
     # so nothing to decide sits below something with nothing to decide (Jake, Oct 22 2026).
     info = ["", "## Grade", ""] + _note(explain.GRADE)
@@ -287,10 +286,18 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     said_no = [it for it in (grade or {}).get("checklist") or [] if it.get("passed") is False]
     ev_no = (_opt_json(app_dir / "evidence.json") or {}).get("jev_said_no") or []
     if said_no or ev_no:
-        lines += ["", "## Jev said no: check for false rejections", ""] + _note(explain.JEV_NO)
+        other = []
         for it in said_no:
             head, details = explain.jev_item(it, reqs, data, str(reqs_json.get("title") or app.get("title") or ""),
                                              str(reqs_json.get("company") or app.get("company") or ""))
+            if str(it.get("id") or "").startswith("must."):  # a must-have gap is part of the fit
+                fit.append(f"  - {head}")
+                fit += [f"    - {d}" for d in details]
+            else:
+                other.append((head, details))
+        if other:
+            lines += ["", "## Jev said no: check for false rejections", ""] + _note(explain.JEV_NO)
+        for head, details in other:
             lines.append(f"- [ ] Reviewed  {head}")
             lines += [f"  - {d}" for d in details]
         if ev_no:
@@ -304,7 +311,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
         for d in drops:
             term, pid = str(d.get("term", "?")), str(d.get("passage", "?"))
             head, details = explain.drop(d, index, (term.lower(), pid) in new)
-            lines.append(f"- [ ] Set aside  - [ ] Undo  {head} <!-- undo: {term} | {pid} -->")
+            lines.append(f"- [x] Set aside  - [ ] Undo  {head} <!-- undo: {term} | {pid} -->")
             lines += [f"  - {x}" for x in details]
     lines += _suggestions(app_dir, reqs, index, cfg)
     base_id = app.get("base_id") or (_opt_json(app_dir / "plan.json") or {}).get("base_id") or "chosen"
@@ -320,7 +327,7 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     boxed = [it for it in issues if not explain.is_note(it)]
     for it in boxed:
         head, details = explain.issue(it, data, index)
-        lines.append(f"- [ ] Keep  - [ ] Remove  {head}")
+        lines.append(f"- [x] Keep  - [ ] Remove  {head}")
         lines += [f"  - {d}" for d in details]
     if not boxed:
         lines.append("- None")
@@ -328,13 +335,22 @@ def _check_md(app: dict[str, Any], rd: Path | None, app_dir: Path,
     if notes:
         info += ["", "## Already handled", ""] + _note(explain.NOTES)
         info += [f"- {explain.note(it, data, index)}" for it in notes]
+    if fit:
+        block = ["## Fit summary: review before applying", ""] + _note(f"{explain.FIT_SUMMARY} {fit_note}".strip())
+        block.append(f"- [ ] Reviewed  {sum(1 for x in fit if x.startswith('  - ') and not x.startswith('    '))} "
+                     "things to know before applying (details below).")
+        block += fit + [""]
+        lines[fit_pos:fit_pos] = block
     lines += info
     return "\n".join(lines) + "\n"
 
 
-def _confirm_line(key: str, pid: str, head: str) -> str:
-    # The pair in the comment is what approve records (rejects.apply_confirms).
-    return f"- [ ] Doesn't show it  - [ ] This shows it  {head} <!-- confirm: {key} | {pid} -->"
+def _confirm_line(key: str, pid: str, head: str, shows: bool) -> str:
+    # The pair in the comment is what approve records (rejects.apply_confirms). Nov 4 2026 audit:
+    # Jake took the default every time (plan adds: This shows it 94 of 94; suggestions: Doesn't show it
+    # 15 of 18), so each line starts on its default and a click only overrides it.
+    box = ("[ ]", "[x]") if shows else ("[x]", "[ ]")
+    return f"- {box[0]} Doesn't show it  - {box[1]} This shows it  {head} <!-- confirm: {key} | {pid} -->"
 
 
 def _suggestions(app_dir: Path, reqs: dict[str, dict], index: dict[str, dict] | None,
@@ -357,7 +373,7 @@ def _suggestions(app_dir: Path, reqs: dict[str, dict], index: dict[str, dict] | 
         lines += ["", "## Evidence the plan added", ""] + _note(explain.ADDS)
         for d in adds:
             head, details = explain.add(d, index)
-            lines.append(_confirm_line(rejects.key(d["term"]), str(d["passage"]), head))
+            lines.append(_confirm_line(rejects.key(d["term"]), str(d["passage"]), head, True))
             lines += [f"  - {x}" for x in details]
     done = {(rejects.key(d["term"]), str(d["passage"])) for d in adds}
     done |= set(rejects.pairs(cfg, app_dir)) | set(rejects.confirmed(cfg, app_dir))  # already decided
@@ -372,7 +388,7 @@ def _suggestions(app_dir: Path, reqs: dict[str, dict], index: dict[str, dict] | 
         lines += ["", "## Could these show it?", ""] + _note(explain.SUGGESTED)
         for key, c, req_text in sugg:
             head, details = explain.suggestion(key, c["passage"], c.get("value"), req_text, index)
-            lines.append(_confirm_line(key, c["passage"], head))
+            lines.append(_confirm_line(key, c["passage"], head, False))
             lines += [f"  - {x}" for x in details]
     return lines
 

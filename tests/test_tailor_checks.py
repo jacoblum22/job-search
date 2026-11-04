@@ -502,7 +502,7 @@ def test_letter_clean(tmp_path):
     res, app = letter_check(tmp_path, LETTER)
     assert [c for c in res["criticals"] if c["doc"] == "letter"] == []
     # The fixture letter is short; length is tested on its own below.
-    assert [w for w in res["warnings"] if w["doc"] == "letter" and w["code"] != "letter_length"] == []
+    assert [w for w in res["warnings"] if w["doc"] == "letter" and w["code"] not in ("letter_length", "opener_names_job")] == []
     assert read(app, "cover-letter.json")["greeting"] == "Dear Priya Shah,"
 
 
@@ -974,3 +974,19 @@ def test_rewritten_project_bullet_with_directed_opener_or_test_count_warns(tmp_p
     # The base wording itself is Jake's and isn't judged.
     res, *_ = checked(tmp_path / "b", lambda d: None)
     assert not {"directed_opener", "test_count"} & set(codes(res["warnings"]))
+
+
+def test_wording_rules_from_the_oct_30_verdict():
+    from src.tailor.checks import line_issues
+    codes = lambda t: {c for c, _, _ in line_issues(t)}  # noqa: E731
+    assert "every_team" in codes("Built dashboards every team used.")
+    assert "every_team" not in codes("Built dashboards used across teams.")
+    assert "datathon_claim" in codes("Reached 78% accuracy, the highest in the competition.")
+    assert "datathon_claim" not in codes("Reached 78% accuracy as a top-10 finalist, the highest in the competition.")
+
+
+def test_letter_opener_must_name_company_and_role():
+    from src.tailor.letter import _name_missing
+    assert _name_missing("I'm applying for the Data Analyst role at Acme.", "Acme Corp", "Data Analyst") == []
+    assert _name_missing("I write SQL daily.", "Acme Corp", "Data Analyst") == ["the company", "the role"]
+    assert _name_missing("I'm applying to Acme.", "Acme Corp", "Data Analyst (Contract)") == ["the role"]

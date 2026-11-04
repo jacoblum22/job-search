@@ -203,7 +203,8 @@ def _failed(grade: dict[str, Any]) -> list[dict[str, Any]]:
 # Warnings a repair round fixes. The first set is worth a round of its own; the rest
 # only ride along with a round that happens anyway.
 _ROUND_WARNINGS = {"term_stuffing", "verbatim_posting_copy", "duplicate_bullets", "years_inflation",
-                   "title_drift", "letter_length", "skill_name_only", "directed_opener", "test_count"}
+                   "title_drift", "letter_length", "skill_name_only", "directed_opener", "test_count",
+                   "every_team", "datathon_claim", "coursework_skill", "opener_names_job"}
 # Pipeline audit, Oct 29 2026: AI-style phrases, a term the base covered that the draft lost, and
 # Jev's doubt about a line were shown every round and never reached a repair round (PointClickCare
 # carried 3 phrase warnings through all 3 rounds; humanize found them only after the outside review).

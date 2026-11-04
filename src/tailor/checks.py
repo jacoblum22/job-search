@@ -225,6 +225,26 @@ def _runs(words: list[str], n: int) -> set[tuple[str, ...]]:
 _TEST_COUNT = re.compile(r"\b\d[\d,]*\+?\s+(?:automated\s+|unit\s+)?(?:pytest\s+)?(?:unit\s+)?tests?\b", re.I)
 
 
+# Oct 30 2026 final-packets verdict: defects found by hand in 24 of 45 packets, now caught here.
+_EVERY_TEAM = re.compile(r"\b(?:every|each|all)\s+(?:team|teams|department|departments)\b|\bevery team\b", re.I)
+_HIGHEST = re.compile(r"\b(?:highest|top|best)\b[^.;]{0,40}\b(?:competition|datathon|hackathon)\b|"
+                      r"\b(?:datathon|hackathon|competition)\b[^.;]{0,60}\b(?:highest|best)\b", re.I)
+# Skills the vault backs through coursework only; listing them plain reads as work experience.
+COURSEWORK_ONLY = ("docker",)
+
+
+def line_issues(text: str) -> list[tuple[str, str, dict[str, Any]]]:
+    """(code, message, data) for the wording defects shared by resume lines and letter paragraphs."""
+    out: list[tuple[str, str, dict[str, Any]]] = []
+    m = _EVERY_TEAM.search(text)
+    if m:
+        out.append(("every_team", f"{m.group(0)!r}: say the work was 'used across teams'", {"term": m.group(0)}))
+    m = _HIGHEST.search(text)
+    if m and "finalist" not in text.lower():
+        out.append(("datathon_claim", f"{m.group(0)!r} without 'top-10 finalist'", {"term": m.group(0)}))
+    return out
+
+
 def check_resume(
     draft: dict[str, Any], base: dict[str, Any], ctx: dict[str, Any]
 ) -> tuple[list[dict], list[dict], list[str]]:
@@ -438,7 +458,13 @@ def check_resume(
 
     for path, text in d_units:
         if path.startswith("skills/"):
+            for item in COURSEWORK_ONLY:
+                if re.search(rf"(?<![\w-]){item}(?![\w-])", text, re.I) and not re.search(rf"{item}[^,;]*coursework", text, re.I):
+                    w("coursework_skill", f"'{item}' is backed by coursework only; take it out of the list or "
+                      "mark it (coursework)", path, term=item)
             continue
+        for code, msg, data in line_issues(text):
+            w(code, msg, path, **data)
         for h in phrases.scan(text, posting, ctx["own_texts"]):
             w("ai_phrase", f"{h.code}: {h.phrase!r}", path)
     return crit, warn, []

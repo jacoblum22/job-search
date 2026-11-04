@@ -59,6 +59,8 @@ PATTERNS = {
                 r"marking a (?:pivotal|turning)|evolving landscape|indelible mark|reflects a broader)\b",
     "sales": r"\b(?:nestled|in the heart of|renowned|breathtaking|groundbreaking|diverse array)\b",
     "fancy_verb": r"\b(?:serves as|stands as|functions as|boasts)\b",
+    # Template filler: "One thing I really value is work that..." (Sun Life; Oct 30 2026 verdict, E)
+    "filler": r"\b(?:one thing i (?:really )?value|what i value (?:most|the most)|i really value (?:work|working|teams?))\b",
     "no_one": r"\b(?:i'm not saying|i am not saying|don't get me wrong|this is not to say|to be clear,)",
 }
 _PATTERNS = {code: re.compile(rx, re.IGNORECASE) for code, rx in PATTERNS.items()}
