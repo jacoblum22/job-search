@@ -53,7 +53,7 @@ each through a real story from its cited passage, not as a list of names.
    from `facts.json` (`f2`) or `posting:<n>` for the n-th item of `requirements.json.company_facts`,
    n counting from 1). The employer already knows its own facts, so never just restate them, list
    their stats, or praise their mission: say why that thing matters to the candidate and the work.
-   Use at most one or two facts. Do not say where a motivation came from or quote the file.
+   Use at most one or two facts. Do not say where a motivation came from or quote the file, except for the people motivation: when you state it, prefer the `motivation.preferred-people-phrasing` wording ("One thing I value is work that stays people-related, whether customers feel it or colleagues rely on it.") as written, since the candidate chose it.
    **At least one fact must show real research:** a number, a named product, project, launch or
    event, or anything else that could only be true of this employer. "Values high-quality care" or
    "a leader in innovation" could be said of anyone and does not count. Prefer a verified
