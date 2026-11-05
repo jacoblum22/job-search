@@ -1,228 +1,27 @@
-# Job search aggregator configuration
+# Job Scraper Configuration
 
-# ─── Shared job search (applies to every source) ────────────────────
-# Adzuna/CareerJet are queried with canonical phrases, aliases (HR intern,
-# event coordinator, …), and level terms. Workday and email alerts return
-# unfiltered postings; titles *or* descriptions must match the same phrase
-# table. All sources then drop senior titles, max_years_experience, and
-# on-site jobs outside Metro Vancouver (remote Canada and remote US are kept).
-#
-# `location` is the primary geo for API search. `remote_sweep_location` is a
-# second pass that only keeps postings classified as remote — so a Vancouver
-# search does not miss Ottawa-tagged WFH roles, and a Canada search does not
-# flood Toronto on-site jobs into the DB.
-
-search:
-  location: "Vancouver, BC"
-  remote_sweep_location: "Canada"
-  require_relevant_location: true
-  # Target: entry-level data science / data analyst / BI / ML / software roles.
-  keywords:
-    - "Data Scientist"
-    - "Data Analyst"
-    - "Data Science"
-    - "Machine Learning"
-    - "Business Intelligence"
-    - "Analytics"
-    - "Data Engineer"
-    - "Software Engineer"
-    - "Software Developer"
-    - "Python Developer"
-  level_terms:          # API queries: early-career levels (not internships)
-    - "junior"
-    - "entry level"
-    - "new grad"
-    - "associate"
-  # Extra title phrases per keyword (merged with DEFAULT_ALIASES in search_match.py)
-  keyword_aliases:
-    "Data Scientist":
-      - "associate data scientist"
-      - "junior data scientist"
-      - "data science analyst"
-      - "applied scientist"
-      - "decision scientist"
-    "Data Analyst":
-      - "data analytics"
-      - "analytics analyst"
-      - "reporting analyst"
-      - "insights analyst"
-      - "bi analyst"
-      - "product analyst"
-      - "marketing analyst"
-      - "quantitative analyst"
-      - "junior analyst"
-      - "research analyst"
-      - "data specialist"
-    "Machine Learning":
-      - "ml engineer"
-      - "machine learning engineer"
-      - "ai engineer"
-      - "mlops"
-      - "nlp engineer"
-      - "computer vision"
-      - "ai developer"
-    "Business Intelligence":
-      - "bi developer"
-      - "power bi"
-      - "tableau developer"
-      - "looker"
-    "Analytics":
-      - "analytics engineer"
-      - "analytics developer"
-      - "growth analyst"
-      - "customer analytics"
-    "Software Engineer":
-      - "software developer"
-      - "full stack"
-      - "full-stack"
-      - "backend developer"
-      - "back-end developer"
-      - "programmer analyst"
-      - "new grad software"
-  # Replaces PRIORITY_API_QUERIES in search_match.py (those are HR/events-focused)
-  extra_api_queries:
-    - "junior data scientist"
-    - "associate data scientist"
-    - "junior data analyst"
-    - "entry level data analyst"
-    - "business intelligence analyst"
-    - "BI analyst"
-    - "reporting analyst"
-    - "product analyst"
-    - "analytics engineer"
-    - "machine learning engineer junior"
-    - "junior python developer"
-    - "new grad software engineer"
-    - "SQL analyst"
-    - "Looker analyst"
-    - "BigQuery"
-  # Never store or fetch jobs from these companies (matched as whole words
-  # in the company name). AlgaeCal: Jake's past employer.
-  exclude_companies:
-    - "AlgaeCal"
-  exclude_title_terms:
-    # Co-ops need current enrollment; Jake graduated May 2026. Internships
-    # are kept (score penalty only).
-    - "co-op"
-    - "coop"
-    - "senior"
-    - "sr"
-    - "director"
-    - "manager"
-    - "lead"
-    - "principal"
-    - "vice president"
-    - "vice-president"
-    - "vp"
-    - "head"
-    - "chief"
-    - "ux"
-    - "ui/ux"
-    - "user experience"
-    - "staff"
-    - "architect"
-    - "trainer"     # AI-trainer / annotation gigs
-    - "annotator"
-    - "tutor"
-  # Deliberately broad: a snippet-only listing (Adzuna, CareerJet, alert
-  # emails) whose title has any of these words gets its full posting fetched,
-  # and the full text then goes through the normal keyword filter. A title
-  # with none of them (and no early-career word) isn't stored at all. The
-  # exclude_title_terms above still apply.
-  fetch_title_terms:
-    - "data"
-    - "database"
-    - "analytics"
-    - "analyst"
-    - "analysis"
-    - "insights"
-    - "reporting"
-    - "business intelligence"
-    - "bi"
-    - "machine learning"
-    - "ml"
-    - "ai"
-    - "artificial intelligence"
-    - "deep learning"
-    - "nlp"
-    - "computer vision"
-    - "statistics"
-    - "statistical"
-    - "statistician"
-    - "quantitative"
-    - "research"
-    - "scientist"
-    - "science"
-    - "modeling"
-    - "modelling"
-    - "forecasting"
-    - "software"
-    - "developer"
-    - "programmer"
-    - "engineer"
-    - "python"
-    - "sql"
-    - "automation"
-    - "informatics"
-    - "computational"
-    - "technology"
-    - "technical"
-  # A job whose full posting we have (ATS boards, Workday, fetched listings)
-  # is kept if its title has any fetch_title_terms word, or its description
-  # names at least core_skills_min of these, instead of needing a target
-  # title phrase. Hard drops (exclude_title_terms, years, location,
-  # companies) still apply; the score decides how good it is.
-  full_description_chars: 1000
-  core_skills_min: 2
-  core_skills:
-    - "python"
-    - "sql"
-    - "pandas"
-    - "numpy"
-    - "scikit-learn"
-    - "pytorch"
-    - "tensorflow"
-    - "machine learning"
-    - "bigquery"
-    - "snowflake"
-    - "dbt"
-    - "tableau"
-    - "power bi"
-    - "looker"
-    - "git"
-    - "docker"
-    - "javascript"
-    - "typescript"
-  # Stored up to 5 years; 3-5 is a score penalty, not a drop (see score: below).
-  max_years_experience: 5
+scraper:
+  # Maximum number of jobs to scrape per run per source (0 = unlimited)
+  max_jobs: 0
 
 # ─── API job-board aggregators (Adzuna, CareerJet) ─────────────────
 # Each keyword is run as a separate search query per API, per location.
 # Credentials come from .env (see .env.example) — never put keys here.
 
 api_sources:
-  results_per_page: 50
-  max_pages: 3
+  location: "Vancouver, BC"
+  keywords:
+    - "data scientist"
+    - "data analyst"
+    - "software engineer"
+  results_per_page: 20
   adzuna:
     enabled: true
     country: "ca"  # Adzuna country code
   careerjet:
     enabled: true
     locale_code: "en_CA"
-    referer: "https://jacoblum.com"  # must match the site registered on the publisher dashboard
-
-# ─── Email-alert sources (LinkedIn/Indeed/Glassdoor via Gmail) ────────
-# Job-alert emails are forwarded from an Outlook inbox to Gmail. Outlook's
-# "Forward" rule rewrites the envelope sender to the forwarding mailbox, so
-# adapters can't identify the source by From header alone — set
-# forward_from to that forwarding mailbox and each adapter additionally
-# matches on content (original sender name/domain still appears in the
-# forwarded body). Leave blank if alerts land in Gmail directly (no
-# forwarding), in which case adapters fall back to matching the original
-# sender's From header only.
-
-email_sources:
-  forward_from: ""
+    referer: "http://jacoblum.com"  # must match the site registered on the publisher dashboard
 
 # ─── Workday Sources ────────────────────────────────────────────────
 # Each entry defines a Workday job board to scrape.
@@ -289,6 +88,17 @@ sources:
       - "Vancouver"
       - "Burnaby"
 
+  - name: "Shoppers Drug Mart"
+    tenant: "myview"
+    wd: "wd3"
+    site: "sdm_careers"
+    enabled: true
+    location_filter:
+      - "Vancouver"
+      - "Burnaby"
+      - "Richmond,"   # trailing comma to avoid matching "Richmond Hill, ON"
+      - "New Westminster"
+
   - name: "CIBC"
     tenant: "cibc"
     wd: "wd3"
@@ -307,6 +117,13 @@ sources:
     location_filter: "Vancouver"
 
   # ── Disabled sources ──
+
+  - name: "TELUS International"
+    tenant: "telusinternational"
+    wd: "wd3"
+    site: "External"
+    enabled: false  # Zero Vancouver jobs currently
+    location_filter: "Vancouver"
 
   - name: "Salesforce"
     tenant: "salesforce"
@@ -329,6 +146,13 @@ sources:
     enabled: false  # ~2000 jobs globally, zero in Canada
     location_filter: "Vancouver"
 
+  - name: "Activision Blizzard"
+    tenant: "activision"
+    wd: "wd1"
+    site: "External"
+    enabled: false  # ~100 jobs globally
+    location_filter: "Vancouver"
+
   - name: "Canadian Tire"
     tenant: "canadiantirecorporation"
     wd: "wd3"
@@ -343,348 +167,278 @@ sources:
     enabled: false  # Only 1 Vancouver job
     location_filter: "Vancouver"
 
-# ─── Fit score (src/score.py) ──────────────────────────────────────
-# Points system run over every job in jobs.db on each aggregator run, before
-# the dashboard is built. The dashboard shows the score, its tier, and the
-# reasons. Edit weights here and re-run `python scripts/rescore.py` to see the
-# effect without scraping.
+  - name: "SCM / ClaimsPro"
+    tenant: "scm"
+    wd: "wd3"
+    site: "SCM"
+    enabled: false  # ~2 Vancouver-area jobs
+    location_filter:
+      - "Vancouver"
+      - "New Westminster"
 
-score:
-  # Hard skips (tier "skip", no score)
-  skip_years_over: 5          # more than 5 years required
-  skip_other_locations: true  # not Vancouver-area or remote
-  skip_title_terms:
-    - "senior"
-    - "sr."
-    - "sr"
-    - "staff"
-    - "principal"
-    - "lead"
-    - "manager"
-    - "director"
-    - "head of"
-    - "vice president"
-    - "architect"
-    - "account executive"
-    - "administrative assistant"
-    - "event coordinator"
-    - "pathologists' assistant"
-    - "nurse"
-    - "embedded"
-    - "firmware"
-    - "trainer"
-    - "annotator"
-    - "tutor"
-  # Wrong-field words: skip, unless the title is also a core data role
-  # (a family with overrides_field_skip), e.g. "Data Scientist, Sales"
-  field_skip_terms:
-    - "business development"
-    - "talent acquisition"
-    - "recruiter"
-    - "recruitment"
-    - "human resources"
-    - "hr"
-    - "people & culture"
-    - "customer service"
-    - "sales"
-  # Jake graduated May 2026, so student-only roles are out, unless the
-  # title also says new grad ("Student / New Grad Positions"). Internships
-  # aren't skipped, just penalized (internship_penalty below).
-  student_title_terms:
-    - "co-op"
-    - "coop"
-    - "student"
-    - "undergraduate"
-    - "practicum"
-    - "work term"
-  new_grad_title_terms: ["new grad", "new graduate", "recent graduate"]
-  internship_penalty: {points: -15, keywords: ["intern", "internship"]}
-  # Regexes over the description; any hit = skip (remote US that needs US
-  # residence, or a required PhD)
-  skip_description_patterns:
-    - "must (?:reside|live|be located|be based) (?:in|within) the (?:U\\.?S\\.?A?\\.?|United States)"
-    - "(?:U\\.?S\\.?|United States)[- ]based (?:candidates|applicants) only"
-    - "only (?:considering|accepting) (?:candidates|applicants) (?:located|residing|based) in the (?:U\\.?S\\.?|United States)"
-    - "(?:reside|located|live) in (?:one of )?the following (?:U\\.?S\\.? )?states"
-    # PhD required (not "Master's or PhD", "PhD preferred", "pursuing a PhD")
-    - "(?:must|required to) (?:hold|have|possess) (?:an? )?(?:MD and/or )?Ph\\.?\\s?D"
-    - "Ph\\.?\\s?D\\.?(?: degree)? (?:is )?required"
-  # Jake has a Bachelor's. A Master's the posting requires (no "preferred",
-  # no "or equivalent experience", and no Bachelor's accepted anywhere) is a
-  # skip; any other Master's ask (preferred, an asset, one of several
-  # options) costs optional_points. "Bachelor's or Master's" costs nothing.
-  masters:
-    required_skip: true
-    optional_points: -10
+  - name: "Loblaw"
+    tenant: "myview"
+    wd: "wd3"
+    site: "loblaw_careers"
+    enabled: false  # ~1 job total
 
-  # A posting that requires a language Jake doesn't speak is skipped
-  # ("Fluency in Spanish"); one that calls it an asset or preferred isn't.
-  languages:
-    required_skip: true
-    known: [English]
+# ─── Tier Classification ────────────────────────────────────────────
 
-  # Title family: only the best-matching family counts
-  title_families:
-    - name: "data science"
-      overrides_field_skip: true
-      points: 22
-      keywords: ["data scientist", "data science", "decision scientist", "applied scientist", "machine learning scientist"]
-    - name: "data analyst"
-      overrides_field_skip: true
-      points: 22
-      keywords: ["data analyst", "data analytics", "analytics analyst", "bi analyst", "business intelligence", "reporting analyst", "insights analyst", "product analyst", "analytics engineer", "sql analyst", "marketing analyst", "growth analyst", "customer analytics", "quantitative analyst", "data specialist", "business analytics", "analytics specialist", "analytics developer"]
-    - name: "ML / AI"
-      overrides_field_skip: true
-      points: 20
-      keywords: ["machine learning", "ml engineer", "ai engineer", "ai developer", "mlops", "nlp", "llm", "computer vision", "applied ai"]
-    - name: "data engineering"
-      overrides_field_skip: true
-      points: 15
-      keywords: ["data engineer", "etl developer", "bi developer", "bi engineer", "business intel engineer"]
-    - name: "software"
-      points: 12
-      keywords: ["software engineer", "software engineering", "software developer", "software development engineer", "python developer", "backend developer", "back-end developer", "full stack", "full-stack", "programmer analyst", "web developer"]
-    # Bare "analytics" in a title that no family above names
-    # ("Coordinator, Quality Improvement & Analytics", "Product Analytics Consultant")
-    - name: "analytics"
-      points: 18
-      keywords: ["analytics"]
-    - name: "general analyst"
-      points: 10
-      keywords: ["business analyst", "research analyst", "analyst"]
-    # Any other technical title (Integration Engineer, Quantitative Developer),
-    # only when the posting names at least 2 skills Jake has
-    - name: "technical"
-      points: 10
-      min_skill_hits: 2
-      keywords: ["engineer", "developer", "programmer", "quantitative", "integration", "technical"]
+tier:
+  # Jobs requiring MORE than this many years experience → LOW tier
+  experience_cutoff: 5
 
-  entry_level:
-    title_points: 15
-    title_keywords: ["junior", "jr.", "jr", "entry level", "entry-level", "new grad", "new graduate", "graduate", "associate", "level i", "level 1", "i"]
-    description_points: 8
-    # New-grad and no-experience wording has its own bonus (new_grad_open below)
-    description_keywords: ["entry-level", "entry level", "early career", "early-career"]
+  # Location keywords that trigger LOW tier (too far from Vancouver to commute)
+  low_location_keywords:
+    - "Kelowna"
+    - "Okanagan"
+    - "Prince George"
+    - "Victoria"
+    - "Kamloops"
+    - "Nanaimo"
+    - "Coquitlam"
+    - "Surrey"
+    - "North Vancouver"
 
-  # The posting says outright that new grads or people without experience can
-  # apply. Counts on top of an entry-level title, but not when the posting
-  # also requires more than max_required_years.
-  new_grad_open:
-    points: 10
-    max_required_years: 1
-    patterns:
-      - "\\bnew grad(?:uate)?s?\\b"
-      - "\\brecent (?:university |college |post-?secondary )?grad(?:uate)?s?\\b"
-      - "\\b(?:graduating|graduated) (?:in|within|between|this)\\b"
-      - "\\bno (?:prior |previous |professional |work |industry |related )?experience (?:is )?(?:required|necessary|needed)"
-      - "\\bexperience (?:is )?not (?:required|necessary|needed)"
-      - "\\b(?:0|zero)\\s*(?:[-–]|to)\\s*[1-3]\\+?\\s*(?:years?|yrs?)\\b"
-      - "\\b(?:0|zero)\\+?\\s*(?:years?|yrs?)\\b"
-      - "\\bless than (?:1|one|a) years?\\b"
+  # Minimum description keyword matches needed for HIGH tier
+  high_description_min_matches: 2
 
-  seniority:
-    title_penalties:          # first match only
-      - keywords: ["iii", "iv", "3", "level 3", "level iii"]
-        points: -25
-      - keywords: ["ii", "2", "level 2", "level ii", "intermediate"]
-        points: -10
-    # By minimum years the posting requires. Jake graduated May 2026 with
-    # ~4 months of work, so even 1 year costs a little.
-    years_penalties:
-      - {min: 0, max: 0, points: 8}   # "0-2 years": says no experience needed
-      - {min: 1, max: 1, points: -3}
-      - {min: 2, max: 2, points: -8}
-      - {min: 3, max: 3, points: -16}
-      - {min: 4, max: 4, points: -28}
-      - {min: 5, max: 99, points: -40}
-    # Years only preferred ("2+ years is an asset", under "Preferred
-    # Qualifications") cost this fraction of the required-years penalty
-    preferred_years_factor: 0.5
-  # Asking for this many years puts a job in tier D whatever its score
-  tier_d_years: 5
+  # Title keywords that trigger LOW tier (case-insensitive, word-boundary match)
+  low_title_keywords:
+    # Trades / maintenance
+    - "Mechanical"
+    - "Mechanic"
+    - "Electrician"
+    - "Plumber"
+    - "Carpenter"
+    - "HVAC"
+    - "Millwright"
+    - "Custodial"
+    - "Janitorial"
+    - "Trades"
+    - "Refrigeration"
+    # Non-software engineering (requires licensed P.Eng or specialized degree)
+    - "Civil Engineer"
+    - "Structural Engineer"
+    - "Traffic Engineer"
+    - "Electrical Engineer"
+    - "Cryogenic Engineer"
+    - "Construction Inspector"
+    - "Wastewater"
+    # Clinical / credentialed roles
+    - "Physician"
+    - "Nurse"
+    - "Nursing"
+    - "Pharmacist"
+    - "Dentist"
+    - "Veterinarian"
+    - "Physiotherapist"
+    - "Occupational Therapist"
+    - "Physical Therapist"
+    - "Medical Office"
+    # Senior leadership (new grad filter)
+    - "Senior Director"
+    - "Sr. Director"
+    - "Sr Director"
+    - "Vice President"
+    - "VP "
+    - "Principal"
+    - "Chief"
+    - "Director of"
+    # Academic faculty / postdoc (requires PhD)
+    - "Professor"
+    - "Postdoctoral"
+    - "Postdoc"
+    - "Post-Doc"
+    - "Head Coach"
+    # Manual labour
+    - "Labourer"
+    # Wrong-domain technical
+    - "Animal Care"
+    - "Cleanroom"
+    # Specialized licensed professions
+    - "CPA"
+    - "Accountant"
+    - "Lawyer"
+    - "Barrister"
+    - "Police Officer"
+    - "Lifeguard"
+    - "Swim Instructor"
+    - "Fitness Instructor"
+    - "Financial Planner"
+    - "Insurance Advisor"
+    - "Pharmacy Technician"
 
-  # Skills in title + description, weighted by how strong Jake's evidence is
-  # (experience-vault/skills-map.md). Sum is capped.
-  skills:
-    have_cap: 60
-    # "a|b" = synonyms, counted once
-    # Extra points when a posting asks for all of these (his strongest pair)
-    combos:
-      - {skills: ["python", "sql"], points: 10}
-    # Full posting names 3+ skills he has and none he lacks
-    no_gaps_bonus: {points: 5, min_have_hits: 3}
-    have:
-      "sql": 15
-      "bigquery": 10
-      "python": 12
-      "looker": 8
-      "dashboard": 8
-      "pandas": 6
-      "scikit-learn|sklearn": 6
-      "xgboost": 3
-      "statistics|statistical": 5
-      "machine learning": 5
-      "data modeling|data modelling": 5
-      "star schema": 3
-      "data warehouse": 4
-      "etl": 4
-      "data quality": 4
-      "churn": 3
-      "survival analysis": 3
-      "a/b test|a/b testing": 2
-      "google sheets": 4
-      "apps script": 3
-      "pytorch": 3
-      "deep learning": 2
-      "llm|large language model": 3
-      "nlp": 2
-      "fastapi": 3
-      "docker": 2
-      "git": 2
-      "jupyter": 2
-      "numpy": 2
-      "e-commerce|ecommerce": 3
-      "shopify": 3
-      "stakeholders": 2
-      "data reporting": 4
-      "kpi": 3
-      "data visualization": 3
-      "excel": 3
-      "typescript": 2
-      "react": 2
-    gap_cap: 25
-    # Another main language means a different stack (heavier). Data tools
-    # are learnable on the job and often nice-to-haves (light).
-    gaps:
-      "c++": -6
-      "java": -5
-      "c#": -5
-      ".net": -5
-      "golang": -5
-      "scala": -5
-      "kubernetes": -3
-      "spark|pyspark": -2
-      "hadoop": -2
-      "airflow": -2
-      "databricks": -2
-      "snowflake": -2
-      "dbt": -2
-      "kafka": -2
-      "master's degree required": -6
+  # Job category keywords that trigger LOW tier
+  low_category_keywords:
+    - "Trades"
+    - "Custodial"
+    - "Facilities Maintenance"
 
-  # Gaps read from the experience vault (src/vault_gaps.py). When the vault index
-  # exists, this replaces skills.gaps above (kept as the fallback for a fresh clone).
-  # A tool the posting asks for that no vault claim names costs `points`; a list
-  # where one option is enough ("Tableau, Looker, or Power BI") counts once and any
-  # tool in it covers it; text about the employer doesn't count; a tool asked for
-  # only as a nice-to-have costs preferred_factor as much. Another main language
-  # means a different stack, so it costs more (Jake's rule, PR #12).
-  vault_gaps:
-    index: materials/profile/vault-index.json
-    # What applications learned: confirmed tools count, tools Jake lacks don't (src/vault_gaps.py).
-    record: materials/tailor/skill-record.json
-    points: -2
-    preferred_factor: 0.5
-    cap: 25
-    heavier:
-      "C/C++": -6
-      "Java": -5
-      "C#/.NET": -5
-      "Go": -5
-      "Scala": -5
-      "Rust": -5
-      "Kotlin/Swift": -5
-      "Ruby": -5
-      "Kubernetes": -3
-    # Tools the vault shows only lightly: they halve a gap instead of closing it.
-    # C/C++ (one systems course), Java (one course plus a small project), PowerShell
-    # (0.9% of one repo), Salesforce (Trailhead badges).
-    light: ["C/C++", "Java", "PowerShell", "Salesforce/CRM"]
-    light_factor: 0.5
-    # The same vault check gives points: any tool the posting names that the vault shows earns
-    # have_points (preferred_factor and light_factor apply), up to have_max, on top of the hand
-    # weights in skills.have above (which are skipped here, so nothing earns twice). The total
-    # still falls under skills.have_cap. have_weights overrides one tool: "Name": points.
-    have_points: 2
-    have_max: 20
-    have_weights: {}
+  # Description keywords that trigger LOW tier (≥2 matches = wrong domain)
+  # Catches wet-lab/bench-science "Research Assistant" roles
+  low_description_keywords:
+    - "molecular cloning"
+    - "cloning of"
+    - "cell culture"
+    - "cell biology"
+    - "wet lab"
+    - "confocal microscopy"
+    - "histology"
+    - "Western Blot"
+    - "PCR"
+    - "protein purification"
+    - "FPLC"
+    - "SDS-PAGE"
+    - "immunohistochemistry"
+    - "immunofluorescence"
+    - "nanoparticle"
+    - "RNA synthesis"
+    - "synthesizes RNA"
+    - "mammalian cell"
+    - "murine"
+    - "tissue culture"
+    - "gel electrophoresis"
+    - "centrifugation"
+    - "autoclave"
+    - "biospecimen"
+    - "necropsy"
+    - "animal husbandry"
+    - "laboratory animal"
+    - "breeding colonies"
+    - "growth chamber"
+    - "plant transformation"
+    - "greenhouse"
+    - "bioengineering"
+    - "immunology"
+    - "RNA vaccine"
+  low_description_min_matches: 2
 
-  location_points:
-    vancouver: 5
-    remote: 0
+  # Title keywords that trigger HIGH tier (case-insensitive, word-boundary match)
+  # Focus: AI/ML, data, software development — matching your CogSys background
+  high_title_keywords:
+    # AI / ML / Data (primary fit)
+    - "AI"
+    - "ML"
+    - "Machine Learning"
+    - "Data Analyst"
+    - "Data Scientist"
+    - "Data Engineer"
+    - "Data Science"
+    - "Research Analyst"
+    - "Research Assistant"
+    - "Research Technician"
+    # Software development (primary fit)
+    - "Software Developer"
+    - "Software Engineer"
+    - "Programmer"
+    - "Full Stack"
+    - "Frontend"
+    - "Backend"
+    - "Web Developer"
+    - "Web Designer"
+    - "DevOps"
+    - "QA"
+    # Entry-level tech signals
+    - "Junior Developer"
+    - "Junior Software"
+    - "Junior Programmer"
+    - "Junior Analyst"
+    - "Co-op"
+    - "Intern"
 
-  short_description_chars: 300
+  # Description keywords for HIGH tier (need ≥2 matches, word-boundary matching)
+  # These catch generic titles like "Research Assistant" that involve your skills
+  high_description_keywords:
+    - "Python"
+    - "JavaScript"
+    - "TypeScript"
+    - "machine learning"
+    - "NLP"
+    - "LLM"
+    - "data analysis"
+    - "REST API"
+    - "React"
+    - "Jupyter"
+    - "SQL"
+    - "software development"
+    - "coding"
+    - "artificial intelligence"
+    - "deep learning"
+    - "neural network"
+    - "AWS"
+    - "Azure"
+    - "Docker"
+    - "GitHub"
+    - "version control"
+    - "full stack"
+    - "web development"
+    - "data science"
+    - "statistical analysis"
+    - "R programming"
 
-  # Score bands → tier shown on the dashboard (first match wins)
-  tiers:
-    - {tier: "A", min: 60}
-    - {tier: "B", min: 40}
-    - {tier: "C", min: 20}
-    - {tier: "D", min: -1000}
+  # Title keywords that trigger MID-HIGH tier (B tier)
+  # Good secondary fit: easy entry-level jobs you could pick up quickly
+  midhigh_title_keywords:
+    # Children / education / youth (camp counselor background)
+    - "Child"
+    - "Youth"
+    - "Camp"
+    - "Education"
+    - "Teaching"
+    - "Instructor"
+    - "After-School"
+    - "Daycare"
+    - "Childcare"
+    - "K-12"
+    - "Early Learning"
+    - "Student Support"
+    - "Student Info"
+    - "Tutor"
+    # Retail / cashier / grocer
+    - "Cashier"
+    - "Grocer"
+    - "Sales Attendant"
+    - "Sales Associate"
+    - "Sales Clerk"
+    - "Retail"
+    - "Store Associate"
+    - "Merchandiser"
+    # Front desk / reception / customer facing
+    - "Receptionist"
+    - "Front Counter"
+    - "Front Desk"
+    - "Admissions Desk"
+    - "Patron Services"
+    # Food service / hospitality
+    - "Server"
+    - "Waiter"
+    - "Barista"
+    - "Banquet"
+    - "Catering"
+    # General entry-level
+    - "Attendant"
+    - "Event Assistant"
+    - "Clerk"
+    - "Assistant"  # generic assistant roles
+    # Tech-adjacent (not quite HIGH, but interesting)
+    - "IT Support"
+    - "Help Desk"
+    - "Technical Support"
+    - "Coordinator"
 
-# ─── Tailoring pipeline (src/tailor, docs/tailoring-contract.md) ───────
+# ─── Output Paths ───────────────────────────────────────────────────
 
-goal:
-  daily_applications: 10      # the dashboard's progress bar counts each "I applied" toward this
-  timezone: America/Vancouver # whose day it is, for "today"
+output:
+  # Directory for job description .md files (relative to project root)
+  job_descriptions_dir: "job_descriptions"
 
-tailor:
-  # paths: {}            # override any of src/tailor/paths.py DEFAULT_PATHS
-  daily_cap: 10          # application folders created per run
-  tiers: [A, B]          # eligible tiers, in queue order: B-tier jobs only fill what A-tier can't (Jake, Oct 30 2026)
-  min_description_chars: 1000
-  fresh_days: 14         # within a tier, jobs posted in the last N days are drafted first (old ones may have closed)
-  gate:
-    # A Jev answer fails when a 0-3 score is <= score_fail or a yes/no probability
-    # is on the wrong side of yes_threshold. Failing or unanswered questions only
-    # flag the job and move it to the bottom of its tier; they never drop it.
-    score_fail: 1
-    yes_threshold: 0.5
-  evidence:
-    # Jev also looks at every soft-skill requirement, since the taxonomy only finds lines using the
-    # skill's own word and misses the stories that show it.
-    jev_candidates: 15   # real bullets per requirement sent to Jev, by shared words (and as many again by soft skill)
-    jev_generic_candidates: 2  # self-descriptions and skills-list lines also asked, per requirement
-    jev_yes: 0.6         # probability at which Jev's "passage shows requirement" counts
-    max_passages: 8      # strongest exact-match passages kept per term or requirement
-    jev_remember: 0.8    # a soft-skill "yes" this confident is saved by skill and not asked again
-    review_candidates: 2 # passages per weak requirement offered on the review page ("This shows it")
-    review_candidate_min: 0.35  # Jev answers below this aren't offered (the passage is plainly off topic)
-  ats_weights: {keyword: 40, skills: 20, title: 5, sections: 15, dates: 10}  # title 15 -> 5 (Jake, Oct 29 2026): real ATS searches match titles in your work history, not the summary; the 15 came from Jobscan-style tools
-  synonym_credit: 0.5
-  target_score: 80
-  degree_counts_as_related: true  # Jake: his degree counts for any "X or a related field" degree must-have of his level
-  ats_floor: 70          # Jake's minimum: below it the loop keeps repairing and check.md flags it for review
-  letter_words: [190, 320]   # cover letter body words outside this range get a letter_length warning (aim 200-300)
-  letter_words_with_gaps: 250  # while the resume lists skills it can't show (and the letter doesn't), under this is short
-  ats_soft_weight: 0     # soft skills (communication, teamwork...) don't count in the ATS score (Jake, Oct 23 2026); drafts still name them where a story fits
-  stuffing_score: 90
-  loop:
-    max_rounds: 3        # drafts in total, so at most 2 repair rounds
-    wide_gap: 8          # Jake: more than this many ATS points under the ceiling isn't acceptable (10 until Oct 28 2026)...
-    max_rounds_wide_gap: 5   # ...so the loop gets up to this many drafts while it still gains
-    min_gain: 2.0
-    review_passes: 6     # outside review cap; passes stop when the reviewer says "ready to submit" (Jake, Oct 29 2026)
-    regression_min_confidence: 0.6  # a Jev flip at or under this is a coin flip, not a regression
-  similarity_revert: 0.45
-  company_refresh_days: 30
-  jev:
-    model: typesafe-ai/jev
-    base_url: https://ai-gateway.vercel.sh
-    timeout_s: 30
-    max_retries: 3
+  # Directory for generated cover letters (relative to project root)
+  cover_letters_dir: "cover_letters"
 
-# Azure plan phase 5 (docs/azure-scrape-job.md): sources that block Azure's IPs. The Azure
-# scrape job skips them, and the desktop's tailoring run fetches just these when the Azure run
-# is fresh (aggregate.py --skip-if-fresh). Names as `aggregate.py --show-last-run` prints them.
-cloud_sources:
-  skip: [careerjet]   # HTTP 403 from Azure on the first run, Oct 28 2026; 742 listings from the desktop
+profile:
+  # Path to resume (for reference in cover letter generation)
+  resume: "profile/Jacob Andersen-Lum Resume.md"
 
-# Azure plan phase 3: a shadow copy of jobs.db in Azure Postgres (src/pg_mirror.py,
-# docs/postgres-mirror.md). With this on, run_tailoring.ps1 syncs Postgres at the end of
-# each run. The connection string is JOBSEARCH_PG_URL in .env. Turning it off is the rollback.
-# Phase 4 (moving the main database to Postgres) is not set here: `pg_mirror.py cutover`
-# writes JOBSEARCH_DB=postgres to .env, and from then on the daily step makes a backup
-# instead of a sync, whatever this says.
-database:
-  postgres_mirror: true   # on since Oct 28 2026 (Jake)
+  # Path to cover letter template
+  cover_letter_template: "profile/Jacob Andersen-Lum Cover Letter Template.md"
