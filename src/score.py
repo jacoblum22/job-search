@@ -169,6 +169,26 @@ def _open_to_new_grads(description: str, patterns: list[str]) -> str | None:
     return None
 
 
+# LinkedIn pages end with a criteria block ("Seniority level  Mid-Senior level / Employment
+# type / Job function") followed by "similar jobs" from other companies. Postings scraped from
+# a LinkedIn page (e.g. via Adzuna) carry all of it in the description.
+_SENIORITY_LABEL_RE = re.compile(
+    r"Seniority\s+level\W*(Internship|Entry\s+level|Associate|Mid-?\s*Senior\s+level|Director|Executive|Not\s+Applicable)",
+    re.IGNORECASE,
+)
+
+
+def split_linkedin_criteria(description: str) -> tuple[str, str | None]:
+    """(posting text without the LinkedIn criteria block and what follows, seniority label
+    lowercased with spaces collapsed, or None). The cut keeps scraped "similar jobs" text
+    from earning entry-level wording or skill points."""
+    m = _SENIORITY_LABEL_RE.search(description or "")
+    if not m:
+        return description, None
+    label = re.sub(r"\s+", " ", m.group(1)).lower()
+    return description[: m.start()], label
+
+
 def score_job(
     *,
     title: str,
@@ -182,7 +202,7 @@ def score_job(
     """`years_experience` is the years the posting requires; `years_preferred` the years it
     only asks for as a nice-to-have ("2+ years is an asset"), which cost less."""
     title = title or ""
-    description = description or ""
+    description, seniority_label = split_linkedin_criteria(description or "")
     reasons: list[str] = []
 
     # ── Hard skips ────────────────────────────────────────────────────
@@ -190,6 +210,10 @@ def score_job(
     strictest = max((y for y in (years_experience, years_preferred) if y is not None), default=None)
     if strictest is not None and strictest > skip_years:
         return ScoreResult(None, "skip", [f"asks for {strictest}+ years"])
+
+    label_cfg = (cfg.get("seniority") or {}).get("label_penalties") or {}
+    if seniority_label in (cfg.get("seniority") or {}).get("label_skips", []):
+        return ScoreResult(None, "skip", [f"LinkedIn seniority level: {seniority_label}"])
 
     hit = _first_match(title, cfg.get("skip_title_terms") or [])
     if hit:
@@ -281,6 +305,11 @@ def score_job(
             score += rule["points"]
             reasons.append(f"{rule['points']} title level ({hit})")
             break
+
+    if seniority_label in label_cfg:
+        pts = label_cfg[seniority_label]
+        score += pts
+        reasons.append(f"{'+' if pts > 0 else ''}{pts} LinkedIn seniority level ({seniority_label})")
 
     intern = cfg.get("internship_penalty") or {}
     hit = _first_match(title, intern.get("keywords") or [])

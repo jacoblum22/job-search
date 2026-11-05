@@ -490,6 +490,12 @@ score:
         points: -10
     # By minimum years the posting requires. Jake graduated May 2026 with
     # ~4 months of work, so even 1 year costs a little.
+    # LinkedIn's own "Seniority level" label, when the description carries it (Adzuna and the
+    # Chrome task paste the page text). Mid-Senior costs like a 4-year ask; Director and
+    # Executive are skipped. Entry/Internship/Associate/Not Applicable change nothing.
+    label_penalties:
+      "mid-senior level": -25
+    label_skips: ["director", "executive"]
     years_penalties:
       - {min: 0, max: 0, points: 8}   # "0-2 years": says no experience needed
       - {min: 1, max: 1, points: -3}
