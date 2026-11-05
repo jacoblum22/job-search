@@ -187,6 +187,7 @@ $sessionBlock = {
 $sessions = @()
 $failedSessions = 0
 $authFailed = $false
+$limitHit = $false
 
 function Start-Session($label, $scope) {
     $n = $script:sessions.Count + 1
@@ -218,6 +219,12 @@ function Complete-Session($s) {
             $script:authFailed = $true
             if ($script:todo) { $script:todo.Clear() }   # the other queued sessions would die the same way
             Log "Claude login has expired: run 'claude /login' on this PC. The unfinished folders are picked up by the next run."
+        } elseif ($msg -match "hit your .*limit") {
+            # Usage limit: every later session would fail at once too (15 did on Nov 5 2026).
+            # No retry when it resets (Jake): the next run picks up the unfinished folders.
+            $script:limitHit = $true
+            if ($script:todo) { $script:todo.Clear() }
+            Log "Claude usage limit hit; no more sessions this run. The unfinished folders are picked up by the next run."
         }
     } elseif ($s.Result) {
         $digest = Join-Path $digestDir "$date.md"
@@ -365,7 +372,7 @@ Log "Done"
 # Review the run and fix the pipeline where it went wrong, unless there was nothing to tailor.
 $reviewed = @($sessions | Where-Object { -not ($_.Result -and $_.Result.result -match "Nothing new to tailor") } |
     Where-Object { Test-Path $_.Transcript } | ForEach-Object { $_.Transcript })
-if (-not $NoReview -and -not $authFailed -and $reviewed.Count -gt 0) {
+if (-not $NoReview -and -not $authFailed -and -not $limitHit -and $reviewed.Count -gt 0) {
     & (Join-Path $PSScriptRoot "run_tailoring_review.ps1") -Transcript $reviewed
 }
 Remove-Item $runFile -ErrorAction SilentlyContinue
