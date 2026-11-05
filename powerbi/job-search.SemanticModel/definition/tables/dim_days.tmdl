@@ -1,0 +1,91 @@
+table dim_days
+	lineageTag: d33cc0a8-5a77-4f24-b706-38fca0d6b739
+	dataCategory: Time
+
+	column day
+		dataType: dateTime
+		isKey
+		formatString: Long Date
+		lineageTag: 86c66fc7-4d35-443d-9a4c-41817dfbfccd
+		summarizeBy: none
+		sourceColumn: day
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column weekday_number
+		dataType: int64
+		formatString: 0
+		lineageTag: 59d85329-5a1f-4743-aa6a-967f31db1002
+		summarizeBy: sum
+		sourceColumn: weekday_number
+
+		annotation SummarizationSetBy = Automatic
+
+	column weekday
+		dataType: string
+		lineageTag: 2c1e231c-4c69-41be-aa0b-886f864495f7
+		summarizeBy: none
+		sourceColumn: weekday
+		sortByColumn: weekday_number
+
+		changedProperty = SortByColumn
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_weekend
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: cb7d0b1e-2904-43d4-b961-29e411fea3ff
+		summarizeBy: none
+		sourceColumn: is_weekend
+
+		annotation SummarizationSetBy = Automatic
+
+	column week_start
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 21bbc8d2-12f1-4e55-b926-31e69269ed72
+		summarizeBy: none
+		sourceColumn: week_start
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column month_start
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: b9e5475e-f029-4e0b-ae74-b64ac93e6ee6
+		summarizeBy: none
+		sourceColumn: month_start
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column month
+		dataType: string
+		lineageTag: bf3f4eed-b269-48d8-a533-89e90d979ebc
+		summarizeBy: none
+		sourceColumn: month
+		sortByColumn: month_start
+
+		changedProperty = SortByColumn
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_days = m
+		mode: import
+		source =
+				let
+				  Source = PostgreSQL.Database("jobsearch-pg-jake.postgres.database.azure.com", "jobsearch"),
+				  #"Navigation 1" = Source{[Schema = "analytics", Item = "dim_days"]}[Data]
+				in
+				  #"Navigation 1"
+
+	changedProperty = Name
+
+	annotation PBI_ResultType = Table
+

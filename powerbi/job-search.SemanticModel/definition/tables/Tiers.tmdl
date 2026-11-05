@@ -1,0 +1,17 @@
+table Tiers
+	lineageTag: 59a1b8d5-3110-4f50-9e0d-4b87a707457e
+
+	column tier
+		lineageTag: 54879327-5ebb-4c65-8b4a-cf40e3df4c9e
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: fct_postings[tier]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Tiers = calculated
+		mode: import
+		source = DISTINCT(UNION(DISTINCT(fct_postings[tier]), DISTINCT(agg_postings_daily[tier])))
+
+	annotation PBI_Id = fb3915149551414b9332d446fbbe4f2c
+

@@ -1,0 +1,4 @@
+[
+  {"id": "f1", "fact": "Contoso opened 140 stores last year", "quote": "opened 140 stores", "verified": true},
+  {"id": "f2", "fact": "Contoso runs a loyalty program", "quote": "loyalty program", "verified": false}
+]

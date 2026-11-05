@@ -1,0 +1,108 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "7cc9b0c64c1d3a08083a",
+  "position": {
+    "x": 1120,
+    "y": 0,
+    "z": 3000,
+    "height": 279.49367088607596,
+    "width": 800,
+    "tabOrder": 3000
+  },
+  "visual": {
+    "visualType": "columnChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_days"
+                    }
+                  },
+                  "Property": "day"
+                }
+              },
+              "queryRef": "dim_days.day",
+              "nativeQueryRef": "day",
+              "active": true
+            }
+          ]
+        },
+        "Series": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "agg_postings_daily"
+                    }
+                  },
+                  "Property": "tier"
+                }
+              },
+              "queryRef": "agg_postings_daily.tier",
+              "nativeQueryRef": "tier"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "agg_postings_daily"
+                    }
+                  },
+                  "Property": "New postings"
+                }
+              },
+              "queryRef": "agg_postings_daily.New postings",
+              "nativeQueryRef": "New postings"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "dim_days"
+                  }
+                },
+                "Property": "day"
+              }
+            },
+            "direction": "Ascending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'New postings each day, by tier'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

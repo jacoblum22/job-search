@@ -1,0 +1,200 @@
+{
+ "_fixture_note": "Real ADP WFN response (General Fusion cid=3196ba6f-..., plus one Western Forest item), trimmed to 2 items and some customFieldGroup entries removed",
+ "jobRequisitions": [
+  {
+   "itemID": "9201435363006_1",
+   "postingInstructions": [],
+   "links": [],
+   "additionalProperties": {},
+   "requisitionTitle": "Electronics Engineer, Diagnostics & Data Acquisition",
+   "postDate": "2026-10-09T19:27:00.000-04:00",
+   "screeningRequirements": [],
+   "organizationalUnits": [],
+   "payGradeRange": {
+    "minimumRate": {
+     "amountValue": 140000.0,
+     "currencyCode": "CAD"
+    },
+    "maximumRate": {
+     "amountValue": 170000.0,
+     "currencyCode": "CAD"
+    }
+   },
+   "sponsoredVisaTypeCodes": [],
+   "customFieldGroup": {
+    "codeFields": [
+     {
+      "codeValue": "AN",
+      "shortName": "Annually",
+      "nameCode": {
+       "codeValue": "SalaryType"
+      }
+     },
+     {
+      "codeValue": "RANGE",
+      "shortName": "RANGE",
+      "nameCode": {
+       "codeValue": "SalaryRangeType"
+      }
+     }
+    ],
+    "dateFields": [
+     {
+      "dateValue": "2026-10-09T19:27Z",
+      "nameCode": {
+       "codeValue": "PostingDate"
+      }
+     },
+     {
+      "dateValue": "2026-10-15T14:38Z",
+      "nameCode": {
+       "codeValue": "CurrentServerDateTime"
+      }
+     }
+    ],
+    "indicatorFields": [
+     {
+      "indicatorValue": false,
+      "nameCode": {
+       "codeValue": "PriortyStatusFlag"
+      }
+     },
+     {
+      "indicatorValue": false,
+      "nameCode": {
+       "codeValue": "InternalPostingFlag"
+      }
+     }
+    ],
+    "numberFields": [
+     {
+      "numberValue": 0.0,
+      "categoryCode": {
+       "codeValue": "ApplicantCount"
+      }
+     }
+    ],
+    "stringFields": [
+     {
+      "stringValue": "567505",
+      "nameCode": {
+       "codeValue": "ExternalJobID"
+      }
+     },
+     {
+      "nameCode": {
+       "codeValue": "CareerCenterRefId"
+      }
+     },
+     {
+      "stringValue": "",
+      "nameCode": {
+       "codeValue": "HomeDepartment"
+      }
+     },
+     {
+      "stringValue": "140000.00 To 170000.00 (CAD) Annually",
+      "nameCode": {
+       "codeValue": "SalaryRange"
+      }
+     }
+    ]
+   },
+   "clientRequisitionID": "1215",
+   "requisitionLocations": [
+    {
+     "aliasNames": [],
+     "address": {
+      "cityName": "Richmond",
+      "countrySubdivisionLevel1": {
+       "codeValue": "BC"
+      },
+      "postalCode": "V7B 1C3"
+     },
+     "nameCode": {
+      "shortName": " Richmond, BC, CA"
+     }
+    }
+   ]
+  },
+  {
+   "itemID": "9200877201676_1",
+   "postingInstructions": [],
+   "links": [],
+   "additionalProperties": {},
+   "requisitionTitle": "Documentation Specialist",
+   "postDate": "2026-09-23T19:40:00.000-04:00",
+   "screeningRequirements": [],
+   "organizationalUnits": [],
+   "payGradeRange": {
+    "minimumRate": {
+     "amountValue": 55000.0,
+     "currencyCode": "CAD"
+    },
+    "maximumRate": {
+     "amountValue": 65000.0,
+     "currencyCode": "CAD"
+    }
+   },
+   "workLevelCode": {
+    "shortName": "Permanent-FT-Salaried"
+   },
+   "sponsoredVisaTypeCodes": [],
+   "customFieldGroup": {
+    "dateFields": [
+     {
+      "dateValue": "2026-09-23T19:40Z",
+      "nameCode": {
+       "codeValue": "PostingDate"
+      }
+     }
+    ],
+    "stringFields": [
+     {
+      "stringValue": "521484",
+      "nameCode": {
+       "codeValue": "ExternalJobID"
+      }
+     },
+     {
+      "stringValue": "55000.00 To 65000.00 (CAD) Annually",
+      "nameCode": {
+       "codeValue": "SalaryRange"
+      }
+     }
+    ]
+   },
+   "clientRequisitionID": "2078",
+   "requisitionLocations": [
+    {
+     "aliasNames": [],
+     "address": {
+      "cityName": "Vancouver",
+      "countrySubdivisionLevel1": {
+       "codeValue": "BC"
+      },
+      "postalCode": "V6E 3P3"
+     },
+     "nameCode": {
+      "shortName": " Vancouver, BC, CA"
+     }
+    }
+   ]
+  }
+ ],
+ "meta": {
+  "startSequence": 1,
+  "totalNumber": 9,
+  "links": [
+   {
+    "schema": "LOCATION",
+    "payLoadArguments": [
+     {
+      "argumentPath": "9200384944629_3",
+      "argumentValue": "Richmond, BC, Canada, Richmond, BC, CA"
+     }
+    ]
+   }
+  ]
+ }
+}

@@ -1,0 +1,11 @@
+{"apiVersion": "2", "friendlyNotice": "Please credit Jobicy with a direct link.", "jobCount": 3, "nextCursor": null, "hasMore": false,
+ "appliedFilters": {"count": 100, "geo": "canada", "industry": "data-science"}, "success": true, "statusCode": 200,
+ "jobs": [
+  {"id": 155241, "url": "https://jobicy.com/jobs/155241-data-analyst-4", "jobSlug": "data-analyst-4", "jobTitle": "Data Analyst", "companyName": "RevenueCat",
+   "jobIndustry": ["Data Science &amp; Analytics"], "jobType": ["full-time"], "jobGeo": "EMEA, LATAM, Canada, USA", "jobLevel": "Any",
+   "jobExcerpt": "We are looking&hellip;", "jobDescription": "<p>Own dashboards in <b>SQL</b> and Python.</p>", "pubDate": "2026-10-13T20:24:01+00:00"},
+  {"id": 153445, "url": "https://jobicy.com/jobs/153445-audio", "jobTitle": "Audio Contributor", "companyName": "Welo Global",
+   "jobGeo": "Anywhere", "jobLevel": "Any", "jobDescription": "<p>Record audio.</p>", "pubDate": "2026-10-17T04:05:15+00:00"},
+  {"id": 150001, "url": "https://jobicy.com/jobs/150001-x", "jobTitle": "Data Engineer", "companyName": "EuroCo",
+   "jobGeo": "Germany", "jobLevel": "Any", "jobDescription": "<p>Berlin team.</p>", "pubDate": "2026-10-12T04:05:15+00:00"}
+ ]}

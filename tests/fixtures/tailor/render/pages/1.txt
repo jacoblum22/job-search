@@ -1,0 +1,3 @@
+Northwind Analytics is a Vancouver company that builds logistics
+software. Founded in 2015, we help ship-
+pers track “every parcel” in real time.

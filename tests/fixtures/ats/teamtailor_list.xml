@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:tt="https://teamtailor.com/locations">
+  <channel>
+    <title>Uptempo</title>
+    <description>Current job openings</description>
+    <link>https://uptempo.teamtailor.com/jobs</link>
+    <item>
+      <title>Senior Business Solutions Architect</title>
+      <description>&lt;p&gt;&lt;span&gt;Uptempo is a leading marketing resource management SaaS company that empowers marketing teams to optimize their operations, improve efficiency, and drive business growth.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span&gt;&lt;strong&gt;What you’ll do:&lt;/strong&gt;&lt;/span&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;&lt;span&gt;Partner with customers to understand their business goals and challenges.&lt;/span&gt;&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;span&gt;Empathy &amp;amp; Active Listening.&lt;/span&gt;&lt;/p&gt;&lt;/li&gt;&lt;/ul&gt;</description>
+      <pubDate>Wed, 02 Sep 2026 13:16:29 -0600</pubDate>
+      <link>https://uptempo.teamtailor.com/jobs/8312500-senior-business-solutions-architect</link>
+      <remoteStatus>none</remoteStatus>
+      <guid>4c2716e4-ac64-4421-afe4-0002219704cd</guid>
+      <tt:locations>
+        <tt:location>
+          <tt:name/>
+          <tt:address/>
+          <tt:zip/>
+          <tt:city>Toronto</tt:city>
+          <tt:country>Canada</tt:country>
+        </tt:location>
+        <tt:location>
+          <tt:name/>
+          <tt:address/>
+          <tt:zip/>
+          <tt:city>Vancouver</tt:city>
+          <tt:country>Canada</tt:country>
+        </tt:location>
+        <tt:location>
+          <tt:name>Louisville, CO</tt:name>
+          <tt:address>1025 Cannon St</tt:address>
+          <tt:zip>80027</tt:zip>
+          <tt:city>Louisville</tt:city>
+          <tt:country>United States</tt:country>
+        </tt:location>
+      </tt:locations>
+      <tt:department>Professional Services</tt:department>
+      <tt:role/>
+    </item>
+    <item>
+      <title>Desktop Support Specialist</title>
+      <description>&lt;p&gt;&lt;span&gt;At Uptempo, we're on a mission to help marketers plan, invest, and execute with confidence.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span&gt;&lt;strong&gt;Location: &lt;/strong&gt;This role is based out of our Louisville, Colorado office. #LI-Onsite&lt;/span&gt;&lt;/p&gt;</description>
+      <pubDate>Tue, 29 Sep 2026 23:37:07 -0600</pubDate>
+      <link>https://uptempo.teamtailor.com/jobs/8475917-desktop-support-specialist</link>
+      <remoteStatus>onsite</remoteStatus>
+      <guid>81364a44-ea68-4a4e-a1b5-faccc6323e88</guid>
+      <tt:locations>
+        <tt:location>
+          <tt:name>Louisville, CO</tt:name>
+          <tt:address>1025 Cannon St</tt:address>
+          <tt:zip>80027</tt:zip>
+          <tt:city>Louisville</tt:city>
+          <tt:country>United States</tt:country>
+        </tt:location>
+      </tt:locations>
+      <tt:department>Information Technology</tt:department>
+      <tt:role/>
+    </item>
+    <item>
+      <title>Global Commodity Leader</title>
+      <description>&lt;p style="text-align:center;"&gt;Are you driven by the chance to influence how things are done?&lt;/p&gt;</description>
+      <pubDate>Thu, 01 Oct 2026 08:18:46 +0200</pubDate>
+      <link>https://corvusenergy.teamtailor.com/jobs/8482657-global-commodity-leader</link>
+      <remoteStatus>none</remoteStatus>
+      <guid>3624c7e3-a992-445b-99ed-964088c0e94f</guid>
+      <tt:locations>
+      </tt:locations>
+      <tt:department/>
+      <tt:role/>
+    </item>
+  </channel>
+</rss>

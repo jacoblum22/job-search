@@ -1,0 +1,6 @@
+[
+  {"id": "f1", "fact": "Founded 2015", "quote": "Founded in 2015, we help shippers track", "url": "https://example.com/about", "read": "2026-10-01", "page": "1.txt"},
+  {"id": "f2", "fact": "Tracks parcels", "quote": "track \"every parcel\" in real time", "url": "https://example.com/about", "read": "2026-10-01", "page": "pages/1.txt"},
+  {"id": "f3", "fact": "Has 400 staff", "quote": "Our team of 400 works", "url": "https://example.com/team", "read": "2026-10-01", "page": "2.txt"},
+  {"id": "f4", "fact": "Ghost page", "quote": "anything", "url": "https://example.com/x", "read": "2026-10-01", "page": "9.txt"}
+]

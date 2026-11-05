@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/.browser-queue/**)",
+      "Edit(/.browser-queue/**)",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "mcp__claude-in-chrome__tabs_create_mcp",
+      "mcp__claude-in-chrome__tabs_close_mcp",
+      "mcp__claude-in-chrome__navigate",
+      "mcp__claude-in-chrome__get_page_text",
+      "mcp__claude-in-chrome__read_page",
+      "mcp__claude-in-chrome__find",
+      "mcp__claude-in-chrome__computer",
+      "mcp__claude-in-chrome__browser_batch",
+      "mcp__claude-in-chrome__list_connected_browsers",
+      "mcp__claude-in-chrome__select_browser",
+      "PowerShell(Get-ScheduledTask -TaskName JobSearch-*)",
+      "PowerShell(Set-ScheduledTask -TaskName JobSearch-*)",
+      "PowerShell(Export-ScheduledTask -TaskName JobSearch-*)"
+    ]
+  }
+}

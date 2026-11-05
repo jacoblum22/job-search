@@ -1,0 +1,231 @@
+table fct_applications
+	lineageTag: 74648575-7ba1-4cce-b0c6-7c97d98e85f7
+
+	measure Packets = COUNTROWS(fct_applications)
+		formatString: 0
+		lineageTag: 384dd9c6-e6b5-4b61-ab00-52b51b86abdc
+
+	measure Applied = CALCULATE([Packets], fct_applications[reached_applied] = TRUE())
+		formatString: 0
+		lineageTag: 43566a60-a964-4d8a-9883-f8daf12d5ca9
+
+	measure Callbacks = CALCULATE([Packets], fct_applications[reached_callback] = TRUE())
+		formatString: 0
+		lineageTag: d51532b6-98b2-4444-a644-fc62e7bb6d96
+
+	measure Interviews = CALCULATE([Packets], fct_applications[reached_interview] = TRUE())
+		formatString: 0
+		lineageTag: 51a0b72e-c680-4cf0-89d5-4b3cd55673e3
+
+	measure 'Callback rate' = DIVIDE([Callbacks], [Applied])
+		formatString: 0.00%;-0.00%;0.00%
+		lineageTag: 23fb77ce-9a55-4f12-99d8-3f97a585f09a
+
+	measure Approved = CALCULATE([Packets], fct_applications[reached_approved] = TRUE())
+		formatString: 0
+		lineageTag: 151b0045-1940-437a-be73-bd1a0b479a18
+
+	column job_id
+		dataType: int64
+		formatString: 0
+		lineageTag: 839e39a9-bfea-4f34-90fb-f0e3b4b5d56e
+		summarizeBy: none
+		sourceColumn: job_id
+
+		annotation SummarizationSetBy = User
+
+	column posting_id
+		dataType: string
+		lineageTag: 2d42b0bb-b80d-42b8-9e55-ac84ede97ae3
+		summarizeBy: none
+		sourceColumn: posting_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column source
+		dataType: string
+		lineageTag: 906e1625-26d1-4601-b9e5-ad2ce6303bd6
+		summarizeBy: none
+		sourceColumn: source
+
+		annotation SummarizationSetBy = Automatic
+
+	column title
+		dataType: string
+		lineageTag: 219c0f4b-a5f6-45ae-8070-940c2233ae3d
+		summarizeBy: none
+		sourceColumn: title
+
+		annotation SummarizationSetBy = Automatic
+
+	column company
+		dataType: string
+		lineageTag: 7f72a200-4d0f-4f5b-b40c-2241eddeaea2
+		summarizeBy: none
+		sourceColumn: company
+
+		annotation SummarizationSetBy = Automatic
+
+	column location_category
+		dataType: string
+		lineageTag: 782e6e0b-6ed7-455a-beb3-4e6791e2b389
+		summarizeBy: none
+		sourceColumn: location_category
+
+		annotation SummarizationSetBy = Automatic
+
+	column tier_now
+		dataType: string
+		lineageTag: 4b105c69-63f5-4184-b47e-7b3d7bed41d6
+		summarizeBy: none
+		sourceColumn: tier_now
+
+		annotation SummarizationSetBy = Automatic
+
+	column tier_when_drafted
+		dataType: string
+		lineageTag: 8720a189-48df-414b-8148-fb583e31a2af
+		summarizeBy: none
+		sourceColumn: tier_when_drafted
+
+		annotation SummarizationSetBy = Automatic
+
+	column score_when_drafted
+		dataType: double
+		lineageTag: 3dcde9de-6f45-4f3f-a8ea-501fbd6be7c9
+		summarizeBy: none
+		sourceColumn: score_when_drafted
+
+		annotation SummarizationSetBy = User
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column base_resume
+		dataType: string
+		lineageTag: c640f2c3-9057-40f5-92db-abdc5f24dafb
+		summarizeBy: none
+		sourceColumn: base_resume
+
+		annotation SummarizationSetBy = Automatic
+
+	column packet_status
+		dataType: string
+		lineageTag: bf7d1fa9-fbde-4a9f-8514-7f38226f3e39
+		summarizeBy: none
+		sourceColumn: packet_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column outcome
+		dataType: string
+		lineageTag: 5cff1fab-95a4-482b-a9ce-b15f5d55e561
+		summarizeBy: none
+		sourceColumn: outcome
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_flagged
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 5623c26a-b130-4c32-9ea2-0f0dac73fb89
+		summarizeBy: none
+		sourceColumn: is_flagged
+
+		annotation SummarizationSetBy = Automatic
+
+	column drafted_on
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 9fe2b2f0-ca90-457d-a544-cf3069053418
+		summarizeBy: none
+		sourceColumn: drafted_on
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column outcome_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 07eb0394-564e-4a95-aa79-711cc4c24c5a
+		summarizeBy: none
+		sourceColumn: outcome_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column reached_approved
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 5c754a3c-3619-43f2-87a8-5a1cebe4e0f0
+		summarizeBy: none
+		sourceColumn: reached_approved
+
+		annotation SummarizationSetBy = Automatic
+
+	column reached_applied
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 18e95ebf-b7c0-4de1-8d20-816e95bca2b7
+		summarizeBy: none
+		sourceColumn: reached_applied
+
+		annotation SummarizationSetBy = Automatic
+
+	column reached_callback
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 89fe36b8-d37a-4d6e-925a-a33fe64ec71c
+		summarizeBy: none
+		sourceColumn: reached_callback
+
+		annotation SummarizationSetBy = Automatic
+
+	column reached_interview
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 5ae147d7-eb6a-42ad-9500-352ad264e5d6
+		summarizeBy: none
+		sourceColumn: reached_interview
+
+		annotation SummarizationSetBy = Automatic
+
+	column reached_offer
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 407852f5-a1a2-424b-8e17-58efeadfca77
+		summarizeBy: none
+		sourceColumn: reached_offer
+
+		annotation SummarizationSetBy = Automatic
+
+	column days_seen_to_drafted
+		dataType: int64
+		formatString: 0
+		lineageTag: 236c2317-9d24-41a0-bc91-8b4710eb2d14
+		summarizeBy: sum
+		sourceColumn: days_seen_to_drafted
+
+		annotation SummarizationSetBy = Automatic
+
+	column days_drafted_to_outcome
+		dataType: int64
+		formatString: 0
+		lineageTag: 4523d831-1237-48ff-a4f6-1c06c16bafcd
+		summarizeBy: sum
+		sourceColumn: days_drafted_to_outcome
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fct_applications = m
+		mode: import
+		source =
+				let
+				  Source = PostgreSQL.Database("jobsearch-pg-jake.postgres.database.azure.com", "jobsearch"),
+				  #"Navigation 1" = Source{[Schema = "analytics", Item = "fct_applications"]}[Data]
+				in
+				  #"Navigation 1"
+
+	changedProperty = Name
+
+	annotation PBI_ResultType = Table
+

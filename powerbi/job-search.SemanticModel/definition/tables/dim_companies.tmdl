@@ -1,0 +1,98 @@
+table dim_companies
+	lineageTag: 9c78df16-50da-4e61-bcb7-55245686120d
+
+	column company
+		dataType: string
+		lineageTag: 3a737f80-b217-48bd-90f5-b4b252955b29
+		summarizeBy: none
+		sourceColumn: company
+
+		annotation SummarizationSetBy = Automatic
+
+	column open_postings
+		dataType: int64
+		formatString: 0
+		lineageTag: c8be8c12-e4d7-4799-8a3f-170c5088c357
+		summarizeBy: sum
+		sourceColumn: open_postings
+
+		annotation SummarizationSetBy = Automatic
+
+	column open_ab_postings
+		dataType: int64
+		formatString: 0
+		lineageTag: 507aced8-57e8-44f9-a62b-aff64b37091e
+		summarizeBy: sum
+		sourceColumn: open_ab_postings
+
+		annotation SummarizationSetBy = Automatic
+
+	column best_open_score
+		dataType: int64
+		formatString: 0
+		lineageTag: d852d246-aceb-4c61-bcfb-225c109a402b
+		summarizeBy: none
+		sourceColumn: best_open_score
+
+		annotation SummarizationSetBy = User
+
+	column postings_ever
+		dataType: int64
+		formatString: 0
+		lineageTag: 7be1b0e7-33cc-464f-bb2a-ad25a8e1aeca
+		summarizeBy: sum
+		sourceColumn: postings_ever
+
+		annotation SummarizationSetBy = Automatic
+
+	column first_seen_on
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 7080d2f4-ca5f-4f30-883b-a6ba4621c5c7
+		summarizeBy: none
+		sourceColumn: first_seen_on
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column last_seen_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: d1399fe5-fd97-4458-b0ae-f0dec120261d
+		summarizeBy: none
+		sourceColumn: last_seen_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column applications
+		dataType: int64
+		formatString: 0
+		lineageTag: 561bebd3-a673-4cc1-9cc7-170bb6f43d1a
+		summarizeBy: sum
+		sourceColumn: applications
+
+		annotation SummarizationSetBy = Automatic
+
+	column applied
+		dataType: int64
+		formatString: 0
+		lineageTag: ad40f995-6c36-498a-ad92-d3fc9601764c
+		summarizeBy: sum
+		sourceColumn: applied
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_companies = m
+		mode: import
+		source =
+				let
+				  Source = PostgreSQL.Database("jobsearch-pg-jake.postgres.database.azure.com", "jobsearch"),
+				  #"Navigation 1" = Source{[Schema = "analytics", Item = "dim_companies"]}[Data]
+				in
+				  #"Navigation 1"
+
+	changedProperty = Name
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,8 @@
+{
+  "greeting": "Dear Hiring Manager,",
+  "paragraphs": [
+    {"text": "I write SQL every day at Northwind Analytics, and Contoso Retail's marketing questions look like the ones I answer there.", "sources": ["northwind.sql-daily"], "company_facts": ["posting:1"]},
+    {"text": "I would bring the same habit of tracing each metric to its source tables.", "sources": ["northwind.dashboards"], "company_facts": []}
+  ],
+  "sign_off": "Sincerely,\nAlex Rivera"
+}

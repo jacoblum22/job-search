@@ -1,0 +1,27 @@
+DEFINE
+    MEASURE 'agg_postings_daily'[New postings] = SUM(agg_postings_daily[new_postings])
+    MEASURE 'fct_applications'[Packets] = COUNTROWS(fct_applications)
+    MEASURE 'fct_applications'[Applied] = CALCULATE([Packets], fct_applications[reached_applied] = TRUE())
+    MEASURE 'fct_applications'[Callbacks] = CALCULATE([Packets], fct_applications[reached_callback] = TRUE())
+    MEASURE 'fct_applications'[Interviews] = CALCULATE([Packets], fct_applications[reached_interview] = TRUE())
+    MEASURE 'fct_applications'[Callback rate] = DIVIDE([Callbacks], [Applied])
+    MEASURE 'fct_posting_life'[Postings removed] = CALCULATE(COUNTROWS(fct_posting_life), fct_posting_life[is_open] = FALSE())
+    MEASURE 'fct_posting_life'[Median days up] = CALCULATE(MEDIAN(fct_posting_life[days_listed]), fct_posting_life[is_open] = FALSE())
+    MEASURE 'fct_postings'[Open postings] = COUNTROWS(fct_postings)
+    MEASURE 'fct_postings'[A/B postings] = CALCULATE([Open postings], fct_postings[tier] IN {"A", "B"})
+    MEASURE 'fct_postings'[A/B share] = DIVIDE([A/B postings], [Open postings])
+
+EVALUATE
+    SUMMARIZECOLUMNS(
+        "New postings", [New postings],
+        "Packets", [Packets],
+        "Applied", [Applied],
+        "Callbacks", [Callbacks],
+        "Interviews", [Interviews],
+        "Callback rate", [Callback rate],
+        "Postings removed", [Postings removed],
+        "Median days up", [Median days up],
+        "Open postings", [Open postings],
+        "A/B postings", [A/B postings],
+        "A/B share", [A/B share]
+    )

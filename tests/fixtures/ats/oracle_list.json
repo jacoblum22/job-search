@@ -1,0 +1,616 @@
+{
+ "items": [
+  {
+   "SearchId": 1,
+   "Keyword": null,
+   "CorrectedKeyword": null,
+   "UseExactKeywordFlag": false,
+   "SuggestedKeyword": null,
+   "ExecuteSpellCheckFlag": true,
+   "Location": null,
+   "LocationId": null,
+   "Radius": 0,
+   "RadiusUnit": "MI",
+   "SelectedTitlesFacet": null,
+   "SelectedCategoriesFacet": null,
+   "SelectedPostingDatesFacet": null,
+   "SelectedLocationsFacet": null,
+   "LastSelectedFacet": null,
+   "Facets": "TITLES;LOCATIONS;LOCATION_LEVEL1;LOCATION_LEVEL2;LOCATION_LEVEL3;CATEGORIES;POSTING_DATES;WORK_LOCATIONS;FLEX_FIELDS;ORGANIZATIONS;WORKPLACE_TYPES",
+   "Offset": 0,
+   "Limit": 200,
+   "SortBy": "POSTING_DATES_DESC",
+   "TotalJobsCount": 1011,
+   "Latitude": null,
+   "Longitude": null,
+   "SiteNumber": "CX_2001",
+   "JobFamilyId": null,
+   "PostingStartDate": null,
+   "PostingEndDate": null,
+   "SelectedWorkLocationsFacet": null,
+   "RequisitionId": null,
+   "CandidateNumber": null,
+   "WorkLocationZipCode": null,
+   "WorkLocationCountryCode": null,
+   "SelectedFlexFieldsFacets": null,
+   "OrganizationId": null,
+   "SelectedOrganizationsFacet": null,
+   "UserTargetFacetName": null,
+   "UserTargetFacetInputTerm": null,
+   "HotJobFlag": null,
+   "WorkplaceType": null,
+   "SelectedWorkplaceTypesFacet": null,
+   "BotQRShortCode": null,
+   "requisitionList": [
+    {
+     "Id": "18776",
+     "Title": "Major Accounts Manager (Enterprise) - Hanoi",
+     "PostedDate": "2026-10-15",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "VN",
+     "GeographyId": 300000239700701,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000369687562,
+     "LegalEmployerId": 300000007487733,
+     "OrganizationId": 300000007487733,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "Join Fortinet, a cybersecurity pioneer with over two decades of excellence, as we continue to shape the future of cybersecurity and redefine the intersection of networking and security. At Fortinet, our mission is to safeguard people, devices, and data everywhere. We are currently seeking a dynamic Major Accounts Manager to contribute to the success of our rapidly growing business.\n\nYou would act as the key Account Manager for Enterprise vertical.",
+     "PrimaryLocation": "Hanoi, Viet Nam",
+     "Distance": 1792022400000.0,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": []
+    },
+    {
+     "Id": "22118",
+     "Title": "Systems Engineer (Public Sector) - Egypt",
+     "PostedDate": "2026-10-15",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "EG",
+     "GeographyId": 300000239699757,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000369687562,
+     "LegalEmployerId": 300000007460177,
+     "OrganizationId": 300000007460177,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "Systems Engineer \u2013 Public Sector\n\n\nWe are looking for a Systems Engineer to work closely with a sales representative across the Public Sector. The Systems Engineer's main mission will be to support the sales organization in all technical matters regarding pre-sales, sales calls, and post-sales.\n",
+     "PrimaryLocation": "Cairo, Egypt",
+     "Distance": 1792022400000.0,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": true,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": []
+    },
+    {
+     "Id": "22280",
+     "Title": "Business Development Manager (OT) - Hanoi/Ho Chi Minh",
+     "PostedDate": "2026-10-15",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "VN",
+     "GeographyId": 300000239700701,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000369687562,
+     "LegalEmployerId": 300000007487733,
+     "OrganizationId": 300000007487733,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "Join Fortinet, a cybersecurity pioneer with over two decades of excellence, as we continue to shape the future of cybersecurity and redefine the intersection of networking and security. At Fortinet, our mission is to safeguard people, devices, and data everywhere. We are currently seeking a dynamic\u00a0Business Development Manager\u00a0(OT) to contribute to the success of our rapidly growing business.",
+     "PrimaryLocation": "Hanoi, Viet Nam",
+     "Distance": 1792022400000.0,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": true,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": [
+      {
+       "RequisitionLocationId": 300001965045485,
+       "GeographyNodeId": 100006356329898,
+       "GeographyId": 300000239700703,
+       "Name": "Ho Chi Minh City, Viet Nam",
+       "CountryCode": "VN",
+       "Latitude": 22.67752,
+       "Longitude": 104.93039
+      }
+     ]
+    },
+    {
+     "Id": "22651",
+     "Title": "Major Accounts Manager (Government) - Indonesia",
+     "PostedDate": "2026-10-15",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "ID",
+     "GeographyId": 300000239699781,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000369687562,
+     "LegalEmployerId": 300000007461701,
+     "OrganizationId": 300000007461701,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "Join Fortinet, a cybersecurity pioneer with over two decades of excellence, as we continue to shape the future of cybersecurity and redefine the intersection of networking and security. At Fortinet, our mission is to safeguard people, devices, and data everywhere. We are currently seeking a dynamic Major Accounts Manager to contribute to the success of our rapidly growing business.",
+     "PrimaryLocation": "Jakarta, Indonesia",
+     "Distance": 1792022400000.0,
+     "TrendingFlag": false,
+     "BeFirstToApplyFlag": true,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": []
+    },
+    {
+     "Id": "22710",
+     "Title": "Product Services Portfolio Manager",
+     "PostedDate": "2026-10-15",
+     "PostingEndDate": null,
+     "Language": "US",
+     "PrimaryLocationCountry": "GB",
+     "GeographyId": 300000217312596,
+     "HotJobFlag": false,
+     "WorkplaceTypeCode": null,
+     "JobFamily": null,
+     "JobFunction": null,
+     "WorkerType": null,
+     "ContractType": null,
+     "ManagerLevel": null,
+     "JobSchedule": null,
+     "JobShift": null,
+     "JobType": null,
+     "StudyLevel": null,
+     "DomesticTravelRequired": null,
+     "InternationalTravelRequired": null,
+     "WorkDurationYears": null,
+     "WorkDurationMonths": null,
+     "WorkHours": null,
+     "WorkDays": null,
+     "LegalEmployer": null,
+     "BusinessUnit": null,
+     "Department": null,
+     "Organization": null,
+     "BusinessUnitId": 300000369687536,
+     "LegalEmployerId": 300000002940890,
+     "OrganizationId": 300000002940890,
+     "MediaThumbURL": null,
+     "ShortDescriptionStr": "\nThe Global Service Portfolio department sits within the wider Customer Success and Support organization, which is responsible for enabling partners and end users to successfully deploy, adopt, and support Fortinet technologies. The Service Portfolio team owns the creation and evolution of Fortinet Service Offerings through Support, Success and Professional Services, providing strategic and tactical leadership across initiatives focused on service innovation, operational excellence, and performance optimization.\n\nWith a diverse and evolving portfolio of services, the role requires strong thought leadership, analytical capability, and problem solving skills to drive improvements and ensure alignment with organizational goals. The Service Portfolio Manager will own and contributes expertise across either support, incident response, customer success, or professional services, delivering against short  and long term service roadmaps.\n\nSuccess in this role depends on building strong cross f",
+     "PrimaryLocation": "LONDON, United Kingdom",
+     "Distance": 1792022400000.0,
+     "TrendingFlag": true,
+     "BeFirstToApplyFlag": false,
+     "Relevancy": 9,
+     "WorkplaceType": "",
+     "ExternalQualificationsStr": null,
+     "ExternalResponsibilitiesStr": null,
+     "secondaryLocations": [
+      {
+       "RequisitionLocationId": 300002102304788,
+       "GeographyNodeId": 100007380465799,
+       "GeographyId": 100000000379548,
+       "Name": "Vancouver, BC, Canada",
+       "CountryCode": "CA",
+       "Latitude": 49.28009,
+       "Longitude": -123.08025
+      },
+      {
+       "RequisitionLocationId": 300001997977861,
+       "GeographyNodeId": 100006408555818,
+       "GeographyId": 300000184110261,
+       "Name": "Sophia Antipolis, Alpes-Maritimes, France",
+       "CountryCode": "FR",
+       "Latitude": 43.60388,
+       "Longitude": 7.06237
+      }
+     ]
+    }
+   ],
+   "categoriesFacet": [
+    {
+     "Id": 300000010292600,
+     "Name": "Systems Engineering",
+     "TotalCount": 181
+    },
+    {
+     "Id": 300000010292392,
+     "Name": "Major Accounts",
+     "TotalCount": 117
+    },
+    {
+     "Id": 300000010292320,
+     "Name": "Regional Account",
+     "TotalCount": 98
+    },
+    {
+     "Id": 300000010292549,
+     "Name": "Named Account",
+     "TotalCount": 82
+    },
+    {
+     "Id": 300000009998482,
+     "Name": "Software Development",
+     "TotalCount": 67
+    },
+    {
+     "Id": 300000010292526,
+     "Name": "Technical Support",
+     "TotalCount": 54
+    },
+    {
+     "Id": 300000010292201,
+     "Name": "Inside Sales",
+     "TotalCount": 39
+    },
+    {
+     "Id": 300000010292243,
+     "Name": "Software-Dev QA",
+     "TotalCount": 27
+    },
+    {
+     "Id": 300000010292467,
+     "Name": "Professional Services",
+     "TotalCount": 26
+    },
+    {
+     "Id": 300000178994513,
+     "Name": "Inside Regional Account",
+     "TotalCount": 25
+    }
+   ],
+   "locationsFacet": [
+    {
+     "Id": 300000000361862,
+     "Name": "United States",
+     "TotalCount": 363
+    },
+    {
+     "Id": 300000003028005,
+     "Name": "CA, United States",
+     "TotalCount": 163
+    },
+    {
+     "Id": 300000000361286,
+     "Name": "Canada",
+     "TotalCount": 125
+    },
+    {
+     "Id": 300000003046903,
+     "Name": "Sunnyvale, CA, United States",
+     "TotalCount": 119
+    },
+    {
+     "Id": 100000000378881,
+     "Name": "BC, Canada",
+     "TotalCount": 97
+    },
+    {
+     "Id": 100000000379619,
+     "Name": "Burnaby, BC, Canada",
+     "TotalCount": 94
+    },
+    {
+     "Id": 300000000361340,
+     "Name": "Germany",
+     "TotalCount": 72
+    },
+    {
+     "Id": 300000003028044,
+     "Name": "TX, United States",
+     "TotalCount": 43
+    },
+    {
+     "Id": 300000000361511,
+     "Name": "Japan",
+     "TotalCount": 39
+    },
+    {
+     "Id": 300000185038325,
+     "Name": "Hessen, Germany",
+     "TotalCount": 39
+    }
+   ],
+   "postingDatesFacet": [
+    {
+     "Id": 7,
+     "Name": "Less than 7 days",
+     "TotalCount": 66
+    },
+    {
+     "Id": 30,
+     "Name": "Less than 30 days",
+     "TotalCount": 322
+    },
+    {
+     "Id": 31,
+     "Name": "Greater than 30 days",
+     "TotalCount": 689
+    }
+   ],
+   "titlesFacet": [
+    {
+     "Id": "SALES",
+     "Name": "Sales",
+     "TotalCount": 426
+    },
+    {
+     "Id": "SE",
+     "Name": "Sales Engineering",
+     "TotalCount": 198
+    },
+    {
+     "Id": "RD",
+     "Name": "Research/Development",
+     "TotalCount": 164
+    },
+    {
+     "Id": "SUPPORT",
+     "Name": "Service/Support",
+     "TotalCount": 112
+    },
+    {
+     "Id": "MRK",
+     "Name": "Marketing",
+     "TotalCount": 41
+    },
+    {
+     "Id": "IT",
+     "Name": "Information Technology",
+     "TotalCount": 16
+    },
+    {
+     "Id": "HR",
+     "Name": "Human Resources",
+     "TotalCount": 15
+    },
+    {
+     "Id": "FA",
+     "Name": "Finance/Accounting",
+     "TotalCount": 12
+    },
+    {
+     "Id": "IS",
+     "Name": "Information Security",
+     "TotalCount": 7
+    },
+    {
+     "Id": "OPT",
+     "Name": "Operations",
+     "TotalCount": 7
+    }
+   ],
+   "workLocationsFacet": [
+    {
+     "Id": 300000009998271,
+     "Name": "Remote",
+     "TotalCount": 323
+    },
+    {
+     "Id": 300000009998343,
+     "Name": "US Headquarters",
+     "TotalCount": 93
+    },
+    {
+     "Id": 300000009998120,
+     "Name": "Canada Burnaby",
+     "TotalCount": 90
+    },
+    {
+     "Id": 300000009998192,
+     "Name": "Germany-Frankfurt Sales",
+     "TotalCount": 36
+    },
+    {
+     "Id": 300000009997898,
+     "Name": "Japan-Tokyo",
+     "TotalCount": 33
+    },
+    {
+     "Id": 300000009998240,
+     "Name": "UK-London",
+     "TotalCount": 31
+    },
+    {
+     "Id": 300000009997886,
+     "Name": "Germany-Munich",
+     "TotalCount": 24
+    },
+    {
+     "Id": 300000009997922,
+     "Name": "Germany-Hamburg",
+     "TotalCount": 23
+    },
+    {
+     "Id": 300000009998283,
+     "Name": "Netherlands-Utrecht",
+     "TotalCount": 20
+    },
+    {
+     "Id": 300001699129981,
+     "Name": "US-Atlanta",
+     "TotalCount": 20
+    }
+   ],
+   "flexFieldsFacet": [],
+   "organizationsFacet": [
+    {
+     "Id": 300000002940284,
+     "Name": "Fortinet Inc.",
+     "TotalCount": 365
+    },
+    {
+     "Id": 300000002940510,
+     "Name": "Fortinet Technologies Canada ULC",
+     "TotalCount": 119
+    },
+    {
+     "Id": 300000007325588,
+     "Name": "Fortinet GmbH Germany",
+     "TotalCount": 53
+    },
+    {
+     "Id": 300000002940814,
+     "Name": "Fortinet Japan GK",
+     "TotalCount": 39
+    },
+    {
+     "Id": 300000002940199,
+     "Name": "EMEA",
+     "TotalCount": 38
+    },
+    {
+     "Id": 300000007325888,
+     "Name": "Fortinet Technologies India Private Limited",
+     "TotalCount": 33
+    },
+    {
+     "Id": 300000002940586,
+     "Name": "Fortinet Mexico S. de R.L. de C.V.",
+     "TotalCount": 28
+    },
+    {
+     "Id": 300000002940890,
+     "Name": "Fortinet UK Ltd.",
+     "TotalCount": 26
+    },
+    {
+     "Id": 300000007325738,
+     "Name": "Fortinet SARL France",
+     "TotalCount": 22
+    },
+    {
+     "Id": 300000007326190,
+     "Name": "Fortinet Security Israel Ltd",
+     "TotalCount": 19
+    }
+   ],
+   "workplaceTypesFacet": [
+    {
+     "Id": "ORA_ON_SITE",
+     "Name": "On-site",
+     "TotalCount": 648
+    },
+    {
+     "Id": "ORA_REMOTE",
+     "Name": "Remote",
+     "TotalCount": 243
+    },
+    {
+     "Id": "ORA_HYBRID",
+     "Name": "Hybrid",
+     "TotalCount": 119
+    }
+   ]
+  }
+ ],
+ "count": 1,
+ "hasMore": false,
+ "limit": 200,
+ "offset": 0,
+ "links": [
+  {
+   "rel": "self",
+   "href": "https://edel.fa.us2.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitions",
+   "name": "recruitingCEJobRequisitions",
+   "kind": "collection"
+  },
+  {
+   "rel": "action",
+   "href": "https://edel.fa.us2.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitions/action/getRequisitionsLocationCoordinates",
+   "name": "getRequisitionsLocationCoordinates",
+   "kind": "other"
+  },
+  {
+   "rel": "action",
+   "href": "https://edel.fa.us2.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/recruitingCEJobRequisitions/action/getRequisitionDetailsForMap",
+   "name": "getRequisitionDetailsForMap",
+   "kind": "other"
+  }
+ ]
+}

@@ -1,0 +1,13 @@
+{"comments": "Search results come 20 to a page.", "updatedAt": 1792414810, "offset": 0, "limit": 20, "totalCount": 3,
+ "jobs": [
+  {"title": "Junior Data Scientist", "excerpt": "Short", "companyName": "micro1", "companySlug": "micro1", "employmentType": "Full Time",
+   "seniority": ["Entry-level"], "locationRestrictions": ["Australia", "Canada", "United Kingdom", "United States"], "timezoneRestrictions": [-8, -5],
+   "description": "<p>Build models in <strong>Python</strong> and SQL.</p><ul><li>Analyse data</li></ul>", "pubDate": 1792414810, "expiryDate": 1797598810,
+   "applicationLink": "https://himalayas.app/companies/micro1/jobs/junior-data-scientist?utm_source=api", "guid": "https://himalayas.app/companies/micro1/jobs/junior-data-scientist"},
+  {"title": "Data Scientist", "companyName": "Ready", "seniority": ["Mid-level"], "locationRestrictions": [],
+   "description": "<p>Worldwide role.</p>", "pubDate": 1792312035,
+   "applicationLink": "https://himalayas.app/companies/ready/jobs/data-scientist?utm_source=api", "guid": "https://himalayas.app/companies/ready/jobs/data-scientist"},
+  {"title": "Data Analyst", "companyName": "Lumanity", "seniority": ["Entry-level"], "locationRestrictions": ["United States"],
+   "description": "<p>US only.</p>", "pubDate": 1792312035,
+   "applicationLink": "https://himalayas.app/companies/lumanity/jobs/data-analyst?utm_source=api", "guid": "https://himalayas.app/companies/lumanity/jobs/data-analyst"}
+ ]}

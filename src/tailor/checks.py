@@ -1,0 +1,775 @@
+"""Step 5: truth and quality checks on the round's resume and cover letter.
+
+Criticals (code only, block the draft) protect the facts. Warnings are style and
+ATS-quality problems the repair round can fix. Flags are Jev's second opinion and
+are never blocking. Check ideas adapted from AI Job Hunter (Apache-2.0, ATS
+keyword and hallucination checks), Resume-Matcher (Apache-2.0, stuffing checks)
+and ResumeFlow (MIT, alignment metrics).
+
+Critical codes:
+  invented_number, dropped_employer, invented_employer, invented_project,
+  invented_skill, unknown_source, non_claim_source, missing_source,
+  unsupported_date, locked_changed, letter_shape, bullet_long,
+  greeting_unverified, unverified_company_fact (letter; see letter.py)
+Warning codes:
+  years_inflation, title_drift, keyword_coverage_dropped, term_stuffing,
+  skill_only_in_list, verbatim_posting_copy, too_many_skills, bullet_count,
+  duplicate_bullets, ai_phrase, resume_invalid, rejected_edit_note,
+  no_company_fact, paragraph_count, letter_length, familiar_absent_term, keen_to_grow,
+  course_grade (letter), directed_opener, test_count
+Flag codes (source "jev"): jev_unsupported, jev_citation_gap
+"""
+
+from __future__ import annotations
+
+import copy
+import math
+import re
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from src.concurrency import parallel_map
+from src.resume import iter_bullets, load_resume, validate
+from src.tailor import metrics, phrases, rejects, taxonomy, wording
+from src.tailor.appdir import humanized, log, read_json, round_dir, write_json
+from src.tailor.edits import LOCKED_FIELDS, load_base, load_index, norm
+from src.tailor.jev import Question, remembered
+from src.tailor.entries import library as entry_library
+from src.tailor.letter import run_letter_checks
+
+DEFAULT_SIMILARITY_REVERT = 0.4
+
+# ---------------------------------------------------------------------------
+# Numbers and years
+# ---------------------------------------------------------------------------
+
+_SCALE = {
+    "k": 1e3, "thousand": 1e3, "m": 1e6, "mm": 1e6, "million": 1e6, "b": 1e9, "bn": 1e9, "billion": 1e9,
+}
+_NUM = re.compile(
+    r"(?<![\w.])(?P<dollar>\$\s?)?"
+    r"(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"(?:\s?(?P<unit>%|percent\b|[x×](?!\w)|million\b|billion\b|thousand\b)|(?P<sfx>bn|mm|k|m|b)(?!\w))?"
+    r"(?![\w])",
+    re.I,
+)
+_YEAR = re.compile(r"(?<![\w.,$])(19[9]\d|20[3]\d|20[0-2]\d)(?![\w%]|,\d|\.\d)")
+
+
+def _scan_numbers(text: str):
+    """Yield (raw, key, material) per number; `material` False for 1-2 digit integers and years."""
+    for m in _NUM.finditer(text):
+        value = float(m.group("num").replace(",", ""))
+        unit = (m.group("unit") or "").lower()
+        sfx = (m.group("sfx") or "").lower()
+        if unit in ("%", "percent"):
+            key = ("pct", round(value, 6))
+        elif unit in ("x", "×"):
+            key = ("x", round(value, 6))
+        else:
+            scale = _SCALE.get(unit or sfx, 1)
+            key = ("num", round(value * scale, 6))
+        plain_int = not (m.group("dollar") or unit or sfx or "." in m.group("num"))
+        is_year = plain_int and "," not in m.group("num") and 1990 <= value <= 2039 and len(m.group("num")) == 4
+        material = not (plain_int and (value < 100 or is_year))
+        yield m.group(0).strip(), key, material
+
+
+def number_keys(text: str) -> set[tuple[str, float]]:
+    """Normalized forms of every number in `text` (10k, 10,000 and 10000 are one key)."""
+    return {key for _, key, _ in _scan_numbers(text)}
+
+
+def extract_numbers(text: str, allowed: set[tuple[str, float]]) -> list[str]:
+    """Material numbers in `text` (percents, multipliers, money, k/M/bn, decimals, 3+ digits) not in `allowed`."""
+    return [raw for raw, key, material in _scan_numbers(text) if material and key not in allowed]
+
+
+def years_in(text: str) -> set[str]:
+    return set(_YEAR.findall(text))
+
+
+# ---------------------------------------------------------------------------
+# Resume text units
+# ---------------------------------------------------------------------------
+
+
+def flatten(obj: Any) -> str:
+    """Every string in a nested structure, joined (used for the 'allowed' text of the base)."""
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, dict):
+        return "\n".join(flatten(v) for v in obj.values())
+    if isinstance(obj, (list, tuple)):
+        return "\n".join(flatten(v) for v in obj)
+    return "" if obj is None else str(obj)
+
+
+def units(data: dict[str, Any]) -> list[tuple[str, str]]:
+    """(path, text) for every piece of editable text in a resume."""
+    out: list[tuple[str, str]] = []
+    if data.get("summary"):
+        out.append(("summary", str(data["summary"].get("text", ""))))
+    for g in data.get("skills") or []:
+        out.append((f"skills/{g.get('id')}", ", ".join(str(x) for x in g.get("items") or [])))
+    for path, b in iter_bullets(data):
+        out.append((path, str(b.get("text", ""))))
+    for e in data.get("education") or []:
+        for line in e.get("lines") or []:
+            out.append((f"education/{e.get('id')}/{line.get('id')}", str(line.get("text", ""))))
+    return out
+
+
+def _bullet_map(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return dict(iter_bullets(data))
+
+
+def _wording_in(words: str, text: str) -> bool:
+    """`words` appears in `text` as the same wording (src/tailor/wording.py: plural,
+    hyphen/space and US/Canadian spelling don't matter)."""
+    return wording.same(words, text)
+
+
+def _norm_dash(s: str) -> str:
+    return re.sub(r"[–—]", "-", s)
+
+
+_MONTHS = {m: i for i, m in enumerate("jan feb mar apr may jun jul aug sep oct nov dec".split(), 1)}
+
+
+def _parse_ym(tok: str) -> int | None:
+    tok = tok.strip().lower()
+    if tok in ("present", "current", "now"):
+        t = date.today()
+        return t.year * 12 + t.month - 1
+    m = re.match(r"(?:([a-z]{3})[a-z]*\.?\s+)?(\d{4})$", tok)
+    if not m:
+        return None
+    return int(m.group(2)) * 12 + (_MONTHS.get((m.group(1) or "jan")[:3], 1) - 1)
+
+
+def supported_years(base: dict[str, Any]) -> float:
+    """Years of work the base's experience dates support (union of the date ranges)."""
+    spans: list[tuple[int, int]] = []
+    for e in base.get("experience") or []:
+        parts = re.split(r"\s*-\s*", _norm_dash(str(e.get("dates", ""))))
+        if len(parts) != 2:
+            continue
+        a, b = _parse_ym(parts[0]), _parse_ym(parts[1])
+        if a is not None and b is not None and b >= a:
+            spans.append((a, b + 1))
+    total, end = 0, -1
+    for a, b in sorted(spans):
+        a = max(a, end)
+        if b > a:
+            total += b - a
+            end = b
+    return total / 12
+
+
+# ---------------------------------------------------------------------------
+# Individual resume checks
+# ---------------------------------------------------------------------------
+
+_YEARS_EXP = re.compile(
+    r"(?<![\w.])(\d+)\+?(?:\s*(?:-|to)\s*\d+)?\s+years?\b(?:\s+of)?(?:\s+[\w-]+){0,3}?\s+experience", re.I
+)
+_SENIOR = re.compile(r"\b(senior|sr\.?|lead|principal|staff|director|head of|vp|chief)\b", re.I)
+
+
+def _terms(req: dict[str, Any]) -> list[str]:
+    out: list[str] = []
+    for r in req.get("requirements") or []:
+        out += [t for t in r.get("terms") or [] if isinstance(t, str)]
+    out += [k["term"] for k in req.get("keywords") or [] if isinstance(k, dict) and k.get("term")]
+    return list(dict.fromkeys(t.strip() for t in out if t.strip()))
+
+
+def _covered(term: str, text: str) -> bool:
+    if taxonomy.exact(term, text):
+        return True
+    canon = taxonomy.canonical(term)
+    return bool(canon and taxonomy.mentions(canon, text))
+
+
+def _count(term: str, text: str) -> int:
+    return wording.count(term, text)
+
+
+def _similarity(text: str, passages: list[str]) -> float:
+    # Imported here so the code-only re-check (`why`, `repacket`), which never scores similarity,
+    # runs in a shell without rapidfuzz (the device VM's Python can't install it).
+    from rapidfuzz import fuzz
+
+    t = norm(text)
+    best = 0.0
+    for p in [*passages, " ".join(passages)] if len(passages) > 1 else passages:
+        q = norm(p)
+        best = max(best, (fuzz.token_set_ratio(t, q) + fuzz.ratio(t, q)) / 200)
+    return best
+
+
+def _jaccard(a: str, b: str) -> float:
+    wa, wb = set(re.findall(r"\w+", a.lower())), set(re.findall(r"\w+", b.lower()))
+    return len(wa & wb) / len(wa | wb) if wa | wb else 0.0
+
+
+def _runs(words: list[str], n: int) -> set[tuple[str, ...]]:
+    return {tuple(words[i : i + n]) for i in range(len(words) - n + 1)}
+
+
+# "140 pytest tests", "808 automated tests", "182 unit tests".
+_TEST_COUNT = re.compile(r"\b\d[\d,]*\+?\s+(?:automated\s+|unit\s+)?(?:pytest\s+)?(?:unit\s+)?tests?\b", re.I)
+
+
+# Oct 30 2026 final-packets verdict: defects found by hand in 24 of 45 packets, now caught here.
+_EVERY_TEAM = re.compile(r"\b(?:every|each|all)\s+(?:team|teams|department|departments)\b|\bevery team\b", re.I)
+_HIGHEST = re.compile(r"\b(?:highest|top|best)\b[^.;]{0,40}\b(?:competition|datathon|hackathon)\b|"
+                      r"\b(?:datathon|hackathon|competition)\b[^.;]{0,60}\b(?:highest|best)\b", re.I)
+# Skills the vault backs through coursework only; listing them plain reads as work experience.
+COURSEWORK_ONLY = ("docker",)
+
+
+def line_issues(text: str) -> list[tuple[str, str, dict[str, Any]]]:
+    """(code, message, data) for the wording defects shared by resume lines and letter paragraphs."""
+    out: list[tuple[str, str, dict[str, Any]]] = []
+    m = _EVERY_TEAM.search(text)
+    if m:
+        out.append(("every_team", f"{m.group(0)!r}: say the work was 'used across teams'", {"term": m.group(0)}))
+    m = _HIGHEST.search(text)
+    if m and "finalist" not in text.lower():
+        out.append(("datathon_claim", f"{m.group(0)!r} without 'top-10 finalist'", {"term": m.group(0)}))
+    return out
+
+
+def check_resume(
+    draft: dict[str, Any], base: dict[str, Any], ctx: dict[str, Any]
+) -> tuple[list[dict], list[dict], list[str]]:
+    """Run every resume check on `draft` (already reverted); returns (criticals, warnings, [])."""
+    crit: list[dict] = []
+    warn: list[dict] = []
+
+    # `data` carries the fields the review page explains in plain language (explain.py).
+    def c(code: str, msg: str, path: str = "", **data: Any) -> None:
+        crit.append({"code": code, "message": msg, "path": path, "doc": "resume", **({"data": data} if data else {})})
+
+    def w(code: str, msg: str, path: str = "", **data: Any) -> None:
+        warn.append({"code": code, "message": msg, "path": path, "doc": "resume", **({"data": data} if data else {})})
+
+    base_text = ctx["base_text"]
+    allowed_text = base_text + "\n" + "\n".join(ctx["claim_texts"])
+    allowed_nums = number_keys(allowed_text)
+    allowed_years = years_in(allowed_text)
+    allowed_skills = taxonomy.find(allowed_text)
+    # Confirmed pairs (skill key, passage): a passage that shows a skill in other words
+    # ("loads an emailed CSV into BigQuery" is a simple ETL job) backs the skill's name.
+    confirmed = ctx.get("confirmed") or set()
+    confirmed_keys = {k for k, _ in confirmed}
+    srcs_by_path = {"summary": (draft.get("summary") or {}).get("sources") or []}
+    srcs_by_path.update({p: b.get("sources") or [] for p, b in iter_bullets(draft)})
+
+    def confirmed_for(skill: str, path: str) -> bool:
+        k = rejects.key(skill)
+        if path.startswith("skills/"):
+            return k in confirmed_keys
+        return any((k, sid) in confirmed for sid in srcs_by_path.get(path, []))
+
+    d_units = units(draft)
+    base_bullets = {k: v.get("text") for k, v in _bullet_map(base).items()}
+
+    # Locked fields, entries, employers.
+    base_entries = {s: {e["id"]: e for e in base.get(s) or []} for s in ("experience", "projects", "education")}
+    # A job or project from the entry library (entries.py) isn't invented; its header must match it.
+    library = ctx.get("library") or {}
+    for section in ("experience", "projects", "education"):
+        seen = set()
+        for e in draft.get(section) or []:
+            seen.add(e.get("id"))
+            be = base_entries[section].get(e.get("id")) or (library.get(section) or {}).get(e.get("id"))
+            if be is None:
+                if section == "experience":
+                    c("invented_employer", f"experience entry {e.get('company')!r} is not in the base", f"experience/{e.get('id')}")
+                elif section == "projects":
+                    c("invented_project", f"project {e.get('name')!r} is not in the base", f"projects/{e.get('id')}")
+                else:
+                    c("locked_changed", "education entry is not in the base", f"education/{e.get('id')}")
+                continue
+            for f in sorted(LOCKED_FIELDS - {"id", "contact"}):
+                if f in be or f in e:
+                    if norm(e.get(f) or "") != norm(be.get(f) or ""):
+                        c("locked_changed", f"{section}/{e.get('id')} {f}: {be.get(f)!r} became {e.get(f)!r}", f"{section}/{e.get('id')}/{f}")
+            if section == "education":
+                bl = {x["id"]: x for x in be.get("lines") or []}
+                for line in e.get("lines") or []:
+                    b = bl.get(line.get("id"))
+                    if b and str(b.get("label", "")).lower() != "coursework" and norm(b["text"]) != norm(line["text"]):
+                        c("locked_changed", "education line changed", f"education/{e['id']}/{line['id']}")
+        for bid in base_entries[section]:
+            if bid not in seen and section != "projects":
+                be = base_entries[section][bid]
+                if section == "experience":
+                    c("dropped_employer", f"{be.get('company')!r} is missing from the draft", f"experience/{bid}")
+                else:
+                    c("locked_changed", "education entry removed", f"education/{bid}")
+    for f in ("name", "contact", "id"):
+        if f in base and flatten(draft.get(f)) != flatten(base.get(f)) and f != "id":
+            c("locked_changed", f"top-level {f} changed", f)
+
+    # Sources.
+    index = ctx["index"]
+    for path, item in [("summary", draft.get("summary") or {})] + list(iter_bullets(draft)):
+        if not item:
+            continue
+        srcs = item.get("sources") or []
+        if not srcs and path != "summary":
+            c("missing_source", "no source passage ids", path)
+        for sid in srcs:
+            if sid not in index:
+                c("unknown_source", f"cites unknown passage id {sid!r}", path)
+            elif index[sid].get("use", "claim") != "claim":
+                c("non_claim_source", f"cites {sid!r}, which is {index[sid].get('use')}, not a resume claim", path)
+
+    # Numbers, dates, skills.
+    for path, text in d_units:
+        for raw in extract_numbers(text, allowed_nums):
+            c("invented_number", f"{raw!r} appears in no vault passage or the base", path, term=raw)
+        for y in sorted(years_in(text) - allowed_years):
+            c("unsupported_date", f"year {y} appears in no vault passage or the base", path)
+        # A skill counts as backed only when the draft's own wording for it is in the
+        # vault or base: "experimentation" in a passage doesn't back "A/B testing". Each
+        # wording on the line counts: a backed "tool use" doesn't back "AI agent" beside it.
+        for skill, words in sorted(taxonomy.find_wordings(text).items()):
+            unbacked = [x for x in words if not _wording_in(x, allowed_text)]
+            if taxonomy.is_hard(skill) and not confirmed_for(skill, path) and (
+                    skill not in allowed_skills or unbacked):
+                if skill in allowed_skills:
+                    # The vault backs the skill, just not in these words: say so, or a repair drops a true claim.
+                    # Name every such wording on the line: naming one lets the repair fix it and the next
+                    # round flag the other ("AI agent ... with tool calling").
+                    said = sorted({x.lower(): x for x in sorted(unbacked)}.values(), key=str.lower)
+                    quoted = " and ".join(f"'{x}'" for x in said)
+                    c("invented_skill", f"{quoted} ({skill}) {'is' if len(said) == 1 else 'are'} not how any vault "
+                      "passage or the base words it; use the vault's wording", path, term=skill,
+                      wording=", ".join(said))
+                else:
+                    c("invented_skill", f"{skill} appears in no vault passage or the base", path, term=skill)
+
+    full = "\n".join(t for _, t in d_units)
+    req = ctx["req"]
+    posting = ctx["posting"]
+
+    # Warnings.
+    span = supported_years(base)
+    for m in _YEARS_EXP.finditer(full):
+        n = int(m.group(1))
+        if n > -(-span // 1) and not re.search(re.escape(m.group(0)), base_text, re.I):
+            w("years_inflation", f"'{m.group(0)}' but dates support about {span:.1f} years")
+    for m in _SENIOR.finditer(full):
+        if not re.search(rf"\b{re.escape(m.group(1))}\b", allowed_text, re.I):
+            w("title_drift", f"'{m.group(0)}' is not in the vault or base (title drift)")
+
+    terms = _terms(req)
+    # Text against text: base_text also holds source ids, and "wids.data-visualization" covers nothing.
+    # The education header counts too, as in the grade: a summary that stops repeating "BSc" hasn't
+    # lost "Bachelor's" while the degree line still says it (Amazon SDE, Oct 29 2026).
+    def _with_degree(data: dict[str, Any], text: str) -> str:
+        return "\n".join([text, *(f"{e.get('school') or ''} {e.get('degree') or ''}" for e in data.get("education") or [])])
+
+    base_full = _with_degree(base, "\n".join(t for _, t in units(base)))
+    draft_full = _with_degree(draft, full)
+    lost = [t for t in terms if _covered(t, base_full) and not _covered(t, draft_full)]
+    if lost:
+        w("keyword_coverage_dropped", "terms covered by the base but not the draft: " + ", ".join(lost))
+
+    words_n = max(len(re.findall(r"\w+", full)), 1)
+    for t in terms:
+        n = _count(t, full)
+        pn = _count(t, posting)
+        if n and (n / words_n > 0.03 or n > 6):
+            w("term_stuffing", f"'{t}' appears {n} times in {words_n} words (posting: {pn})", term=t,
+              paths=[pt for pt, tx in d_units if _count(t, tx)])
+    prose = "\n".join(t for p, t in d_units if not p.startswith("skills/"))
+    letter_text = ctx.get("letter_text") or ""
+    skills_text = "\n".join(t for p, t in d_units if p.startswith("skills/"))
+    listed_only: set[str] = set()
+    # Listed skills with no bullet, whether or not the letter shows them: the letter check looks
+    # at how it shows them.
+    no_bullet: set[str] = set()
+    ctx["no_bullet"] = no_bullet
+    base_skills = "\n".join(t for p, t in units(base) if p.startswith("skills/"))
+    for t in terms:
+        canon = taxonomy.canonical(t)
+        # A skill the letter shows with a story counts as shown: the letter is where what didn't
+        # fit in the bullets goes (Jake, Oct 22 2026). The letter checks still judge that story.
+        if canon and taxonomy.is_hard(canon) and _covered(t, skills_text) and not _covered(t, prose):
+            no_bullet.add(canon)
+        if (canon and taxonomy.is_hard(canon) and _covered(t, skills_text) and not _covered(t, prose)
+                and not _covered(t, letter_text)):
+            # One warning per skill, named as the list has it: "AWS S3" covers the posting's
+            # "AWS Step Functions" only through the skill AWS, which is what the list shows.
+            if canon in listed_only:
+                continue
+            listed_only.add(canon)
+            name = t if taxonomy.exact(t, skills_text) else canon
+            # `added`: this draft put it in the list; the repair loop fixes that, a base's own list item it leaves.
+            w("skill_only_in_list", f"'{name}' appears only in the skills list", "skills", term=name,
+              added=not _covered(t, base_skills), paths=["skills", "letter"])
+    if posting:
+        pw = [x for x in re.findall(r"[a-z0-9']+", norm(posting))]
+        post_runs = _runs(pw, 8)
+        for path, text in d_units:
+            if path.startswith("skills/"):
+                continue
+            tw = re.findall(r"[a-z0-9']+", norm(text))
+            if _runs(tw, 8) & post_runs:
+                w("verbatim_posting_copy", "8 or more consecutive words copied from the posting", path)
+    n_skills = sum(len(g.get("items") or []) for g in draft.get("skills") or [])
+    if n_skills > 30:
+        w("too_many_skills", f"{n_skills} skill items (limit 30)", "skills")
+
+    for section in ("experience", "projects"):
+        for e in draft.get(section) or []:
+            bl = e.get("bullets") or []
+            if not 1 <= len(bl) <= 6:
+                w("bullet_count", f"{len(bl)} bullets (want 1-6)", f"{section}/{e.get('id')}")
+            for i, b in enumerate(bl):
+                # Base bullets are already approved; only judge the length of rewritten ones. A long
+                # rewrite is a critical, so the repair round shortens it instead of the page fit
+                # dropping other bullets to make room.
+                bpath = f"{section}/{e.get('id')}/{b.get('id')}"
+                rewritten = b.get("text") != base_bullets.get(bpath)
+                if len(str(b.get("text", ""))) > 200 and rewritten:
+                    c("bullet_long", f"{len(b['text'])} characters (limit 200)", bpath)
+                # Jake, Oct 26 2026: a project bullet opening with "Directed" reads as prompting a
+                # chatbot, and test counts go stale and read as padding. Rewrites only: the bases
+                # are his (Nexthop new grad, Oct 28 2026: a repair wrote both into one bullet).
+                if rewritten and section == "projects" and re.match(r"\s*Directed\b", str(b.get("text", ""))):
+                    w("directed_opener", "project bullet opens with 'Directed'; lead with what the system does", bpath)
+                m = _TEST_COUNT.search(str(b.get("text", ""))) if rewritten else None
+                if m:
+                    w("test_count", f"{m.group(0)!r}: say 'a pytest suite' or name specific verification", bpath,
+                      term=m.group(0))
+                for b2 in bl[i + 1 :]:
+                    if _jaccard(b["text"], b2["text"]) >= 0.8:
+                        w("duplicate_bullets", f"{b.get('id')} and {b2.get('id')} are near-duplicates", f"{section}/{e.get('id')}/{b.get('id')}")
+
+    for path, text in d_units:
+        if path.startswith("skills/"):
+            for item in COURSEWORK_ONLY:
+                if re.search(rf"(?<![\w-]){item}(?![\w-])", text, re.I) and not re.search(rf"{item}[^,;]*coursework", text, re.I):
+                    w("coursework_skill", f"'{item}' is backed by coursework only; take it out of the list or "
+                      "mark it (coursework)", path, term=item)
+            continue
+        for code, msg, data in line_issues(text):
+            w(code, msg, path, **data)
+        for h in phrases.scan(text, posting, ctx["own_texts"]):
+            w("ai_phrase", f"{h.code}: {h.phrase!r}", path)
+    return crit, warn, []
+
+
+# ---------------------------------------------------------------------------
+# Revert, Jev, entry point
+# ---------------------------------------------------------------------------
+
+
+def _revert_low_similarity(
+    draft: dict[str, Any], base: dict[str, Any], index: dict[str, Any], threshold: float,
+    library: dict[str, dict[str, Any]] | None = None,
+) -> list[str]:
+    """Revert changed bullets that don't resemble their cited passages; return the reverted paths."""
+    base_b = _bullet_map(base)
+    reverted: list[str] = []
+    for section in ("experience", "projects"):
+        for e in draft.get(section) or []:
+            for b in list(e.get("bullets") or []):
+                path = f"{section}/{e.get('id')}/{b.get('id')}"
+                old = base_b.get(path)
+                if old is not None and norm(old["text"]) == norm(b["text"]):
+                    continue
+                srcs = list(b.get("sources") or [])
+                texts = [index[s]["text"] for s in srcs if s in index]
+                if not texts or _similarity(b["text"], texts) >= threshold:
+                    continue
+                # A missed citation isn't a weak line: if related passages close the gap, cite them.
+                extra = related_passages(b["text"], srcs, index)
+                if extra and _similarity(b["text"], texts + [index[x]["text"] for x in extra]) >= threshold:
+                    b["sources"] = srcs + extra
+                    continue
+                if old is not None:
+                    b["text"], b["sources"] = old["text"], list(old.get("sources") or [])
+                else:
+                    e["bullets"].remove(b)
+                reverted.append(path)
+        # An entry the draft added from the library goes when its last bullet was reverted (one
+        # that is in neither stays, so the check still calls it invented).
+        added = set((library or {}).get(section) or {}) - {x.get("id") for x in base.get(section) or []}
+        draft[section] = [e for e in draft.get(section) or [] if e.get("bullets") or e.get("id") not in added]
+    return reverted
+
+
+def _changed_lines(draft: dict[str, Any], base: dict[str, Any]) -> list[tuple[str, str, list[str]]]:
+    base_b = _bullet_map(base)
+    out = []
+    bs = (base.get("summary") or {}).get("text", "")
+    ds = draft.get("summary") or {}
+    if ds and norm(ds.get("text", "")) != norm(bs):
+        out.append(("summary", ds["text"], ds.get("sources") or []))
+    for path, b in iter_bullets(draft):
+        old = base_b.get(path)
+        if old is None or norm(old["text"]) != norm(b["text"]):
+            out.append((path, b["text"], b.get("sources") or []))
+    return out
+
+
+_STOP = frozenset(["a", "an", "and", "the", "of", "to", "for", "in", "on", "at", "by", "with", "from", "into", "that", "this", "these", "those", "was", "were", "is", "are", "be", "been", "it", "its", "as", "or", "each", "every", "other", "their", "them", "they", "our", "we", "i", "my", "me", "who", "which", "what", "using", "used", "use", "than", "then"])
+
+
+def _content_words(text: str) -> set[str]:
+    words = (w for w in re.findall(r"[a-z0-9+#]+", text.lower()) if len(w) > 2 and w not in _STOP)
+    return {w[:-1] if w.endswith("s") and len(w) > 4 else w for w in words}  # "dashboards" ~ "dashboard"
+
+
+def related_passages(text: str, srcs: list[str], index: dict[str, Any], per_clause: int = 3, limit: int = 12) -> list[str]:
+    """Claim passages the line doesn't cite, from the same vault entries as its cited passages
+    (algaecal.*, soft.*): the evidence a citation may have missed. Each clause of the line gets the
+    passages sharing its rarest words, so every claim in a long summary is covered. "Maintained the
+    dashboards" finds "Fixed dashboard problems" through "dashboard", which few passages use, even
+    though "maintained" and "fixed" share nothing."""
+    prefixes = {s.split(".", 1)[0] for s in srcs}
+    claims = {pid: _content_words(p.get("text", "")) for pid, p in index.items() if p.get("use", "claim") == "claim"}
+    df: dict[str, int] = {}
+    for ws in claims.values():
+        for w in ws:
+            df[w] = df.get(w, 0) + 1
+    n = max(len(claims), 1)
+    idf = {w: math.log(n / c) for w, c in df.items()}
+    pool = {pid: ws for pid, ws in claims.items() if pid not in srcs and pid.split(".", 1)[0] in prefixes}
+    floor = math.log(n / 20) * 1.5  # one rare word, or a few common ones
+    per: list[list[str]] = []
+    for clause in re.split(r"[,;:.]| and ", text):
+        words = _content_words(clause)
+        scored = sorted((-sum(idf.get(w, 0.0) for w in words & ws), pid) for pid, ws in pool.items())
+        per.append([pid for score, pid in scored[:per_clause] if -score >= floor])
+    # Each clause's best match first, then each one's second, and so on: a long summary's last
+    # clause (the degree) still gets its passage before the limit is reached.
+    out: list[str] = []
+    for rank in range(per_clause):
+        for picks in per:
+            if rank < len(picks) and picks[rank] not in out:
+                out.append(picks[rank])
+    return out[:limit]
+
+
+def _ask_supported(jev: Any, path: str, text: str, srcs: list[str], index: dict[str, Any]) -> float | None:
+    passages = [index[s]["text"] for s in srcs if s in index]
+    if not passages:
+        return None
+    state = "Passages:\n" + "\n".join(f"- {p}" for p in passages)
+    q = Question(id=f"supported:{path}", type="yesno",
+                 text=f"Is this sentence supported by these passages? Sentence: {text}")
+    try:
+        ans = jev.ask(state, [q])[0]
+    except Exception:  # noqa: BLE001 - Jev is advice; any failure means unchecked
+        return None
+    return float(ans.value) if ans.ok and isinstance(ans.value, (int, float)) else None
+
+
+def _prune_extra(jev: Any, path: str, text: str, srcs: list[str], extra: list[str], p: float,
+                 index: dict[str, Any]) -> tuple[list[str], float]:
+    """Keep only the added passages Jev needs: drop each in turn (weakest match first) and keep the
+    drop while Jev still says yes, so a summary isn't padded with every passage that shared a word."""
+    keep = list(extra)
+    for pid in reversed(extra):
+        trial = [x for x in keep if x != pid]
+        if not trial:
+            continue
+        v = _ask_supported(jev, path, text, [*srcs, *trial], index)
+        if v is not None and v >= 0.5:
+            keep, p = trial, v
+    return keep, p
+
+
+def _jev_flags(jev: Any, lines: list[tuple[str, str, list[str]]], index: dict[str, Any]) -> tuple[list[dict], dict[str, list[str]]]:
+    """Ask Jev whether each changed line is supported by its cited passages.
+
+    A "no" can mean the line overclaims, or only that its citations miss the evidence (a summary
+    that cites "every team used the dashboards" but not the passage where Jake fixed them). So a
+    "no" is asked again with the related passages the line doesn't cite: a "yes" then is a citation
+    gap, fixed by adding those passages to the line's sources; a second "no" is a real doubt."""
+    flags: list[dict] = []
+    added: dict[str, list[str]] = {}
+    if jev is None:
+        return flags, added
+
+    def one(line: tuple[str, str, list[str]]) -> tuple[dict | None, list[str] | None]:
+        path, text, srcs = line
+        first = _ask_supported(jev, path, text, srcs, index)
+        if first is None or first >= 0.5:
+            return None, None
+        extra = related_passages(text, srcs, index)
+        second = _ask_supported(jev, path, text, [*srcs, *extra], index) if extra else None
+        if second is not None and second >= 0.5:
+            extra, second = _prune_extra(jev, path, text, srcs, extra, second, index)
+            return {
+                "code": "jev_citation_gap",
+                "message": (f"Jev doubted this line with its cited passages (p={first:.2f}) but agreed once "
+                            f"{', '.join(extra)} were cited too (p={second:.2f}); those were added to its sources"),
+                "path": path, "doc": "resume", "source": "jev",
+                "data": {"first": round(first, 2), "second": round(second, 2), "added": extra},
+            }, extra
+        doubt = second if second is not None else first
+        also = f", even with {', '.join(extra)}" if extra else ""
+        return {
+            "code": "jev_unsupported",
+            "message": f"Jev doubts this line is supported by its cited passages{also} (p={doubt:.2f})",
+            "path": path, "doc": "resume", "source": "jev", "data": {"p": round(doubt, 2), "extra": extra},
+        }, None
+
+    # Lines don't depend on each other, so several are asked at once; results keep line order.
+    for (path, _, _), (flag, extra) in zip(lines, parallel_map(one, lines, 4)):
+        if flag:
+            flags.append(flag)
+        if extra is not None:
+            added[path] = extra
+    return flags, added
+
+
+def _add_sources(draft: dict[str, Any], added: dict[str, list[str]]) -> None:
+    for path, extra in added.items():
+        line = draft.get("summary") if path == "summary" else dict(iter_bullets(draft)).get(path)
+        if isinstance(line, dict):
+            line["sources"] = [*(line.get("sources") or []), *[e for e in extra if e not in (line.get("sources") or [])]]
+
+
+def _read_optional(path: Path, default: Any) -> Any:
+    return read_json(path) if path.exists() else default
+
+
+def _letter_text(path: Path) -> str:
+    letter = _read_optional(path, {})
+    paras = letter.get("paragraphs") if isinstance(letter, dict) else None
+    return "\n".join(str(p.get("text", "")) for p in paras or [] if isinstance(p, dict))
+
+
+def _context(app_dir: Path, cfg: dict[str, Any], index: dict[str, Any], base: dict[str, Any],
+             req: dict[str, Any], posting: str, letter_path: Path) -> dict[str, Any]:
+    claim_texts = [p["text"] for p in index.values() if p.get("use", "claim") == "claim"]
+    base_text = flatten(base)
+    return {
+        "index": index, "req": req, "posting": posting, "base_text": base_text,
+        "claim_texts": claim_texts, "own_texts": [base_text, *claim_texts], "company": req.get("company", ""),
+        "confirmed": set(rejects.confirmed(cfg, app_dir)), "letter_text": _letter_text(letter_path),
+        "library": entry_library(cfg),
+    }
+
+
+def _listed_only(warnings: list[dict]) -> list[str]:
+    return [w["data"]["term"] for w in warnings if w.get("code") == "skill_only_in_list"]
+
+
+def recheck(app_dir: Path, rnd: int, cfg: dict[str, Any]) -> dict[str, Any]:
+    """The code-only checks again, under today's rules, on the resume and letter a round shipped
+    (the humanized resume when there is one). Nothing is written and Jev isn't asked: Jev's flags,
+    reverts and metrics come from the round's check.json. repacket uses it so an older review page
+    doesn't keep items a later fix would no longer raise."""
+    app_dir = Path(app_dir)
+    rdir = round_dir(app_dir, rnd)
+    earlier = _read_optional(rdir / "check.json", {})
+    shipped = humanized(app_dir, "resume.yaml")
+    draft = load_resume(shipped or rdir / "resume.yaml")
+    base = load_base(app_dir, cfg)
+    index = load_index(cfg)
+    posting_path = app_dir / "posting.md"
+    posting = posting_path.read_text(encoding="utf-8") if posting_path.exists() else ""
+    letter_path = humanized(app_dir, "cover-letter.json") or rdir / "cover-letter.json"
+    ctx = _context(app_dir, cfg, index, base, _read_optional(app_dir / "requirements.json", {}), posting,
+                   letter_path)
+    criticals, warnings, _ = check_resume(draft, base, ctx)
+    ctx["listed_only"] = _listed_only(warnings)
+    # Bad ids on lines the first check reverted are only known from that check.
+    criticals += [c for c in earlier.get("criticals") or [] if c.get("code") == "unknown_source"
+                  and c.get("path") in (earlier.get("reverted") or [])]
+    warnings += [{"code": "resume_invalid", "message": p, "path": "", "doc": "resume"}
+                 for p in validate(draft, require_sources=True)]
+    letter_path = rdir / "cover-letter.json"
+    before = letter_path.read_bytes() if letter_path.exists() else None
+    letter = run_letter_checks(app_dir, rnd, cfg, ctx)
+    if before is not None and letter_path.read_bytes() != before:
+        letter_path.write_bytes(before)  # a recheck only reports; it never edits the round's files
+    criticals += letter["criticals"] + [c for c in earlier.get("criticals") or [] if c.get("code") == "letter_shape"]
+    warnings += letter["warnings"]
+    return {**earlier, "criticals": criticals, "warnings": warnings}
+
+
+def run_check(app_dir: Path, rnd: int, cfg: dict[str, Any], jev: Any = None) -> dict[str, Any]:
+    app_dir = Path(app_dir)
+    rdir = round_dir(app_dir, rnd)
+    draft_path = rdir / "resume.yaml"
+    draft = load_resume(draft_path)
+    base = load_base(app_dir, cfg)
+    index = load_index(cfg)
+    req = _read_optional(app_dir / "requirements.json", {})
+    posting_path = app_dir / "posting.md"
+    posting = posting_path.read_text(encoding="utf-8") if posting_path.exists() else ""
+    applied = _read_optional(rdir / "applied.json", {})
+    earlier = _read_optional(rdir / "check.json", {})
+
+    # Revert weakly supported changes first, so later checks judge what actually ships.
+    # Source-id problems are judged on the unreverted draft so a bad id is never hidden by a revert.
+    pre = copy.deepcopy(draft)
+    threshold = float(cfg.get("similarity_revert", DEFAULT_SIMILARITY_REVERT))
+    reverted = _revert_low_similarity(draft, base, index, threshold, entry_library(cfg))
+    if reverted or draft != pre:  # a revert, or citations added for a missed passage
+        draft_path.write_text(
+            yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110), encoding="utf-8"
+        )
+
+    ctx = _context(app_dir, cfg, index, base, req, posting, rdir / "cover-letter.json")
+    claim_texts = ctx["claim_texts"]
+    criticals, warnings, _ = check_resume(draft, base, ctx)
+    ctx["listed_only"] = _listed_only(warnings)
+    # Re-add source criticals for reverted paths (bad ids on a reverted line still go on record).
+    pre_b = _bullet_map(pre)
+    for path in reverted:
+        for sid in pre_b.get(path, {}).get("sources") or []:
+            if sid not in index:
+                criticals.append({"code": "unknown_source", "message": f"cites unknown passage id {sid!r}", "path": path, "doc": "resume"})
+    for p in validate(draft, require_sources=True):
+        warnings.append({"code": "resume_invalid", "message": p, "path": "", "doc": "resume"})
+
+    letter = run_letter_checks(app_dir, rnd, cfg, ctx)
+    criticals += letter["criticals"]
+    warnings += letter["warnings"]
+    for err in applied.get("letter_errors") or []:
+        criticals.append({"code": "letter_shape", "message": err, "path": "cover-letter.json", "doc": "letter"})
+
+    # A line unchanged since an earlier round gets the answer Jev gave it then (jev.RememberedJev).
+    flags, added = _jev_flags(remembered(jev, app_dir), _changed_lines(draft, base), index)
+    # A re-check finds nothing to flag where the first check already added the sources, so the
+    # earlier citation-gap flag carries over while the line still cites what it added.
+    lines = {"summary": draft.get("summary"), **dict(iter_bullets(draft))}
+    have = {f["path"] for f in flags}
+    for f in earlier.get("flags") or []:
+        line = lines.get(f.get("path"))
+        if (f.get("code") == "jev_citation_gap" and f["path"] not in have and isinstance(line, dict)
+                and set((f.get("data") or {}).get("added") or []) <= set(line.get("sources") or [])):
+            flags.append(f)
+    if added:
+        _add_sources(draft, added)
+        draft_path.write_text(
+            yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110), encoding="utf-8"
+        )
+    result = {
+        "criticals": criticals,
+        "warnings": warnings,
+        "flags": flags,
+        "reverted": reverted,
+        "metrics": metrics.compute(metrics.resume_text(draft), metrics.resume_text(base), posting, claim_texts),
+    }
+    write_json(rdir / "check.json", result)
+    if (app_dir / "app.json").exists():
+        log(app_dir, "check", f"r{rnd}: {len(criticals)} criticals, {len(warnings)} warnings, {len(reverted)} reverted")
+    return result

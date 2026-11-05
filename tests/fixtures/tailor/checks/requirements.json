@@ -1,0 +1,16 @@
+{
+  "title": "Junior Data Analyst", "company": "Contoso Retail", "seniority": "junior", "years_required": 2,
+  "education": null,
+  "requirements": [
+    {"id": "r1", "text": "SQL", "kind": "must", "tier": 1, "terms": ["SQL"], "weight": "role", "quote": "Write SQL"},
+    {"id": "r2", "text": "dbt", "kind": "nice", "tier": 2, "terms": ["dbt"], "weight": "role", "quote": "Experience with dbt"},
+    {"id": "r3", "text": "Dashboards", "kind": "must", "tier": 1, "terms": ["Tableau", "Power BI"], "weight": "role", "quote": "dashboards in Power BI or Tableau"}
+  ],
+  "keywords": [{"term": "Looker", "weight": "role", "quote": "Looker"}],
+  "responsibilities": [],
+  "company_facts": [
+    {"fact": "Contoso Retail is a Vancouver-based online retailer", "quote": "Contoso Retail is a Vancouver-based online retailer"},
+    {"fact": "Contoso values curiosity", "quote": "values curiosity"}
+  ],
+  "hiring_contact": {"name": "Priya Shah", "role": "hiring_manager", "quote": "You'll report to Priya Shah"}
+}

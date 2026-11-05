@@ -1,0 +1,9 @@
+snapshots:
+  - name: jobs_snapshot
+    relation: source('app', 'jobs')
+    description: Every version of every job.
+    config:
+      unique_key: [source, external_id]
+      strategy: check
+      check_cols: [title, tier, score, status]
+      hard_deletes: invalidate

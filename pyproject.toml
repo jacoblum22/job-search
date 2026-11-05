@@ -6,20 +6,40 @@ requires-python = ">=3.11"
 dependencies = [
     "python-frontmatter>=1.1",
     "pyyaml>=6.0",
+    "tzdata>=2024.1; sys_platform == 'win32'",  # zoneinfo has no zone database on Windows
     "click>=8.1",
     "python-slugify>=8.0",
     "httpx>=0.28.1",
     "markdownify>=1.2.2",
+    "beautifulsoup4>=4.14",
     "python-docx>=1.1",
     "python-dotenv>=1.2.3",
     "rapidfuzz>=3.14.6",
     "openpyxl>=3.1.5",
     "google-auth-oauthlib>=1.4.1",
     "google-api-python-client>=2.200.0",
+    "msal>=1.31",
+    "pdfplumber>=0.11.10",
+    "pypdf>=5.0",
+    # Word COM automation for DOCX→PDF on Windows; a regular dependency so a plain `uv sync`
+    # (which drops optional extras) can't remove it.
+    "pywin32>=306; sys_platform == 'win32'",
+    "psycopg[binary]>=3.2",
+    # phase 9 (docs/snowflake-guide.md): Parquet export to Azure storage, Snowflake loads
+    "pyarrow>=18",
+    "azure-identity>=1.19",
+    "azure-storage-blob>=12.24",
+    "snowflake-connector-python>=4.8,<5",  # same major version dbt-snowflake uses
 ]
 
-[project.optional-dependencies]
-pdf = ["pywin32>=306"]  # Windows-only COM automation for DOCX→PDF
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["hatchling"]

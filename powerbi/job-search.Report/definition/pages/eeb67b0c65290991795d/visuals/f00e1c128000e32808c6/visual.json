@@ -1,0 +1,133 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "f00e1c128000e32808c6",
+  "position": {
+    "x": 0,
+    "y": 279.49367088607596,
+    "z": 4,
+    "height": 800,
+    "width": 1395.4430379746834,
+    "tabOrder": 4
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "company"
+                }
+              },
+              "queryRef": "fct_applications.company",
+              "nativeQueryRef": "company"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "title"
+                }
+              },
+              "queryRef": "fct_applications.title",
+              "nativeQueryRef": "title"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "packet_status"
+                }
+              },
+              "queryRef": "fct_applications.packet_status",
+              "nativeQueryRef": "packet_status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "outcome"
+                }
+              },
+              "queryRef": "fct_applications.outcome",
+              "nativeQueryRef": "outcome"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fct_applications"
+                    }
+                  },
+                  "Property": "drafted_on"
+                }
+              },
+              "queryRef": "fct_applications.drafted_on",
+              "nativeQueryRef": "drafted_on"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fct_applications"
+                  }
+                },
+                "Property": "drafted_on"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Every packet, newest first'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}
