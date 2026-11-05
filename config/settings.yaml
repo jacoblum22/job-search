@@ -409,6 +409,9 @@ score:
     # PhD required (not "Master's or PhD", "PhD preferred", "pursuing a PhD")
     - "(?:must|required to) (?:hold|have|possess) (?:an? )?(?:MD and/or )?Ph\\.?\\s?D"
     - "Ph\\.?\\s?D\\.?(?: degree)? (?:is )?required"
+    # Current PhD/doctorate enrolment required (Atlassian "AI Researcher (PhD)", Nov 5 2026);
+    # not when a Bachelor's or Master's program also counts ("enrolled in a Master's or PhD")
+    - "(?:currently|actively) (?:enrolled|pursuing|registered)(?:(?!bachelor|master|undergrad|\\bor\\b)[^.\\n]){0,60}\\b(?:Ph\\.?\\s?D|doctora)"
   # Jake has a Bachelor's. A Master's the posting requires (no "preferred",
   # no "or equivalent experience", and no Bachelor's accepted anywhere) is a
   # skip; any other Master's ask (preferred, an asset, one of several

@@ -175,6 +175,13 @@ def test_phd_required_skips_but_phd_or_masters_does_not():
     assert not any("phd" in x.lower() for x in r.reasons)
 
 
+def test_current_phd_enrolment_skips():
+    desc = "* Currently enrolled full time in a Doctorate program in Computer Science.\n" + "python sql " * 40
+    assert _score("AI Researcher", desc).tier == "skip"
+    desc = "* Currently enrolled in a Bachelor's or PhD program.\n" + "python sql " * 40
+    assert _score("Data Scientist", desc).tier != "skip"
+
+
 def test_required_masters_skipped():
     r = _score("Data Scientist", "* Master's or PhD in Biology or a related field.\n" + "python sql " * 40)
     assert r.tier == "skip"
