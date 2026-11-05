@@ -137,6 +137,22 @@ _DESC_VANCOUVER = re.compile(
     r"|metro vancouver|greater vancouver)\b(?!,?\s*(?:WA|Washington)\b)",
     re.IGNORECASE,
 )
+# A US street address or "City, ST" in the text ("Job Site: 3701 Pender Drive,
+# Fairfax, VA"). Case-sensitive on purpose: the state code must be capitalized and
+# follow a capitalized word and a comma. "CA" only counts with a zip (it is also
+# Canada), and states that are common words ("OR", "IN", "ME", "OK", "ID") need a
+# zip or an address label too.
+_STATE_CODES = "|".join(sorted(c for c in _US_STATES if c not in {"OR", "IN", "ME", "OK", "ID", "LA", "DE"}))
+_US_PLACE = re.compile(
+    rf"[A-Z][A-Za-z.'-]+,\s*(?:{_STATE_CODES})\b(?!\.\w)"
+    r"|[A-Z][A-Za-z.'-]+,\s*(?:[A-Z]{2})\s+\d{5}(?:-\d{4})?\b"
+)
+# The same, but only inside a labelled work site, which beats a "remote" mention
+# elsewhere in the posting.
+_DESC_SITE_LABEL = re.compile(
+    r"\b(?:job site|work ?site|work location|office location|on-?site location|location)\s*:\s*([^\n]{0,120})",
+    re.IGNORECASE,
+)
 _DESC_NOT_REMOTE = re.compile(r"\b(?:not (?:a )?remote|no remote|non-remote)\b", re.IGNORECASE)
 _DESC_ELSEWHERE = re.compile(
     r"\b(?:toronto|ottawa|montr[eé]al|calgary|edmonton|winnipeg|halifax|mississauga|waterloo"
@@ -155,9 +171,12 @@ def location_from_description(description: str) -> str | None:
     text = description or ""
     if _DESC_VANCOUVER.search(text):
         return "vancouver"
+    for label in _DESC_SITE_LABEL.finditer(text):
+        if _US_PLACE.search(label.group(1)):
+            return "other"
     if _DESC_REMOTE.search(text) and not _DESC_NOT_REMOTE.search(text):
         return "remote"
-    if _DESC_ELSEWHERE.search(text):
+    if _DESC_ELSEWHERE.search(text) or _US_PLACE.search(text):
         return "other"
     return None
 

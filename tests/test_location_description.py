@@ -32,3 +32,21 @@ def test_names_that_mean_something_else_are_not_vancouver():
 def test_job_category_uses_the_description():
     job = Job("adzuna", "1", "Data Analyst", "CorGTA", "Canada", "Location: Downtown Toronto", "https://x/1")
     assert job.location_category == "other"
+
+
+def test_us_work_site_in_the_description_is_not_canada():
+    # Seen live: "Canada" location, description names a Fairfax, VA job site.
+    desc = "Machine Learning Engineer\nJob Site: 3701 Pender Drive, Fairfax, VA\nBuild models."
+    assert classify_location("Canada", "X", desc) == "other"
+    # A labelled US site beats a "remote" mention elsewhere in the posting.
+    assert classify_location("Canada", "X", desc + "\nWe are remote-friendly.") == "other"
+    assert classify_location("Canada", "X", "Office: Austin, TX 78701. Hybrid.") == "other"
+    assert classify_location("Canada", "X", "Based in Reston, VA 20190") == "other"
+
+
+def test_us_place_pattern_does_not_hit_canadian_or_plain_text():
+    assert classify_location("Canada", "X", "Job Site: 100 Pender St, Vancouver, BC") == "vancouver"
+    assert classify_location("Canada", "X", "Fully remote. Offices in Austin, TX and Toronto.") == "remote"
+    assert classify_location("Canada", "X", "Work with SQL, Python, etc. Apply in Ottawa, CA") == "other"  # Ottawa wins
+    assert classify_location("Canada", "X", "Questions? Reach us, OR call. Remote role.") == "remote"
+    assert location_from_description("Santa Clara, CA based team") is None
