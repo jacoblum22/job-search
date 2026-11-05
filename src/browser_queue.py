@@ -43,6 +43,15 @@ MIN_FULL_CHARS = 300
 BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet", "jobright", "wellfound")
 RETRY_AFTER = timedelta(days=3)
 
+# Order the queue lists sites in. A run that stops early (the Chrome task did
+# on 2026-11-05, after 25 of 426 listings) has then covered the sites that
+# matter most, and LinkedIn is no longer last just because of its name.
+SOURCE_PRIORITY = ("linkedin", "glassdoor", "jobright", "indeed", "wellfound", "careerjet")
+
+
+def _source_rank(source: str) -> int:
+    return SOURCE_PRIORITY.index(source) if source in SOURCE_PRIORITY else len(SOURCE_PRIORITY)
+
 # enrich_attempts.ok: 1 = filled, 0 = plain HTTP fetch failed, -1 = the
 # browser couldn't read it either (retried after RETRY_AFTER).
 BROWSER_FAILED = -1
@@ -107,7 +116,10 @@ def pending(conn: sqlite3.Connection, *, days: int | None = None, limit: int | N
         ),
     ).fetchall()
     cols = ("id", "source", "title", "company", "location", "url", "chars", "first_seen")
-    return [dict(zip(cols, r)) for r in rows]
+    listings = [dict(zip(cols, r)) for r in rows]
+    # Stable: newest first within each source, as the query returned them.
+    listings.sort(key=lambda r: _source_rank(r["source"]))
+    return listings
 
 
 def _record(conn: sqlite3.Connection, job_id: int, ok: int) -> tuple[str, str]:

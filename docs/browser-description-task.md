@@ -77,14 +77,21 @@ commands or scripts: this task only reads and writes files in the
    CareerJet, plus any other site whose page the scraper couldn't load),
    each with an `id` and a `url`; there may be a few hundred. Skip any
    listing whose `.browser-queue/<id>.md` or `.browser-queue/<id>.fail`
-   already exists. From the rest, take the first 15 per site in the order
-   they appear, and never open more than 15 from one site in a run (more
+   already exists. The file lists LinkedIn first, then Glassdoor, Jobright,
+   Indeed, Wellfound, CareerJet and the rest. Work site by site in that
+   order and give every site its turn; never skip one. From the rest, take
+   the first 15 per site in the order they appear, and never open more than 15
+   from one site in a run (more
    could get my accounts flagged). A run opens 15 more per site even if an
    earlier run today already did some. Write each file as soon as you finish
    that posting. If the file is missing, stop and say so. Only when no
    listing is left without a file, stop and reply "Nothing to fill in: every
    listing in queue.json (written <generated_at>) already has a file."
-2. For each listing, open its `url` in a new Chrome tab. Expand the
+   Don't stop early because the work is long: keep going until each site has
+   had its 15 or has none left. If you truly can't continue, say the exact
+   error or limit you hit in your reply.
+2. For each listing, open its `url` in a new Chrome tab. Read the page once,
+   with `get_page_text` and no screenshots. Expand the
    description if it's collapsed ("See more" / "Show more") and read the full
    job description: the role, responsibilities, qualifications, pay and
    benefits. Leave out the sidebar, "similar jobs", and the generic company

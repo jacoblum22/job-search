@@ -75,3 +75,4 @@ powerbi/**/.pbi/cache.abf
 powerbi/**/.pbi/localSettings.json
 # A .pbix is one binary file with every imported row inside; only the .pbip text files go in git.
 *.pbix
+.browser-profile/
