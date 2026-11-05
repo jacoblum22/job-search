@@ -42,6 +42,7 @@ def test_us_work_site_in_the_description_is_not_canada():
     assert classify_location("Canada", "X", desc + "\nWe are remote-friendly.") == "other"
     assert classify_location("Canada", "X", "Office: Austin, TX 78701. Hybrid.") == "other"
     assert classify_location("Canada", "X", "Based in Reston, VA 20190") == "other"
+    assert classify_location("Canada", "X", "Job Site: 3701 Pender Drive, Fairfax, VA 22030") == "other"
 
 
 def test_us_place_pattern_does_not_hit_canadian_or_plain_text():
@@ -50,3 +51,10 @@ def test_us_place_pattern_does_not_hit_canadian_or_plain_text():
     assert classify_location("Canada", "X", "Work with SQL, Python, etc. Apply in Ottawa, CA") == "other"  # Ottawa wins
     assert classify_location("Canada", "X", "Questions? Reach us, OR call. Remote role.") == "remote"
     assert location_from_description("Santa Clara, CA based team") is None
+
+
+def test_prose_with_a_state_like_code_is_not_a_us_site():
+    # Dry run on the live data: these read as US places with the loose pattern.
+    for text in ("Strong Access, MS Office and SQL.", "Near the Park, TX is not mentioned", "Raleigh, NC office exists",
+                 "Region CA, MN"):
+        assert classify_location("Canada", "X", text) == "remote", text

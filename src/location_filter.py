@@ -137,16 +137,13 @@ _DESC_VANCOUVER = re.compile(
     r"|metro vancouver|greater vancouver)\b(?!,?\s*(?:WA|Washington)\b)",
     re.IGNORECASE,
 )
-# A US street address or "City, ST" in the text ("Job Site: 3701 Pender Drive,
-# Fairfax, VA"). Case-sensitive on purpose: the state code must be capitalized and
-# follow a capitalized word and a comma. "CA" only counts with a zip (it is also
-# Canada), and states that are common words ("OR", "IN", "ME", "OK", "ID") need a
-# zip or an address label too.
-_STATE_CODES = "|".join(sorted(c for c in _US_STATES if c not in {"OR", "IN", "ME", "OK", "ID", "LA", "DE"}))
-_US_PLACE = re.compile(
-    rf"[A-Z][A-Za-z.'-]+,\s*(?:{_STATE_CODES})\b(?!\.\w)"
-    r"|[A-Z][A-Za-z.'-]+,\s*(?:[A-Z]{2})\s+\d{5}(?:-\d{4})?\b"
-)
+# A US place in the text. Inside a labelled work site ("Job Site: 3701 Pender
+# Drive, Fairfax, VA") a plain "City, ST" counts; anywhere else it needs a zip code,
+# because bare "Word, ST" also matches prose ("Access, MS Office", "Park, TX").
+# Case-sensitive: the state code must be capitalized after a capitalized word.
+_STATE_CODES = "|".join(sorted(_US_STATES))
+_US_CITY_STATE = re.compile(rf"\b[A-Z][a-z][A-Za-z.'-]*,\s*(?:{_STATE_CODES})\b(?!\.\w)")
+_US_PLACE_ZIP = re.compile(r"\b[A-Z][a-z][A-Za-z.'-]*,\s*(?:[A-Z]{2})\s+\d{5}(?:-\d{4})?\b")
 # The same, but only inside a labelled work site, which beats a "remote" mention
 # elsewhere in the posting.
 _DESC_SITE_LABEL = re.compile(
@@ -172,11 +169,11 @@ def location_from_description(description: str) -> str | None:
     if _DESC_VANCOUVER.search(text):
         return "vancouver"
     for label in _DESC_SITE_LABEL.finditer(text):
-        if _US_PLACE.search(label.group(1)):
+        if _US_CITY_STATE.search(label.group(1)) or _US_PLACE_ZIP.search(label.group(1)):
             return "other"
     if _DESC_REMOTE.search(text) and not _DESC_NOT_REMOTE.search(text):
         return "remote"
-    if _DESC_ELSEWHERE.search(text) or _US_PLACE.search(text):
+    if _DESC_ELSEWHERE.search(text) or _US_PLACE_ZIP.search(text):
         return "other"
     return None
 
