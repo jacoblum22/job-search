@@ -1,135 +1,90 @@
-# Job search
+# UBC Job Scraper
 
-Jake's job search tooling. It collects entry-level data, ML and software postings
-for Vancouver and remote roles into one database, scores them, shows them on a
-dashboard, and tailors a resume and cover letter for the best ones.
-
-How a job moves through it:
-
-1. **Collect** with `scripts/aggregate.py` (runs twice a day from Task Scheduler). Postings
-   go into `jobs.db`.
-2. **Score.** Every run rescores all jobs into tiers A to D (`src/score.py`, weights under
-   `score:` in `config/settings.yaml`). The run also rebuilds `dashboard.html` and `export.xlsx`.
-3. **Tailor.** `python -m src.tailor queue` creates one folder per job under
-   `materials/applications/`. The steps in [docs/tailoring-runbook.md](docs/tailoring-runbook.md)
-   then draft, check and render it. The resume and letter you send end up in that folder's `final/`.
-
-To review and track applications in the browser, run `uv run python scripts/serve.py`. It opens the
-dashboard at http://127.0.0.1:8765; click a job's title for its details page. On that page you can
-open the tailored PDFs, tick the review checklist, approve, and mark the job applied or dismissed.
-`dashboard.html` (no server) still works for browsing; its Application column shows where each
-tailored job stands.
+Automated scraper for UBC's Workday staff job board. Fetches job postings via the Workday REST API, classifies them into fit tiers, and stores structured Markdown files to streamline the job application process.
 
 ## Setup
 
-- [Python 3.11+](https://www.python.org/downloads/) and [uv](https://docs.astral.sh/uv/)
-- `uv sync --all-groups` (includes pytest)
-- Copy `.env.example` to `.env` and `config/contact.example.yaml` to `config/contact.yaml`.
-- Email alerts: [docs/gmail-setup.md](docs/gmail-setup.md) or [docs/outlook-setup.md](docs/outlook-setup.md)
+### Prerequisites
 
-## Multi-source aggregator
+- [Python 3.11+](https://www.python.org/downloads/)
+- [uv](https://docs.astral.sh/uv/) (fast Python package manager)
 
-The current job-search workflow is `scripts/aggregate.py`: Workday boards, Adzuna,
-CareerJet, company boards on Greenhouse/Lever/Ashby/SmartRecruiters/Workable, and
-LinkedIn/Indeed/Glassdoor **alert emails** (Gmail and/or Outlook) are normalized
-into `jobs.db`, then `dashboard.html` and `export.xlsx`.
-
-Company boards live in `config/ats_boards.yaml` (Workday tenants there are added
-to `settings.yaml`'s `sources:`): Greenhouse, Lever, Ashby, SmartRecruiters,
-Workable, Oracle HCM, iCIMS/Jibe, SuccessFactors, Taleo, ADP, UKG, Dayforce,
-PeopleSoft, BambooHR, Pinpoint, Breezy, Rippling, Teamtailor, Jobvite, JazzHR
-and Humi, plus plain custom careers pages (`html:`, e.g. PHSA). The same file
-turns on whole-market feeds: Job Bank, BC Public Service, Hacker News "Who
-is hiring?", and the Himalayas and Jobicy remote-job boards (Canada-open
-remote jobs only; `HIMALAYAS_API_KEY` in `.env` is optional). These sources return the full posting, so they skip snippet
-enrichment. `--skip-ats` leaves them all out.
-
-Old postings are aged out: every run skips and deletes jobs posted more than
-30 days ago (or, with no posted date, first seen that long ago), and remembers
-them in a `pruned_jobs` table so they aren't scraped again. Jobs marked
-`applied` are kept. Change the window with `retention: {max_age_days: N}` in
-`settings.yaml`; 0 turns it off.
+### Installation
 
 ```bash
-uv run python scripts/aggregate.py -v
-uv run pytest
+# Clone the repository
+git clone <repo-url> && cd <repo-dir>
+
+# Create a virtual environment and install dependencies
+uv sync
 ```
 
-Search behaviour lives in `config/settings.yaml` (`search:`) and
-`src/search_match.py`:
-
-- **Queries** — canonical keywords, aliases (e.g. HR intern), and level terms
-  (intern, co-op, new grad, …). Adzuna paginates (`max_pages`) and retries
-  429/503; one failed query does not abort the source. Search snippets are
-  replaced with Adzuna’s own land/ad JSON-LD when the listing is worth hydrating.
-- **CareerJet** — paginates (`page` / `pages`), retries timeouts, skips 403s
-  per query (no details API; snippets only).
-- **Workday** — skips detail-fetches for titles that cannot match (HVAC, VP);
-  one failed tenant does not abort the others. Re-runs refresh stored text.
-- **Keep rules** — same phrase table on title *or* precise description phrases;
-  API hits are re-checked. Senior title words and `max_years_experience` apply.
-- **Location** — primary API geo is Metro Vancouver; a Canada **remote sweep**
-  keeps WFH tagged in other cities. On-site Toronto/Calgary is not stored
-  (`require_relevant_location`).
-- **Mail** — optional; missing Gmail no longer disables Outlook. See
-  [docs/gmail-setup.md](docs/gmail-setup.md) and [docs/outlook-setup.md](docs/outlook-setup.md).
-
-Tune phrases in `src/search_match.py` (`DEFAULT_ALIASES`) or
-`search.keyword_aliases` in YAML.
-
-## Experience vault passage index
-
-Tailored resumes and cover letters cite vault passages by id
-(`algaecal.sql-daily`), so every claim can be checked against the vault.
-Ids live in the vault files as Obsidian block ids at the end of each bullet,
-table row or header line (`- Wrote SQL in BigQuery every day. ^sql-daily`);
-the file's prefix is the `<!-- id: algaecal -->` comment on its first line.
-Editing a bullet's text keeps its id. Don't reuse an id for a different fact.
+## Usage
 
 ```bash
-# After adding new bullets to the vault: give them ids, then rebuild the index
-uv run python scripts/vault_index.py --assign
-# Rebuild only (fails if a passage has no id or an id is used twice)
-uv run python scripts/vault_index.py
-# Look up one passage
-uv run python scripts/vault_index.py --show algaecal.sql-daily
+# Scrape all current UBC staff job listings
+uv run python scripts/scrape.py
+
+# Preview jobs without writing files
+uv run python scripts/scrape.py --dry-run
+
+# Limit the number of jobs scraped
+uv run python scripts/scrape.py --limit 50
+
+# Convert cover letter markdown to Word/PDF
+uv run python scripts/export.py
 ```
 
-The index is written to `materials/profile/vault-index.json` (git-ignored).
-It warns when an id from the previous build disappeared, since drafts citing it
-would break. Each passage is marked `use: claim`, `interview-only` (manager
-feedback, departure) or `guidance` (framing rules, "do not claim" notes), and
-`ai_assisted: true` for projects built mostly by Claude Code.
+New job descriptions appear in `job_descriptions/` as `.md` files with YAML frontmatter, prefixed by tier (e.g. `A-high-JR23613-programmer-analyst-i.md`).
 
-## Resumes
-
-The four base resumes are YAML files in `materials/resumes/bases/`. Render one to Word and PDF
-(through Word on Windows, LibreOffice elsewhere) with
-`uv run python scripts/render_resume.py materials/resumes/bases/<base>.yaml`.
-The format is described in [docs/resume-format.md](docs/resume-format.md).
-
-## Folders
+## Project Structure
 
 ```
-├── src/                 # Library code
-│   ├── sources/         #   One adapter per job source (Workday, Adzuna, ATS boards, alert emails)
-│   ├── tailor/          #   Tailoring pipeline (python -m src.tailor <step>)
-│   ├── db.py, score.py, dedup.py, retention.py, dashboard.py, resume.py, ...
-├── scripts/             # Command-line entry points (aggregate, rescore, render_resume, vault_index, ...)
-├── prompts/tailor/      # Instructions for the Claude steps of the tailoring pipeline
-├── config/              # settings.yaml (search, sources, score, tailor), ats_boards.yaml, contact.yaml
-├── docs/                # Runbook, contracts, setup guides; docs/history/ has the old plans
-├── tests/
-├── materials/           # Personal files, git-ignored (see materials/README.md on the PC)
-└── jobs.db, dashboard.html, export.xlsx   # Generated every run, git-ignored
+├── profile/              # Personal documents (resume, cover letter template, etc.)
+├── job_descriptions/     # Scraped job descriptions (.md with YAML frontmatter)
+├── cover_letters/        # Tailored cover letters
+│   ├── markdown/         #   Source markdown files
+│   ├── docx/             #   Generated Word documents
+│   └── pdf/              #   Generated PDFs
+├── src/                  # Source code
+│   ├── scraper.py        #   Workday API client (sync + async)
+│   ├── parser.py         #   HTML → Markdown conversion & field extraction
+│   ├── tier.py           #   Job fit classification (HIGH → LOW)
+│   └── writer.py         #   Markdown file generation with frontmatter
+├── scripts/              # CLI entry points
+│   ├── scrape.py         #   Job scraper CLI
+│   └── export.py         #   Cover letter DOCX/PDF exporter
+├── config/
+│   └── settings.yaml     # Tier classification keywords & scraper settings
+├── pyproject.toml        # Project metadata & dependencies
+└── PLAN.md               # Detailed project plan
 ```
 
-`materials/` is never committed because this repo is public. It holds:
+## Tier Classification
 
-- `applications/`: one folder per tailored job
-- `companies/`: company research
-- `resumes/bases/`: the base resumes
-- `profile/`: experience vault and screening answers
-- `docs/`: tailoring rules
-- `tailor/`: shared pipeline state
-- `archive/`: older material
+Jobs are automatically classified into four tiers based on title, description, location, and experience requirements:
+
+| Tier | Prefix | Meaning |
+|------|--------|---------|
+| HIGH | `A-high` | Strong match — tech, data, research roles with relevant skills |
+| MID-HIGH | `B-midhigh` | Good secondary fit — education, easy entry-level roles |
+| MID | `C-mid` | Neutral — worth a quick glance |
+| LOW | `D-low` | Wrong fit — too senior, wrong field, too far, etc. |
+
+Tier keywords and thresholds are fully configurable in `config/settings.yaml`.
+
+## Workflow
+
+1. Run `uv run python scripts/scrape.py` to fetch current UBC staff job listings
+2. Review new jobs in `job_descriptions/` (sorted by tier prefix)
+3. Draft tailored cover letters in `cover_letters/markdown/`
+4. Run `uv run python scripts/export.py` to generate DOCX and PDF versions
+5. Apply on Workday with the tailored cover letter
+
+## Configuration
+
+Edit `config/settings.yaml` to adjust:
+
+- Tier classification keywords (high, mid-high, low title/description keywords)
+- Location exclusion keywords
+- Experience year filter threshold

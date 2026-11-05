@@ -16,7 +16,6 @@ COLUMNS = [
     ("Title", "title"),
     ("Company", "company"),
     ("Location", "location"),
-    ("Location Category", "location_category"),
     ("Status", "status"),
     ("Tier", "tier"),
     ("Years Exp", "years_experience"),
@@ -49,12 +48,11 @@ def generate_xlsx(conn: sqlite3.Connection, output_path: str | Path) -> Path:
                 row["title"],
                 row["company"],
                 row["location"],
-                row["location_category"],
                 row["status"],
                 row["tier"] or "",
                 row["years_experience"] if row["years_experience"] is not None else "",
                 ", ".join(row["sources"]),
-                row["posted"] if row["posted_given"] else "",
+                row["posted_date"] or "",
                 row["first_seen"],
                 row["last_seen"],
                 primary_url,
@@ -73,7 +71,7 @@ def generate_xlsx(conn: sqlite3.Connection, output_path: str | Path) -> Path:
         ws.add_table(table)
 
     # Reasonable column widths
-    widths = [40, 28, 24, 16, 10, 8, 10, 22, 12, 20, 20, 50]
+    widths = [40, 28, 24, 10, 8, 10, 22, 12, 20, 20, 50]
     for i, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
