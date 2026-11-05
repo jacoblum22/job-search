@@ -326,3 +326,31 @@ def test_optional_language_not_skipped():
 
 def test_over_five_years_preferred_still_skipped():
     assert _score_pref("Data Scientist", "python " * 50, years=4, preferred=6).tier == "skip"
+
+
+LINKEDIN_TAIL = (
+    "\n\nSeniority levelMid-Senior level\nEmployment typeFull-time\nJob functionAnalyst\n"
+    "Referrals increase your chances\nSimilar jobs\nData Analyst (Entry-Level, Fully Remote) SQL Python"
+)
+
+
+def test_linkedin_mid_senior_label_is_penalised():
+    base = _score("Data Analyst", "Use SQL and Python.")
+    out = _score("Data Analyst", "Use SQL and Python." + LINKEDIN_TAIL)
+    assert out.score == base.score - 25
+    assert any("seniority level" in r for r in out.reasons)
+
+
+def test_linkedin_similar_jobs_text_earns_nothing():
+    out = _score("Data Analyst", "Use SQL." + LINKEDIN_TAIL)
+    assert not any("entry-level wording" in r for r in out.reasons)
+
+
+def test_linkedin_director_label_skipped():
+    out = _score("Data Analyst", "Use SQL.\nSeniority levelDirector\nEmployment typeFull-time")
+    assert out.tier == "skip"
+
+
+def test_linkedin_entry_label_changes_nothing():
+    base = _score("Data Analyst", "Use SQL.")
+    assert _score("Data Analyst", "Use SQL.\nSeniority levelEntry level").score == base.score
