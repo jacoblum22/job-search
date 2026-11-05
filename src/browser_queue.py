@@ -42,6 +42,10 @@ SNIPPET_MAX_CHARS = 1000  # same threshold as src/enrich.py
 MIN_FULL_CHARS = 300
 BROWSER_SOURCES = ("linkedin", "indeed", "glassdoor", "careerjet", "jobright", "wellfound")
 RETRY_AFTER = timedelta(days=3)
+# Order of sites in queue.json: the Chrome task works down the list and has stopped
+# part way before, so the sites that matter most (and LinkedIn, whose alert emails
+# carry no description at all) come first. Other sources follow, alphabetically.
+SITE_PRIORITY = ("linkedin", "glassdoor", "indeed", "jobright", "wellfound", "careerjet")
 
 # enrich_attempts.ok: 1 = filled, 0 = plain HTTP fetch failed, -1 = the
 # browser couldn't read it either (retried after RETRY_AFTER).
@@ -107,7 +111,11 @@ def pending(conn: sqlite3.Connection, *, days: int | None = None, limit: int | N
         ),
     ).fetchall()
     cols = ("id", "source", "title", "company", "location", "url", "chars", "first_seen")
-    return [dict(zip(cols, r)) for r in rows]
+    listings = [dict(zip(cols, r)) for r in rows]
+    # Stable sort: newest first within each site is kept.
+    listings.sort(key=lambda r: SITE_PRIORITY.index(r["source"]) if r["source"] in SITE_PRIORITY
+                  else len(SITE_PRIORITY))
+    return listings
 
 
 def _record(conn: sqlite3.Connection, job_id: int, ok: int) -> tuple[str, str]:

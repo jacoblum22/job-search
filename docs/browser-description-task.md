@@ -78,8 +78,14 @@ commands or scripts: this task only reads and writes files in the
    each with an `id` and a `url`; there may be a few hundred. Skip any
    listing whose `.browser-queue/<id>.md` or `.browser-queue/<id>.fail`
    already exists. From the rest, take the first 15 per site in the order
-   they appear, and never open more than 15 from one site in a run (more
-   could get my accounts flagged). A run opens 15 more per site even if an
+   they appear (queue.json lists LinkedIn first, newest first within each
+   site), and never open more than 15 from one site in a run (more could get
+   my accounts flagged). Go site by site in that order and give every site
+   its turn: don't skip a site, and don't spend the run on the first ones.
+   Don't stop early because the work is long or you guess it will use too
+   much: keep going until each site has had its 15 or has none left. If you
+   truly can't continue, say exactly why in your reply (the error or the
+   limit you hit), not "I ran out of steam". A run opens 15 more per site even if an
    earlier run today already did some. Write each file as soon as you finish
    that posting. If the file is missing, stop and say so. Only when no
    listing is left without a file, stop and reply "Nothing to fill in: every
@@ -89,6 +95,9 @@ commands or scripts: this task only reads and writes files in the
    job description: the role, responsibilities, qualifications, pay and
    benefits. Leave out the sidebar, "similar jobs", and the generic company
    blurb.
+   - Read only the description: use `get_page_text` (or one `javascript_tool`
+     call that returns just the description element's text) instead of
+     screenshots, and don't read the same page twice.
    - Copy the description into `.browser-queue/<id>.md` word for word, as
      Markdown (keep its headings and bullet lists). Don't summarize, shorten,
      reword or add notes of your own: the tailoring matches the posting's

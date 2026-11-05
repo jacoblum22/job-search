@@ -97,3 +97,13 @@ def test_queue_lists_the_whole_backlog_oldest_included(tmp_path):
     conn.commit()
     listed = browser_queue.export_queue(conn, tmp_path / "q")
     assert len(listed) == 44 and 1 in {r["id"] for r in listed}
+
+
+def test_queue_lists_linkedin_before_the_alphabetically_earlier_sources(tmp_path):
+    # The Chrome task works down the list and has stopped part way; LinkedIn must not be last.
+    conn = _conn(tmp_path)
+    for source in ("careerjet", "glassdoor", "linkedin"):
+        upsert_job(conn, Job(source, "1", "Data Analyst", "Acme", "Vancouver, BC",
+                             "snippet", url=f"https://example.com/{source}"))
+    order = list(dict.fromkeys(r["source"] for r in browser_queue.pending(conn)))
+    assert order == ["linkedin", "glassdoor", "careerjet"]
