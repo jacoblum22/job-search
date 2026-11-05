@@ -97,3 +97,60 @@ def test_queue_lists_the_whole_backlog_oldest_included(tmp_path):
     conn.commit()
     listed = browser_queue.export_queue(conn, tmp_path / "q")
     assert len(listed) == 44 and 1 in {r["id"] for r in listed}
+
+
+def test_linkedin_is_listed_before_alphabetically_earlier_sources(tmp_path):
+    # A run that stops early must not skip LinkedIn just because "adzuna" and
+    # "careerjet" sort first (the 2026-11-05 run did exactly that).
+    conn = _conn(tmp_path)
+    for source in ("adzuna", "careerjet", "glassdoor", "hn_hiring", "jobright"):
+        upsert_job(conn, Job(source, "x", "Data Analyst", "Acme", "Vancouver, BC",
+                             "snippet", url=f"https://example.com/{source}"))
+    conn.execute("INSERT INTO enrich_attempts (source, external_id, attempted_at, ok) "
+                 "VALUES ('adzuna', 'x', ?, 0)", (browser_queue._now().isoformat(timespec="seconds"),))
+    conn.execute("INSERT INTO enrich_attempts (source, external_id, attempted_at, ok) "
+                 "VALUES ('hn_hiring', 'x', ?, 0)", (browser_queue._now().isoformat(timespec="seconds"),))
+    conn.commit()
+    order = []
+    for r in browser_queue.pending(conn):
+        if r["source"] not in order:
+            order.append(r["source"])
+    assert order[:3] == ["linkedin", "glassdoor", "jobright"]
+    assert order[3] == "careerjet" and set(order[4:]) == {"adzuna", "hn_hiring"}
+
+
+# --- scripts/browser_fetch.py: the no-model copier ---------------------------
+
+import importlib.util
+from pathlib import Path
+
+_spec = importlib.util.spec_from_file_location(
+    "browser_fetch", Path(__file__).resolve().parent.parent / "scripts" / "browser_fetch.py")
+browser_fetch = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(browser_fetch)
+
+
+def test_fetch_classifies_walls_closed_and_ok():
+    body = "Responsibilities\n" + "Build dashboards in SQL and Python. " * 20
+    assert browser_fetch.classify_page("https://www.linkedin.com/jobs/view/1", "Data Analyst", body)[0] == "ok"
+    assert browser_fetch.classify_page("https://www.linkedin.com/authwall?x=1", "Sign in", "")[0] == "wall"
+    assert browser_fetch.classify_page("https://x.com/j", "Just a moment", "Verify you are human to continue")[0] == "wall"
+    assert browser_fetch.classify_page("https://x.com/j", "Analyst", "This job has closed.")[0] == "gone"
+    # "captcha" deep in a real posting body is not a wall
+    deep = body + "\nWe never use a captcha on our careers site."
+    assert browser_fetch.classify_page("https://x.com/j", "Analyst", deep)[0] == "ok"
+
+
+def test_fetch_markdown_keeps_headings_bullets_and_wording():
+    md = browser_fetch.html_to_markdown("<h2>Requirements</h2><ul><li>SQL</li><li>Python (pandas)</li></ul>")
+    assert "## Requirements" in md and "- SQL" in md and "Python (pandas)" in md
+
+
+def test_fetch_chooses_per_site_cap_and_skips_existing_files(tmp_path):
+    listings = [{"id": n, "source": "linkedin"} for n in range(1, 21)] + [{"id": 100, "source": "glassdoor"}]
+    (tmp_path / "1.md").write_text("x")
+    (tmp_path / "2.fail").write_text("x")
+    got = browser_fetch.choose(listings, tmp_path, 15, None)
+    assert [r["id"] for r in got if r["source"] == "linkedin"] == list(range(3, 18))
+    assert [r["id"] for r in got if r["source"] == "glassdoor"] == [100]
+    assert [r["id"] for r in browser_fetch.choose(listings, tmp_path, 15, {"glassdoor"})] == [100]
