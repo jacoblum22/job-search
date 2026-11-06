@@ -107,6 +107,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--text); background: var(--panel); border-color: var(--border); font-weight: 600; margin-bottom: -1px; }
   .tab .n { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  tr.group td { background: var(--panel); color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; padding: 6px 12px; }
   td.notice { text-align: center; color: var(--muted); padding: 48px 12px; font-size: 14px; }
   td.notice button { margin-left: 8px; background: var(--panel); border: 1px solid var(--border); color: var(--accent); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   td.notice.error { color: #e57373; }
@@ -330,6 +331,9 @@ for (const s of allSources) {
 }
 
 let sortKey = 'score_sort', sortDir = -1;
+// Until a column header is clicked, applications waiting on you sit in a group at the top.
+// Once you pick a column, that column alone decides the order.
+let userSorted = false;
 const NEWEST_FIRST = new Set(['posted', 'first_seen']);
 // The page auto-reloads, so keep the chosen tab in the URL hash.
 let activeTab = {'#internships': 'internship', '#stats': 'stats'}[location.hash] || 'fulltime';
@@ -541,7 +545,9 @@ function render() {
   });
 
   filtered.sort((a, b) => {
-    if (a.pin !== b.pin) return a.pin - b.pin;  // applications waiting on you come first
+    // Until a column is clicked, applications waiting on you form a group at the top.
+    // After a click, only the chosen column decides the order.
+    if (!userSorted && (a.pin < 99) !== (b.pin < 99)) return a.pin < 99 ? -1 : 1;
     const av = a[sortKey] ?? '', bv = b[sortKey] ?? '';
     if (av < bv) return -1 * sortDir;
     if (av > bv) return 1 * sortDir;
@@ -572,7 +578,14 @@ function render() {
     body.innerHTML = `<tr><td class="notice" colspan="12">${escapeHtml(msg)}${action}</td></tr>`;
     return;
   }
+  let lastGroup = null;
   body.innerHTML = filtered.map(j => {
+    const group = !userSorted && j.pin < 99;
+    const groupRow = (group && lastGroup === null) || (!group && lastGroup === true)
+      ? (group || (!userSorted && filtered.some(x => x.pin < 99))
+        ? `<tr class="group"><td colspan="12">${group ? 'Waiting on you' : 'Everything else'}</td></tr>` : '')
+      : '';
+    lastGroup = group;
     const link = j.urls.length ? j.urls[0][1] : '';
     const safeLink = /^https?:\/\//i.test(link) ? link : '';
     const postingLink = safeLink
@@ -586,7 +599,7 @@ function render() {
     const closedBadge = j.closed ? ` <span class="badge closed" title="Can't apply: ${escapeHtml(j.closed)}">${escapeHtml(j.closed)}</span>` : '';
     const srcBadges = j.sources.map(s => `<span class="badge src">${escapeHtml(s)}</span>`).join('');
     const scoreText = j.tier === 'skip' ? 'skip' : (j.score ?? '');
-    return `<tr${j.pin < 99 ? ' class="pinned"' : ''}>
+    return groupRow + `<tr${j.pin < 99 ? ' class="pinned"' : ''}>
       <td class="score" title="${escapeHtml(j.score_reasons)}"><span class="badge tier-${escapeHtml(j.tier)}">${escapeHtml(j.tier)}</span> ${escapeHtml(String(scoreText))}</td>
       <td>${titleCell}${closedBadge}</td>
       <td><div class="clamp" title="${escapeHtml(j.company)}">${escapeHtml(j.company)}</div></td>
@@ -635,7 +648,10 @@ document.querySelectorAll('th[data-key]').forEach(th => {
   th.addEventListener('click', () => {
     const key = th.dataset.key;
     // Dates open newest first; everything else ascending.
-    if (sortKey === key) { sortDir *= -1; } else { sortKey = key; sortDir = NEWEST_FIRST.has(key) ? -1 : 1; }
+    // The first click on the column the page opened sorted by keeps its direction.
+    if (sortKey === key && userSorted) { sortDir *= -1; }
+    else if (sortKey === key) { /* keep direction */ } else { sortKey = key; sortDir = NEWEST_FIRST.has(key) ? -1 : 1; }
+    userSorted = true;
     render();
   });
 });
