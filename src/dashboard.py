@@ -331,6 +331,9 @@ for (const s of allSources) {
 }
 
 let sortKey = 'score_sort', sortDir = -1;
+// Until a column header is clicked, applications waiting on you sit in a group at the top.
+// Once you pick a column, that column alone decides the order.
+let userSorted = false;
 const NEWEST_FIRST = new Set(['posted', 'first_seen']);
 // The page auto-reloads, so keep the chosen tab in the URL hash.
 let activeTab = {'#internships': 'internship', '#stats': 'stats'}[location.hash] || 'fulltime';
@@ -542,9 +545,9 @@ function render() {
   });
 
   filtered.sort((a, b) => {
-    // Applications waiting on you form their own group at the top; inside each group
-    // the rows follow the chosen sort, so the Score column is really in score order.
-    if ((a.pin < 99) !== (b.pin < 99)) return a.pin < 99 ? -1 : 1;
+    // Until a column is clicked, applications waiting on you form a group at the top.
+    // After a click, only the chosen column decides the order.
+    if (!userSorted && (a.pin < 99) !== (b.pin < 99)) return a.pin < 99 ? -1 : 1;
     const av = a[sortKey] ?? '', bv = b[sortKey] ?? '';
     if (av < bv) return -1 * sortDir;
     if (av > bv) return 1 * sortDir;
@@ -577,9 +580,9 @@ function render() {
   }
   let lastGroup = null;
   body.innerHTML = filtered.map(j => {
-    const group = j.pin < 99;
+    const group = !userSorted && j.pin < 99;
     const groupRow = (group && lastGroup === null) || (!group && lastGroup === true)
-      ? (group || filtered.some(x => x.pin < 99)
+      ? (group || (!userSorted && filtered.some(x => x.pin < 99))
         ? `<tr class="group"><td colspan="12">${group ? 'Waiting on you' : 'Everything else'}</td></tr>` : '')
       : '';
     lastGroup = group;
@@ -645,7 +648,10 @@ document.querySelectorAll('th[data-key]').forEach(th => {
   th.addEventListener('click', () => {
     const key = th.dataset.key;
     // Dates open newest first; everything else ascending.
-    if (sortKey === key) { sortDir *= -1; } else { sortKey = key; sortDir = NEWEST_FIRST.has(key) ? -1 : 1; }
+    // The first click on the column the page opened sorted by keeps its direction.
+    if (sortKey === key && userSorted) { sortDir *= -1; }
+    else if (sortKey === key) { /* keep direction */ } else { sortKey = key; sortDir = NEWEST_FIRST.has(key) ? -1 : 1; }
+    userSorted = true;
     render();
   });
 });
