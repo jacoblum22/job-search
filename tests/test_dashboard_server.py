@@ -595,3 +595,11 @@ def test_list_and_details_show_the_same_tier_and_score_for_a_group(env):
     assert (row["tier"], row["score"]) == ("A", 64)
     job = json.loads(env["app"].handle("GET", f"/api/job/{row['id']}", H)[2])["job"]
     assert (job["tier"], job["score"], job["title"]) == (row["tier"], row["score"], row["title"])
+
+
+def test_shortlisted_is_labelled_queued_not_drafting():
+    """'shortlisted' only means waiting for a tailoring session; nothing is drafting it."""
+    from src.dashboard import app_summary
+
+    assert app_summary({"status": "shortlisted"})["label"] == "Queued"
+    assert app_summary({})["label"] == "Queued"

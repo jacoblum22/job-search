@@ -20,7 +20,7 @@ from src.search_match import INTERNSHIP_TITLE_RE as _INTERNSHIP_RE
 from src.tailor import store
 
 _APP_LABELS = {
-    "shortlisted": "Drafting",
+    "shortlisted": "Queued",
     "ready_for_review": "Ready for review",
     "needs_fixes": "Needs fixes",
     "approved": "Approved, not applied",
@@ -197,7 +197,7 @@ __GOAL_CSS__</style>
   <select id="appFilter">
     <option value="">All jobs</option>
     <option value="any">Has an application</option>
-    <option value="shortlisted">Drafting</option>
+    <option value="shortlisted">Queued</option>
     <option value="ready_for_review">Ready for review</option>
     <option value="needs_fixes">Needs fixes</option>
     <option value="approved">Approved, not applied</option>
@@ -484,7 +484,7 @@ function renderStats() {
                 .map(([k, n]) => [locNames[k] || k, n, k]), 'third', k => locColors[k] || locColors.other);
   const appOrder = ['needs_fixes', 'ready_for_review', 'approved', 'shortlisted', 'applied'];
   const appLabel = {needs_fixes: 'Needs fixes', ready_for_review: 'Ready for review', approved: 'Approved, not applied',
-                    shortlisted: 'Drafting', applied: 'Applied'};
+                    shortlisted: 'Queued', applied: 'Applied'};
   const appColors = {needs_fixes: ['#b23b3b', '#f07178'], ready_for_review: ['#4a6fe0', '#86a6ff'],
                      approved: ['#2f9e5b', '#5fd38b'], shortlisted: ['#5a5f70', '#8a90a3'], applied: ['#b8860b', '#f2b84b']};
   h += barsCard('Applications', 'Tailored resumes and cover letters by status',
