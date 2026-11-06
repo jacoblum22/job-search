@@ -124,3 +124,25 @@ def test_two_rows_that_match_each_other_merge_even_when_their_groups_first_rows_
     monkeypatch.setattr(dedup, "_is_match", lambda a, b: frozenset({a["id"], b["id"]}) in pairs)
     dedup.run_dedup(conn)
     assert len({r[0] for r in conn.execute("SELECT dedup_group_id FROM jobs")}) == 1
+
+
+def test_level_words_keep_different_levels_apart():
+    long_ = "Software Engineer - Remote (Global), Full-Time"
+    assert not _is_match(_row(title="Junior " + long_), _row(title=long_))
+    assert not _is_match(_row(title="Data Analyst II"), _row(title="Data Analyst III"))
+    assert _is_match(_row(title="Senior Data Analyst"), _row(title="Sr. Data Analyst"))
+    assert _is_match(_row(title="Junior " + long_), _row(title="Junior " + long_))
+
+
+def test_run_dedup_splits_old_level_merges(tmp_path):
+    from src.db import Job, connect, upsert_job
+    from src.dedup import run_dedup
+
+    conn = connect(tmp_path / "j.db")
+    a, _ = upsert_job(conn, Job("s", "1", "Software Engineer - Remote (Global), Full-Time", "Mixrank", "Remote", DESC, "u1"))
+    b, _ = upsert_job(conn, Job("s", "2", "Junior Software Engineer - Remote (Global), Full-Time", "Mixrank", "Remote", DESC, "u2"))
+    conn.execute("UPDATE jobs SET dedup_group_id = 's:1'")  # the old wrong merge
+    conn.commit()
+    run_dedup(conn)
+    groups = dict(conn.execute("SELECT id, dedup_group_id FROM jobs").fetchall())
+    assert groups[a] != groups[b]

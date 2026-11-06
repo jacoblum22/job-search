@@ -20,7 +20,7 @@ import sqlite3
 
 from rapidfuzz import fuzz
 
-from src.db import jobs_for_dedup, normalize, set_dedup_groups
+from src.db import jobs_for_dedup, normalize, set_dedup_group, set_dedup_groups
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,22 @@ _COMPANY_SUFFIXES = {"inc", "ltd", "limited", "corp", "corporation", "llc", "com
 MIN_DESCRIPTION_CHARS = 300
 
 
+# Seniority words. "Junior Software Engineer - Remote (Global), Full-Time" and "Software Engineer -
+# Remote (Global), Full-Time" score 93 on the fuzzy title match, but they are different jobs, so
+# two titles whose level words differ are never the same posting.
+_LEVEL_WORDS = {"junior", "jr", "senior", "sr", "lead", "staff", "principal", "intern", "internship",
+                "i", "ii", "iii", "iv", "v"}
+
+
+_LEVEL_ALIASES = {"jr": "junior", "sr": "senior", "internship": "intern"}
+
+
+def level_words(title: str | None) -> frozenset[str]:
+    """The seniority words in a title ("Data Analyst II" -> {"ii"}; "Sr." -> {"sr"})."""
+    words = (_LEVEL_ALIASES.get(w, w) for w in re.findall(r"[a-z]+", normalize(title or "")))
+    return frozenset(w for w in words if w in _LEVEL_WORDS)
+
+
 def _core_company(name: str | None) -> str:
     """The company name without punctuation or suffix words, for the suffix-only comparison."""
     words = re.sub(r"[^\w]+", " ", normalize(name or "")).split()
@@ -52,6 +68,8 @@ def _plain_location(loc: str | None) -> str:
 
 
 def _is_match(a: sqlite3.Row, b: sqlite3.Row) -> bool:
+    if level_words(a["title"]) != level_words(b["title"]):
+        return False
     title_score = fuzz.token_sort_ratio(normalize(a["title"]), normalize(b["title"]))
     if title_score < TITLE_THRESHOLD:
         return False
@@ -95,6 +113,30 @@ def _same_description(a: str | None, b: str | None) -> bool:
     return fuzz.ratio(a[:3000], b[:3000]) >= DESCRIPTION_THRESHOLD
 
 
+def split_level_mismatches(conn: sqlite3.Connection) -> int:
+    """Undo old merges of rows whose level words differ (see _LEVEL_WORDS). In each group the rows
+    sharing the first row's level words stay; every other level-set becomes its own group.
+    Returns the number of rows moved."""
+    groups: dict[str, list[sqlite3.Row]] = {}
+    for row in conn.execute("SELECT id, source, external_id, title, dedup_group_id FROM jobs ORDER BY id"):
+        groups.setdefault(row["dedup_group_id"], []).append(row)
+    moved = 0
+    for group_id, members in groups.items():
+        if len(members) < 2:
+            continue
+        keep = level_words(members[0]["title"])
+        new_ids: dict[frozenset[str], str] = {}
+        for m in members[1:]:
+            lw = level_words(m["title"])
+            if lw == keep:
+                continue
+            target = new_ids.setdefault(lw, f"{m['source']}:{m['external_id']}")
+            set_dedup_group(conn, m["id"], target)
+            moved += 1
+            logger.info("Dedup: split job %s (%s) out of group %s", m["id"], m["title"], group_id)
+    return moved
+
+
 def run_dedup(conn: sqlite3.Connection, since_days: int = 45) -> int:
     """Merge matching jobs (first seen within `since_days`) into shared dedup groups.
 
@@ -102,6 +144,7 @@ def run_dedup(conn: sqlite3.Connection, since_days: int = 45) -> int:
     first match left the others split (61 pairs in Oct 2026: Fortinet, Amazon, Turing, Cisco ...).
     Returns the number of jobs whose dedup_group_id was changed.
     """
+    split = split_level_mismatches(conn)
     candidates = jobs_for_dedup(conn, since_days=since_days)
 
     # `parent` maps a group id to the group it was merged into. Every job is compared with every
@@ -135,4 +178,4 @@ def run_dedup(conn: sqlite3.Connection, since_days: int = 45) -> int:
 
     conn.commit()
     logger.info("Dedup: merged %d job(s) across %d candidate(s)", merged_count, len(candidates))
-    return merged_count
+    return merged_count + split
