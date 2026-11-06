@@ -281,3 +281,65 @@ def test_owasp_is_its_own_skill_not_data_privacy():
     assert tx.canonical("OWASP Top 10") == "secure coding / OWASP"
     assert tx.canonical("secure coding practices") == "secure coding / OWASP"
     assert tx.canonical("data security") == "data privacy / security"
+
+
+# Skills review, Nov 6 2026: real posting wording.
+@pytest.mark.parametrize("text, skill", [
+    ("Orchestration tools such as Apache Airflow, NiFi or Talend.", "Talend"),
+    ("Orchestration tools such as Apache Airflow, NiFi or Talend.", "Apache NiFi"),
+    ("Cloud Data Platforms (Google Cloud Platform, Snowflake, AWS, Matillion) is an asset", "Matillion"),
+    ("reporting tools such as: Power BI, Tableau, Cognos, BusinessObjects, SSRS", "SAP BusinessObjects"),
+    ("Jupyter, Matplotlib, D3, ggplot, Periscope, Business Objects, etc.", "SAP BusinessObjects"),
+    ("Working Knowledge of SQL Server, Power BI, PowerPivot, Dashboards", "Power Pivot"),
+    ("Familiarity with Markdown-based documentation or docs-as-code practices", "Markdown"),
+    ("API design principles (REST, RPC, SSE, GraphQL)", "gRPC / RPC"),
+    ("Production Go services, APIs, concurrency, profiling, or gRPC", "gRPC / RPC"),
+    ("data quality, ETL, schema evolution, and analytical reproducibility", "schema evolution / migrations"),
+    ("data reconciliation, schema migrations, metric validation", "schema evolution / migrations"),
+    ("financial crime analytics including knowledge of financial crimes typologies", "anti-money laundering (AML) / financial crime"),
+    ("Anti-Money Laundering (AML), Know Your Customer (KYC), sanctions screening", "anti-money laundering (AML) / financial crime"),
+    ("fraud detection, transaction monitoring, or financial crime analytics", "anti-money laundering (AML) / financial crime"),
+    ("CFCI, CFE are considered an asset", "CFE / CFCI (fraud certifications)"),
+    ("Bonus Points: Certified Fraud Examiner (CFE)", "CFE / CFCI (fraud certifications)"),
+    # Fixes to existing entries.
+    ("relational databases such as: Oracle, SQL Server, PostgreSQL, Teradata", "SQL"),
+    ("platforms such as Cloudera and Databricks", "Hadoop/Hive"),
+    ("Hadoop tools (Hive, Impala, Airflow, NiFi)", "Hadoop/Hive"),
+    ("Skilled in shell scripting and command-line tools", "Bash/Shell"),
+    ("Use the Linux command line for daily work", "Bash/Shell"),
+    ("dbt models, clean transformations, data testing suites", "data quality / validation"),
+    ("Familiarity with Python and basic machine-learning concepts", "machine learning"),
+    ("Ability to use approved generative-AI tools responsibly", "LLMs / generative AI"),
+    ("enterprise systems such as CRMs, ERPs, and internal databases", "Salesforce/CRM"),
+    ("enterprise systems such as CRMs, ERPs, and internal databases", "ERP (SAP/Oracle/Workday)"),
+    ("Optimize pipeline performance and cost (partitioning, file formats, compute tuning)", "query / performance tuning"),
+    ("Performance & Campaign Analytics", "marketing analytics / attribution"),
+    ("promotion/campaign ROI analysis and post analysis", "marketing analytics / attribution"),
+])
+def test_nov_6_review_skills(text, skill):
+    assert skill in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text, wrong", [
+    ("Dansk talende på flydende niveau", "Talend"),
+    ("custom business objects, condition rules, and workflow routings", "SAP BusinessObjects"),
+    ("markdown optimization and promotional pricing", "Markdown"),
+    ("installable package with a command-line interface (Typer, Rich)", "Bash/Shell"),
+    ("head office, regions, segments, and RPC business lines", "gRPC / RPC"),
+    ("act on fast-evolving fraud and money laundering activities in real time",
+     "anti-money laundering (AML) / financial crime"),
+    ("completion of the CPA Common Final Examination (CFE)", "CFE / CFCI (fraud certifications)"),
+    ("techniques such as boundary value analysis, equivalence partitioning", "query / performance tuning"),
+    ("Multi-tenant GPU platforms, GPU partitioning", "query / performance tuning"),
+])
+def test_nov_6_review_false_matches(text, wrong):
+    assert wrong not in taxonomy.find(text)
+
+
+def test_nov_6_review_products_and_concepts():
+    assert not _is_tool("schema evolution / migrations")
+    assert not _is_tool("anti-money laundering (AML) / financial crime")
+    for name in ["Talend", "Apache NiFi", "Matillion", "SAP BusinessObjects", "Power Pivot"]:
+        assert _is_tool(name), name
+        assert name in taxonomy.TOOL_TYPES, name
+    assert taxonomy.RELATED["Power Pivot"] == "Excel"
