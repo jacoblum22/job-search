@@ -350,6 +350,9 @@ sources:
 # effect without scraping.
 
 score:
+  # A posting whose location is only "Canada" is placed by Jev reading its text (src/location_jev.py);
+  # without a verdict the patterns in src/location_filter.py decide.
+  jev_location: {enabled: true, min_confidence: 0.6, max_new_per_run: 400}
   # Hard skips (tier "skip", no score)
   skip_years_over: 5          # more than 5 years required
   skip_other_locations: true  # not Vancouver-area or remote
