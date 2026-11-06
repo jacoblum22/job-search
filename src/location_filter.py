@@ -144,6 +144,11 @@ _DESC_VANCOUVER = re.compile(
 _STATE_CODES = "|".join(sorted(_US_STATES))
 _US_CITY_STATE = re.compile(rf"\b[A-Z][a-z][A-Za-z.'-]*,\s*(?:{_STATE_CODES})\b(?!\.\w)")
 _US_PLACE_ZIP = re.compile(r"\b[A-Z][a-z][A-Za-z.'-]*,\s*(?:[A-Z]{2})\s+\d{5}(?:-\d{4})?\b")
+# "company located in Raleigh, NC": a cue word makes a plain "City, ST" a US place,
+# but only after the remote check (a remote job may name its US headquarters).
+_US_CUED = re.compile(
+    rf"\b(?:located|based|headquartered|situated) (?:in|at) (?:[A-Za-z.'-]+ ){{0,2}}?[A-Z][a-z][A-Za-z.'-]*,\s*(?:{_STATE_CODES})\b"
+)
 # The same, but only inside a labelled work site, which beats a "remote" mention
 # elsewhere in the posting.
 _DESC_SITE_LABEL = re.compile(
@@ -173,7 +178,7 @@ def location_from_description(description: str) -> str | None:
             return "other"
     if _DESC_REMOTE.search(text) and not _DESC_NOT_REMOTE.search(text):
         return "remote"
-    if _DESC_ELSEWHERE.search(text) or _US_PLACE_ZIP.search(text):
+    if _DESC_ELSEWHERE.search(text) or _US_PLACE_ZIP.search(text) or _US_CUED.search(text):
         return "other"
     return None
 
