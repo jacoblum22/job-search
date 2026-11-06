@@ -576,6 +576,27 @@ def test_autofill_diagnostics_only_accepts_extension_origin(env):
     assert post(env, "/api/tailoring", {}, ext)[0] == 403  # the exception is for this one path only
 
 
+def test_list_and_details_show_the_same_tier_and_score_for_a_group(env):
+    """Two raw rows of one posting score differently. The application is on the shorter one;
+    the list must show that row's tier/score (what the details page opens), not the longer one's."""
+    from src.dashboard import dashboard_rows
+
+    conn = connect(env["cfg"]["paths"]["db"])
+    twin, _ = upsert_job(conn, Job("test2", "a2", "Junior Software Engineer", "VCH", "Vancouver, BC",
+                                   "SQL " * 500, "https://y/a2"))
+    group = conn.execute("SELECT dedup_group_id FROM jobs WHERE id = ?", (env["jid"],)).fetchone()[0]
+    conn.execute("UPDATE jobs SET dedup_group_id = ? WHERE id = ?", (group, twin))
+    conn.execute("UPDATE jobs SET tier = 'A', score = 64 WHERE id = ?", (env["jid"],))   # has the application
+    conn.execute("UPDATE jobs SET tier = 'D', score = 35 WHERE id = ?", (twin,))         # longer description
+    conn.commit()
+    row = next(r for r in dashboard_rows(conn) if r["dedup_group_id"] == group)
+    conn.close()
+    assert row["id"] == env["jid"]
+    assert (row["tier"], row["score"]) == ("A", 64)
+    job = json.loads(env["app"].handle("GET", f"/api/job/{row['id']}", H)[2])["job"]
+    assert (job["tier"], job["score"], job["title"]) == (row["tier"], row["score"], row["title"])
+
+
 def test_shortlisted_is_labelled_queued_not_drafting():
     """'shortlisted' only means waiting for a tailoring session; nothing is drafting it."""
     from src.dashboard import app_summary

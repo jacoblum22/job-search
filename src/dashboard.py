@@ -720,11 +720,13 @@ def app_summary(app: dict) -> dict:
 def dashboard_rows(conn: sqlite3.Connection, only_ids: set[int] | None = None) -> list[dict]:
     """The rows the dashboard's table is built from. With `only_ids`, just the rows
     holding one of those job ids (what a details page changed)."""
-    rows = grouped_jobs(conn, only_ids)
     apps = store.all_apps(conn)
+    rows = grouped_jobs(conn, only_ids, prefer_ids=frozenset(apps))
     for r in rows:
         ids = r.pop("ids")
-        app_id = next((i for i in ids if i in apps), None)
+        # The list shows the application's own row (grouped_jobs prefer_ids), and the details
+        # page opens that same row, so tier and score can't differ between the two.
+        app_id = r["id"] if r["id"] in apps else next((i for i in ids if i in apps), None)
         r["app"] = app_summary(apps[app_id]) if app_id is not None else None
         if app_id is not None:
             r["id"] = app_id  # the details page looks the application up by its job id

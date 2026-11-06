@@ -396,7 +396,8 @@ def set_job_status(conn: sqlite3.Connection, job_id: int, status: str) -> int:
     return n
 
 
-def grouped_jobs(conn: sqlite3.Connection, only_ids: set[int] | None = None) -> list[dict[str, Any]]:
+def grouped_jobs(conn: sqlite3.Connection, only_ids: set[int] | None = None,
+                 prefer_ids: set[int] | frozenset[int] = frozenset()) -> list[dict[str, Any]]:
     """Group raw job rows by dedup_group_id for display (dashboard/export).
 
     The same real-world posting can have multiple raw rows (one per source
@@ -404,6 +405,12 @@ def grouped_jobs(conn: sqlite3.Connection, only_ids: set[int] | None = None) -> 
     the primary display record per group, and aggregates which sources/URLs
     saw it. Sorted newest-first by first_seen. With `only_ids`, only the groups
     holding one of those job ids are built (the dashboard refreshing a few rows).
+
+    Members of one group are scored separately (their titles and descriptions differ), so
+    the group's title, tier and score all come from ONE member, the primary, and the details
+    page opens that same row. `prefer_ids` (jobs that have a tailored application) wins over
+    the longest description: the application was drafted for that row, so it must be the one
+    the list shows, or the list and the details page would show two different scores.
     """
     groups: dict[str, list[sqlite3.Row]] = {}
     for row in all_jobs(conn):
@@ -413,7 +420,8 @@ def grouped_jobs(conn: sqlite3.Connection, only_ids: set[int] | None = None) -> 
 
     result: list[dict[str, Any]] = []
     for group_id, members in groups.items():
-        primary = max(members, key=lambda r: len(r["description"] or ""))
+        preferred = [m for m in members if m["id"] in prefer_ids]
+        primary = max(preferred or members, key=lambda r: len(r["description"] or ""))
         status = max(members, key=lambda r: _STATUS_RANK.get(r["status"], 0))["status"]
         # Prefer the primary row's years_experience, but fall back to any other
         # group member's — one source's description may state it when another doesn't.
