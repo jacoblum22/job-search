@@ -107,6 +107,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--text); background: var(--panel); border-color: var(--border); font-weight: 600; margin-bottom: -1px; }
   .tab .n { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  tr.group td { background: var(--panel); color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; padding: 6px 12px; }
   td.notice { text-align: center; color: var(--muted); padding: 48px 12px; font-size: 14px; }
   td.notice button { margin-left: 8px; background: var(--panel); border: 1px solid var(--border); color: var(--accent); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   td.notice.error { color: #e57373; }
@@ -541,7 +542,9 @@ function render() {
   });
 
   filtered.sort((a, b) => {
-    if (a.pin !== b.pin) return a.pin - b.pin;  // applications waiting on you come first
+    // Applications waiting on you form their own group at the top; inside each group
+    // the rows follow the chosen sort, so the Score column is really in score order.
+    if ((a.pin < 99) !== (b.pin < 99)) return a.pin < 99 ? -1 : 1;
     const av = a[sortKey] ?? '', bv = b[sortKey] ?? '';
     if (av < bv) return -1 * sortDir;
     if (av > bv) return 1 * sortDir;
@@ -572,7 +575,14 @@ function render() {
     body.innerHTML = `<tr><td class="notice" colspan="12">${escapeHtml(msg)}${action}</td></tr>`;
     return;
   }
+  let lastGroup = null;
   body.innerHTML = filtered.map(j => {
+    const group = j.pin < 99;
+    const groupRow = (group && lastGroup === null) || (!group && lastGroup === true)
+      ? (group || filtered.some(x => x.pin < 99)
+        ? `<tr class="group"><td colspan="12">${group ? 'Waiting on you' : 'Everything else'}</td></tr>` : '')
+      : '';
+    lastGroup = group;
     const link = j.urls.length ? j.urls[0][1] : '';
     const safeLink = /^https?:\/\//i.test(link) ? link : '';
     const postingLink = safeLink
@@ -586,7 +596,7 @@ function render() {
     const closedBadge = j.closed ? ` <span class="badge closed" title="Can't apply: ${escapeHtml(j.closed)}">${escapeHtml(j.closed)}</span>` : '';
     const srcBadges = j.sources.map(s => `<span class="badge src">${escapeHtml(s)}</span>`).join('');
     const scoreText = j.tier === 'skip' ? 'skip' : (j.score ?? '');
-    return `<tr${j.pin < 99 ? ' class="pinned"' : ''}>
+    return groupRow + `<tr${j.pin < 99 ? ' class="pinned"' : ''}>
       <td class="score" title="${escapeHtml(j.score_reasons)}"><span class="badge tier-${escapeHtml(j.tier)}">${escapeHtml(j.tier)}</span> ${escapeHtml(String(scoreText))}</td>
       <td>${titleCell}${closedBadge}</td>
       <td><div class="clamp" title="${escapeHtml(j.company)}">${escapeHtml(j.company)}</div></td>
