@@ -574,3 +574,11 @@ def test_autofill_diagnostics_only_accepts_extension_origin(env):
     assert post(env, "/api/autofill-diagnostics", {"runs": []}, web)[0] == 403
     ext = {**H, "Origin": "chrome-extension://abc", "Content-Type": "application/json"}
     assert post(env, "/api/tailoring", {}, ext)[0] == 403  # the exception is for this one path only
+
+
+def test_shortlisted_is_labelled_queued_not_drafting():
+    """'shortlisted' only means waiting for a tailoring session; nothing is drafting it."""
+    from src.dashboard import app_summary
+
+    assert app_summary({"status": "shortlisted"})["label"] == "Queued"
+    assert app_summary({})["label"] == "Queued"
