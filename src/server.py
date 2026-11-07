@@ -59,6 +59,10 @@ class DashboardApp:
         self.refresh_delay = refresh_delay
         self._refresh_timer: threading.Timer | None = None
         self.runner = runner or TailoringRunner()
+        # Every change made through the server is numbered, so any open dashboard (another tab,
+        # the phone) can ask which rows changed since the number it has and refresh just those.
+        self.version = 0
+        self._changes: list[tuple[int, int]] = []  # (version, job id), newest last
         self.db_path = Path(db_path)
         self._pg = None  # the kept Postgres connection, once the main database is Postgres
         self.dashboard_path = dashboard_path
@@ -153,7 +157,7 @@ class DashboardApp:
         if path in ("/", "/index.html"):
             conn = self._conn()
             try:
-                return 200, "text/html; charset=utf-8", render_dashboard(conn, server=True).encode()
+                return 200, "text/html; charset=utf-8", render_dashboard(conn, server=True, version=self.version).encode()
             finally:
                 conn.close()
         if path == "/api/tailoring":
@@ -162,6 +166,8 @@ class DashboardApp:
             return self._json(self._goal())
         if path == "/api/rows":
             return self._rows(query)
+        if path == "/api/changes":
+            return self._changes_since(query)
         m = _JOB.match(path)
         if not m:
             return self._error("not found", 404)
@@ -173,6 +179,21 @@ class DashboardApp:
         if path.startswith("/job/") and rest.startswith("/file/"):
             return self._file(job_id, rest.removeprefix("/file/"))
         return self._error("not found", 404)
+
+    def _changes_since(self, query: str) -> Response:
+        """Job ids changed since version N (?since=N). `reload` when N is unknown to this server
+        (it restarted) or too old to answer, so the page rebuilds itself whole."""
+        raw = (parse_qs(query).get("since") or [""])[0]
+        since = int(raw) if raw.isdigit() else -1
+        oldest = self._changes[0][0] if self._changes else self.version + 1
+        if since < 0 or since > self.version or (since < self.version and since < oldest - 1):
+            return self._json({"version": self.version, "reload": True})
+        return self._json({"version": self.version, "ids": sorted({j for v, j in self._changes if v > since})})
+
+    def _note_change(self, job_id: int) -> None:
+        self.version += 1
+        self._changes.append((self.version, job_id))
+        del self._changes[:-500]
 
     def _rows(self, query: str) -> Response:
         """Fresh dashboard rows for the jobs a details page changed (?ids=12,40), so going
@@ -312,6 +333,7 @@ class DashboardApp:
             if job is None:
                 return self._error("no such job", 404)
             result = actions[action](conn, job_id, app, data)
+            self._note_change(job_id)
             self._refresh_file(conn)
         finally:
             conn.close()

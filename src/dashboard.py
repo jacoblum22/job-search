@@ -255,6 +255,20 @@ window.addEventListener('error', e => {
     'The dashboard hit an error and could not show jobs: ' + e.message;
 });
 const SERVER = __SERVER__;
+// Put freshly fetched rows into the table, replacing the stale row of the same posting.
+async function refetchRows(ids) {
+  ids = ids.filter(i => /^\d+$/.test(String(i)));
+  if (!ids.length) return;
+  const r = await fetch('/api/rows?ids=' + ids.join(','));
+  if (!r.ok) throw new Error(r.statusText);
+  const fresh = (await r.json()).rows;
+  const gone = new Set([...ids.map(Number), ...fresh.flatMap(f => f.group_ids || [f.id])]);
+  for (let i = jobs.length - 1; i >= 0; i--) {
+    if (gone.has(jobs[i].id) || (jobs[i].group_ids || []).some(g => gone.has(g))) jobs.splice(i, 1);
+  }
+  for (const row of fresh) jobs.push({...row, sourcesStr: row.sources.join(', ')});
+  render();
+}
 // Back from a job page the browser shows this page as it was (from its back/forward cache, or
 // its HTTP cache with the old rows). If something was changed there, fetch just those rows.
 window.addEventListener('pageshow', async () => {
@@ -265,19 +279,28 @@ window.addEventListener('pageshow', async () => {
     sessionStorage.removeItem('dashboardStale');
   } catch (_) { return; }
   if (!Array.isArray(ids)) { location.reload(); return; }
-  ids = ids.filter(i => /^\d+$/.test(String(i)));
-  if (!ids.length) return;
-  try {
-    const r = await fetch('/api/rows?ids=' + ids.join(','));
-    if (!r.ok) throw new Error(r.statusText);
-    for (const row of (await r.json()).rows) {
-      const fresh = {...row, sourcesStr: row.sources.join(', ')};
-      const at = jobs.findIndex(j => j.id === fresh.id);
-      if (at >= 0) jobs[at] = fresh; else jobs.push(fresh);
-    }
-    render();
-  } catch (_) { location.reload(); }
+  try { await refetchRows(ids); } catch (_) { location.reload(); }
 });
+// Changes made anywhere else (another tab, another device, the phone) reach this page too: the server
+// numbers every change, and this page asks what changed since the number it has, when the tab is
+// looked at again and every few seconds while it is visible. So a job marked applied never lingers.
+let changeVersion = __VERSION__;
+async function pollChanges() {
+  if (!SERVER || document.hidden) return;
+  try {
+    const r = await fetch('/api/changes?since=' + changeVersion);
+    if (!r.ok) return;
+    const c = await r.json();
+    if (c.reload) { location.reload(); return; }
+    changeVersion = c.version;
+    if (c.ids.length) await refetchRows(c.ids);
+  } catch (_) {}
+}
+if (SERVER) {
+  document.addEventListener('visibilitychange', pollChanges);
+  window.addEventListener('focus', pollChanges);
+  setInterval(pollChanges, 5000);
+}
 __GOAL_JS__
 // The daily goal bar: today's "I applied" count, refreshed when this tab is looked at again.
 if (SERVER) {
@@ -724,6 +747,7 @@ def dashboard_rows(conn: sqlite3.Connection, only_ids: set[int] | None = None) -
     rows = grouped_jobs(conn, only_ids, prefer_ids=frozenset(apps))
     for r in rows:
         ids = r.pop("ids")
+        r["group_ids"] = sorted(ids)  # every raw row of this posting, so a refetched row can replace the stale one
         # The list shows the application's own row (grouped_jobs prefer_ids), and the details
         # page opens that same row, so tier and score can't differ between the two.
         app_id = r["id"] if r["id"] in apps else next((i for i in ids if i in apps), None)
@@ -749,7 +773,7 @@ def dashboard_rows(conn: sqlite3.Connection, only_ids: set[int] | None = None) -
     return rows
 
 
-def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
+def render_dashboard(conn: sqlite3.Connection, server: bool = False, version: int = 0) -> str:
     """The dashboard HTML. With `server`, titles open the details page of the local
     server (scripts/serve.py) instead of only linking to the posting."""
     rows = dashboard_rows(conn)
@@ -763,6 +787,7 @@ def render_dashboard(conn: sqlite3.Connection, server: bool = False) -> str:
         .replace("__TOTAL__", str(len(rows)))
         .replace("__SOURCES__", str(len(all_sources)))
         .replace("__SERVER__", "true" if server else "false")
+        .replace("__VERSION__", str(int(version)))
         .replace("__GOAL_BAR__", goal_ui.BAR_HTML)
         .replace("__GOAL_CSS__", goal_ui.CSS)
         .replace("__GOAL_JS__", goal_ui.JS)
