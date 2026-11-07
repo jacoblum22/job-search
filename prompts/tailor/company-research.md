@@ -59,7 +59,9 @@ old, **do nothing and report "fresh, skipped"**.
 5. State only what the company says about itself, or what a news article reports. No guesses, no
    inferences about culture, no numbers you did not see, nothing about named individuals beyond the
    public role the page gives.
-6. Useful fact types: what they sell and to whom; products and projects; stated values; recent news;
+6. Useful fact types: what they sell and to whom; products and projects; stated values (when a page names
+   the company's core values, save them as ONE fact with the exact value names and the company's own
+   one-line description of each in the quote); recent news;
    tech stack and data tools (only where the company says so); anything about the team in the posting.
 7. If you find nothing usable, write `[]` to `facts.json` and say so in `notes.md`. That is a valid
    result; the letter will then use the posting alone.
