@@ -56,7 +56,8 @@ each through a real story from its cited passage, not as a list of names.
    Use at most one or two facts. Do not say where a motivation came from or quote the file, except for the people motivation: when you state it, prefer the `motivation.preferred-people-phrasing` wording ("One thing I value is work that stays people-related, whether customers feel it or colleagues rely on it.") as written, since the candidate chose it.
    **At least one fact must show real research:** a number, a named product, project, launch or
    event, or anything else that could only be true of this employer. "Values high-quality care" or
-   "a leader in innovation" could be said of anyone and does not count. Prefer a verified
+   "a leader in innovation" could be said of anyone and does not count (a named list of the
+   employer's core values is the exception: see "Named core values" below). Prefer a verified
    `facts.json` fact over the posting's own boilerplate. Take the fact's details from its `quote`
    (the only part checked against the source); a number or name only in its `fact` sentence fails.
    **Introduce the researched fact as research** ("Researching your company, I found...", "One thing
@@ -76,6 +77,19 @@ each through a real story from its cited passage, not as a list of names.
    stretched link ("I did the same thing, just for other teams") is worse than none.
    Never write "I want to contribute to this", "this is the kind of work I want" or similar before
    the letter's last sentence; the final sentence is the only place for "I would like to...".
+   **Named core values (the candidate's ruling, Nov 7 2026).** When `facts.json` or the posting
+   lists the employer's core values by name (a careers, about or values page; a list such as
+   "Intelligence, Passion, Integrity, Humility"), movement 3 names one of those values instead of
+   a number or product fact. Pick the value that honestly fits a `motivation.*` passage (or a real
+   behavior in the vault), and write it as "That's why <Company>'s value of <value> resonated with
+   me" right after the motivation sentence, followed by one short clause saying what the value
+   means to the candidate in practice ("; I'd rather listen to the people relying on my work and
+   fix what they need than defend my own approach"). Use the value's exact name from the page. A
+   named value counts as the company-specific detail, so no researched number is needed, and the
+   close then follows from the value or the posting's own work. Keep the clause a statement of
+   attitude, not a new story or claim about past work; never offer the candidate's own technique
+   as the answer to the employer's problem. If the page only says vague things ("we value
+   excellence") with no named list, this rule does not apply.
 4. **Short confident close.** One or two sentences: what the candidate would like to do next,
    ideally an invitation to talk about something specific in the role ("I would like to talk about
    how your team reports marketing-sourced pipeline").
