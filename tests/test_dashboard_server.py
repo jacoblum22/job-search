@@ -603,3 +603,21 @@ def test_shortlisted_is_labelled_queued_not_drafting():
 
     assert app_summary({"status": "shortlisted"})["label"] == "Queued"
     assert app_summary({})["label"] == "Queued"
+
+
+def test_changes_endpoint_tells_other_open_dashboards_what_changed(env):
+    other = env["other"]
+    _, start = get(env, "/api/changes?since=0")
+    assert start == {"version": 0, "ids": []}
+    page = get(env, "/")[1].decode()
+    assert "let changeVersion = 0;" in page
+    assert post(env, f"/api/job/{other}/status", {"status": "applied"})[0] == 200
+    assert get(env, "/api/changes?since=0")[1] == {"version": 1, "ids": [other]}
+    assert get(env, "/api/changes?since=1")[1] == {"version": 1, "ids": []}
+    assert "let changeVersion = 1;" in get(env, "/")[1].decode()
+    # A page from before a server restart (its number is ahead of ours) rebuilds itself whole.
+    assert get(env, "/api/changes?since=99")[1] == {"version": 1, "reload": True}
+    assert get(env, "/api/changes")[1]["reload"] is True
+    # The refetched row says applied, and names every raw row of the posting.
+    row = get(env, f"/api/rows?ids={other}")[1]["rows"][0]
+    assert row["status"] == "applied" and other in row["group_ids"]
