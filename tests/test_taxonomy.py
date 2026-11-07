@@ -49,6 +49,32 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Daily review, Nov 1 2026.
+    ("solvency mechanics, oracle design, redemption paths, liquidity depth", "SQL"),
+    ("lending protocols, ERC-4626 vaults, AMMs, or oracle systems", "SQL"),
+    ("You will work shoulder-to-shoulder with customers from warehouse floor to executive sponsor", "data warehouse"),
+    ("SEO/conversion optimization to inventory management", "optimization / OR"),
+    ("Supporting initiatives for data integrity and normalization.", "independent / self-starter"),
+    ("She joins the team in March", "SQL joins / aggregations"),
+    ("cross-chain yield aggregation, structured products", "SQL joins / aggregations"),
+    ("Reproduce the LLaMA 2 architecture: attention, positional encoding, MLP, normalization, KV cache",
+     "data normalization"),
+    ("demonstrates understanding of attention, positional encoding, and normalization", "data normalization"),
+    ("Use batch normalization and dropout", "data normalization"),
+    ("Google Drive API (optional, for cloud source processing)", "Google Sheets / Workspace"),
+    ("Strong foundation in Linear Algebra and Linear Regression", "Linear"),
+    ("weekly all-hands meetings, Slack messaging, and quarterly in-person meetups", "Slack"),
+    ("we cut some slack for new hires", "Slack"),
+    ("the notion of fairness", "Notion"),
+    ("Dylan Field (Co-Founder and CEO, Figma), Elad Gil", "Figma"),
+    ("Work closely with Product Managers, User Researchers (UXR), and Engineers",
+     "user research / customer discovery"),
+    ("protect their brand, executives, and digital assets", "blockchain / DeFi"),
+    ("software supply chain security", "supply chain / inventory"),
+    ("Pilothouse is one of North America's leading ecommerce growth agencies", "e-commerce / retail"),
+    ("which matches the Contoso Retail analytics work", "e-commerce / retail"),
+    ("Amazon Web Services (AWS)", "APIs / REST"),
+    ("hand soap and paper towels", "APIs / REST"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +229,89 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Daily review, Nov 1 2026: real posting wording.
+    ("SQL (aggregations, joins, window functions).", "SQL joins / aggregations"),
+    ("Understanding of join types.", "SQL joins / aggregations"),
+    ("Solidity / EVM literacy: reading protocol contracts", "Solidity"),
+    ("Develop and maintain NetSuite customizations using SuiteScript 2.x", "NetSuite SuiteScript / SuiteQL"),
+    ("Develop and maintain SuiteAnalytics and SuiteQL queries and data extracts", "NetSuite SuiteScript / SuiteQL"),
+    ("Google Analytics and Adobe Analytics", "Adobe Analytics"),
+    ("Analyze complex data from web analytics, journey analytics, and survey platforms", "web / digital analytics"),
+    ("Survey tools and platforms", "survey design / analysis"),
+    ("Familiarity with survey research or survey datasets", "survey design / analysis"),
+    ("Leverage Snowflake's unstructured data capabilities (Directory Tables, Scoped URLs, Snowpark)", "Snowpark"),
+    ("You will take responsibility for managing our client's master data set", "master data management"),
+    ("Develop and maintain data lineage, metadata, and master data management practices", "master data management"),
+    ("Supporting initiatives for data integrity and normalization.", "data normalization"),
+    ("data warehouse concepts (e.g., star schema, normalization, slowly changing dimensions)", "data normalization"),
+    ("Schema design, normalization", "data normalization"),
+    ("release notifications triggered by deploys and feature flag changes", "feature flags"),
+    ("optimization, probability, statistical modeling, econometrics, or control theory", "econometrics"),
+    ("construct econometric models to predict portfolio dynamics", "econometrics"),
+    ("strategy design and backtesting, allocation and rebalancing engines", "backtesting"),
+    ("Conduct back-testing", "backtesting"),
+    ("pursuing a career path in Data Analytics/Data Science", "data science"),
+    ("Deliver reproducible code and well-organized analytical reports", "reproducible research / code"),
+    ("Build AI-assisted workflows, Claude skills, and Slack bots", "Slack"),
+    ("Claude, Claude Code, Codex, Cursor, Linear, Slack, Supabase, or similar platforms", "Slack"),
+    ("Claude, Claude Code, Codex, Cursor, Linear, Slack, Supabase, or similar platforms", "Linear"),
+    ("take content from Jira, GitHub, Notion, Figma, Pendo", "Notion"),
+    ("take content from Jira, GitHub, Notion, Figma, Pendo", "Figma"),
+    ("Support integrations between NetSuite and platforms such as CRM, Shopify, Power BI", "Shopify"),
+    ("Prototype several approaches quickly, test them with the people who will use them", "prototyping"),
+    ("Experience with product practices such as customer discovery, user stories, and pilot design",
+     "user research / customer discovery"),
+    ("Experience with product practices such as customer discovery, user stories, and pilot design", "Agile/Scrum"),
+    ("Experience using AI tools such as Claude, Replit, or OpenAI to accelerate prototyping", "Replit"),
+    ("Use AI coding assistants (such as Claude Code or Codex) every day", "AI-assisted coding"),
+    ("Familiarity with modern AI-assisted development tools (Copilot, Claude Code, agentic IDE workflows)",
+     "AI-assisted coding"),
+    ("AI experience utilizing AI to code or create analysis", "AI-assisted coding"),
+    ("Experience supporting NetSuite financial, inventory, purchasing, order management or warehouse processes",
+     "supply chain / inventory"),
+    ("Prior exposure to supply chain planning, logistics, or operations domains", "supply chain / inventory"),
+    ("Experience in healthcare, pharmacy, eCommerce, or another regulated industry", "e-commerce / retail"),
+    ("Experience in healthcare, pharmacy, eCommerce, or another regulated industry", "healthcare knowledge"),
+    ("Exposure to real estate, construction, hospitality, financial services", "real estate / property management"),
+    ("Hands-on DeFi experience: lending protocols, ERC-4626 vaults, AMMs", "blockchain / DeFi"),
+    ("algorithmic trading, portfolio optimization, market making, or risk systems",
+     "algorithmic / quantitative trading"),
+    ("VaR-based exposure models", "credit / market risk"),
+    ("Take ownership of credit risk management as a key domain", "credit / market risk"),
+    ("support evolving pricing strategies and business models", "pricing analysis / strategy"),
+    ("Perform product-level cost and margin analysis", "pricing analysis / strategy"),
+    ("Analyze measures such as lead time, throughput, downtime, labour utilization",
+     "operations analytics (OEE / throughput)"),
+    ("working with massive player behavioural datasets to inform game development",
+     "video games / player analytics"),
+    ("SEO knowledge to interpret organic search performance", "SEO"),
+    ("Strong analytical, critical, and systems thinking required.", "systems thinking"),
+    # Fixes to existing entries.
+    ("Strong diagnostic and critical-thinking skills", "critical thinking"),
+    ("Basic statistics (probability, correlation, regression)", "statistics"),
+    ("Familiarity with source control systems such as Git.", "Git"),
+    ("Google Suite for business (Sheets, Docs, Slides)", "Google Sheets / Workspace"),
+    ("Experience in data analytics, business intelligence, financial analytics", "data analysis"),
+    ("understanding subscription business models and recurring customer relationships",
+     "SaaS metrics (ARR / MRR / NRR)"),
+    ("Comfortability working with REST APIs, webhooks, and authentication for third-party tools",
+     "IAM (identity and access management)"),
+    ("system design patterns (APIs, webhooks, orchestration layers)", "APIs / REST"),
+    ("Experience with SuiteTalk REST or SOAP web services.", "APIs / REST"),
+    ("Familiarity with APIs, OAuth, service accounts", "IAM (identity and access management)"),
+    ("audit requirements such as SOC 2 traceability between code and work items", "data privacy / security"),
+    ("Commercial awareness: you understand how insights connect to revenue", "business acumen"),
+    ("prompt and context engineering", "prompt engineering"),
+    ("multi-agent workflows, tool-use patterns", "AI agents / agentic AI / MCP"),
+    ("evaluation of AI answer quality", "LLM / AI evaluation"),
+    ("Experience with AI evaluation, observability, reliability", "LLM / AI evaluation"),
+    ("Power Query, PivotTables, lookup functions, and conditional calculations", "Excel"),
+    ("automate data quality checks and pipeline monitoring", "pipeline monitoring / alerting"),
+    ("Strong attention to accuracy and appropriate handling of confidential business information",
+     "attention to detail"),
+    ("Oracle, Hadoop, NoSQL", "SQL"),
+    ("Experience with data warehouse environments such as Databricks", "data warehouse"),
+    ("a self-starter who takes initiative", "independent / self-starter"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -236,6 +345,24 @@ def test_oct_20_review_products_and_concepts():
     for product, platform in [("SOQL", "Salesforce/CRM"), ("Acumatica", "ERP (SAP/Oracle/Workday)")]:
         assert _is_tool(product), product
         assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+
+
+def test_nov_1_review_products_and_concepts():
+    for name in ["SQL joins / aggregations", "web / digital analytics", "survey design / analysis",
+                 "master data management", "data normalization", "feature flags", "prototyping",
+                 "user research / customer discovery", "AI-assisted coding", "econometrics", "backtesting",
+                 "data science", "supply chain / inventory", "blockchain / DeFi", "SEO", "systems thinking"]:
+        assert not _is_tool(name), name
+    for name in ["Solidity", "NetSuite SuiteScript / SuiteQL", "Adobe Analytics", "Snowpark", "Slack", "Linear",
+                 "Notion", "Figma", "Shopify", "Replit"]:
+        assert _is_tool(name), name
+        assert name in taxonomy.TOOL_TYPES, name
+    for product, platform in [("SQL joins / aggregations", "SQL"), ("Solidity", "blockchain / DeFi"),
+                              ("NetSuite SuiteScript / SuiteQL", "ERP (SAP/Oracle/Workday)"),
+                              ("Snowpark", "Snowflake"), ("Adobe Analytics", "web / digital analytics"),
+                              ("Shopify", "e-commerce / retail")]:
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
 
