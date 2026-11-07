@@ -412,6 +412,16 @@ def test_old_news_is_not_a_verified_fact(tmp_path, monkeypatch):
     assert by_id["f2"]["verified"]  # an undated page (the company's own) is fine
 
 
+def test_evergreen_page_edited_recently_is_not_old_news():
+    from src.tailor.company import published_date
+
+    html = ('<head><meta property="article:modified_time" content="2026-10-16T18:40:27+00:00">'
+            '<script type="application/ld+json">{"datePublished":"2022-09-14T00:53:58+00:00",'
+            '"dateModified":"2026-10-16T18:40:27+00:00"}</script></head>')
+    assert published_date(html) == "2026-10-16"
+    assert published_date('{"datePublished":"2020-05-01T09:00:00Z"}') == "2020-05-01"
+
+
 def test_company_twins_finds_a_second_application_to_the_same_company(tmp_path):
     from src.tailor.render import _company_twins
 

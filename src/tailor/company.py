@@ -103,8 +103,9 @@ _BUDGET_WINDOW_S = 12 * 3600  # pages saved within this window count as the same
 NEWS_MAX_AGE_DAYS = 365  # a dated page older than this is old news, not a current fact
 _PUBLISHED_META = re.compile(
     r"""<meta[^>]+(?:property|name|itemprop)=["'](?:article:published_time|og:published_time|"""
-    r"""datePublished|date|pubdate|publish[-_]date|dc\.date)["'][^>]*content=["']([^"']+)["']"""
-    r'|"datePublished"\s*:\s*"([^"]+)"',
+    r"""article:modified_time|og:updated_time|datePublished|dateModified|date|pubdate|publish[-_]date|dc\.date)"""
+    r"""["'][^>]*content=["']([^"']+)["']"""
+    r'|"date(?:Published|Modified)"\s*:\s*"([^"]+)"',
     re.IGNORECASE,
 )
 _ISO_DATE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
@@ -123,12 +124,12 @@ def _skipped_host(url: str) -> str | None:
 
 
 def published_date(html: str) -> str | None:
-    """The page's own publication date (YYYY-MM-DD) from its meta tags or JSON-LD, if it has one."""
-    for m in _PUBLISHED_META.finditer(html or ""):
-        d = _ISO_DATE.search(m.group(1) or m.group(2) or "")
-        if d:
-            return d.group(0)
-    return None
+    """The page's own date (YYYY-MM-DD) from its meta tags or JSON-LD, if it has one: the later of its
+    published and modified dates, so an evergreen page (careers, about) created years ago but edited
+    recently isn't taken for old news (Coterie careers page, Nov 7 2026)."""
+    dates = [d.group(0) for m in _PUBLISHED_META.finditer(html or "")
+             if (d := _ISO_DATE.search(m.group(1) or m.group(2) or ""))]
+    return max(dates) if dates else None
 
 
 def _page_published(text: str) -> str | None:
