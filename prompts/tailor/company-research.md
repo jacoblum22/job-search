@@ -61,6 +61,9 @@ old, **do nothing and report "fresh, skipped"**.
    public role the page gives.
 6. Useful fact types: what they sell and to whom; products and projects; stated values; recent news;
    tech stack and data tools (only where the company says so); anything about the team in the posting.
+   **When the company lists its core values** (on its careers, about or home page), always save them:
+   one fact per value, or one for the sentence that names them, quoting the company's own words.
+   The letter can use a named value as its researched fact (see the cover-letter prompt).
 7. If you find nothing usable, write `[]` to `facts.json` and say so in `notes.md`. That is a valid
    result; the letter will then use the posting alone.
 

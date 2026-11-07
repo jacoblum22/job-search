@@ -74,6 +74,13 @@ each through a real story from its cited passage, not as a list of names.
    dress the fact up with a word that sounds meaningful but isn't ("as direct as data gets").
    Only tie the fact to the candidate's own past work when the link is literal and obvious; a
    stretched link ("I did the same thing, just for other teams") is worse than none.
+   **If the research has the company's own named core values** (a verified `facts.json` fact quoting its
+   values section), name one of them in this paragraph and say why it resonates ("That's why Coterie's
+   value of humility resonated with me; I'd rather ..."). Pick the value closest to a real `motivation.*`
+   passage or to something the candidate literally did, state it in the candidate's own plain words, and
+   never invent a story to fit a value. A named value counts as the researched fact for this paragraph
+   (cite its id), so the paragraph needs no second fact. The close then follows from it ("I'd love to
+   talk to you about what you're building and where I could contribute").
    Never write "I want to contribute to this", "this is the kind of work I want" or similar before
    the letter's last sentence; the final sentence is the only place for "I would like to...".
 4. **Short confident close.** One or two sentences: what the candidate would like to do next,

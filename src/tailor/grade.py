@@ -463,7 +463,7 @@ def _build_questions(app_dir, rnd, data, req, company, letter):
         # (Vancouver Psychology Centre, Oct 25 2026). The rules file asks for a fact only true of
         # this employer.
         add("letter.specific", f"Leaving aside its name, does the letter state a fact that is true only of "
-            f"{company or 'the company'} (a number, or a named product, project, launch or event), not one "
+            f"{company or 'the company'} (a number, a named product, project, launch or event, or a core value it names on its own site), not one "
             "that any similar employer could share?", sections=["letter"])
         # One question each, about the one sentence, so a doubt about either is clear.
         opener, closer = _first_last_sentences(letter)
