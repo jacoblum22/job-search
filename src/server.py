@@ -669,7 +669,8 @@ function render() {
       ${files ? `<div style="margin-top:10px">${files}</div>` : '<div class="meta">No rendered files yet.</div>'}
       <div class="row" style="margin-top:12px">`;
     if (app.status === 'needs_fixes') {
-      h += `<span class="meta">The checker found critical problems, so this can't be approved yet. Run another repair round, then the packet step again.</span>`;
+      h += `<span class="meta">Not approved: the checker flagged this packet (see the flags above). If you applied anyway, record it.</span>
+        <button class="primary" data-act="outcome" data-val="applied">I applied</button>`;
     }
     if (app.status === 'ready_for_review') {
       const left = app.open_items || 0;
