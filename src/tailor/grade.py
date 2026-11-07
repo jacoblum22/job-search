@@ -16,6 +16,7 @@ quotes the checklist question wording (the writer must not see the rubric).
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -653,10 +654,33 @@ def title_ok(app_dir: Path) -> str:
     return str(read_json(p).get("headline") or "").strip() if p.exists() else ""
 
 
+def chosen_base_only(evidence: dict[str, Any], app_dir: Path) -> dict[str, Any]:
+    """evidence.json with `in_base` kept only for the base this application was built from. A term
+    that only another base says (Wesgar, Oct 31 2026: "baselines" in the ML base, while the plan
+    built from the data-analyst base and set its one passage aside) is not on this resume, so it
+    must not count as backed: it lifted the ATS ceiling to 80 and held the status at needs_fixes for
+    words the loop could never use. Unchanged when the plan hasn't chosen a base."""
+    plan = app_dir / "plan.json"
+    chosen = str(read_json(plan).get("base_id") or "") if plan.exists() else ""
+    if not chosen:
+        return evidence
+    ev = json.loads(json.dumps(evidence))
+    for t in ev.get("terms") or []:
+        ib = t.get("in_base") or {}
+        if any(ib.values()) and not ib.get(chosen):
+            t["in_base"] = {k: False for k in ib}
+            if not (t.get("passages") or t.get("related")):
+                ev["present"] = [x for x in ev.get("present") or [] if x != t.get("term")]
+                if t.get("term") not in (ev.get("absent") or []):
+                    ev.setdefault("absent", []).append(t.get("term"))
+    return ev
+
+
 def graded_evidence(app_dir: Path, cfg: dict[str, Any], req: dict[str, Any]) -> dict[str, Any]:
     """evidence.json as the grade sees it."""
     # Repair notes must never point back at a match that was rejected (here or on an earlier job).
-    evidence = rejects.scrub_evidence(read_json(app_dir / "evidence.json"), req, rejects.pairs(cfg, app_dir))
+    evidence = rejects.scrub_evidence(chosen_base_only(read_json(app_dir / "evidence.json"), app_dir),
+                                      req, rejects.pairs(cfg, app_dir))
     # The plan may have added a match the evidence step missed; count it here too.
     return rejects.add_evidence(evidence, req, rejects.confirmed(cfg, app_dir))
 
