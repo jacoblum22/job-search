@@ -137,6 +137,24 @@ _DESC_VANCOUVER = re.compile(
     r"|metro vancouver|greater vancouver)\b(?!,?\s*(?:WA|Washington)\b)",
     re.IGNORECASE,
 )
+# A US place in the text. Inside a labelled work site ("Job Site: 3701 Pender
+# Drive, Fairfax, VA") a plain "City, ST" counts; anywhere else it needs a zip code,
+# because bare "Word, ST" also matches prose ("Access, MS Office", "Park, TX").
+# Case-sensitive: the state code must be capitalized after a capitalized word.
+_STATE_CODES = "|".join(sorted(_US_STATES))
+_US_CITY_STATE = re.compile(rf"\b[A-Z][a-z][A-Za-z.'-]*,\s*(?:{_STATE_CODES})\b(?!\.\w)")
+_US_PLACE_ZIP = re.compile(r"\b[A-Z][a-z][A-Za-z.'-]*,\s*(?:[A-Z]{2})\s+\d{5}(?:-\d{4})?\b")
+# "company located in Raleigh, NC": a cue word makes a plain "City, ST" a US place,
+# but only after the remote check (a remote job may name its US headquarters).
+_US_CUED = re.compile(
+    rf"\b(?:located|based|headquartered|situated) (?:in|at) (?:[A-Za-z.'-]+ ){{0,2}}?[A-Z][a-z][A-Za-z.'-]*,\s*(?:{_STATE_CODES})\b"
+)
+# The same, but only inside a labelled work site, which beats a "remote" mention
+# elsewhere in the posting.
+_DESC_SITE_LABEL = re.compile(
+    r"\b(?:job site|work ?site|work location|office location|on-?site location|location)\s*:\s*([^\n]{0,120})",
+    re.IGNORECASE,
+)
 _DESC_NOT_REMOTE = re.compile(r"\b(?:not (?:a )?remote|no remote|non-remote)\b", re.IGNORECASE)
 _DESC_ELSEWHERE = re.compile(
     r"\b(?:toronto|ottawa|montr[eé]al|calgary|edmonton|winnipeg|halifax|mississauga|waterloo"
@@ -155,9 +173,12 @@ def location_from_description(description: str) -> str | None:
     text = description or ""
     if _DESC_VANCOUVER.search(text):
         return "vancouver"
+    for label in _DESC_SITE_LABEL.finditer(text):
+        if _US_CITY_STATE.search(label.group(1)) or _US_PLACE_ZIP.search(label.group(1)):
+            return "other"
     if _DESC_REMOTE.search(text) and not _DESC_NOT_REMOTE.search(text):
         return "remote"
-    if _DESC_ELSEWHERE.search(text):
+    if _DESC_ELSEWHERE.search(text) or _US_PLACE_ZIP.search(text) or _US_CUED.search(text):
         return "other"
     return None
 
