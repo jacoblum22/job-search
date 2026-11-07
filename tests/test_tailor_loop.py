@@ -406,6 +406,23 @@ def test_letter_round_asked_for_soft_skills_neither_draft_names(tmp_path, monkey
     assert loop.letter_round(app, CFG) is None
 
 
+def test_letter_round_does_not_ask_again_for_a_soft_skill_an_earlier_one_was_asked(tmp_path, monkeypatch):
+    # Zesty.ai, Oct 30 2026: round 4 asked for "fast-paced" and couldn't name it honestly; review
+    # rounds moved the best round to 11 and round 12 asked for it again.
+    import src.tailor.loop as loop
+
+    app, _ = _letter_app(tmp_path, monkeypatch, [])
+    monkeypatch.setattr(loop, "soft_for_letter", lambda *a: ["fast-paced", "teamwork"])
+    loop.letter_round(app, CFG)
+    add_round(app, 3, 70, ats=66)
+    add_round(app, 4, 72, ats=66)
+    write_json(app / "app.json", {"history": [], "best_round": 4})
+    fb = loop.letter_round(app, CFG)
+    assert fb is None
+    monkeypatch.setattr(loop, "soft_for_letter", lambda *a: ["fast-paced", "curiosity"])
+    assert loop.letter_round(app, CFG)["failed_items"] == [loop.LETTER_SOFT + "curiosity."]
+
+
 def test_letter_round_keeps_soft_skills_the_letter_already_names(tmp_path, monkeypatch):
     # REW.ca, Oct 23 2026: rewording a sentence for "teamwork" dropped "knowledge sharing", which
     # only the old letter named, and the loop ended without saying so.
@@ -593,6 +610,31 @@ def test_gap_round_asked_for_when_the_best_round_is_far_under_reach(tmp_path, mo
     (app2 / "drafts" / "r1" / "resume.yaml").write_text("summary:\n  text: Analyst.\n", encoding="utf-8")
     monkeypatch.setattr(grade, "ats_score", lambda *a: {"total": 65.0})
     assert gap_round(app2, CFG) is None
+
+
+def test_no_gap_round_after_a_repair_on_the_best_round_changed_nothing(tmp_path, monkeypatch):
+    # Pattison Data Analyst 1, Oct 30 2026: round 5 built on round 4 and changed nothing, then
+    # extra-round asked round 6 for the same items on round 4 again.
+    import src.tailor.grade as grade
+    from src.tailor.loop import gap_round
+
+    app = new_app(tmp_path)
+    for n in (1, 2):
+        add_round(app, n, 60, ats=55)
+        (app / "drafts" / f"r{n}" / "resume.yaml").write_text("summary:\n  text: Analyst.\n", encoding="utf-8")
+    write_json(app / "drafts" / "r2" / "feedback.json", {"round": 2, "build_on": 1})
+    write_json(app / "app.json", {"history": [], "best_round": 1})
+    write_json(app / "requirements.json", {"requirements": []})
+    line = {"id": "ats.unused", "sentence": "Use the posting's own words ...: SQL.", "sections": ["summary"]}
+    monkeypatch.setattr(grade, "graded_evidence", lambda *a: {})
+    monkeypatch.setattr(grade, "_vault_wording", lambda *a: None)
+    monkeypatch.setattr(grade, "ats_gap", lambda *a, **k: {"unused": ["SQL"], "unused_soft": [], "ceiling": 80.0})
+    monkeypatch.setattr(grade, "ats_score", lambda *a: {"total": 55.0})
+    monkeypatch.setattr(grade, "ats_gap_lines", lambda *a: [line])
+    assert gap_round(app, CFG) is None
+    # A repair on the best round that did change something still leaves the gap round open.
+    (app / "drafts" / "r2" / "resume.yaml").write_text("summary:\n  text: SQL analyst.\n", encoding="utf-8")
+    assert gap_round(app, CFG)["round"] == 3
 
 
 def test_gap_round_soft_note_leaves_out_what_the_letter_already_says(tmp_path, monkeypatch):
