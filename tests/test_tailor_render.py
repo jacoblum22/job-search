@@ -452,3 +452,17 @@ def test_letter_heading_matches_resume():
         assert p.alignment == WD_ALIGN_PARAGRAPH.CENTER
         assert p.paragraph_format.left_indent == -Inches(1 - layout.side_margin_in)
     assert name.runs[0].font.size.pt == layout.name_pt
+
+
+def test_published_date_uses_latest_of_published_and_modified():
+    from src.tailor.company import published_date
+
+    evergreen = (
+        '<script type="application/ld+json">{"@type":"WebPage",'
+        '"datePublished":"2022-09-14T00:53:58+00:00","dateModified":"2026-10-16T18:40:27+00:00"}</script>'
+    )
+    assert published_date(evergreen) == "2026-10-16"
+    meta = '<meta property="article:modified_time" content="2026-10-16T18:40:27+00:00">'
+    assert published_date(meta + '<meta property="article:published_time" content="2022-09-14">') == "2026-10-16"
+    assert published_date('<meta property="article:published_time" content="2022-09-14">') == "2022-09-14"
+    assert published_date("<html></html>") is None
