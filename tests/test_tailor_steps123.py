@@ -484,6 +484,19 @@ def test_plan_adds_join_the_shared_list_and_count_in_grade(env):
     assert out["terms"][0]["passages"] == ["northwind.stakeholders"]
 
 
+def test_requirement_with_no_terms_is_not_keyed_as_a_skill_inside_its_text():
+    # Its text says "warehouse", which the taxonomy reads as the data warehouse skill: that skill's
+    # confirms covered a requirement about working on site.
+    r = {"id": "r9", "text": "Help out in the warehouse on busy days", "kind": "must", "terms": []}
+    key = rejects.req_keys(r)[0]
+    assert rejects.key(key) == key and "warehouse" in key and key != rejects.key("data warehouse")
+    conf = {(rejects.key("data warehouse"), "northwind.dbt"): {"source": "plan"}}
+    ev = {"terms": [], "present": [], "absent": [],
+          "requirements": [{"id": "r9", "status": "missing", "passages": [], "method": "none"}]}
+    out = rejects.add_evidence(ev, {"requirements": [r]}, conf)
+    assert out["requirements"][0]["passages"] == [] and out["requirements"][0]["status"] == "missing"
+
+
 def test_another_jobs_plan_add_the_grade_counts_is_asked_in_check_md(env):
     # The grade counts a plan add from any job; nobody had decided it, so check.md asks here too.
     from src.tailor import packet
