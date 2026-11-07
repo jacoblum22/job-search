@@ -669,15 +669,15 @@ function render() {
       ${files ? `<div style="margin-top:10px">${files}</div>` : '<div class="meta">No rendered files yet.</div>'}
       <div class="row" style="margin-top:12px">`;
     if (app.status === 'needs_fixes') {
-      h += `<span class="meta">Not approved: the checker flagged this packet (see the flags above). If you applied anyway, record it.</span>
-        <button class="primary" data-act="outcome" data-val="applied">I applied</button>`;
+      h += `<span class="meta">Not approved: the checker flagged this packet (see the flags above). Run another repair round, or press "I applied" if you sent it anyway.</span>`;
     }
     if (app.status === 'ready_for_review') {
       const left = app.open_items || 0;
       h += `<button class="primary" data-act="approve" ${left ? 'disabled' : ''}>Approve</button>
         <span class="meta">${left ? `${left} item${left === 1 ? '' : 's'} below still need${left === 1 ? 's' : ''} a decision` : 'Every item is decided.'}</span>`;
     }
-    if (app.status === 'approved') h += `<button class="primary" data-act="outcome" data-val="applied">I applied</button>`;
+    // Applying is your call at any stage: you can send a packet the checker still flags.
+    if (app.status !== 'applied') h += `<button ${app.status === 'approved' ? 'class="primary" ' : ''}data-act="outcome" data-val="applied">I applied</button>`;
     if (app.status === 'applied') {
       h += `<span class="meta">Record what happened:</span>` + data.outcomes.filter(o => o !== 'applied')
         .map(o => `<button data-act="outcome" data-val="${o}" ${app.outcome === o ? 'disabled' : ''}>${esc(o.replace('_', ' '))}</button>`).join('');
