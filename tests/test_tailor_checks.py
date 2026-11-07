@@ -148,6 +148,21 @@ def test_gate_rejections(tmp_path, edit, reason):
     assert reason in res["rejected"][0]["reason"], res["rejected"]
 
 
+def test_replace_with_same_wording_can_add_sources(tmp_path):
+    # repair.md rule 10: a jev_unsupported line keeps its wording and cites the missing passage.
+    app, cfg = make_app(tmp_path)
+    b = {x["id"]: x for x in base_data(cfg)["experience"][0]["bullets"]}["northwind.sql-daily"]
+    write_edits(app, [sql_edit(value=b["text"], sources=[*(b.get("sources") or []), "northwind.dbt"])])
+    res = apply_edits(app, 1, cfg)
+    assert res["rejected"] == [] and len(res["applied"]) == 1
+    bullet = {x["id"]: x for x in load_resume(app / "drafts/r1/resume.yaml")["experience"][0]["bullets"]}
+    assert bullet["northwind.sql-daily"]["text"] == b["text"]
+    assert "northwind.dbt" in bullet["northwind.sql-daily"]["sources"]
+    # Nothing new at all is still refused.
+    write_edits(app, [sql_edit(value=b["text"], sources=b.get("sources") or ["northwind.sql-daily"])])
+    assert "same as the current text" in apply_edits(app, 1, cfg)["rejected"][0]["reason"]
+
+
 def test_coursework_replace_allowed(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [{"path": "education/exu/exu.coursework", "action": "replace",

@@ -72,6 +72,21 @@ def test_load_bases_missing(tmp_path):
 
 # --- requirements --------------------------------------------------------------
 
+def test_requirements_command_prints_the_company_folder_the_letter_reads(env, monkeypatch):
+    from click.testing import CliRunner
+
+    from src.tailor import cli, requirements
+
+    cfg, app = env
+    cfg["paths"]["companies"] = str(app.parent / "companies")
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+    monkeypatch.setattr(requirements, "normalize", lambda app_dir, cfg: {"company": "Acme Widgets Inc."})
+    res = CliRunner().invoke(cli.main, ["requirements", str(app)])
+    assert res.exit_code == 0, res.output
+    # Not "acme-widgets-inc-": a hand-built slug with the trailing dash put research where nothing reads it.
+    assert Path(json.loads(res.output)["company_dir"]).name == "acme-widgets-inc"
+
+
 def test_norm_text_tolerates_punctuation_and_bullets():
     assert norm_text("- “Strong  SQL”, required.") == norm_text("strong sql required")
 
