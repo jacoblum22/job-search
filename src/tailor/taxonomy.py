@@ -121,6 +121,8 @@ T = [
 ("Data platforms","Alteryx",r"alteryx"),
 ("Data platforms","Prefect",r"(?-i)\bPrefect\b"),
 ("Data platforms","Fivetran",r"fivetran"),
+# Reverse ETL: syncs warehouse tables out to SaaS tools.
+("Data platforms","Hightouch",r"\bhightouch\b"),
 ("Data platforms","Flink",r"\bflink\b"),
 ("Data platforms","Elasticsearch",r"elasticsearch|opensearch"),
 ("Data platforms","vector databases",r"vector (?:database|db|store)s?|pinecone|weaviate|pgvector"),
@@ -132,7 +134,7 @@ T = [
 ("Data platforms","data warehouse",r"data warehous|warehouse|data lake|lakehouse"),
 ("Data platforms","data modeling",r"data model|dimensional model|star schema|fact (?:and|&) dimension|(?:fact|dimension) tables?|slowly changing dimension"),
 ("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"
- r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b"),
+ r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b|data accuracy"),
 ("Data platforms","data governance",r"data governance|data stewardship|metadata"),
 # Relational databases (PostgreSQL, MySQL, SQL Server, SQLite) stay under SQL: SQL skill carries
 # over between them. NoSQL databases each work differently, so each is its own skill (Jake, Oct 18 2026).
@@ -206,7 +208,8 @@ T = [
 # ML / stats methods
 ("ML & statistics","machine learning",r"machine learning|\bml\b|(?:un)?supervised learning|tree.based models?|random forests?|decision trees?"),
 ("ML & statistics","AI (any mention)",r"\bai\b|artificial intelligence"),
-("ML & statistics","statistics",r"statistic|probability (?:theory|distributions)"),
+# "Frequently cited statistics show that people from marginalized groups..." is apply-anyway boilerplate.
+("ML & statistics","statistics",r"(?<!cited )statistic(?!s show)|probability (?:theory|distributions)"),
 ("ML & statistics","descriptive statistics / correlation",r"descriptive statistic|standard deviation|\bmedian\b(?! (?:salary|pay|base|compensation|income))"
  r"|\bcorrelations?\b(?! rules)|\bquartiles?\b|trendline"),
 ("ML & statistics","predictive modeling",r"predictive|forecast"),
@@ -259,6 +262,8 @@ T = [
 ("Business tools","Google Sheets / Workspace",r"google sheets|google workspace|g suite"),
 ("Business tools","ServiceNow",r"servicenow"),
 ("Business tools","Stripe",r"(?-i)\bStripe\b"),
+# Orb, the usage-based billing platform. Capitalised only: "orb" is a word.
+("Business tools","Orb",r"(?-i)\bOrb\b"),
 ("Business tools","test management (TestRail, qTest, Xray)",r"testrail|\bqtest\b|(?-i:\bXray\b)"),
 ("Business tools","project controls (Primavera P6, EcoSys)",r"primavera|\becosys\b"),
 # AI assistants and model APIs: products, each its own skill.
@@ -270,6 +275,9 @@ T = [
 ("AI tools","Cursor",r"(?-i)\bCursor\b"),
 ("AI tools","Codex",r"\bcodex\b"),
 ("AI tools","Gemini",r"(?-i)\bGemini\b"),
+# The practice of coding with those assistants, named or not. "AI coding agents" isn't "AI agents" work.
+("AI tools","AI-assisted development",r"\bai.(?:assisted|augmented|enabled|powered|native|driven) (?:software )?(?:development|coding|engineering|programming)\b"
+ r"|\bai (?:coding|code|developer|development|programming) (?:assistants?|tools?|tooling|agents?|copilots?)|agentic (?:ai )?coding|coding (?:assistants?|agents?)"),
 ("Business tools","Microsoft Office",r"microsoft office|ms office|office 365|microsoft 365|word, excel|powerpoint"),
 ("Business tools","Agile/Scrum",r"\bagile\b|scrum|kanban|sprint"),
 ("Business tools","project management",r"project management|project manager|pmp|pmbok|\bcapm\b"),
@@ -320,7 +328,17 @@ T = [
 ("Data platforms","big data",r"big data"),
 ("Data platforms","knowledge graphs / ontologies",r"knowledge graphs?|ontolog|graph databases?|\bneo4j\b|(?-i:\bRDF\b)"),
 ("Languages","web development (full-stack)",r"full.?stack|front.?end|back.?end|web (?:applications?|apps?|development|developer)"),
+# Accessible UI work. "Provincial accessibility standards" for hiring accommodation is boilerplate.
+("Languages","web accessibility (WCAG)",r"\bwcag\b|web accessibility|accessible (?:user interfaces?|uis?|web|front.?ends?|design)|inclusive design"
+ r"|(?<!provincial )(?<!applicable )accessibility (?:best practices|guidelines|testing|standards|compliance)"),
+# Needs a UI noun after it: "responsive to customer needs" is the soft skill.
+("Languages","responsive design",r"responsive (?:design|web|user interfaces?|uis?|layouts?|websites?|front.?ends?)|responsive,? (?:and )?accessible"),
 ("Cloud & DevOps","debugging / troubleshooting",r"debug|troubleshoot"),
+# Up to three other adjectives may sit between: "clean, maintainable and testable code".
+("Cloud & DevOps","clean / maintainable code",r"clean code|\b(?:clean|maintainable|readable)\b(?:,? (?:and )?[\w-]+){0,3},? code\b"),
+# Piping and mechanical "system design" is building engineering.
+("Cloud & DevOps","software architecture / system design",r"software (?:architecture|design)\b|scalable architecture|design patterns"
+ r"|(?<!piping )(?<!mechanical )(?<!electrical )(?<!hvac )\bsystems? design\b"),
 ("Cloud & DevOps","code review",r"code reviews?|review(?:ing)? (?:code|pull requests|prs)\b|pull requests?"),
 ("Cloud & DevOps","pipeline monitoring / alerting",r"\balerting\b|observability|monitor(?:ing)? (?:of )?(?:data )?(?:pipelines?|jobs|loads|dags|data quality)"),
 ("Cloud & DevOps","incident response / on-call",r"\bon.call\b|incident (?:response|management)|production support|data incidents?"),
@@ -372,6 +390,11 @@ T = [
 ("Domain knowledge","financial analysis / FP&A",r"financial (?:analysis|modell?ing|planning|statements)|fp&a|variance analysis|unit economics|budget(?:ing)? and forecast"),
 ("Domain knowledge","investment performance / attribution",r"performance attribution|return attribution|attribution, risk|risk (?:and|&) exposure|investment (?:performance|analytics)|portfolio management theory"),
 ("Domain knowledge","accounting (GAAP / IFRS)",r"\bgaap\b|\bifrs\b|revenue recognition|accounting (?:knowledge|principles|standards|concepts|working knowledge)|knowledge of (?:[a-z]+(?:,\s*(?:and\s+)?|\s+and\s+))*accounting|(?:basic|sound) accounting"),
+# Close cycles. A bare "month end" ("take month end meter readings") isn't the close.
+("Domain knowledge","month-end / financial close",r"(?:month|quarter|year|period).end (?:and (?:quarter|year|period).end )?(?:close|closing|closeout|reporting|financial|processes|accounting|results)"
+ r"|(?:month|quarter)- and (?:quarter|year)-end|financial close"),
+("Domain knowledge","billing systems",r"billing (?:systems?|platforms?|data|operations)|subscription billing|usage.based billing"),
+("Domain knowledge","product-led growth (PLG)",r"product.led|(?-i:\bPLG\b)"),
 ("Domain knowledge","risk management / regulatory compliance",r"risk management|regulatory (?:compliance|requirements|reporting|frameworks)"),
 # B2B marketing's lead funnel. Uppercase MQL only; "SQLs" is left out, it reads as the language.
 ("Domain knowledge","demand generation / lead funnel (MQLs)",r"demand gen(?:eration)?\b|(?-i:\bMQLs?\b)|marketing.qualified leads?"
@@ -413,6 +436,7 @@ T = [
 ("Soft skills","organization",r"organi[sz]ational skills|(?:well|highly|very|extremely|stay) organi[sz]ed|strong organi[sz]ation"),
 ("Soft skills","empathy / compassion",r"empath|compassion"),
 ("Soft skills","interpersonal skills",r"interpersonal"),
+("Soft skills","resourcefulness",r"resourceful"),
 # Credentials
 # \b before "b.sc": "subscriptions" contains "bsc".
 ("Credentials","Bachelor's degree",r"bachelor|undergraduate degree|\bb\.?sc|\bbs\b|\bba\b"),
@@ -474,7 +498,8 @@ _TYPES = {
     "data warehouse / query engine": ["Amazon Athena", "Presto/Trino"],
     "orchestration / ETL tool": ["Airflow", "Prefect", "Dagster", "dbt", "Fivetran", "SSIS/SSRS", "Alteryx", "AWS Glue",
                                  "Google Cloud Composer",
-                                 "Microsoft Fabric / Azure Synapse / ADF", "Dataform", "SQLMesh", "VisualCron"],
+                                 "Microsoft Fabric / Azure Synapse / ADF", "Dataform", "SQLMesh", "VisualCron",
+                                 "Hightouch"],
     "cloud platform": ["AWS", "Azure", "GCP", "AWS S3", "AWS Lambda", "Amazon SageMaker", "Amazon Bedrock",
                        "Amazon Kinesis", "Azure Machine Learning", "Vertex AI", "AWS Glue", "Amazon Athena",
                        "Amazon EMR", "Amazon EC2", "AWS CloudFormation", "Google Cloud Composer", "Google Cloud Storage",
@@ -491,7 +516,7 @@ _TYPES = {
                           "ServiceNow", "Stripe", "test management (TestRail, qTest, Xray)",
                           "project controls (Primavera P6, EcoSys)",
                           "Microsoft Power Platform", "Power Apps", "Power Automate", "Power Query", "Dataverse",
-                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica"],
+                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica", "Orb"],
 }
 TOOL_TYPES: dict[str, set[str]] = {}
 for _type, _names in _TYPES.items():
