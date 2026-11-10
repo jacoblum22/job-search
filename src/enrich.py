@@ -59,7 +59,7 @@ EXPIRED_STATUSES = frozenset({404, 410})
 # CareerJet, whose jobviewtrack links mostly 404 and otherwise land on a
 # careerjet.ca shell with no description (0/25 in testing, 2026-10-15).
 # Jobright's job pages render in the browser (0/35 fetched, 2026-10-29).
-SKIP_HOSTS = ("linkedin.com", "indeed.com", "glassdoor.", "jobviewtrack.com", "careerjet.", "jobright.ai")
+SKIP_HOSTS = ("indeed.com", "glassdoor.", "jobviewtrack.com", "careerjet.", "jobright.ai")
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -71,6 +71,7 @@ _FALLBACK_SELECTORS = (
     ".adp-body",
     "#job-description",
     ".job-description",
+    ".show-more-less-html__markup",  # LinkedIn guest posting
     "[itemprop=description]",
     "#jobDescriptionText",
     ".posting-description",
@@ -232,8 +233,9 @@ def _interleave_hosts(jobs: list[Job]) -> list[Job]:
 def _fetch_description(client: httpx.Client, job: Job) -> tuple[str, bool]:
     """Return (description, expired). Description is "" when the fetch failed;
     expired is True only when the link answered 404/410."""
+    url = _fetch_url(job.url)
     try:
-        resp = request_with_retry(client, "GET", job.url, retries=3, backoff=2.0)
+        resp = request_with_retry(client, "GET", url, retries=3, backoff=2.0)
     except httpx.HTTPError as exc:
         logger.warning("Enrich %s %s: network error %s", job.source, job.external_id, type(exc).__name__)
         return "", False
@@ -269,6 +271,17 @@ def _fetch_description(client: httpx.Client, job: Job) -> tuple[str, bool]:
         )
         return "", False
     return text, False
+
+
+_LINKEDIN_ID = re.compile(r"linkedin\.com/(?:comm/)?jobs/view/(?:[^/?]*-)?(\d+)")
+
+
+def _fetch_url(url: str) -> str:
+    """LinkedIn's job page is login-walled, but its public guest endpoint returns the
+    full posting over plain HTTP (8/8 in testing, 2026-11-10). A failure there falls
+    through to the Chrome queue like any other plain-fetch failure."""
+    m = _LINKEDIN_ID.search(url)
+    return f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{m.group(1)}" if m else url
 
 
 def description_from_html(html: str) -> str:

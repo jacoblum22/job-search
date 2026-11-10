@@ -49,7 +49,8 @@ def test_needs_enrichment():
     assert needs_enrichment(_job())
     assert not needs_enrichment(_job(desc=FULL))
     assert not needs_enrichment(_job(url=""))
-    assert not needs_enrichment(_job(url="https://www.linkedin.com/jobs/view/1"))
+    assert needs_enrichment(_job(url="https://www.linkedin.com/jobs/view/1"))
+    assert not needs_enrichment(_job(url="https://ca.indeed.com/viewjob?jk=1"))
     assert not needs_enrichment(_job(url="https://jobviewtrack.com/v2/abc"))
 
 
@@ -147,7 +148,7 @@ def test_backfill_updates_stored_snippets(tmp_path):
 
     conn = connect(tmp_path / "jobs.db")
     upsert_job(conn, _job("x", url="https://example.com/x"))
-    upsert_job(conn, _job("y", url="https://www.linkedin.com/jobs/view/1"))
+    upsert_job(conn, _job("y", url="https://ca.indeed.com/viewjob?jk=1"))
     stats = backfill_stored(
         conn, client=_client(lambda r: httpx.Response(200, text=_page(FULL))), host_pause=0
     )
@@ -218,3 +219,11 @@ def test_backfill_deletes_expired_but_keeps_applied(tmp_path):
     remaining = {r[0] for r in conn.execute("SELECT external_id FROM jobs")}
     assert remaining == {"applied", "blocked"}  # 403 is a failed fetch, not proof it's gone
     assert pruned_keys(conn) == {("adzuna", "gone")}
+
+
+def test_linkedin_uses_guest_endpoint():
+    from src.enrich import _fetch_url
+
+    assert _fetch_url("https://www.linkedin.com/jobs/view/4488858390/") == (
+        "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4488858390")
+    assert _fetch_url("https://example.com/a") == "https://example.com/a"
