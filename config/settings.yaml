@@ -640,6 +640,11 @@ tailor:
   tiers: [A, B]          # eligible tiers, in queue order: B-tier jobs only fill what A-tier can't (Jake, Oct 30 2026)
   min_description_chars: 1000
   fresh_days: 14         # within a tier, jobs posted in the last N days are drafted first (old ones may have closed)
+  hard_stop:
+    # Only a certain no ends a job early: a must-have asking this many years or more, quoted from the
+    # posting, with no "or"/degree way around it (the requirements step dismisses it and records why).
+    # Jake has about 1 year; 0 turns the stop off.
+    min_years: 7
   gate:
     # A Jev answer fails when a 0-3 score is <= score_fail or a yes/no probability
     # is on the wrong side of yes_threshold. Failing or unanswered questions only

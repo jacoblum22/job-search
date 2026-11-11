@@ -65,11 +65,16 @@ def requirements(app_dir):
     """Step 1: validate and normalize the requirements.json Claude wrote."""
     from src.tailor.requirements import normalize
 
-    data = normalize(app_dir, load_config())
+    from src.tailor.requirements import dismiss_hopeless
+
+    cfg = load_config()
+    data = normalize(app_dir, cfg)
+    dismissed = dismiss_hopeless(app_dir, cfg, data)
     # The full file is in requirements.json; print what the run needs to go on, including what was dropped.
     _out({"file": str(app_dir / "requirements.json"), "title": data.get("title"), "company": data.get("company"),
           "requirements": [{k: r.get(k) for k in ("id", "kind", "terms")}
                            for r in data.get("requirements") or [] if isinstance(r, dict)],
+          "dismissed": dismissed,  # a reason means: stop, skip this folder (runbook step 2)
           **(data.get("_normalized") or {})})
 
 

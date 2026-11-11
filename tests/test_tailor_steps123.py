@@ -809,3 +809,66 @@ def test_commands_print_any_character_through_a_narrow_pipe(monkeypatch):
     assert exc.value.code == 0
     sys.stdout.flush()
     assert json.loads(raw.getvalue().decode("utf-8")) == {"proj.arrow": "raw → clean — done"}
+
+
+# --- hard stop: a certain no is dismissed with its reason -------------------------
+
+def _must(quote, kind="must"):
+    return {"requirements": [{"kind": kind, "weight": "role", "quote": quote}]}
+
+
+@pytest.mark.parametrize("quote,expected", [
+    ("8+ years of professional data science experience", True),
+    ("Minimum 10 years in analytics", True),
+    ("5+ years of experience", False),                         # under the bar: Jake can still try
+    ("1+ years of professional data science experience", False),
+    ("7+ years of experience or a PhD in a related field", False),  # a way around it
+    ("Bachelor's degree and 8 years of experience", False),         # a degree could stand in
+])
+def test_hopeless_reason_is_strict(quote, expected):
+    from src.tailor.requirements import hopeless_reason
+
+    assert bool(hopeless_reason(_must(quote), 7)) is expected
+
+
+def test_hopeless_ignores_nice_to_have():
+    from src.tailor.requirements import hopeless_reason
+
+    assert hopeless_reason(_must("10+ years of experience", kind="nice"), 7) is None
+
+
+def test_normalize_dismisses_and_records_reason(env, tmp_path):
+    from src.db import Job, connect, upsert_job
+    from src.tailor.requirements import dismiss_hopeless
+
+    cfg, app = env
+    cfg["paths"]["db"] = str(tmp_path / "jobs.db")
+    conn = connect(cfg["paths"]["db"])
+    jid, _ = upsert_job(conn, Job("t", "x1", "Data Analyst", "Contoso Retail", "Vancouver", "d", "https://x/1"))
+    conn.commit()
+    conn.close()
+    appdir.write_json(app / "app.json", {"job_id": jid, "company": "Contoso Retail", "status": "shortlisted",
+                                         "history": []})
+    reqs = appdir.read_json(app / "requirements.json")
+    first = reqs["requirements"][0]
+    posting = (app / "posting.md").read_text(encoding="utf-8")
+    (app / "posting.md").write_text(posting + "\n\n- 9+ years of data analysis experience\n", encoding="utf-8")
+    reqs["requirements"].append({**first, "id": "r99", "kind": "must", "quote": "9+ years of data analysis experience"})
+    appdir.write_json(app / "requirements.json", reqs)
+
+    reason = dismiss_hopeless(app, cfg, normalize(app, cfg))
+
+    assert "9+ years" in reason
+    a = appdir.load_app(app)
+    assert a["status"] == "dismissed" and a["dismissed_reason"] == reason
+    conn = connect(cfg["paths"]["db"])
+    assert conn.execute("SELECT status FROM jobs WHERE id = ?", (jid,)).fetchone()[0] == "dismissed"
+
+
+def test_no_chance_needs_a_real_quote(env):
+    cfg, app = env
+    reqs = appdir.read_json(app / "requirements.json")
+    reqs["no_chance"] = {"quote": "Ten years at a hedge fund", "why": "Needs pedigree."}
+    appdir.write_json(app / "requirements.json", reqs)
+    out = normalize(app, cfg)
+    assert out["no_chance"] is None and out["_normalized"]["dropped"][-1]["type"] == "no_chance"

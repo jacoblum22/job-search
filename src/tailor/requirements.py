@@ -104,6 +104,48 @@ def _append_unknown(path: Path, terms: list[str], job_id: Any) -> None:
             w.writerow([t, "" if job_id is None else job_id, date.today().isoformat()])
 
 
+_YEARS = re.compile(r"\b(\d{1,2})\s*\+?\s*(?:(?:-|to|–)\s*\d{1,2}\s*\+?\s*)?years?\b", re.I)
+_ALTERNATIVE = re.compile(r"\b(?:or|equivalent|degree|phd|master|bachelor|diploma|preferred|ideally|asset)\b", re.I)
+
+
+def hopeless_reason(data: dict[str, Any], min_years: int) -> str | None:
+    """Why this job is a certain no, or None. Strict on purpose: only a *must* requirement whose
+    quote (already verified to be in the posting) asks for `min_years` or more years, with no way
+    around it in the same sentence (an "or", a degree that can stand in, "preferred"). Everything
+    softer ("leading firm", pay that looks senior) is left to the normal pipeline and to Jake."""
+    for r in data.get("requirements") or []:
+        quote = r.get("quote") or ""
+        if r.get("kind") != "must" or r.get("weight") == "boilerplate" or _ALTERNATIVE.search(quote):
+            continue
+        years = [int(m.group(1)) for m in _YEARS.finditer(quote)]
+        if years and min(years) >= min_years:
+            return f'requires {min(years)}+ years of experience (a must-have): "{quote.strip()}"'
+    return None
+
+
+def dismiss_hopeless(app_dir: Path, cfg: dict[str, Any], data: dict[str, Any]) -> str | None:
+    """Step 1's early stop: dismiss the job (and its duplicates) when `hopeless_reason` finds a
+    certain no, and record the reason in app.json for `why`. Returns the reason or None."""
+    from src import db
+    from src.tailor import store
+
+    nc = data.get("no_chance")
+    min_years = int(((cfg.get("hard_stop") or {}).get("min_years", 7)))
+    reason = (f'{nc["why"]} (must-have: "{nc["quote"].strip()}")' if nc else None) or (
+        hopeless_reason(data, min_years) if min_years > 0 else None)
+    app = appdir.load_app(app_dir)
+    if not reason or app.get("status") in ("applied", "approved"):
+        return None
+    appdir.log(app_dir, "hard-stop", f"dismissed: {reason}", status="dismissed", dismissed_reason=reason)
+    conn = store.connect(resolve(cfg, "db"))
+    try:
+        db.set_job_status(conn, app["job_id"], "dismissed")
+        store.set_status(conn, app["job_id"], "dismissed")
+    finally:
+        conn.close()
+    return reason
+
+
 def normalize(app_dir: Path, cfg: dict[str, Any]) -> dict:
     """Validate requirements.json, add canonical names, verify quotes, write it back."""
     app_dir = Path(app_dir)
@@ -168,6 +210,11 @@ def normalize(app_dir: Path, cfg: dict[str, Any]) -> dict:
             data["hiring_contact"] = None
     else:
         data["hiring_contact"] = None
+
+    nc = data.get("no_chance")
+    if nc is not None and not (isinstance(nc, dict) and quote_in(nc.get("quote"), posting) and nc.get("why")):
+        dropped.append({"type": "no_chance", "reason": "quote not found in posting or no reason given"})
+        data["no_chance"] = None
 
     data["_normalized"] = {"dropped": dropped, "unknown_terms": unknown}
     appdir.write_json(app_dir / "requirements.json", data)

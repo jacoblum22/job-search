@@ -142,7 +142,9 @@ for another way to run it, note it for the digest.
 folder before starting the next. Keep a running note of the outcome for the digest.
 
 1. **Requirements (Claude).** Follow `prompts/tailor/requirements.md`; write `<app>/requirements.json`.
-2. `uv run python -m src.tailor requirements "<app>"`. Read the output: note what was dropped.
+2. `uv run python -m src.tailor requirements "<app>"`. Read the output: note what was dropped. If `"dismissed"` holds a reason, the job needs more years
+   than Jake could have and was dismissed (reason saved in `app.json`, shown by `why`): skip the
+   folder, note it in the digest, and go on to the next one.
 3. **Company research (only if stale).** Look in `materials/companies/<company-slug>/facts.json` (the slug is the
    company name in lowercase with every run of other characters turned into one `-`). If it has at
    least 3 facts and the newest `read` is under 30 days old, skip. Otherwise start a subagent with
