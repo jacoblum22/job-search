@@ -32,3 +32,35 @@ def test_names_that_mean_something_else_are_not_vancouver():
 def test_job_category_uses_the_description():
     job = Job("adzuna", "1", "Data Analyst", "CorGTA", "Canada", "Location: Downtown Toronto", "https://x/1")
     assert job.location_category == "other"
+
+
+def test_us_work_site_in_the_description_is_not_canada():
+    # Seen live: "Canada" location, description names a Fairfax, VA job site.
+    desc = "Machine Learning Engineer\nJob Site: 3701 Pender Drive, Fairfax, VA\nBuild models."
+    assert classify_location("Canada", "X", desc) == "other"
+    # A labelled US site beats a "remote" mention elsewhere in the posting.
+    assert classify_location("Canada", "X", desc + "\nWe are remote-friendly.") == "other"
+    assert classify_location("Canada", "X", "Office: Austin, TX 78701. Hybrid.") == "other"
+    assert classify_location("Canada", "X", "Based in Reston, VA 20190") == "other"
+    assert classify_location("Canada", "X", "Job Site: 3701 Pender Drive, Fairfax, VA 22030") == "other"
+
+
+def test_us_place_pattern_does_not_hit_canadian_or_plain_text():
+    assert classify_location("Canada", "X", "Job Site: 100 Pender St, Vancouver, BC") == "vancouver"
+    assert classify_location("Canada", "X", "Fully remote. Offices in Austin, TX and Toronto.") == "remote"
+    assert classify_location("Canada", "X", "Work with SQL, Python, etc. Apply in Ottawa, CA") == "other"  # Ottawa wins
+    assert classify_location("Canada", "X", "Questions? Reach us, OR call. Remote role.") == "remote"
+    assert location_from_description("Santa Clara, CA based team") is None
+
+
+def test_prose_with_a_state_like_code_is_not_a_us_site():
+    # Dry run on the live data: these read as US places with the loose pattern.
+    for text in ("Strong Access, MS Office and SQL.", "Near the Park, TX is not mentioned", 
+                 "Region CA, MN"):
+        assert classify_location("Canada", "X", text) == "remote", text
+
+
+def test_company_located_in_a_us_city_is_dropped_unless_remote():
+    jd = "C# Developer needed for a Contract to PERMANENT position with a medical device company located in Raleigh, NC."
+    assert classify_location("Canada", "X", jd) == "other"
+    assert classify_location("Canada", "X", jd + " Fully remote.") == "remote"

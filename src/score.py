@@ -439,8 +439,13 @@ def rescore_all(
                                vault_cfg.get("record", "materials/tailor/skill-record.json"))
             if cache is not None:
                 cache["_vault"] = vault
+    # Jake, Nov 5 2026: where a "Canada"-only posting is based is a model's call, not a pattern's.
+    from src import location_jev
+
+    jev_where = location_jev.verdicts([(r[5] or "", r[2] or "") for r in rows], cfg)
     for row in rows:
-        key = (row[1], row[2], row[3], row[4], row[5], row[6])
+        verdict = jev_where.get(location_jev.key(row[2] or "")) if location_jev.is_bare_country(row[5] or "") else None
+        key = (row[1], row[2], row[3], row[4], row[5], row[6], verdict)
         if cache is not None and cache.get(row[0], (None,))[0] == key:
             counts[cache[row[0]][1]] = counts.get(cache[row[0]][1], 0) + 1
             continue
@@ -451,7 +456,7 @@ def rescore_all(
         years = ask.required if ask else row[4]
         years_pref = ask.preferred if ask else None
         # Same for a location that names only the country: the full description says where.
-        category = classify_location(row[5] or "", row[6] or "", desc)
+        category = verdict or classify_location(row[5] or "", row[6] or "", desc)
         result = score_job(
             title=row[1],
             description=desc,
