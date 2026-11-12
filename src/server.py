@@ -157,7 +157,13 @@ class DashboardApp:
         if path in ("/", "/index.html"):
             conn = self._conn()
             try:
-                return 200, "text/html; charset=utf-8", render_dashboard(conn, server=True, version=self.version).encode()
+                return 200, "text/html; charset=utf-8", render_dashboard(conn, server=True, version=self.version, lazy=True).encode()
+            finally:
+                conn.close()
+        if path == "/api/jobs":
+            conn = self._conn()
+            try:
+                return self._json(dashboard_rows(conn))
             finally:
                 conn.close()
         if path == "/api/tailoring":

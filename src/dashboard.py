@@ -166,7 +166,7 @@ __GOAL_CSS__</style>
 <header>
   <div>
     <h1>Job Aggregator Dashboard</h1>
-    <div class="meta">Generated __GENERATED_AT__ &middot; __TOTAL__ postings across __SOURCES__ sources</div>
+    <div class="meta">Generated __GENERATED_AT__ &middot; <span id="metaCount">__TOTAL__ postings across __SOURCES__ sources</span></div>
   </div>
   __GOAL_BAR__
   <div class="runbox" id="runBox" hidden>
@@ -246,7 +246,7 @@ __GOAL_CSS__</style>
 </div>
 </div>
 <script id="jobs-data" type="application/json">__JOBS_JSON__</script>
-<script>
+<script id="main-js" type="__MAIN_TYPE__">
 // If anything below throws, say so instead of leaving the "Loading" row up forever.
 window.addEventListener('error', e => {
   document.getElementById('jobsBody').innerHTML =
@@ -346,6 +346,7 @@ const rawJobs = JSON.parse(document.getElementById('jobs-data').textContent);
 const jobs = rawJobs.map(j => ({...j, sourcesStr: j.sources.join(', ')}));
 
 const allSources = [...new Set(jobs.flatMap(j => j.sources))].sort();
+document.getElementById('metaCount').textContent = jobs.length + ' postings across ' + allSources.length + ' sources';
 const sourceFilterEl = document.getElementById('sourceFilter');
 for (const s of allSources) {
   const opt = document.createElement('option');
@@ -712,6 +713,7 @@ document.getElementById('jobsBody').addEventListener('click', e => {
 
 render();
 </script>
+__LOADER__
 </body>
 </html>
 """
@@ -779,10 +781,49 @@ def dashboard_rows(conn: sqlite3.Connection, only_ids: set[int] | None = None) -
     return rows
 
 
-def render_dashboard(conn: sqlite3.Connection, server: bool = False, version: int = 0) -> str:
+# With `lazy`, the page is a small shell: this script downloads the rows from /api/jobs, showing
+# progress in the table (so a stall says where it stalled), then runs the page's own script.
+_LAZY_LOADER = """<script>
+(async () => {
+  const say = t => { const c = document.querySelector('#jobsBody td'); if (c) { c.className = 'notice'; c.textContent = t; } };
+  const t0 = performance.now(), secs = () => Math.round((performance.now() - t0) / 1000) + 's';
+  const mb = n => (n / 1048576).toFixed(1);
+  const tick = () => new Promise(r => setTimeout(r));
+  let stage = 'asking the server', got = 0;
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 120000);
+  try {
+    const wait = setInterval(() => { if (stage === 'asking the server') say('Loading jobs… server is building the list (' + secs() + ')'); }, 1000);
+    say('Loading jobs… asking the server');
+    const r = await fetch('/api/jobs', {signal: ctl.signal});
+    clearInterval(wait);
+    if (!r.ok) throw new Error('the server answered ' + r.status);
+    stage = 'downloading';
+    const total = +r.headers.get('X-Raw-Size') || 0, rd = r.body.getReader(), parts = [];
+    for (;;) {
+      const {done, value} = await rd.read();
+      if (done) break;
+      parts.push(value); got += value.length;
+      say('Loading jobs… downloaded ' + mb(got) + (total ? ' of ' + mb(total) : '') + ' MB (' + secs() + ')');
+    }
+    clearTimeout(timer);
+    stage = 'reading the data'; say('Loading jobs… reading the data (' + secs() + ')'); await tick();
+    document.getElementById('jobs-data').textContent = await new Blob(parts).text();
+    stage = 'drawing the table'; say('Loading jobs… drawing the table (' + secs() + ')'); await tick();
+    const s = document.createElement('script');
+    s.textContent = document.getElementById('main-js').textContent;
+    document.body.appendChild(s);
+  } catch (e) {
+    const c = document.querySelector('#jobsBody td');
+    if (c) { c.className = 'notice error'; c.textContent = 'Could not load jobs while ' + stage + (got ? ' (got ' + mb(got) + ' MB)' : '') + ' after ' + secs() + ': ' + (e.name === 'AbortError' ? 'timed out' : e.message) + '. Reload to try again.'; }
+  }
+})();
+</script>"""
+
+
+def render_dashboard(conn: sqlite3.Connection, server: bool = False, version: int = 0, lazy: bool = False) -> str:
     """The dashboard HTML. With `server`, titles open the details page of the local
     server (scripts/serve.py) instead of only linking to the posting."""
-    rows = dashboard_rows(conn)
+    rows = [] if lazy else dashboard_rows(conn)
     all_sources = sorted({s for r in rows for s in r["sources"]})
     generated_at = escape(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
 
@@ -790,6 +831,8 @@ def render_dashboard(conn: sqlite3.Connection, server: bool = False, version: in
     # CSS/JS is full of literal `{}` braces that .format() would choke on.
     return (
         _TEMPLATE.replace("__GENERATED_AT__", generated_at)
+        .replace("__MAIN_TYPE__", "text/plain" if lazy else "text/javascript")
+        .replace("__LOADER__", _LAZY_LOADER if lazy else "")
         .replace("__TOTAL__", str(len(rows)))
         .replace("__SOURCES__", str(len(all_sources)))
         .replace("__SERVER__", "true" if server else "false")

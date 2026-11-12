@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import gzip
 import sys
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -38,8 +39,14 @@ def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
         def _send(self, method: str) -> None:
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else b""
+            t0 = time.monotonic()
             with app.lock:  # one request at a time
+                t1 = time.monotonic()
                 status, ctype, data = app.handle(method, self.path, dict(self.headers.items()), body)
+            t2 = time.monotonic()
+            if t2 - t0 > 2:  # slow requests leave a trace in logs/dashboard.log
+                print(f"slow {method} {self.path[:60]}: waited {t1 - t0:.1f}s for the lock, handled in {t2 - t1:.1f}s", flush=True)
+            raw_size = len(data)
             # The page is ~2 MB of job rows; over Tailscale/mobile it arrived cut off and sat on
             # "Loading jobs…". Compressed it is ~10x smaller.
             gzipped = len(data) > 1024 and "gzip" in self.headers.get("Accept-Encoding", "")
@@ -48,6 +55,7 @@ def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
             self.send_response(status)
             if gzipped:
                 self.send_header("Content-Encoding", "gzip")
+            self.send_header("X-Raw-Size", str(raw_size))  # the page's download progress shows it
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
             # Pages may stay in the browser's back/forward cache (Back is instant); data never is cached.
