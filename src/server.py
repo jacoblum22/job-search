@@ -19,6 +19,7 @@ import mimetypes
 import re
 import sqlite3
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -161,11 +162,7 @@ class DashboardApp:
             finally:
                 conn.close()
         if path == "/api/jobs":
-            conn = self._conn()
-            try:
-                return self._json(dashboard_rows(conn))
-            finally:
-                conn.close()
+            return self._jobs_page(query)
         if path == "/api/tailoring":
             return self._json(self.runner.status())
         if path == "/api/goal":
@@ -185,6 +182,28 @@ class DashboardApp:
         if path.startswith("/job/") and rest.startswith("/file/"):
             return self._file(job_id, rest.removeprefix("/file/"))
         return self._error("not found", 404)
+
+    def _jobs_page(self, query: str) -> Response:
+        """A slice of the dashboard rows (?offset=0&limit=150), the ones you most likely want
+        first: waiting on you, then best score, skipped/dismissed/applied last. Building every
+        row takes seconds, so the list is kept for five minutes (until something changes) and the
+        page asks for it in pieces. ponytail: a change between two pages can repeat or skip a
+        row; the page ignores repeats and its change poll refetches what moved."""
+        q = parse_qs(query)
+        num = lambda k, d: int(q[k][0]) if q.get(k, [""])[0].isdigit() else d  # noqa: E731
+        offset, limit = num("offset", 0), min(num("limit", 150), 1000)
+        key = (self.version, int(time.monotonic() // 300))
+        if getattr(self, "_jobs_cache", (None,))[0] != key:
+            conn = self._conn()
+            try:
+                rows = dashboard_rows(conn)
+            finally:
+                conn.close()
+            rows.sort(key=lambda r: (r["pin"] >= 99, r.get("tier") == "skip" or r.get("status") in ("dismissed", "applied"),
+                                     -(r.get("score_sort") or 0)))
+            self._jobs_cache = (key, rows)
+        rows = self._jobs_cache[1]
+        return self._json({"rows": rows[offset:offset + limit], "total": len(rows)})
 
     def _changes_since(self, query: str) -> Response:
         """Job ids changed since version N (?since=N). `reload` when N is unknown to this server

@@ -345,13 +345,27 @@ if (SERVER) {
 const rawJobs = JSON.parse(document.getElementById('jobs-data').textContent);
 const jobs = rawJobs.map(j => ({...j, sourcesStr: j.sources.join(', ')}));
 
-const allSources = [...new Set(jobs.flatMap(j => j.sources))].sort();
-document.getElementById('metaCount').textContent = jobs.length + ' postings across ' + allSources.length + ' sources';
 const sourceFilterEl = document.getElementById('sourceFilter');
-for (const s of allSources) {
-  const opt = document.createElement('option');
-  opt.value = s; opt.textContent = s;
-  sourceFilterEl.appendChild(opt);
+const metaCountEl = document.getElementById('metaCount');
+function updateSources() {
+  const allSources = [...new Set(jobs.flatMap(j => j.sources))].sort();
+  metaCountEl.textContent = jobs.length + ' postings across ' + allSources.length + ' sources';
+  const keep = sourceFilterEl.value;
+  while (sourceFilterEl.options.length > 1) sourceFilterEl.remove(1);
+  for (const s of allSources) {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    sourceFilterEl.appendChild(opt);
+  }
+  sourceFilterEl.value = keep;
+}
+updateSources();
+// The server page loads the rest of the jobs after the first screenful (see the loader below).
+function addJobs(rows) {
+  const have = new Set(jobs.map(j => j.id));
+  for (const j of rows) if (!have.has(j.id)) jobs.push({...j, sourcesStr: j.sources.join(', ')});
+  updateSources();
+  render();
 }
 
 let sortKey = 'score_sort', sortDir = -1;
@@ -784,37 +798,53 @@ def dashboard_rows(conn: sqlite3.Connection, only_ids: set[int] | None = None) -
 # With `lazy`, the page is a small shell: this script downloads the rows from /api/jobs, showing
 # progress in the table (so a stall says where it stalled), then runs the page's own script.
 _LAZY_LOADER = """<script>
+// Jobs arrive in small pages, the ones you most likely want first (waiting on you, then best score,
+// skipped/dismissed/applied last), so the table fills in at once and the rest follows.
 (async () => {
-  const say = t => { const c = document.querySelector('#jobsBody td'); if (c) { c.className = 'notice'; c.textContent = t; } };
+  const cell = () => document.querySelector('#jobsBody td');
+  const meta = document.getElementById('metaCount');
   const t0 = performance.now(), secs = () => Math.round((performance.now() - t0) / 1000) + 's';
-  const mb = n => (n / 1048576).toFixed(1);
   const tick = () => new Promise(r => setTimeout(r));
-  let stage = 'asking the server', got = 0;
-  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 120000);
+  let stage = 'asking the server', done = 0, total = 0, started = false;
+  const status = t => {
+    if (!started) { const c = cell(); if (c) { c.className = 'notice'; c.textContent = t; } }
+    else document.getElementById('loadMore').textContent = t;
+  };
+  const page = async (offset, limit) => {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 60000);
+    try {
+      const r = await fetch('/api/jobs?offset=' + offset + '&limit=' + limit, {signal: ctl.signal});
+      if (!r.ok) throw new Error('the server answered ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(timer); }
+  };
   try {
-    const wait = setInterval(() => { if (stage === 'asking the server') say('Loading jobs… server is building the list (' + secs() + ')'); }, 1000);
-    say('Loading jobs… asking the server');
-    const r = await fetch('/api/jobs', {signal: ctl.signal});
+    const wait = setInterval(() => { if (!started) status('Loading jobs… server is building the list (' + secs() + ')'); }, 1000);
+    status('Loading jobs… asking the server');
+    let first = await page(0, 150);
     clearInterval(wait);
-    if (!r.ok) throw new Error('the server answered ' + r.status);
-    stage = 'downloading';
-    const total = +r.headers.get('X-Raw-Size') || 0, rd = r.body.getReader(), parts = [];
-    for (;;) {
-      const {done, value} = await rd.read();
-      if (done) break;
-      parts.push(value); got += value.length;
-      say('Loading jobs… downloaded ' + mb(got) + (total ? ' of ' + mb(total) : '') + ' MB (' + secs() + ')');
-    }
-    clearTimeout(timer);
-    stage = 'reading the data'; say('Loading jobs… reading the data (' + secs() + ')'); await tick();
-    document.getElementById('jobs-data').textContent = await new Blob(parts).text();
-    stage = 'drawing the table'; say('Loading jobs… drawing the table (' + secs() + ')'); await tick();
+    total = first.total; done = first.rows.length;
+    stage = 'drawing the table';
+    document.getElementById('jobs-data').textContent = JSON.stringify(first.rows);
     const s = document.createElement('script');
     s.textContent = document.getElementById('main-js').textContent;
     document.body.appendChild(s);
+    started = true;
+    meta.insertAdjacentHTML('afterend', ' <span id="loadMore"></span>');
+    while (done < total) {
+      stage = 'loading more jobs';
+      status('· loading more jobs… ' + done + ' of ' + total + ' (' + secs() + ')');
+      const next = await page(done, 600);
+      if (!next.rows.length) break;
+      done += next.rows.length;
+      addJobs(next.rows); await tick();
+    }
+    document.getElementById('loadMore').textContent = '';
   } catch (e) {
-    const c = document.querySelector('#jobsBody td');
-    if (c) { c.className = 'notice error'; c.textContent = 'Could not load jobs while ' + stage + (got ? ' (got ' + mb(got) + ' MB)' : '') + ' after ' + secs() + ': ' + (e.name === 'AbortError' ? 'timed out' : e.message) + '. Reload to try again.'; }
+    const msg = 'Could not load jobs while ' + stage + ' (' + done + ' of ' + total + ' loaded, ' + secs() + '): '
+      + (e.name === 'AbortError' ? 'timed out' : e.message) + '. Reload to try again.';
+    if (started) { const l = document.getElementById('loadMore'); l.textContent = '· ' + msg; l.style.color = '#f07178'; }
+    else { const c = cell(); if (c) { c.className = 'notice error'; c.textContent = msg; } }
   }
 })();
 </script>"""

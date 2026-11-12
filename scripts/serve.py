@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import gzip
 import sys
+import threading
 import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -96,6 +97,12 @@ def main(port: int, no_browser: bool, allow_hosts: tuple[str, ...]) -> None:
     app = DashboardApp(cfg, resolve(cfg, "db"), PROJECT_ROOT / "dashboard.html", port=port,
                        extra_hosts=allow_hosts, refresh_delay=2.0)
     server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app))
+    # Build the job list now, so the first page opened after a start doesn't wait 10+ seconds for it.
+    def warm() -> None:
+        with app.lock:
+            app.handle("GET", "/api/jobs?limit=1", {"host": f"127.0.0.1:{port}"})
+
+    threading.Thread(target=warm, daemon=True).start()
     url = f"http://127.0.0.1:{port}/"
     click.echo(f"Dashboard at {url} (Ctrl+C to stop)")
     if not no_browser:
