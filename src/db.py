@@ -413,10 +413,14 @@ def grouped_jobs(conn: sqlite3.Connection, only_ids: set[int] | None = None,
     the list shows, or the list and the details page would show two different scores.
     """
     groups: dict[str, list[sqlite3.Row]] = {}
-    for row in all_jobs(conn):
+    if only_ids is None:
+        rows = all_jobs(conn)
+    else:  # load just those groups, not the whole table (the dashboard refetches single rows constantly)
+        marks = ",".join("?" * len(only_ids))
+        rows = conn.execute("SELECT * FROM jobs WHERE dedup_group_id IN (SELECT dedup_group_id FROM jobs "
+                            f"WHERE id IN ({marks})) ORDER BY first_seen DESC", [int(i) for i in only_ids]).fetchall()
+    for row in rows:
         groups.setdefault(row["dedup_group_id"], []).append(row)
-    if only_ids is not None:
-        groups = {g: ms for g, ms in groups.items() if any(m["id"] in only_ids for m in ms)}
 
     result: list[dict[str, Any]] = []
     for group_id, members in groups.items():
