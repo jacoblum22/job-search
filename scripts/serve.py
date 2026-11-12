@@ -18,6 +18,7 @@ the last change (off the request, so buttons answer at once), so the plain file 
 
 from __future__ import annotations
 
+import gzip
 import sys
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -39,7 +40,14 @@ def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
             body = self.rfile.read(length) if length else b""
             with app.lock:  # one request at a time
                 status, ctype, data = app.handle(method, self.path, dict(self.headers.items()), body)
+            # The page is ~2 MB of job rows; over Tailscale/mobile it arrived cut off and sat on
+            # "Loading jobs…". Compressed it is ~10x smaller.
+            gzipped = len(data) > 1024 and "gzip" in self.headers.get("Accept-Encoding", "")
+            if gzipped:
+                data = gzip.compress(data, compresslevel=5)
             self.send_response(status)
+            if gzipped:
+                self.send_header("Content-Encoding", "gzip")
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
             # Pages may stay in the browser's back/forward cache (Back is instant); data never is cached.
