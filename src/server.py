@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
 import sqlite3
 import threading
@@ -45,6 +46,27 @@ _DIAG_PATH = "/api/autofill-diagnostics"
 _JOB = re.compile(r"^/(?:api/)?job/(\d+)(/.*)?$")
 # Files from an application's final/ folder the details page may link to.
 _SERVABLE = {".pdf", ".docx", ".md", ".json", ".yaml"}
+
+
+# Open /speedtest on the device that has trouble: it times small requests (delay, lost or slow
+# ones) and a 2 MB download, so the link between the device and this PC can be told from the app.
+_SPEEDTEST = '''<!doctype html><meta name=viewport content="width=device-width"><title>Speed test</title>
+<body style="font:16px system-ui;background:#111;color:#eee;padding:16px"><h3>Link to the job dashboard PC</h3><pre id=o>testing&hellip;</pre><script>
+(async()=>{const o=document.getElementById('o'),say=t=>o.textContent=t;
+const t=[];let fail=0;
+for(let i=0;i<20;i++){const s=performance.now();try{const c=new AbortController(),k=setTimeout(()=>c.abort(),8000);
+await (await fetch('/api/speedtest?kb=1&n='+i+Math.random(),{cache:'no-store',signal:c.signal})).arrayBuffer();clearTimeout(k);t.push(performance.now()-s)}catch(e){fail++}
+say('small requests: '+(i+1)+'/20 done, '+fail+' failed')}
+t.sort((a,b)=>a-b);const med=t[t.length>>1]||0,max=t[t.length-1]||0;
+let r='small requests (1 KB): '+t.length+'/20 answered, '+fail+' failed or took over 8 s
+median '+Math.round(med)+' ms, slowest '+Math.round(max)+' ms
+';
+say(r+'downloading 2 MB...');
+try{const s=performance.now(),c=new AbortController(),k=setTimeout(()=>c.abort(),60000);
+const b=await (await fetch('/api/speedtest?kb=2048&x='+Math.random(),{cache:'no-store',signal:c.signal})).arrayBuffer();clearTimeout(k);
+const sec=(performance.now()-s)/1000;r+='2 MB download: '+sec.toFixed(1)+' s = '+(b.byteLength*8/1e6/sec).toFixed(1)+' Mbps'}
+catch(e){r+='2 MB download: failed or took over 60 s'}
+say(r)})()</script>'''
 
 
 class DashboardApp:
@@ -163,6 +185,11 @@ class DashboardApp:
                 return 200, "text/html; charset=utf-8", render_dashboard(conn, server=True, version=self.version, lazy=True).encode()
             finally:
                 conn.close()
+        if path == "/speedtest":
+            return 200, "text/html; charset=utf-8", _SPEEDTEST.encode()
+        if path == "/api/speedtest":  # random bytes (gzip can't shrink them): ?kb=N
+            kb = min(int((parse_qs(query).get("kb") or ["1"])[0]), 8192) if (parse_qs(query).get("kb") or ["1"])[0].isdigit() else 1
+            return 200, "application/octet-stream", os.urandom(kb * 1024)
         if path == "/api/jobs":
             return self._jobs_page(query)
         if path == "/api/tailoring":
