@@ -63,6 +63,8 @@ class DashboardApp:
         # Every change made through the server is numbered, so any open dashboard (another tab,
         # the phone) can ask which rows changed since the number it has and refresh just those.
         self.version = 0
+        self._jobs_cache: tuple[int, float, list[dict]] | None = None  # (version, built at, sorted rows)
+        self._build_lock = threading.Lock()
         self._changes: list[tuple[int, int]] = []  # (version, job id), newest last
         self.db_path = Path(db_path)
         self._pg = None  # the kept Postgres connection, once the main database is Postgres
@@ -183,26 +185,40 @@ class DashboardApp:
             return self._file(job_id, rest.removeprefix("/file/"))
         return self._error("not found", 404)
 
-    def _jobs_page(self, query: str) -> Response:
-        """A slice of the dashboard rows (?offset=0&limit=150), the ones you most likely want
-        first: waiting on you, then best score, skipped/dismissed/applied last. Building every
-        row takes seconds, so the list is kept for five minutes (until something changes) and the
-        page asks for it in pieces. ponytail: a change between two pages can repeat or skip a
-        row; the page ignores repeats and its change poll refetches what moved."""
-        q = parse_qs(query)
-        num = lambda k, d: int(q[k][0]) if q.get(k, [""])[0].isdigit() else d  # noqa: E731
-        offset, limit = num("offset", 0), min(num("limit", 150), 1000)
-        key = (self.version, int(time.monotonic() // 300))
-        if getattr(self, "_jobs_cache", (None,))[0] != key:
-            conn = self._conn()
+    def _build_jobs(self) -> None:
+        """Build the sorted dashboard rows on a connection of its own, so the server's request
+        lock is not held for the seconds this takes (it used to queue every other request)."""
+        with self._build_lock:
+            version = self.version
+            c = self._jobs_cache
+            if c and c[0] == version and time.monotonic() - c[1] < 300:
+                return  # another request just built it
+            conn = connect(self.db_path)
             try:
                 rows = dashboard_rows(conn)
             finally:
                 conn.close()
             rows.sort(key=lambda r: (r["pin"] >= 99, r.get("tier") == "skip" or r.get("status") in ("dismissed", "applied"),
                                      -(r.get("score_sort") or 0)))
-            self._jobs_cache = (key, rows)
-        rows = self._jobs_cache[1]
+            self._jobs_cache = (version, time.monotonic(), rows)
+
+    def _jobs_page(self, query: str) -> Response:
+        """A slice of the dashboard rows (?offset=0&limit=150), the ones you most likely want
+        first: waiting on you, then best score, skipped/dismissed/applied last. Building every
+        row takes seconds, so the list is kept and the page asks for it in pieces. After a change
+        made here the list is rebuilt before it is served (the page's change poll starts from the
+        current version); a list older than five minutes is served while a fresh one builds.
+        ponytail: a change between two pages can repeat or skip a row; the page ignores repeats
+        and its change poll refetches what moved."""
+        q = parse_qs(query)
+        num = lambda k, d: int(q[k][0]) if q.get(k, [""])[0].isdigit() else d  # noqa: E731
+        offset, limit = num("offset", 0), min(num("limit", 150), 1000)
+        c = self._jobs_cache
+        if c is None or c[0] != self.version:
+            self._build_jobs()
+        elif time.monotonic() - c[1] >= 300 and not self._build_lock.locked():
+            threading.Thread(target=self._build_jobs, daemon=True).start()
+        rows = self._jobs_cache[2]
         return self._json({"rows": rows[offset:offset + limit], "total": len(rows)})
 
     def _changes_since(self, query: str) -> Response:

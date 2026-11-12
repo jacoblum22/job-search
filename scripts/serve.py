@@ -18,6 +18,7 @@ the last change (off the request, so buttons answer at once), so the plain file 
 
 from __future__ import annotations
 
+import contextlib
 import gzip
 import sys
 import threading
@@ -41,7 +42,9 @@ def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else b""
             t0 = time.monotonic()
-            with app.lock:  # one request at a time
+            # One request at a time, except the job list: it builds on its own connection, so the seconds
+            # it takes must not make every other request (the autofill extension's) wait behind it.
+            with contextlib.nullcontext() if self.path.startswith("/api/jobs") else app.lock:
                 t1 = time.monotonic()
                 status, ctype, data = app.handle(method, self.path, dict(self.headers.items()), body)
             t2 = time.monotonic()
@@ -99,8 +102,7 @@ def main(port: int, no_browser: bool, allow_hosts: tuple[str, ...]) -> None:
     server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app))
     # Build the job list now, so the first page opened after a start doesn't wait 10+ seconds for it.
     def warm() -> None:
-        with app.lock:
-            app.handle("GET", "/api/jobs?limit=1", {"host": f"127.0.0.1:{port}"})
+        app.handle("GET", "/api/jobs?limit=1", {"host": f"127.0.0.1:{port}"})
 
     threading.Thread(target=warm, daemon=True).start()
     url = f"http://127.0.0.1:{port}/"
