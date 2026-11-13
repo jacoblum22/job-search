@@ -55,11 +55,16 @@ def main() -> None:
               help="Only list the next jobs in order (open-check/plan.json) for the browser's open check")
 @click.option("--from-plan", "from_plan", is_flag=True,
               help="Create folders from today's plan, dismissing the jobs the open check found closed")
-def queue(limit, job_id, plan_only, from_plan):
+@click.option("--shortfall", "shortfall_only", is_flag=True,
+              help="Print how many more jobs today's run needs to reach the cap (dismissed ones don't count)")
+def queue(limit, job_id, plan_only, from_plan, shortfall_only):
     """Step 0: pick eligible jobs, ask Jev's gate questions, create application folders."""
-    from src.tailor.queue import queue_from_plan, run_queue
+    from src.tailor.queue import queue_from_plan, run_queue, shortfall
 
     cfg = load_config()
+    if shortfall_only:
+        click.echo(shortfall(cfg, limit))
+        return
     if plan_only and not (cfg.get("open_check") or {}).get("enabled", True):
         raise SystemExit(3)  # the open check is off: the wrapper then runs the plain queue
     if from_plan:

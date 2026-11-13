@@ -20,7 +20,7 @@ from src.search_match import INTERNSHIP_TITLE_RE as _INTERNSHIP_RE
 from src.tailor import store
 
 _APP_LABELS = {
-    "shortlisted": "Queued",
+    "shortlisted": "",   # a folder the queue made that isn't drafted yet: no tag (Jake, Nov 12 2026)
     "ready_for_review": "Ready for review",
     "needs_fixes": "Needs fixes",
     "approved": "Approved, not applied",
@@ -197,7 +197,6 @@ __GOAL_CSS__</style>
   <select id="appFilter">
     <option value="">All jobs</option>
     <option value="any">Has an application</option>
-    <option value="shortlisted">Queued</option>
     <option value="ready_for_review">Ready for review</option>
     <option value="needs_fixes">Needs fixes</option>
     <option value="approved">Approved, not applied</option>
@@ -441,7 +440,7 @@ function fileLink(href, text) {
 }
 
 function appCell(app) {
-  if (!app) return '';
+  if (!app || !app.label) return '';   // queued, not drafted yet: nothing to show
   const flags = app.flags.map(f => `<span class="badge flag">${escapeHtml(f)}</span>`).join('');
   // file: links don't open from an http page; the served dashboard has the details page instead.
   const links = SERVER ? '' : fileLink(app.final_href, 'Files') + fileLink(app.check_href, 'Checklist');
@@ -555,11 +554,11 @@ function renderStats() {
   const locColors = {vancouver: ['#2f9e5b', '#5fd38b'], remote: ['#4a6fe0', '#86a6ff'], other: ['#5a5f70', '#8a90a3']};
   h += barsCard('Jobs by location', 'Where the job is based', countBy(jobs, j => j.location_category || 'other')
                 .map(([k, n]) => [locNames[k] || k, n, k]), 'third', k => locColors[k] || locColors.other);
-  const appOrder = ['needs_fixes', 'ready_for_review', 'approved', 'shortlisted', 'applied'];
+  const appOrder = ['needs_fixes', 'ready_for_review', 'approved', 'applied'];
   const appLabel = {needs_fixes: 'Needs fixes', ready_for_review: 'Ready for review', approved: 'Approved, not applied',
-                    shortlisted: 'Queued', applied: 'Applied'};
+                    applied: 'Applied'};
   const appColors = {needs_fixes: ['#b23b3b', '#f07178'], ready_for_review: ['#4a6fe0', '#86a6ff'],
-                     approved: ['#2f9e5b', '#5fd38b'], shortlisted: ['#5a5f70', '#8a90a3'], applied: ['#b8860b', '#f2b84b']};
+                     approved: ['#2f9e5b', '#5fd38b'], applied: ['#b8860b', '#f2b84b']};
   h += barsCard('Applications', 'Tailored resumes and cover letters by status',
                 appOrder.map(s => [appLabel[s], apps.filter(j => j.app.status === s).length, s]), 'third', s => appColors[s]);
 
@@ -778,7 +777,7 @@ def _file_uri(path: Path) -> str:
 def app_summary(app: dict) -> dict:
     """What the dashboard shows for one tailoring application (src/tailor/store.py row)."""
     status = app.get("status") or "shortlisted"
-    label = _APP_LABELS.get(status, status.replace("_", " ").capitalize())
+    label = _APP_LABELS[status] if status in _APP_LABELS else status.replace("_", " ").capitalize()
     outcome = app.get("outcome")
     if status == "applied" and outcome and outcome != "applied":
         label = f"Applied: {outcome.replace('_', ' ')}"

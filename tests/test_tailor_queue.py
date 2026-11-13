@@ -480,7 +480,7 @@ def test_open_check_dismisses_closed_and_takes_the_next_in_line(cfg_oc):
     conn = connect(cfg["paths"]["db"])
     assert conn.execute("SELECT status FROM jobs WHERE id = ?", (ids[0],)).fetchone()[0] == "dismissed"
     assert conn.execute("SELECT status FROM jobs WHERE id = ?", (ids[3],)).fetchone()[0] != "dismissed"
-    log = Path(cfg["paths"]["materials"]) / "tailor" / "open-check" / "closed.jsonl"
+    log = Path(cfg["paths"]["materials"]) / "tailor" / "open-check" / "dismissed.jsonl"
     assert "no longer accepting" in log.read_text()
 
 
@@ -513,3 +513,34 @@ def test_open_check_plan_lists_every_eligible_job_so_it_never_runs_out_of_spares
     for i in ids[:6]:
         _verdict(cfg, i, "closed", "Job closed")
     assert titles(queue_from_plan(cfg)) == ["Job 6", "Job 7"]
+
+
+def test_obvious_miss_verdict_dismisses_like_a_closed_one_and_needs_a_quote_and_reason(cfg_oc):
+    from src.tailor.queue import queue_from_plan
+
+    cfg = cfg_oc
+    ids = [add(cfg, f"x{i}", f"Job {i}", "A", 90 - i) for i in range(4)]
+    run_queue(cfg, limit=2, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
+    from src.tailor.queue import open_check_dir
+    (open_check_dir(cfg) / f"{ids[0]}.json").write_text(json.dumps(
+        {"job_id": ids[0], "state": "miss", "evidence": "PhD required", "why": "He has no PhD"}))
+    (open_check_dir(cfg) / f"{ids[1]}.json").write_text(json.dumps(
+        {"job_id": ids[1], "state": "miss", "evidence": "PhD required"}))  # no reason: ignored
+    assert titles(queue_from_plan(cfg)) == ["Job 1", "Job 2"]
+    log = (open_check_dir(cfg) / "dismissed.jsonl").read_text()
+    assert '"kind": "miss"' in log and "He has no PhD" in log
+
+
+def test_shortfall_counts_the_cap_minus_folders_made_today_that_are_still_wanted(cfg_oc):
+    from src import db
+    from src.tailor.queue import shortfall
+
+    cfg = cfg_oc
+    ids = [add(cfg, f"s{i}", f"Job {i}", "A", 90 - i) for i in range(5)]
+    assert shortfall(cfg, 3) == 3
+    run_queue(cfg, limit=3, jev=FakeJev(lambda s, q: GOOD[q.id]))
+    assert shortfall(cfg, 3) == 0
+    conn = connect(cfg["paths"]["db"])
+    db.set_job_status(conn, ids[0], "dismissed")  # a hard stop during drafting
+    conn.close()
+    assert shortfall(cfg, 3) == 1

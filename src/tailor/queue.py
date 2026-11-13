@@ -250,8 +250,10 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
 # A posting can close before we get to it. `queue --plan` lists the next jobs in order, the
 # wrapper has Claude in Chrome open each link (prompts/tailor/open-check.md) and write a verdict
 # file per job, then `queue --from-plan` dismisses the closed ones and takes the next open job
-# in line instead, so a run still drafts `daily_cap` jobs. A job the browser couldn't read
-# ("unknown") is kept: a page we can't judge never costs a job.
+# in line instead, so a run still drafts `daily_cap` jobs. The same read also catches an obvious
+# miss ("miss": a certain deal-breaker, as the requirements step's no_chance / hard stop) so the
+# final set is open jobs that aren't obvious misses (Jake, Nov 12 2026). A job the browser
+# couldn't read ("unknown") is kept: a page we can't judge never costs a job.
 
 def open_check_dir(cfg: dict[str, Any]) -> Path:
     return resolve(cfg, "materials") / "tailor" / "open-check"
@@ -264,7 +266,8 @@ def write_plan(cfg: dict[str, Any], entries: list[tuple[Any, list, Any]], limit:
     d.mkdir(parents=True, exist_ok=True)
     for old in d.glob("*.json"):  # last run's plan and verdicts
         old.unlink()
-    plan = {"date": date.today().isoformat(), "limit": limit, "checked": checked, "entries": [
+    plan = {"date": date.today().isoformat(), "limit": limit, "checked": checked,
+            "min_years": int((cfg.get("hard_stop") or {}).get("min_years", 7)), "entries": [
         {"job_id": r["id"], "company": r["company"], "title": r["title"], "url": r["url"],
          "flags": flags, "resume_base": base} for r, flags, base in entries]}
     path = d / "plan.json"
@@ -288,10 +291,13 @@ def read_verdicts(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
         if not isinstance(v, dict):
             continue
         state = v.get("state")
-        if state == "closed" and not str(v.get("evidence") or "").strip():
+        if state in ("closed", "miss") and not str(v.get("evidence") or "").strip():
             state = "unknown"
-        out[int(f.stem)] = {"state": state if state in ("open", "closed") else "unknown",
-                            "evidence": str(v.get("evidence") or "").strip()}
+        if state == "miss" and not str(v.get("why") or "").strip():
+            state = "unknown"
+        out[int(f.stem)] = {"state": state if state in ("open", "closed", "miss") else "unknown",
+                            "evidence": str(v.get("evidence") or "").strip(),
+                            "why": str(v.get("why") or "").strip()}
     return out
 
 
@@ -318,21 +324,38 @@ def queue_from_plan(cfg: dict[str, Any], limit: int | None = None) -> list[Path]
             if row is None or row["id"] in taken or row["status"] in ("dismissed", "applied"):
                 continue
             v = verdicts.get(e["job_id"])
-            if v and v["state"] == "closed":
+            if v and v["state"] in ("closed", "miss"):
                 db.set_job_status(conn, e["job_id"], "dismissed")
                 store.set_status(conn, e["job_id"], "dismissed")
                 closed.append({"job_id": e["job_id"], "company": e["company"], "title": e["title"],
-                               "evidence": v["evidence"]})
+                               "kind": v["state"], "evidence": v["evidence"], "why": v["why"]})
                 continue
             entries.append((row, e["flags"], e["resume_base"]))
         if closed:
-            log = open_check_dir(cfg) / "closed.jsonl"
+            log = open_check_dir(cfg) / "dismissed.jsonl"
             with log.open("a", encoding="utf-8") as f:
                 for c in closed:
                     f.write(json.dumps({"date": date.today().isoformat(), **c}) + "\n")
         return _make_folders(conn, cfg, entries, bool(plan.get("checked")))
     finally:
         conn.close()
+
+
+def shortfall(cfg: dict[str, Any], limit: int | None = None) -> int:
+    """How many more jobs today's run must draft to reach the daily cap: the cap minus the
+    folders made today whose job wasn't dismissed since (a hard stop or an open check can
+    dismiss one after its folder exists). The wrapper tops up with another open check and
+    queue round until this is 0 (Jake, Nov 12 2026: every job gets both checks)."""
+    limit = limit if limit is not None else int(cfg.get("daily_cap", 3))
+    conn = store.connect(resolve(cfg, "db"))
+    try:
+        (kept,) = conn.execute(
+            "SELECT COUNT(*) FROM applications a JOIN jobs j ON j.id = a.job_id "
+            "WHERE a.created_at = ? AND j.status != 'dismissed' AND a.status != 'dismissed'",
+            (date.today().isoformat(),)).fetchone()
+    finally:
+        conn.close()
+    return max(0, limit - int(kept))
 
 
 def _make_folders(conn, cfg: dict[str, Any], entries: list[tuple[Any, list, Any]], use_jev: bool) -> list[Path]:

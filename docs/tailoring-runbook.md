@@ -62,7 +62,7 @@ Set-ScheduledTask -TaskName "JobSearch-Tailoring" -Settings $s
 **Open check.** Before the queue makes folders, the wrapper runs `queue --plan` (every eligible job in rank order), then a short `claude -p --chrome` session
 (`prompts/tailor/open-check.md`) opens each link and writes `materials/tailor/open-check/<job_id>.json`
 (open, closed with a quoted line, or unknown). `queue --from-plan` dismisses the closed jobs (listed in
-`closed.jsonl`) and takes the next in line, so the run still drafts `daily_cap` jobs. If Chrome can't be
+`dismissed.jsonl`) and takes the next in line, so the run still drafts `daily_cap` jobs. If Chrome can't be
 reached the run logs a warning and drafts as before. With two Chrome browsers on the account the run must
 pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrome). Turn the check off with
 `tailor.open_check.enabled: false`.
@@ -152,7 +152,9 @@ folder before starting the next. Keep a running note of the outcome for the dige
 1. **Requirements (Claude).** Follow `prompts/tailor/requirements.md`; write `<app>/requirements.json`.
 2. `uv run python -m src.tailor requirements "<app>"`. Read the output: note what was dropped. If `"dismissed"` holds a reason, the job needs more years
    than Jake could have and was dismissed (reason saved in `app.json`, shown by `why`): skip the
-   folder, note it in the digest, and go on to the next one.
+   folder, note it in the digest, and go on to the next one. (You don't replace it: when the
+   sessions are done, the wrapper sees the run is short of the daily cap and tops it up with another
+   open check and queue round, so every job gets both checks.)
 3. **Company research (only if stale).** Look in `materials/companies/<company-slug>/facts.json` (the slug is the
    company name in lowercase with every run of other characters turned into one `-`). If it has at
    least 3 facts and the newest `read` is under 30 days old, skip. Otherwise start a subagent with
