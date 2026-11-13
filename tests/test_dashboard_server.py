@@ -614,13 +614,40 @@ def test_tailoring_tag_markup_and_scheduled_run_start(env, tmp_path):
 
     assert app_summary({"status": "shortlisted", "updated_at": "2026-11-13T03:30:00Z"})["updated"] == "2026-11-13T03:30:00Z"
     page = get(env, "/")[1].decode()
-    assert "function isTailoring(app)" in page and "Tailoring…" in page
+    assert "function isTailoring(app, row)" in page and "Tailoring…" in page
     (tmp_path / "logs").mkdir()
     (tmp_path / "logs" / "tailoring.run.json").write_text(
         '{"pid": 7, "limit": 3, "started": "2026-11-12T20:00:00-07:00"}', encoding="utf-8")
     runner = TailoringRunner(tmp_path, task_running=lambda: True, pid_alive=lambda pid: True)
     status = runner.status()
     assert status["by"] == "scheduled task" and status["started"] == "2026-11-12T20:00:00-07:00"
+
+
+def test_working_job_ids_follow_the_open_check_plan(tmp_path):
+    """The run's planned jobs are tagged from the moment the plan is written: the first `limit` entries
+    the browser hasn't found closed or an obvious miss (Jake, Nov 12 2026)."""
+    import json
+    import os
+    import time
+
+    from src.tailor_runner import working_job_ids
+
+    d = tmp_path / "materials" / "tailor" / "open-check"
+    d.mkdir(parents=True)
+    plan = {"limit": 3, "entries": [{"job_id": i} for i in (10, 11, 12, 13, 14)]}
+    (d / "plan.json").write_text(json.dumps(plan), encoding="utf-8")
+    from datetime import datetime
+
+    start_iso = datetime.now().astimezone().isoformat(timespec="seconds")
+    assert working_job_ids(tmp_path, start_iso) == [10, 11, 12]
+    (d / "11.json").write_text(json.dumps({"job_id": 11, "state": "closed", "evidence": "x"}), encoding="utf-8")
+    (d / "12.json").write_text(json.dumps({"job_id": 12, "state": "open"}), encoding="utf-8")
+    assert working_job_ids(tmp_path, start_iso) == [10, 12, 13]
+    # A plan from before this run started is not this run's.
+    old = time.time() - 3600
+    os.utime(d / "plan.json", (old, old))
+    assert working_job_ids(tmp_path, start_iso) == []
+    assert working_job_ids(tmp_path / "nowhere", start_iso) == []
 
 
 def test_changes_endpoint_tells_other_open_dashboards_what_changed(env):

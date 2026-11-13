@@ -324,7 +324,11 @@ if (SERVER) {
   const show = s => {
     const since = s.running && s.started ? Date.parse(s.started) : null;
     const sinceNow = Number.isNaN(since) ? null : since;
-    if (sinceNow !== tailoringSince) { tailoringSince = sinceNow; try { render(); } catch (e) {} }
+    const ids = new Set(s.running ? (s.working_ids || []) : []);
+    const idsKey = [...ids].sort((a, b) => a - b).join(',');
+    if (sinceNow !== tailoringSince || idsKey !== [...tailoringIds].sort((a, b) => a - b).join(',')) {
+      tailoringSince = sinceNow; tailoringIds = ids; try { render(); } catch (e) {}
+    }
     btn.disabled = s.running;
     limitEl.max = s.max;
     if (s.running) {
@@ -336,7 +340,7 @@ if (SERVER) {
       state.textContent = s.last_log ? `Last run: ${s.last_log}` : '';
     }
     clearTimeout(timer);
-    if (s.running) timer = setTimeout(refresh, 30000);
+    if (s.running) timer = setTimeout(refresh, 10000);
   };
   const refresh = () => fetch('/api/tailoring').then(r => r.json()).then(show).catch(() => {});
   btn.addEventListener('click', async () => {
@@ -447,13 +451,17 @@ function fileLink(href, text) {
 // "Tailoring…" (Jake, Nov 12 2026): while a tailoring run is going, a job whose folder the run made
 // (or touched) and hasn't finished drafting. tailoringSince is the run's start, set from the run status.
 let tailoringSince = null;
-function isTailoring(app) {
-  return tailoringSince !== null && !!app && (app.status === 'shortlisted' || app.status === 'drafting')
-    && !!app.updated && Date.parse(app.updated) >= tailoringSince - 60000;
+let tailoringIds = new Set();   // the run's planned jobs (first N of its open-check plan), from the run status
+function isTailoring(app, row) {
+  if (tailoringSince === null) return false;
+  const unfinished = !app || app.status === 'shortlisted' || app.status === 'drafting';
+  if (!unfinished) return false;
+  if (row && row.status !== 'dismissed' && [row.id, ...(row.group_ids || [])].some(i => tailoringIds.has(i))) return true;
+  return !!app && !!app.updated && Date.parse(app.updated) >= tailoringSince - 60000;
 }
 
-function appCell(app) {
-  if (isTailoring(app)) return '<span class="badge app-tailoring">Tailoring…</span>';
+function appCell(app, row) {
+  if (isTailoring(app, row)) return '<span class="badge app-tailoring">Tailoring…</span>';
   if (!app || !app.label) return '';   // queued, not drafted yet: nothing to show
   const flags = app.flags.map(f => `<span class="badge flag">${escapeHtml(f)}</span>`).join('');
   // file: links don't open from an http page; the served dashboard has the details page instead.
@@ -698,7 +706,7 @@ function render() {
       <td><div class="clamp loc" title="${escapeHtml(j.location)}">${escapeHtml(j.location)}</div></td>
       <td><span class="badge cat-${escapeHtml(j.location_category)}">${escapeHtml(j.location_category)}</span></td>
       <td><span class="badge status-${escapeHtml(j.status)}">${escapeHtml(j.status)}</span></td>
-      <td>${appCell(j.app)}</td>
+      <td>${appCell(j.app, j)}</td>
       <td class="due">${dueCell(j)}</td>
       <td>${j.years_experience ?? ''}</td>
       <td>${srcBadges}</td>

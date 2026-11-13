@@ -60,6 +60,36 @@ def _pid_alive(pid: int) -> bool:
     return f'"{int(pid)}"' in out and "powershell" in out.lower()
 
 
+def working_job_ids(root: Path, started: str | None) -> list[int]:
+    """The jobs a run that began at `started` is working through right now: the first `limit`
+    entries of its open-check plan (materials/tailor/open-check/plan.json, in rank order) that the
+    browser hasn't found closed or an obvious miss. It names them from the moment the plan is
+    written, before any folder exists (Jake, Nov 12 2026)."""
+    d = Path(root) / "materials" / "tailor" / "open-check"
+    try:
+        plan_file = d / "plan.json"
+        plan = json.loads(plan_file.read_text(encoding="utf-8"))
+        if started:
+            begun = datetime.fromisoformat(started).timestamp()
+            if plan_file.stat().st_mtime < begun - 60:
+                return []   # a plan left over from an earlier run
+        limit = int(plan.get("limit") or 0)
+        ids = []
+        for e in plan.get("entries") or []:
+            if limit and len(ids) >= limit:
+                break
+            try:
+                v = json.loads((d / f"{int(e['job_id'])}.json").read_text(encoding="utf-8"))
+                if isinstance(v, dict) and v.get("state") in ("closed", "miss"):
+                    continue
+            except (OSError, ValueError):
+                pass
+            ids.append(int(e["job_id"]))
+        return ids
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+
+
 class TailoringRunner:
     def __init__(self, root: Path = ROOT, launch: Callable[[Path, int], Any] = _launch,
                  task_running: Callable[[], bool] = _task_running,
@@ -105,7 +135,8 @@ class TailoringRunner:
             by = "script"
             started, limit = run.get("started"), run.get("limit") or None
         return {"running": by is not None, "by": by, "started": started, "limit": limit,
-                "max": MAX_JOBS, "last_log": self._last_log_line()}
+                "max": MAX_JOBS, "last_log": self._last_log_line(),
+                "working_ids": working_job_ids(self.root, started) if by is not None else []}
 
     def start(self, limit: Any) -> dict[str, Any]:
         try:
