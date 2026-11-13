@@ -603,6 +603,34 @@ def test_letter_gap_with_a_bridge_names_a_tool_it_denies(tmp_path):
     assert len(msgs) == 1 and "Power BI" in msgs[0]
 
 
+def test_letter_gap_sentence_with_nor_or_worked_in_denies_every_tool(tmp_path):
+    # "I haven't used X yet, nor Y" denied only X, so Y read as a claim.
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "text": "I haven't used Looker yet, nor Power BI; the closest I know is Tableau."}
+    res, _ = letter_check(tmp_path / "a", with_(paragraphs=paras))
+    assert not any(c["code"] == "invented_skill" for c in res["criticals"]), res["criticals"]
+    paras[1] = {**paras[1], "text": "I haven't worked in Power BI yet, though I know Tableau."}
+    res, _ = letter_check(tmp_path / "b", with_(paragraphs=paras))
+    assert not any(c["code"] == "invented_skill" for c in res["criticals"]), res["criticals"]
+
+
+def test_letter_naming_the_posting_title_is_not_a_skill_claim(tmp_path):
+    app, cfg = make_app(tmp_path)
+    req = read_json(app / "requirements.json")
+    req["title"] = "Data Analyst – Power BI & Reporting"
+    write_json(app / "requirements.json", req)
+    put_draft(app, base_data(cfg))
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[0] = {**paras[0], "text": "I'm applying for the Data Analyst – Power BI & Reporting role at Contoso Retail."}
+    write_letter(app, with_(paragraphs=paras))
+    assert not any(c["code"] == "invented_skill" for c in run_check(app, 1, cfg, None)["criticals"])
+    # the same tool outside the title is still a claim
+    paras[0] = {**paras[0], "text": paras[0]["text"] + " I build Power BI reports every week."}
+    write_letter(app, with_(paragraphs=paras))
+    invented = [c["message"] for c in run_check(app, 1, cfg, None)["criticals"] if c["code"] == "invented_skill"]
+    assert any("Power BI" in m for m in invented), invented
+
+
 def test_letter_keen_sentence_may_name_any_skill_in_a_must_term(tmp_path):
     # "Snowflake SQL" names SQL and Snowflake; canonical() gives only SQL, so Snowflake was "invented".
     app, cfg = make_app(tmp_path)
