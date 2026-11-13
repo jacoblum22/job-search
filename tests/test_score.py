@@ -441,3 +441,14 @@ def test_the_quick_fit_penalty_comes_off_the_score(tmp_path):
                       for n in ("plain", "flagged"))
     assert flagged[0] == plain[0] - 20
     assert "-20 quick fit check (seniority fit, years ok)" in flagged[1]
+
+
+def test_posting_text_naming_excluded_company_is_skipped():
+    r = _score(
+        "Junior Data Analyst",
+        "Our client, AlgaeCal, is hiring. SQL and Python daily. " * 5,
+        years=1,
+    )
+    assert r.tier == "skip" and r.score is None
+    assert "AlgaeCal" in r.reasons[0]
+    assert _score("Junior Data Analyst", "SQL and Python daily. " * 5, years=1).tier != "skip"

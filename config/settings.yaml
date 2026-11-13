@@ -98,7 +98,7 @@ search:
     - "BigQuery"
   # Never store or fetch jobs from these companies (matched as whole words
   # in the company name). AlgaeCal: Jake's past employer.
-  exclude_companies:
+  exclude_companies: &excluded_companies
     - "AlgaeCal"
   exclude_title_terms:
     # Co-ops need current enrollment; Jake graduated May 2026. Internships
@@ -350,6 +350,10 @@ sources:
 # effect without scraping.
 
 score:
+  # A posting whose text names one of these companies is skipped, whoever the board says posted it:
+  # a repost through a recruiter or aggregator hides the employer's name (Devconnectplatform's
+  # AlgaeCal repost scored 111, Nov 12 2026). Same list as search.exclude_companies.
+  exclude_in_text: *excluded_companies
   # Jev's quick fit check (Jake, Nov 12 2026): each question a top candidate fails (seniority, years,
   # location, co-op...) takes this many points off its score, up to the max. The queue orders by the
   # adjusted score alone, and the dashboard shows the same number. An unanswered question costs nothing.
