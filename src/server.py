@@ -303,8 +303,8 @@ class DashboardApp:
         due = max((x for d, seen, raw, *_ in group if (x := due_date(d or "", seen_date(seen), raw))), default=None)
         posted = min((p for _, _, raw, pd, last in group if (p := posted_on(pd, raw, seen_date(last)))), default=None)
         out: dict[str, Any] = {
-            "job": {k: job[k] for k in ("id", "title", "company", "location", "url", "status", "tier", "score",
-                                        "score_reasons", "posted_date", "first_seen", "description", "source")},
+            "job": {k: job[k] for k in ("id", "title", "company", "location", "status", "tier", "score",
+                                        "score_reasons", "posted_date", "first_seen", "description", "source")} | {"url": job["real_url"] or job["url"]},
             "closed": closed,
             "deadline": due.isoformat() if due else None,
             "posted": posted.isoformat() if posted else None,

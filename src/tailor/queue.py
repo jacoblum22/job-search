@@ -301,6 +301,35 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
 # final set is open jobs that aren't obvious misses (Jake, Nov 12 2026). A job the browser
 # couldn't read ("unknown") is kept: a page we can't judge never costs a job.
 
+# Job-search aggregators (Jake, Nov 13 2026): an Adzuna link can end on a JobLeads search page, which
+# is a list of other jobs and never the posting. Landing on one of these means "look for the posting
+# elsewhere, else closed". Hosts match by suffix ("jobleads.com" also catches "www.jobleads.com").
+AGGREGATOR_HOSTS = ("jobleads.com", "adzuna.ca", "adzuna.com", "jooble.org", "jobrapido.com", "talent.com",
+                    "neuvoo.ca", "careerjet.ca", "careerjet.com", "jobtome.com", "whatjobs.com", "bebee.com",
+                    "learn4good.com", "jobsora.com", "recruit.net")
+
+
+def aggregator_hosts(cfg: dict[str, Any]) -> tuple[str, ...]:
+    extra = ((cfg.get("open_check") or {}).get("aggregator_hosts")) or ()
+    return AGGREGATOR_HOSTS + tuple(str(h).lower() for h in extra)
+
+
+def is_aggregator(url: str, cfg: dict[str, Any]) -> bool:
+    from urllib.parse import urlparse
+
+    host = (urlparse(url or "").hostname or "").lower()
+    return any(host == h or host.endswith("." + h) for h in aggregator_hosts(cfg))
+
+
+def posting_url(row: Any) -> str:
+    """The link to open a job: the real employer/ATS page the open check found, else the scraped one."""
+    try:
+        real = row["real_url"]
+    except (KeyError, IndexError):
+        real = None
+    return (real or row["url"] or "")
+
+
 def open_check_dir(cfg: dict[str, Any]) -> Path:
     return resolve(cfg, "materials") / "tailor" / "open-check"
 
@@ -314,7 +343,7 @@ def write_plan(cfg: dict[str, Any], entries: list[tuple[Any, list, Any]], limit:
         old.unlink()
     plan = {"date": date.today().isoformat(), "limit": limit, "checked": checked,
             "min_years": int((cfg.get("hard_stop") or {}).get("min_years", 7)), "entries": [
-        {"job_id": r["id"], "company": r["company"], "title": r["title"], "url": r["url"],
+        {"job_id": r["id"], "company": r["company"], "title": r["title"], "url": posting_url(r),
          "flags": flags, "resume_base": base} for r, flags, base in entries]}
     path = d / "plan.json"
     path.write_text(json.dumps(plan, indent=2), encoding="utf-8")
@@ -341,9 +370,19 @@ def read_verdicts(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
             state = "unknown"
         if state == "miss" and not str(v.get("why") or "").strip():
             state = "unknown"
+        evidence = str(v.get("evidence") or "").strip()
+        real_url = str(v.get("real_url") or "").strip()
+        if not re.match(r"https?://", real_url, re.I) or is_aggregator(real_url, cfg):
+            real_url = ""  # only a real employer/ATS page is worth saving
+        landed = str(v.get("landed_url") or "").strip()
+        if state != "miss" and not real_url and landed and is_aggregator(landed, cfg):
+            # The link ended on a job-search aggregator and the posting wasn't found elsewhere: closed.
+            host = re.sub(r"^https?://", "", landed, flags=re.I).split("/")[0]
+            state = "closed"
+            evidence = f"The link ended on {host}, a job-search site, and the posting was not found elsewhere. {evidence}".strip()
         out[int(f.stem)] = {"state": state if state in ("open", "closed", "miss") else "unknown",
-                            "evidence": str(v.get("evidence") or "").strip(),
-                            "why": str(v.get("why") or "").strip()}
+                            "evidence": evidence, "why": str(v.get("why") or "").strip(),
+                            "real_url": real_url if state == "open" else ""}
     return out
 
 
@@ -376,6 +415,10 @@ def queue_from_plan(cfg: dict[str, Any], limit: int | None = None) -> list[Path]
                 closed.append({"job_id": e["job_id"], "company": e["company"], "title": e["title"],
                                "kind": v["state"], "evidence": v["evidence"], "why": v["why"]})
                 continue
+            if v and v.get("real_url") and v["real_url"] != (row["real_url"] or ""):
+                conn.execute("UPDATE jobs SET real_url = ? WHERE id = ?", (v["real_url"], row["id"]))
+                conn.commit()
+                row = conn.execute("SELECT * FROM jobs WHERE id = ?", (e["job_id"],)).fetchone()
             entries.append((row, e["flags"], e["resume_base"]))
         if closed:
             log = open_check_dir(cfg) / "dismissed.jsonl"

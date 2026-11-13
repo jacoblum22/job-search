@@ -662,6 +662,10 @@ tailor:
     # prompts/tailor/open-check.md); a closed posting is dismissed and the next in line takes its
     # place, so a run still drafts daily_cap jobs. The plan is every eligible job in rank order.
     enabled: true
+    # Hosts that list jobs but are never the posting (JobLeads is where Adzuna links often end). A link
+    # that lands on one is searched for elsewhere (employer site / ATS); not found = closed. The built-in
+    # list is in src/tailor/queue.py; add more hosts here.
+    # aggregator_hosts: []
   hard_stop:
     # Only a certain no ends a job early: a must-have asking this many years or more, quoted from the
     # posting, with no "or"/degree way around it (the requirements step dismisses it and records why).

@@ -67,7 +67,9 @@ can't read a page the run is cancelled (logged as RUN CANCELLED, exit code 3) an
 rounds, no review (Jake, Nov 12 2026). The scrape that came before it has already happened. The check runs with `CLAUDE_CODE_OAUTH_TOKEN` unset: that token
 is an inference-only login, so with it set `claude -p` loads no Claude in Chrome link (the scheduled task and
 the dashboard's Run button both carry it). With two Chrome browsers on the account the run must
-pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrome). Turn the check off with
+pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrome). A link that ends on a job-search aggregator (jobleads.com, where Adzuna links often land) is not the posting: the check searches the
+web for the title and company, saves the employer/ATS page it finds as the job's `real_url` (shown as "Open the posting" and used by later checks),
+and otherwise calls the job closed, which dismisses it (Jake, Nov 13 2026). Hosts: `AGGREGATOR_HOSTS` in `src/tailor/queue.py` plus `tailor.open_check.aggregator_hosts`. Turn the check off with
 `tailor.open_check.enabled: false`.
 
 **Parallel sessions (`-Parallel`, 2 by default).** A normal run (scheduled, by hand or from the
