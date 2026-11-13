@@ -176,8 +176,10 @@ def _posting_md(r) -> str:
 
 
 def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
-              job_ids: list[int] | None = None) -> list[Path]:
-    """Create application folders for the next jobs; returns their paths in queue order."""
+              job_ids: list[int] | None = None, plan_only: bool = False) -> list[Path]:
+    """Create application folders for the next jobs; returns their paths in queue order.
+
+    With `plan_only` no folder is made: every eligible job, in rank order, is written to open-check/plan.json for the browser step (see `queue_from_plan`)."""
     gate = cfg.get("gate") or {}
     tiers = cfg.get("tiers") or ["A", "B"]
     limit = limit if limit is not None else int(cfg.get("daily_cap", 3))
@@ -205,9 +207,11 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
                     -(r["score"] or 0), -day.toordinal(), r["id"])
 
         rows.sort(key=order)
+        rest: list[Any] = []
         if not job_ids:
             # Jev only needs to look at enough candidates to fill the cap with room to reorder.
-            rows = rows[: int(gate.get("max_candidates", max(limit * 5, 20)))]
+            cut = int(gate.get("max_candidates", max(limit * 5, 20)))
+            rows, rest = rows[:cut], rows[cut:]  # `rest` only matters to the open check's plan
         # Without a Jev key the gate is skipped (no flags); "unchecked" is kept for
         # answers that fail when Jev is configured, since those deserve a look.
         use_jev = jev is not None and getattr(jev, "available", True)
@@ -230,27 +234,125 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
             for r, (base_id, _), answers in zip(rows, states, answered):
                 entries.append((r, _flags(answers, gate), base_id or None))
         entries.sort(key=lambda e: order(e[0], bool(e[1])))
+        if plan_only:
+            # The whole ranked list: the gated candidates, then every other eligible job in the same
+            # order, so the open check can keep going down it until the cap is filled (Jake, Nov 12).
+            write_plan(cfg, [*entries, *[(r, [], None) for r in rest]], limit, use_jev)
+            return []
         if not job_ids:
             entries = entries[:limit]
-        apps_root = resolve(cfg, "applications")
-        today = date.today().isoformat()
-        out: list[Path] = []
-        for rank, (r, flags, gate_base) in enumerate(entries, 1):
-            folder = apps_root / appdir.folder_name(today, r["company"], r["title"])
-            folder.mkdir(parents=True, exist_ok=True)
-            (folder / "posting.md").write_text(_posting_md(r), encoding="utf-8")
-            appdir.save_app(folder, {
-                "job_id": r["id"], "company": r["company"], "title": r["title"], "url": r["url"],
-                "tier": r["tier"], "score": r["score"], "created": today, "status": "shortlisted",
-                "gate": {"flags": flags, "flagged": bool(flags), "queue_rank": rank,
-                         "checked": use_jev, "resume_base": gate_base},
-                "base_id": None, "rounds": [], "best_round": None, "history": [],
-            })
-            note = f"rank {rank}, " + (f"{len(flags)} gate flag(s)" if flags else "no gate flags")
-            if not use_jev:
-                note += " (gate skipped: Jev not configured)"
-            store.upsert_app(conn, appdir.log(folder, "queue", note), folder)
-            out.append(folder)
-        return out
+        return _make_folders(conn, cfg, entries, use_jev)
     finally:
         conn.close()
+
+
+# ── The open check (Jake, Nov 12 2026) ─────────────────────────────────────────────────
+# A posting can close before we get to it. `queue --plan` lists the next jobs in order, the
+# wrapper has Claude in Chrome open each link (prompts/tailor/open-check.md) and write a verdict
+# file per job, then `queue --from-plan` dismisses the closed ones and takes the next open job
+# in line instead, so a run still drafts `daily_cap` jobs. A job the browser couldn't read
+# ("unknown") is kept: a page we can't judge never costs a job.
+
+def open_check_dir(cfg: dict[str, Any]) -> Path:
+    return resolve(cfg, "materials") / "tailor" / "open-check"
+
+
+def write_plan(cfg: dict[str, Any], entries: list[tuple[Any, list, Any]], limit: int, checked: bool) -> Path:
+    import json
+
+    d = open_check_dir(cfg)
+    d.mkdir(parents=True, exist_ok=True)
+    for old in d.glob("*.json"):  # last run's plan and verdicts
+        old.unlink()
+    plan = {"date": date.today().isoformat(), "limit": limit, "checked": checked, "entries": [
+        {"job_id": r["id"], "company": r["company"], "title": r["title"], "url": r["url"],
+         "flags": flags, "resume_base": base} for r, flags, base in entries]}
+    path = d / "plan.json"
+    path.write_text(json.dumps(plan, indent=2), encoding="utf-8")
+    return path
+
+
+def read_verdicts(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    """The browser step's verdicts by job id. A file that isn't valid, or calls a job closed
+    without quoting the page, counts as unknown."""
+    import json
+
+    out: dict[int, dict[str, Any]] = {}
+    for f in open_check_dir(cfg).glob("*.json"):
+        if f.name == "plan.json" or not f.stem.isdigit():
+            continue
+        try:
+            v = json.loads(f.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        if not isinstance(v, dict):
+            continue
+        state = v.get("state")
+        if state == "closed" and not str(v.get("evidence") or "").strip():
+            state = "unknown"
+        out[int(f.stem)] = {"state": state if state in ("open", "closed") else "unknown",
+                            "evidence": str(v.get("evidence") or "").strip()}
+    return out
+
+
+def queue_from_plan(cfg: dict[str, Any], limit: int | None = None) -> list[Path]:
+    """Create the folders for the planned jobs, skipping the ones the browser found closed."""
+    import json
+
+    from src import db
+
+    path = open_check_dir(cfg) / "plan.json"
+    plan = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+    if not plan or plan.get("date") != date.today().isoformat():
+        raise TailorError("no queue plan from today: run `queue --plan` first")
+    limit = limit if limit is not None else int(plan["limit"])
+    verdicts = read_verdicts(cfg)
+    conn = store.connect(resolve(cfg, "db"))
+    try:
+        taken = {r[0] for r in conn.execute("SELECT job_id FROM applications")}
+        entries, closed = [], []
+        for e in plan["entries"]:
+            if len(entries) >= limit:
+                break
+            row = conn.execute("SELECT * FROM jobs WHERE id = ?", (e["job_id"],)).fetchone()
+            if row is None or row["id"] in taken or row["status"] in ("dismissed", "applied"):
+                continue
+            v = verdicts.get(e["job_id"])
+            if v and v["state"] == "closed":
+                db.set_job_status(conn, e["job_id"], "dismissed")
+                store.set_status(conn, e["job_id"], "dismissed")
+                closed.append({"job_id": e["job_id"], "company": e["company"], "title": e["title"],
+                               "evidence": v["evidence"]})
+                continue
+            entries.append((row, e["flags"], e["resume_base"]))
+        if closed:
+            log = open_check_dir(cfg) / "closed.jsonl"
+            with log.open("a", encoding="utf-8") as f:
+                for c in closed:
+                    f.write(json.dumps({"date": date.today().isoformat(), **c}) + "\n")
+        return _make_folders(conn, cfg, entries, bool(plan.get("checked")))
+    finally:
+        conn.close()
+
+
+def _make_folders(conn, cfg: dict[str, Any], entries: list[tuple[Any, list, Any]], use_jev: bool) -> list[Path]:
+    apps_root = resolve(cfg, "applications")
+    today = date.today().isoformat()
+    out: list[Path] = []
+    for rank, (r, flags, gate_base) in enumerate(entries, 1):
+        folder = apps_root / appdir.folder_name(today, r["company"], r["title"])
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "posting.md").write_text(_posting_md(r), encoding="utf-8")
+        appdir.save_app(folder, {
+            "job_id": r["id"], "company": r["company"], "title": r["title"], "url": r["url"],
+            "tier": r["tier"], "score": r["score"], "created": today, "status": "shortlisted",
+            "gate": {"flags": flags, "flagged": bool(flags), "queue_rank": rank,
+                     "checked": use_jev, "resume_base": gate_base},
+            "base_id": None, "rounds": [], "best_round": None, "history": [],
+        })
+        note = f"rank {rank}, " + (f"{len(flags)} gate flag(s)" if flags else "no gate flags")
+        if not use_jev:
+            note += " (gate skipped: Jev not configured)"
+        store.upsert_app(conn, appdir.log(folder, "queue", note), folder)
+        out.append(folder)
+    return out

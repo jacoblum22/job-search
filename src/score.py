@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 import sqlite3
 from dataclasses import dataclass, field
+from datetime import date
 from functools import lru_cache
 from typing import Any
 
@@ -189,6 +190,41 @@ def split_linkedin_criteria(description: str) -> tuple[str, str | None]:
     return description[: m.start()], label
 
 
+def age_adjustment(age_days: int | None, cfg: dict[str, Any]) -> tuple[int, str, bool]:
+    """(points, reason, too_old) for a posting `age_days` old (Jake, Nov 12 2026).
+
+    `cfg` is settings.yaml `score.age`: `penalties` is a list of {over_days, points}, the
+    largest `over_days` the posting exceeds wins (it doesn't stack with the smaller one);
+    `remove_over_days` makes it too old to list at all. Unknown age: no change.
+    """
+    if age_days is None:
+        return 0, "", False
+    remove = cfg.get("remove_over_days")
+    if remove and age_days > remove:
+        return 0, f"posted {age_days} days ago (over {remove})", True
+    best = None
+    for band in cfg.get("penalties") or []:
+        if age_days > band["over_days"] and (best is None or band["over_days"] > best["over_days"]):
+            best = band
+    if best:
+        return best["points"], f"posted {age_days} days ago (over {best['over_days']})", False
+    return 0, "", False
+
+
+def posting_age_days(posted_date: object, raw: object, first_seen: object, last_seen: object,
+                     today: date | None = None) -> int | None:
+    """Days since the posting went up: its posted date (or the listed date in raw), else the day
+    it was first seen, which is as old as it can be. The same dates the dashboard's Posted
+    column shows."""
+    from src.posting_status import seen_date
+    from src.retention import posted_on
+
+    day = posted_on(posted_date, raw, seen_date(last_seen)) or seen_date(first_seen)
+    if day is None:
+        return None
+    return max(0, ((today or date.today()) - day).days)
+
+
 def score_job(
     *,
     title: str,
@@ -198,14 +234,19 @@ def score_job(
     cfg: dict[str, Any],
     vault: Vault | None = None,
     years_preferred: int | None = None,
+    age_days: int | None = None,
 ) -> ScoreResult:
     """`years_experience` is the years the posting requires; `years_preferred` the years it
-    only asks for as a nice-to-have ("2+ years is an asset"), which cost less."""
+    only asks for as a nice-to-have ("2+ years is an asset"), which cost less. `age_days` is how
+    long ago the posting went up (None: unknown, or exempt); see `age_adjustment`."""
     title = title or ""
     description, seniority_label = split_linkedin_criteria(description or "")
     reasons: list[str] = []
 
     # ── Hard skips ────────────────────────────────────────────────────
+    age_points, age_reason, too_old = age_adjustment(age_days, cfg.get("age") or {})
+    if too_old:
+        return ScoreResult(None, "skip", [age_reason])
     skip_years = cfg.get("skip_years_over", 5)
     strictest = max((y for y in (years_experience, years_preferred) if y is not None), default=None)
     if strictest is not None and strictest > skip_years:
@@ -395,6 +436,10 @@ def score_job(
         score += loc_pts
         reasons.append(f"+{loc_pts} {location_category}")
 
+    if age_points:
+        score += age_points
+        reasons.append(f"{age_points} {age_reason}")
+
     min_desc = cfg.get("short_description_chars", 300)
     if len(description) < min_desc:
         reasons.append("snippet only, score is partial")
@@ -426,8 +471,14 @@ def rescore_all(
 
     reflow_stored(conn)
     rows = conn.execute(
-        "SELECT id, title, description, location_category, years_experience, location, company FROM jobs"
+        "SELECT id, title, description, location_category, years_experience, location, company, "
+        "posted_date, raw, first_seen, last_seen, status FROM jobs"
     ).fetchall()
+    # Jobs you applied to or tailored for are never aged out or marked down (retention keeps them too).
+    from src.db import has_table
+
+    kept = {r[0] for r in conn.execute("SELECT job_id FROM applications")} if has_table(conn, "applications") else set()
+    age_cfg = cfg.get("age") or {}
     updates = []
     vault_cfg = cfg.get("vault_gaps") or {}
     vault = None
@@ -440,7 +491,11 @@ def rescore_all(
             if cache is not None:
                 cache["_vault"] = vault
     for row in rows:
-        key = (row[1], row[2], row[3], row[4], row[5], row[6])
+        age = None
+        if age_cfg and row[11] != "applied" and row[0] not in kept:
+            age = posting_age_days(row[7], row[8], row[9], row[10])
+        # The age bucket is part of the cache key: a job's score changes as the days pass.
+        key = (row[1], row[2], row[3], row[4], row[5], row[6], age_adjustment(age, age_cfg))
         if cache is not None and cache.get(row[0], (None,))[0] == key:
             counts[cache[row[0]][1]] = counts.get(cache[row[0]][1], 0) + 1
             continue
@@ -460,6 +515,7 @@ def rescore_all(
             years_preferred=years_pref,
             cfg=cfg,
             vault=vault,
+            age_days=age,
         )
         counts[result.tier] = counts.get(result.tier, 0) + 1
         updates.append((result.score, result.tier, result.reasons_text, category, row[0]))
