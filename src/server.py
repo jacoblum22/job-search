@@ -546,6 +546,24 @@ function markDashboardStale() {
     sessionStorage.setItem('dashboardStale', JSON.stringify(ids));
   } catch (_) {}
 }
+// Optimistic update: on click, tell the dashboard what is about to change so it shows it at once,
+// even if you go back before the server has answered. confirmPatch/dropPatch follow the answer.
+function patchDashboard(patch) {
+  try {
+    const p = JSON.parse(sessionStorage.getItem('dashboardPatches') || '{}');
+    p[jobId] = {...patch, pending: true};
+    sessionStorage.setItem('dashboardPatches', JSON.stringify(p));
+    markDashboardStale();
+  } catch (_) {}
+}
+function settlePatch(ok) {
+  try {
+    const p = JSON.parse(sessionStorage.getItem('dashboardPatches') || '{}');
+    if (!p[jobId]) return;
+    if (ok) p[jobId].pending = false; else delete p[jobId];
+    sessionStorage.setItem('dashboardPatches', JSON.stringify(p));
+  } catch (_) {}
+}
 const root = document.getElementById('root');
 const msgEl = document.getElementById('msg');
 let data = null;
@@ -820,11 +838,14 @@ root.addEventListener('click', async e => {
   el.disabled = true;
   el.classList.add('saving');
   el.textContent = act === 'approve' ? 'Approving…' : 'Saving…';
+  const optimistic = act === 'status' ? el.dataset.val : (act === 'outcome' && el.dataset.val === 'applied' ? 'applied' : '');
+  if (optimistic) patchDashboard({status: optimistic});
   try {
     if (act === 'approve') { await post('approve'); say('Approved. Apply with the files above, then press "I applied".', true); }
     if (act === 'outcome') { await post('outcome', {outcome: el.dataset.val}); say('Saved.', true); }
     if (act === 'status') { await post('status', {status: el.dataset.val}); say('Saved.', true); }
-  } catch (err) { say(`Not saved: ${err.message}`); }
+    if (optimistic) settlePatch(true);
+  } catch (err) { if (optimistic) settlePatch(false); say(`Not saved: ${err.message}`); }
   const y = window.scrollY;
   await load();
   window.scrollTo(0, y);

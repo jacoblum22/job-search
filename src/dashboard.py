@@ -255,6 +255,24 @@ window.addEventListener('error', e => {
     'The dashboard hit an error and could not show jobs: ' + e.message;
 });
 const SERVER = __SERVER__;
+// Optimistic changes: the details page writes what you just did (dismissed, applied...) to
+// sessionStorage the moment you click, before the server has answered. Coming back, the board shows
+// it at once; the server's rows replace it as soon as the server confirms (pending: false).
+const PATCH_KEY = 'dashboardPatches';
+function readPatches() {
+  try { const p = JSON.parse(sessionStorage.getItem(PATCH_KEY) || '{}'); return p && typeof p === 'object' ? p : {}; }
+  catch (_) { return {}; }
+}
+function writePatches(p) { try { sessionStorage.setItem(PATCH_KEY, JSON.stringify(p)); } catch (_) {} }
+function patchRows(patches) {
+  for (const [id, p] of Object.entries(patches)) {
+    const row = jobs.find(j => String(j.id) === id || (j.group_ids || []).map(String).includes(id));
+    if (!row) continue;
+    if (p.status) row.status = p.status;
+    if (p.status === 'applied' && row.app) row.app = {...row.app, status: 'applied', label: 'Applied', flags: []};
+    if (p.status === 'applied' || p.status === 'dismissed') row.pin = 99;
+  }
+}
 // Put freshly fetched rows into the table, replacing the stale row of the same posting.
 async function refetchRows(ids) {
   ids = ids.filter(i => /^\d+$/.test(String(i)));
@@ -267,10 +285,27 @@ async function refetchRows(ids) {
     if (gone.has(jobs[i].id) || (jobs[i].group_ids || []).some(g => gone.has(g))) jobs.splice(i, 1);
   }
   for (const row of fresh) jobs.push({...row, sourcesStr: row.sources.join(', ')});
+  // A change the server has not confirmed yet stays shown on top of the (older) row it just sent.
+  patchRows(Object.fromEntries(Object.entries(readPatches()).filter(([, p]) => p.pending)));
   render();
 }
 // Back from a job page the browser shows this page as it was (from its back/forward cache, or
-// its HTTP cache with the old rows). If something was changed there, fetch just those rows.
+// its HTTP cache with the old rows). Show what was just changed there at once, then fetch the
+// server's version of those rows.
+let patchTimer = null;
+async function settlePatches() {
+  clearTimeout(patchTimer);
+  const patches = readPatches();
+  const confirmed = Object.keys(patches).filter(id => !patches[id].pending);
+  if (confirmed.length) {
+    const left = readPatches();
+    confirmed.forEach(id => delete left[id]);
+    writePatches(left);
+    try { await refetchRows(confirmed); } catch (_) { location.reload(); return; }
+  }
+  const waiting = Object.keys(readPatches());
+  if (waiting.length) patchTimer = setTimeout(settlePatches, 1000);  // the details page is still saving
+}
 window.addEventListener('pageshow', async () => {
   if (!SERVER) return;
   let ids;
@@ -279,7 +314,9 @@ window.addEventListener('pageshow', async () => {
     sessionStorage.removeItem('dashboardStale');
   } catch (_) { return; }
   if (!Array.isArray(ids)) { location.reload(); return; }
-  try { await refetchRows(ids); } catch (_) { location.reload(); }
+  const patches = readPatches();
+  if (Object.keys(patches).length) { patchRows(patches); render(); }
+  try { await refetchRows(ids); await settlePatches(); } catch (_) { location.reload(); }
 });
 // Changes made anywhere else (another tab, another device, the phone) reach this page too: the server
 // numbers every change, and this page asks what changed since the number it has, when the tab is
