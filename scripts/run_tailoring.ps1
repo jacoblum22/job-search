@@ -357,7 +357,9 @@ if (-not $parallelRun) {
     } elseif ($script:openCheckFailed) {
         Stop-RunCancelled
     }
-    $s = Start-Session "all" "Do all of Step A and Step B below."
+    $allScope = if ($ResumeOnly) { "Do all of Step A and Step B below." }
+                else { "Do Step A step 3 and Step B below. Skip Step A step 2 (waiting rounds): a run goes from the highest score down, and a job drafted earlier gets no turn ahead of that." }
+    $s = Start-Session "all" $allScope
     Wait-Job $s.Job | Out-Null
     Complete-Session $s
 } else {
@@ -365,13 +367,9 @@ if (-not $parallelRun) {
     # start while the scrape runs; today's new jobs are queued once it finishes, a session per company.
     Log "Running up to $Parallel Claude sessions at once"
     $todo = New-Object System.Collections.ArrayList
-    $waiting = @(Get-JsonList @("pending"))
-    if ($waiting.Count -gt 0) {
-        [void]$todo.Add(@{ Label = "waiting"; Scope = "Other Claude sessions are drafting new jobs at the " +
-            "same time. Do Step A step 2 only (the waiting rounds from ``pending``); skip Step A step 3 " +
-            "(the queue) and never touch a folder whose status is ``shortlisted``. End with the digest for " +
-            "these folders only." })
-    }
+    # No catch-up rounds on jobs drafted earlier (Jake, Nov 12 2026): a run goes from the highest
+    # score down and nothing already worked on gets a turn ahead of that. Waiting rounds are only
+    # for a -ResumeOnly run, started by hand.
 
     $scrapeProc = if ($doScrape) { Start-Scrape } else { $null }
     $scrapeDone = -not $doScrape -or -not $scrapeProc
