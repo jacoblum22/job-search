@@ -179,8 +179,7 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
               job_ids: list[int] | None = None, plan_only: bool = False) -> list[Path]:
     """Create application folders for the next jobs; returns their paths in queue order.
 
-    With `plan_only` no folder is made: the ordered candidates (the limit plus a few spares)
-    are written to open-check/plan.json for the browser step (see `queue_from_plan`)."""
+    With `plan_only` no folder is made: every eligible job, in rank order, is written to open-check/plan.json for the browser step (see `queue_from_plan`)."""
     gate = cfg.get("gate") or {}
     tiers = cfg.get("tiers") or ["A", "B"]
     limit = limit if limit is not None else int(cfg.get("daily_cap", 3))
@@ -208,9 +207,11 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
                     -(r["score"] or 0), -day.toordinal(), r["id"])
 
         rows.sort(key=order)
+        rest: list[Any] = []
         if not job_ids:
             # Jev only needs to look at enough candidates to fill the cap with room to reorder.
-            rows = rows[: int(gate.get("max_candidates", max(limit * 5, 20)))]
+            cut = int(gate.get("max_candidates", max(limit * 5, 20)))
+            rows, rest = rows[:cut], rows[cut:]  # `rest` only matters to the open check's plan
         # Without a Jev key the gate is skipped (no flags); "unchecked" is kept for
         # answers that fail when Jev is configured, since those deserve a look.
         use_jev = jev is not None and getattr(jev, "available", True)
@@ -234,8 +235,9 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
                 entries.append((r, _flags(answers, gate), base_id or None))
         entries.sort(key=lambda e: order(e[0], bool(e[1])))
         if plan_only:
-            spare = int((cfg.get("open_check") or {}).get("spare", 10))
-            write_plan(cfg, [(r, flags, base) for r, flags, base in entries[: limit + spare]], limit, use_jev)
+            # The whole ranked list: the gated candidates, then every other eligible job in the same
+            # order, so the open check can keep going down it until the cap is filled (Jake, Nov 12).
+            write_plan(cfg, [*entries, *[(r, [], None) for r in rest]], limit, use_jev)
             return []
         if not job_ids:
             entries = entries[:limit]

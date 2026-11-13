@@ -59,8 +59,7 @@ $s.WakeToRun = $true
 Set-ScheduledTask -TaskName "JobSearch-Tailoring" -Settings $s
 ```
 
-**Open check.** Before the queue makes folders, the wrapper runs `queue --plan` (the next `daily_cap` jobs
-plus `tailor.open_check.spare` spares), then a short `claude -p --chrome` session
+**Open check.** Before the queue makes folders, the wrapper runs `queue --plan` (every eligible job in rank order), then a short `claude -p --chrome` session
 (`prompts/tailor/open-check.md`) opens each link and writes `materials/tailor/open-check/<job_id>.json`
 (open, closed with a quoted line, or unknown). `queue --from-plan` dismisses the closed jobs (listed in
 `closed.jsonl`) and takes the next in line, so the run still drafts `daily_cap` jobs. If Chrome can't be

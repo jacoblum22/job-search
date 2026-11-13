@@ -22,8 +22,8 @@ that isn't needed to read the posting.
    without a quote the file is ignored, so when you can't quote it, say `unknown`. For `open` and
    `unknown`, `evidence` is a few words ("Apply button shown", "login wall").
 
-Stop as soon as {LIMIT} jobs are confirmed `open` or `unknown` (the run drafts those first), so you
-rarely need every entry. Do not check jobs past that point. Only a certain `closed` removes a job:
-if you're not sure, it is `unknown`.
+`entries` is every eligible job in rank order, not just the ones the run needs. Keep going down the
+list, closed ones included, until {LIMIT} jobs are confirmed `open` or `unknown`; then stop and
+check no more. Only a certain `closed` removes a job: if you're not sure, it is `unknown`.
 
 When you finish, reply with one line: how many you checked and which were closed (company and title).

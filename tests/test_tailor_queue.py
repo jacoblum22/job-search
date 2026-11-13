@@ -499,3 +499,17 @@ def test_queue_from_plan_needs_todays_plan(cfg_oc):
 
     with pytest.raises(TailorError):
         queue_from_plan(cfg_oc)
+
+
+def test_open_check_plan_lists_every_eligible_job_so_it_never_runs_out_of_spares(cfg_oc):
+    from src.tailor.queue import open_check_dir, queue_from_plan
+
+    cfg = cfg_oc
+    cfg["gate"] = {"max_candidates": 3}  # gate only the first 3; the plan still lists all 8
+    ids = [add(cfg, f"m{i}", f"Job {i}", "A", 90 - i) for i in range(8)]
+    run_queue(cfg, limit=2, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
+    plan = json.loads((open_check_dir(cfg) / "plan.json").read_text(encoding="utf-8"))
+    assert [e["job_id"] for e in plan["entries"]] == ids
+    for i in ids[:6]:
+        _verdict(cfg, i, "closed", "Job closed")
+    assert titles(queue_from_plan(cfg)) == ["Job 6", "Job 7"]
