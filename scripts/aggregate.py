@@ -35,6 +35,7 @@ from src.enrich import (
 )
 from src.export_xlsx import generate_xlsx
 from src.retention import is_stale, max_age_days, prune, pruned_keys
+from src.posting_status import dismiss_closed
 from src.score import rescore_all
 from src.search_match import api_queries, keep_job, should_hydrate_record
 from src.sources import ats_common
@@ -461,6 +462,15 @@ def run(
 
     tiers = rescore_all(conn, cfg.get("score", {}), cache=score_cache)
     log.info("Scored jobs by tier: %s", dict(sorted(tiers.items())))
+
+    try:
+        closed = dismiss_closed(conn)
+        conn.commit()
+        if closed:
+            log.info("Dismissed %d closed posting(s): %s", len(closed),
+                     "; ".join(f"{c['company']} - {c['title']} ({c['reason']})" for c in closed[:10]))
+    except Exception:
+        log.exception("Dismissing closed postings failed - continuing")
 
     generate_dashboard(conn, dashboard_path)
     generate_xlsx(conn, xlsx_path)

@@ -188,3 +188,30 @@ def closed_reason(description: str, today: date | None = None, seen: date | None
     if end is not None and end < today:
         return f"Closed {end.strftime('%b')} {end.day}, {end.year}"
     return None
+
+
+def dismiss_closed(conn, today: date | None = None) -> list[dict]:
+    """Mark every closed posting `dismissed`, so it leaves the active list instead of
+    sitting there with a Closed badge. One closed copy closes the whole group of the
+    same job; a group with an `applied` copy is left alone. Returns what changed
+    (id, company, title, reason), one entry per group."""
+    today = today or date.today()
+    groups: dict[str, list] = {}
+    for row in conn.execute(
+        "SELECT id, dedup_group_id, company, title, status, description, first_seen, raw FROM jobs "
+        "WHERE dedup_group_id IN (SELECT dedup_group_id FROM jobs WHERE status = 'new')"
+    ).fetchall():
+        groups.setdefault(row["dedup_group_id"], []).append(row)
+    changed = []
+    for members in groups.values():
+        if any(m["status"] == "applied" for m in members):
+            continue
+        reason = next((r for m in members if (r := closed_reason(
+            m["description"] or "", today, seen_date(m["first_seen"]), m["raw"]))), None)
+        if not reason:
+            continue
+        conn.execute("UPDATE jobs SET status = 'dismissed' WHERE dedup_group_id = ? AND status = 'new'",
+                     (members[0]["dedup_group_id"],))
+        first = members[0]
+        changed.append({"id": first["id"], "company": first["company"], "title": first["title"], "reason": reason})
+    return changed

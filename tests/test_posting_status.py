@@ -98,3 +98,22 @@ def test_source_data_date_a_year_out_is_no_deadline():
     assert due_date("SQL and dashboards.", date(2026, 10, 16), raw) is None
     near = json.dumps({"validThrough": "2027-01-15T00:00:00-08:00"})
     assert due_date("SQL and dashboards.", date(2026, 10, 16), near) == date(2027, 1, 15)
+
+
+def test_dismiss_closed_dismisses_closed_groups_but_keeps_applied(tmp_path):
+    from src.db import Job, connect, upsert_job
+    from src.posting_status import dismiss_closed
+
+    conn = connect(tmp_path / "jobs.db")
+    closed_text = "Posting End Date: October 15, 2026"
+    for ext, desc, group in (("1", closed_text, None), ("2", "No deadline here", None),
+                             ("3", closed_text, "g3"), ("4", "Open role", "g3"), ("5", closed_text, None)):
+        upsert_job(conn, Job("greenhouse", ext, "Data Analyst", f"C{ext}", "Vancouver, BC",
+                             description=desc, dedup_group_id=group))
+    conn.execute("UPDATE jobs SET status = 'applied' WHERE external_id = '5'")
+    conn.commit()
+    changed = dismiss_closed(conn, today=date(2026, 10, 20))
+    status = dict(conn.execute("SELECT external_id, status FROM jobs").fetchall())
+    assert status == {"1": "dismissed", "2": "new", "3": "dismissed", "4": "dismissed", "5": "applied"}
+    assert len(changed) == 2 and "Closed Oct 15, 2026" in changed[0]["reason"]
+    assert dismiss_closed(conn, today=date(2026, 10, 20)) == []
