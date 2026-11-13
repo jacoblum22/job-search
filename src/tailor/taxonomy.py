@@ -19,7 +19,7 @@ _BUSINESS_SYSTEMS = r"\b(?:sap|erp|workday|primavera|peoplesoft|netsuite|jd edwa
 
 T = [
 # Languages
-("Languages","SQL",r"\bsql\b|t-sql|pl/sql|\bmysql\b|postgres|sql server|\bsqlite\b"
+("Languages","SQL",r"\bsql\b(?! injection)|t-sql|pl/sql|\bmysql\b|postgres|sql server|\bsqlite\b"
  # Bare "Oracle" is the database; Oracle's ERP products go to the ERP entry below.
  r"|\boracle\b(?! ?(?:erp|fusion|e-?business|netsuite|cloud erp|cloud applications|financials|hcm))"
  # ...unless it sits in a list of business systems ("Primavera P6, Oracle, SAP"): then it's ERP.
@@ -74,6 +74,8 @@ T = [
 ("Libraries","Vue",r"(?-i)\bVue(?:\.js)?\b"),
 ("Libraries","Spring",r"(?-i)\bSpring(?: Boot)?\b(?! (?:term|semester|break|20\d\d))"),
 ("Libraries","FastAPI/Flask/Django",r"fastapi|\bflask\b|django"),
+# Capitalised names only: "hibernate" and "drizzle" are words. Prisma Cloud is a security product.
+("Libraries","ORMs (SQLAlchemy / Prisma / Hibernate)",r"(?-i)\bORMs?\b|(?i:sqlalchemy)|\bPrisma\b(?! Cloud)|\bHibernate\b|Entity Framework|\bDrizzle\b"),
 # BI / analytics
 # Capitalised "Excel" is the tool; lowercase "excel" is usually the verb ("our people can excel").
 # A sentence that opens "Excel at" / "Excel in" is the verb too.
@@ -136,7 +138,7 @@ T = [
 ("Data platforms","data governance",r"data governance|data stewardship|metadata"),
 # Relational databases (PostgreSQL, MySQL, SQL Server, SQLite) stay under SQL: SQL skill carries
 # over between them. NoSQL databases each work differently, so each is its own skill (Jake, Oct 18 2026).
-("Data platforms","NoSQL",r"\bnosql\b"),
+("Data platforms","NoSQL",r"\bnosql\b|non.?relational"),
 ("Data platforms","MongoDB",r"mongodb|\bmongo\b"),
 ("Data platforms","DynamoDB",r"dynamodb"),
 ("Data platforms","Cassandra",r"cassandra"),
@@ -156,6 +158,7 @@ T = [
 # Lowercase "rest" is the word ("the rest of", "rest and recharge"); the API style is written REST.
 # Named API products (LLM APIs, API Gateway, Graph API) go to their own entries.
 ("Data platforms","APIs / REST",r"(?<!llm )(?<!graph )\bapis?\b(?! gateway)|\brestful\b|(?-i:\bREST\b)"),
+("Data platforms","webhooks",r"webhooks?"),
 ("Data platforms","Microsoft Fabric / Azure Synapse / ADF",r"microsoft fabric|\bfabric\b(?= data| lakehouse)|synapse|data factory"),
 ("Data platforms","SSIS/SSRS",r"\bssis\b|\bssrs\b|\bssas\b"),
 # Cloud & devops
@@ -178,6 +181,7 @@ T = [
 ("Cloud & DevOps","AWS API Gateway",r"api gateway"),
 ("Cloud & DevOps","Amazon CloudWatch",r"cloudwatch"),
 ("Cloud & DevOps","Amazon RDS",r"(?-i)\bRDS\b|[Rr]elational [Dd]atabase [Ss]ervice"),
+("Cloud & DevOps","AWS Step Functions",r"step functions"),
 ("Cloud & DevOps","Google Cloud Composer",r"cloud composer"),
 ("Cloud & DevOps","Datadog",r"datadog"),
 ("Cloud & DevOps","Grafana",r"grafana"),
@@ -193,8 +197,9 @@ T = [
 ("Cloud & DevOps","Docker",r"docker|containeri[sz]"),
 ("Cloud & DevOps","Kubernetes",r"kubernetes|\bk8s\b"),
 ("Cloud & DevOps","CI/CD",r"ci/cd|continuous integration|continuous deliver|github actions|jenkins|azure devops|azure pipelines"),
+# Airbyte's "Bulk CDK" is a connector kit, not the AWS CDK.
+("Cloud & DevOps","Terraform/IaC",r"terraform|infrastructure as code|(?-i:\bIaC\b)|aws cdk|(?-i:(?<!Bulk )\bCDK\b)"),
 ("Cloud & DevOps","Git",r"\bgit\b|github(?! copilot)|gitlab|bitbucket|version control"),
-("Cloud & DevOps","Terraform/IaC",r"terraform|infrastructure as code"),
 ("Cloud & DevOps","MLOps",r"mlops|llmops|model deployment|deploy(?:ing)? models|model monitoring|(?:model|data|concept) drift|retrain(?:ing)? models?|model retraining"
  r"|experiment tracking|model registr|feature stores?"),
 ("Cloud & DevOps","MLflow",r"mlflow"),
@@ -203,6 +208,11 @@ T = [
  r"|regression test|integration test|end.to.end test"),
 ("Cloud & DevOps","microservices",r"microservice"),
 ("Cloud & DevOps","distributed systems",r"distributed system"),
+("Cloud & DevOps","idempotency",r"idempoten"),
+# Real estate has multi-tenant buildings.
+("Cloud & DevOps","multi-tenant architecture",r"multi.?tenan(?:t|ted|cy)\b(?! (?:office|industrial|retail|commercial|buildings?|propert))"),
+# Software design: not "piping system design", "sub-system designs" or a hardware "Systems Design Engineer".
+("Cloud & DevOps","system design",r"(?<!piping )(?<!-)\bsystems? design\b(?! engineer)"),
 # ML / stats methods
 ("ML & statistics","machine learning",r"machine learning|\bml\b|(?:un)?supervised learning|tree.based models?|random forests?|decision trees?"),
 ("ML & statistics","AI (any mention)",r"\bai\b|artificial intelligence"),
@@ -228,7 +238,7 @@ T = [
 ("ML & statistics","feature engineering",r"feature engineering"),
 ("ML & statistics","model evaluation/validation",r"model (?:evaluation|validation|performance)|cross.validation"),
 # Query, performance and process optimisation are tuning work, not operations research.
-("ML & statistics","optimization / OR",r"(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
+("ML & statistics","optimization / OR",r"(?<!prompt )(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
 ("ML & statistics","recommendation systems",r"recommend(?:er|ation) (?:system|engine|model)|recommenders?\b|next best action|ranking models?"),
 # Churn is a business metric; only survival wording is the method.
 ("ML & statistics","survival analysis",r"survival analysis|survival models?|time.to.event|hazard models?"),
@@ -271,7 +281,7 @@ T = [
 ("AI tools","Codex",r"\bcodex\b"),
 ("AI tools","Gemini",r"(?-i)\bGemini\b"),
 ("Business tools","Microsoft Office",r"microsoft office|ms office|office 365|microsoft 365|word, excel|powerpoint"),
-("Business tools","Agile/Scrum",r"\bagile\b|scrum|kanban|sprint"),
+("Business tools","Agile/Scrum",r"\bagile\b|scrum|kanban|sprint|daily stand.?ups?"),
 ("Business tools","project management",r"project management|project manager|pmp|pmbok|\bcapm\b"),
 ("Business tools","change management",r"change management"),
 ("Business tools","market research",r"market research|market sizing|competitive (?:analysis|landscape|intelligence)"),
@@ -281,6 +291,7 @@ T = [
 ("Business tools","Acumatica",r"acumatica"),
 ("Business tools","Marketo",r"marketo"),
 ("Business tools","Agentforce",r"agentforce"),
+("Business tools","Google Ads / Meta Ads",r"google ads|adwords|meta ads|meta marketing api|facebook ads|facebook advertising|(?:microsoft|bing) ads"),
 # The terminal and data, not the company: "At Bloomberg, we..." isn't a skill.
 ("Business tools","Bloomberg",r"bloomberg (?:terminal|bql|api|data license)|(?-i:(?<!At )(?<!at )\bBloomberg\b(?=[,)]| (?:and|or|is (?:desired|an asset|required|preferred))\b))"
  r"|(?<=, )bloomberg\b|(?<=and )bloomberg\b"),
@@ -290,7 +301,7 @@ T = [
 ("Data platforms","GraphQL",r"graphql"),
 ("Data platforms","JSON",r"\bjson\b"),
 ("ML & statistics","AI agents / agentic AI / MCP",r"agentic|ai agents?|\bmcp\b|model context protocol|langgraph|tool.calling|function.calling|\btool.use\b"),
-("Cloud & DevOps","SDLC",r"\bsdlc\b|software development life ?cycle"),
+("Cloud & DevOps","SDLC",r"\bsdlc\b|software (?:development )?life ?cycle"),
 ("Cloud & DevOps","networking (TCP/IP)",r"tcp/ip|\btcp\b|\budp\b|networking protocols"),
 ("Cloud & DevOps","QA / UAT",r"\buat\b|user acceptance|quality assurance|acceptance testing|manual testing|exploratory testing|test (?:cases|plans)\b"
  r"|\b(?:acceptance|exploratory)\b[^.\n]{0,50}\btests\b"),
@@ -298,7 +309,8 @@ T = [
 ("Data platforms","data transformation / preparation",r"data (?:transformations?|preparation|prep|wrangling|manipulation|munging)|transform(?:s|ed|ing)? (?!(?:the way|how) )(?:[\w-]+ ){0,2}data\b|prepar(?:e|ing) data|\bwrangl"),
 # Combining sources is integration work ("multi-source data", "combining data from several sources").
 ("Data platforms","data integration",r"data integration|system integrations?|integrat(?:e|ing) data|integrations? (?:between|across) (?:systems|platforms|tools)|(?:third.party|enterprise|platform) integrations?|integrat(?:e|ed|es|ing|ion) (?:of )?(?:the )?(?:third.party|external|outside|vendor) (?:\S+ ){0,3}?(?:data|sources?|systems|feeds)|multi.source|combin(?:e|ed|ing) (?:data from )?(?:multiple|several|different|many) (?:data )?sources"),
-("Data platforms","secure coding / OWASP",r"secure coding|secure (?:software|code) (?:development|practices)|\bowasp\b"),
+("Data platforms","secure coding / OWASP",r"secure coding|secure (?:software|code) (?:development|practices)|\bowasp\b|sql injection|buffer overflows?"),
+("Data platforms","OAuth / OpenID Connect",r"\boauth|openid connect|\boidc\b|\bjwts?\b|(?-i:\bSAML\b)"),
 ("Data platforms","data privacy / security",r"data privacy|privacy (?:laws|legislation|regulations|requirements|by design)|\bpii\b|personally identifiable|\bgdpr\b|\bccpa\b|\bpipeda\b|\bfoippa\b|\bhipaa\b|data security|data protection|\bencryption\b|access controls?|role.based access|row.level security|information security|cyber.?security|secrets? management"),
 ("Data platforms","query / performance tuning",r"query (?:optimi[sz]ation|performance|tuning)|optimi[sz](?:e|ing) (?:sql|queries|query)|performance (?:tuning|optimi[sz]ation)|(?:sql|query|database) tuning|tun(?:e|ing) (?:sql|queries)|(?:efficient|cost.effective) (?:sql|queries)|(?:sql|queries|query) (?:\w+ )?efficient|query costs?"),
 ("Data platforms","data lineage / catalog",r"data lineage|\blineage\b|data catalog(?:ue)?s?|data dictionar|metadata management"),
@@ -316,6 +328,14 @@ T = [
 ("Data platforms","analytics engineering",r"analytics engineer"),
 ("Data platforms","data migration",r"data migrations?|migrat(?:e|ing|ion of) (?:the )?data\b"),
 ("Data platforms","data mapping",r"data mapping|source.to.target|field mapping"),
+# Not the hiring boilerplate "use your profile data for any roles".
+("Data platforms","data profiling",r"data profiling|\bprofil(?:e|ing) (?:the )?(?:source )?data (?:across|from|in|sources)|profiling of [^.\n]{0,40}(?:data|schemas)"),
+("Data platforms","incremental loads / models",r"incremental (?:loads?|loading|models?|logic|processing|strateg\w*|refresh|data loads?|pipelines?|materiali[sz]ation)"),
+# Uppercase CDC is also the Centers for Disease Control.
+("Data platforms","change data capture (CDC)",r"change data capture|(?-i:(?<!Control \()\bCDC\b)(?![^.\n]{0,40}(?:guideline|vaccin|disease|health))"),
+# Bronze/silver/gold layers, not sponsor or membership tiers.
+("Data platforms","medallion architecture",r"medallion (?:architecture|approach|model|layers?|pattern)|enfoque medallion"
+ r"|bronze, silver,? (?:and|&) gold(?! (?:sponsor|level|tier|member|medal|partner|status|plan))|\b(?:bronze|silver|gold) (?:layer|zone)s?\b"),
 ("Data platforms","OLAP / cubes",r"\bolap\b|\bmdx\b|multidimensional (?:databases?|cubes?|models?)"),
 ("Data platforms","big data",r"big data"),
 ("Data platforms","knowledge graphs / ontologies",r"knowledge graphs?|ontolog|graph databases?|\bneo4j\b|(?-i:\bRDF\b)"),
@@ -341,6 +361,7 @@ T = [
 ("Cloud & DevOps","Google Cloud Storage",r"google cloud storage|(?-i:\bGCS\b)"),
 ("Cloud & DevOps","Google Cloud Dataflow / Apache Beam",r"(?-i:\bDataflow\b)|cloud dataflow|apache beam"),
 ("Cloud & DevOps","Google Cloud Pub/Sub",r"pub/sub|\bpubsub\b"),
+("Cloud & DevOps","Google Cloud Functions",r"cloud functions|cloud run functions"),
 ("BI & analytics","root cause analysis",r"root.cause"),
 ("BI & analytics","data-driven decision-making",r"data.driven (?:decisions?|decision.making|insights?|approach|culture|recommendations)|evidence.based (?:decisions?|decision.making)|inform(?:s|ed|ing)? (?:business |key |strategic )?decisions|decision support"),
 # A marketing or sales funnel is demand generation (below), not in-product funnels.
@@ -379,6 +400,9 @@ T = [
 ("Domain knowledge","epidemiology / biostatistics",r"epidemiolog|biostatistic"),
 # Uppercase IoT: "NYSE: IOT" is a ticker.
 ("Domain knowledge","IoT / sensor data",r"(?-i:\bIoT\b)|internet of things|sensor data"),
+# The work or an asked-for background, not an employer that is "a crypto platform".
+("Domain knowledge","blockchain / Web3",r"(?-i:\bSolidity\b|\bEVM\b|\bDeFi\b)|smart contracts?|blockchain (?:data|development|engineering|protocols?|technolog)"
+ r"|(?:familiarity|experience|knowledge|background) (?:with|of|in) (?:\w+ ){0,3}?(?:blockchain|crypto(?:currency)?|web3|digital assets|stablecoins?)\b"),
 # soft skills
 ("Soft skills","communication",r"communicat"),
 ("Soft skills","collaboration/teamwork",r"collaborat|team ?work|cross.functional|team player|(?:works?|interact) well with others"),
@@ -445,7 +469,9 @@ RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Ama
            "SQL stored procedures": "SQL", "Amazon SQS / SNS": "AWS", "Amazon ECS": "AWS",
            "Delta Lake": "Databricks", "Unity Catalog": "Databricks", "Snowflake Cortex": "Snowflake",
            "Dataform": "GCP", "Agentforce": "Salesforce/CRM", "ELK Stack": "Elasticsearch",
-           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)"}
+           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)",
+           "AWS Step Functions": "AWS", "Google Cloud Functions": "GCP",
+           "ORMs (SQLAlchemy / Prisma / Hibernate)": "SQL"}
 
 # The kind of tool each one is. An open list ("e.g. Tableau, QuickSight", "or similar tools")
 # takes its type from the tools it names, so any tool of that type can stand in. Excel isn't a
@@ -459,6 +485,7 @@ _TYPES = {
                      "LangChain/LlamaIndex", "spaCy / NLTK", "vLLM"],
     "data library": ["pandas", "NumPy", "scikit-learn", "matplotlib/seaborn/plotly", "Jupyter"],
     "web framework": ["React", "FastAPI/Flask/Django", "Angular", "Vue", "Spring", "Node.js"],
+    "ORM": ["ORMs (SQLAlchemy / Prisma / Hibernate)"],
     "AI assistant": ["Claude / Claude Code", "ChatGPT", "GitHub Copilot", "Microsoft Copilot", "Cursor", "Codex",
                      "Gemini"],
     "BI / visualization tool": ["Power BI", "Tableau", "Looker", "Looker Studio", "Qlik", "Superset", "Metabase",
@@ -474,12 +501,14 @@ _TYPES = {
     "data warehouse / query engine": ["Amazon Athena", "Presto/Trino"],
     "orchestration / ETL tool": ["Airflow", "Prefect", "Dagster", "dbt", "Fivetran", "SSIS/SSRS", "Alteryx", "AWS Glue",
                                  "Google Cloud Composer",
-                                 "Microsoft Fabric / Azure Synapse / ADF", "Dataform", "SQLMesh", "VisualCron"],
+                                 "Microsoft Fabric / Azure Synapse / ADF", "Dataform", "SQLMesh", "VisualCron",
+                                 "AWS Step Functions"],
     "cloud platform": ["AWS", "Azure", "GCP", "AWS S3", "AWS Lambda", "Amazon SageMaker", "Amazon Bedrock",
                        "Amazon Kinesis", "Azure Machine Learning", "Vertex AI", "AWS Glue", "Amazon Athena",
                        "Amazon EMR", "Amazon EC2", "AWS CloudFormation", "Google Cloud Composer", "Google Cloud Storage",
                        "Google Cloud Dataflow / Apache Beam", "Google Cloud Pub/Sub", "Amazon SQS / SNS", "Amazon ECS",
-                       "AWS API Gateway", "Amazon CloudWatch", "Amazon RDS", "Azure OpenAI"],
+                       "AWS API Gateway", "Amazon CloudWatch", "Amazon RDS", "Azure OpenAI", "AWS Step Functions",
+                       "Google Cloud Functions"],
     "test tool": ["Playwright", "Selenium", "Cypress", "Postman", "JMeter / k6", "Jest / Vitest"],
     "ML / AI platform": ["Amazon SageMaker", "Azure Machine Learning", "Vertex AI", "MLflow", "Databricks",
                          "Amazon Bedrock", "Snowflake Cortex", "Dataiku", "Azure OpenAI"],
@@ -491,7 +520,7 @@ _TYPES = {
                           "ServiceNow", "Stripe", "test management (TestRail, qTest, Xray)",
                           "project controls (Primavera P6, EcoSys)",
                           "Microsoft Power Platform", "Power Apps", "Power Automate", "Power Query", "Dataverse",
-                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica"],
+                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica", "Google Ads / Meta Ads"],
 }
 TOOL_TYPES: dict[str, set[str]] = {}
 for _type, _names in _TYPES.items():
