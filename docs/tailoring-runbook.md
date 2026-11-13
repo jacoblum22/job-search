@@ -64,7 +64,9 @@ Set-ScheduledTask -TaskName "JobSearch-Tailoring" -Settings $s
 (open, closed with a quoted line, or unknown). `queue --from-plan` dismisses the closed jobs (listed in
 `dismissed.jsonl`) and takes the next in line, so the run still drafts `daily_cap` jobs. The check is tried up to 3 times; if Chrome still
 can't read a page the run logs an ERROR and drafts no new jobs (waiting rounds still run), rather than
-draft unchecked (Jake, Nov 12 2026). With two Chrome browsers on the account the run must
+draft unchecked (Jake, Nov 12 2026). The check runs with `CLAUDE_CODE_OAUTH_TOKEN` unset: that token
+is an inference-only login, so with it set `claude -p` loads no Claude in Chrome link (the scheduled task and
+the dashboard's Run button both carry it). With two Chrome browsers on the account the run must
 pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrome). Turn the check off with
 `tailor.open_check.enabled: false`.
 
