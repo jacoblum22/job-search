@@ -271,9 +271,10 @@ function Get-FolderScope($folders) {
 # next in line, so the run still drafts the daily cap. Any failure here (no Chrome, a login that
 # expired, the plan not written) is logged and the normal queue runs, so the check never costs a run.
 # Returns $true when the queue must now run as `queue --from-plan`.
-function Invoke-OpenCheck {
+function Invoke-OpenCheck([int]$Cap = 0) {
     if ($JobId -gt 0 -or $ResumeOnly) { return $false }
-    $planArgs = @("queue", "--plan") + $(if ($Limit -gt 0) { @("--limit", "$Limit") } else { @() })
+    $cap = if ($Cap -gt 0) { $Cap } else { $Limit }
+    $planArgs = @("queue", "--plan") + $(if ($cap -gt 0) { @("--limit", "$cap") } else { @() })
     $null = & uv run python -m src.tailor @planArgs 2>$null
     $planFile = Join-Path $projectRoot "materials\tailor\open-check\plan.json"
     if ($LASTEXITCODE -eq 3) { return $false }   # tailor.open_check.enabled is false
@@ -282,8 +283,9 @@ function Invoke-OpenCheck {
         return $false
     }
     $plan = Get-Content $planFile -Raw -Encoding UTF8 | ConvertFrom-Json
-    $cap = if ($Limit -gt 0) { $Limit } else { $plan.limit }
-    $prompt = (Get-Content (Join-Path $projectRoot "prompts\tailor\open-check.md") -Raw -Encoding UTF8).Replace("{DATE}", $date).Replace("{LIMIT}", "$cap")
+    $cap = if ($cap -gt 0) { $cap } else { $plan.limit }
+    $minYears = if ($plan.min_years) { $plan.min_years } else { 7 }   # tailor.hard_stop.min_years
+    $prompt = (Get-Content (Join-Path $projectRoot "prompts\tailor\open-check.md") -Raw -Encoding UTF8).Replace("{DATE}", $date).Replace("{LIMIT}", "$cap").Replace("{MIN_YEARS}", "$minYears")
     # With more than one Chrome connected to the account the browser tools stall until one is
     # picked, and the CLI still exits 0 (found Nov 13 2026). JOBSEARCH_CHROME_DEVICE_ID in .env
     # (git-ignored; this PC's Chrome) lets the run pick it with select_browser.
@@ -383,6 +385,45 @@ if (-not $parallelRun) {
     }
     if (-not $sessions) { Log "Nothing new to tailor"; Add-Content (Join-Path $digestDir "$date.md") "`n<!-- $stamp -->`nNothing new to tailor" -Encoding UTF8 }
 }
+
+# Top-up (Jake, Nov 12 2026): the final set is the daily cap of jobs that are open and not obvious
+# misses, so when a job is dismissed after its folder was made (the requirements step's hard stop),
+# the run is short. Each round asks how short (`queue --shortfall`), runs the open check for that
+# many more jobs (Claude in Chrome: closed postings and obvious misses are dismissed, the next in
+# line takes their place), makes their folders and drafts them. At most 3 rounds.
+function Invoke-TopUp {
+    if ($JobId -gt 0 -or $ResumeOnly -or $script:authFailed) { return }
+    for ($round = 1; $round -le 3; $round++) {
+        $shortArgs = @("queue", "--shortfall") + $(if ($Limit -gt 0) { @("--limit", "$Limit") } else { @() })
+        $raw = & uv run python -m src.tailor @shortArgs 2>$null | Out-String
+        $short = 0
+        if ($LASTEXITCODE -ne 0 -or -not [int]::TryParse($raw.Trim(), [ref]$short) -or $short -le 0) { return }
+        Log "Top-up round ${round}: $short job(s) short of the daily cap"
+        $fromPlan = Invoke-OpenCheck $short
+        $nArgs = @("queue") + $(if ($fromPlan) { @("--from-plan") } else { @() }) + @("--limit", "$short")
+        $new = @(Get-JsonList $nArgs)
+        Log "Top-up round ${round}: $($new.Count) new job(s)"
+        if ($new.Count -eq 0) { return }
+        $pending = New-Object System.Collections.ArrayList
+        foreach ($g in @(Group-ByCompany $new)) { [void]$pending.Add((Get-FolderScope $g.Folders)) }
+        $active = @()
+        while ($pending.Count -gt 0 -or $active.Count -gt 0) {
+            foreach ($s in @($active | Where-Object { $_.Job.State -in @("Completed", "Failed", "Stopped") })) {
+                Complete-Session $s
+                $active = @($active | Where-Object { $_ -ne $s })
+            }
+            if ($script:authFailed) { $pending.Clear() }
+            while ($active.Count -lt [Math]::Max(1, $Parallel) -and $pending.Count -gt 0) {
+                $sc = $pending[0]; $pending.RemoveAt(0)
+                $active += Start-Session "topup" $sc
+                Start-Sleep -Seconds 5
+            }
+            if ($pending.Count -gt 0 -or $active.Count -gt 0) { Start-Sleep -Seconds 10 }
+        }
+        if ($script:authFailed) { return }
+    }
+}
+Invoke-TopUp
 
 # Azure (docs/postgres-mirror.md): once Postgres is the main database (phase 4), back it up to
 # backups\jobs-<date>.db; before that, copy jobs.db into the Postgres shadow copy when
