@@ -748,7 +748,7 @@ function render() {
     const flags = app.flags.map(f => `<span class="badge flag">${esc(f)}</span>`).join('');
     const files = app.files.map(f => `<a href="/job/${jobId}/file/${encodeURIComponent(f)}" target="_blank">${esc(f)}</a>`).join('<br>');
     h += `<h2>Application</h2><div class="panel">
-      <div class="row"><span class="badge">${esc(app.label)}</span>${flags}</div>
+      <div class="row">${app.label ? `<span class="badge">${esc(app.label)}</span>` : ''}${flags}</div>
       <div class="meta" style="margin-top:6px">Folder: ${esc(app.folder)}</div>
       ${files ? `<div style="margin-top:10px">${files}</div>` : '<div class="meta">No rendered files yet.</div>'}
       <div class="row" style="margin-top:12px">`;
