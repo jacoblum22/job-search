@@ -350,6 +350,11 @@ sources:
 # effect without scraping.
 
 score:
+  # Jev's quick fit check (Jake, Nov 12 2026): each question a top candidate fails (seniority, years,
+  # location, co-op...) takes this many points off its score, up to the max. The queue orders by the
+  # adjusted score alone, and the dashboard shows the same number. An unanswered question costs nothing.
+  jev_flag_penalty: 10
+  jev_max_penalty: 40
   # Posting age (Jake, Nov 12 2026), counted from the posted date (else the day it was first seen).
   # The larger band replaces the smaller (-20 over 20 days, not -30). Over remove_over_days the job
   # becomes tier "skip", so it leaves the queue and the dashboard list (hidden by "Hide skipped");
@@ -660,8 +665,8 @@ tailor:
     min_years: 7
   gate:
     # A Jev answer fails when a 0-3 score is <= score_fail or a yes/no probability
-    # is on the wrong side of yes_threshold. Failing or unanswered questions only
-    # flag the job and move it to the bottom of its tier; they never drop it.
+    # is on the wrong side of yes_threshold. A failed question flags the job and takes points off its
+    # score (score.jev_flag_penalty); it never drops the job. Unanswered ("unchecked") costs nothing.
     score_fail: 1
     yes_threshold: 0.5
   evidence:

@@ -421,3 +421,23 @@ def test_a_job_with_a_folder_is_aged_like_any_other(tmp_path):
     rescore_all(conn, cfg)
     reasons = [conn.execute("SELECT score_reasons FROM jobs WHERE id = ?", (i,)).fetchone()[0] for i in ids.values()]
     assert all("posted 25 days ago" in r for r in reasons)
+
+
+def test_the_quick_fit_penalty_comes_off_the_score(tmp_path):
+    from src.tailor import store
+
+    conn = connect(str(tmp_path / "j.db"))
+    store.ensure_table(conn)
+    ids = {}
+    for name in ("plain", "flagged"):
+        job = Job("t", name, "Junior Data Analyst", "Acme", "Vancouver, BC", "SQL Python dashboards " * 30,
+                  f"https://x/{name}")
+        ids[name], _ = upsert_job(conn, job)
+    conn.execute("INSERT INTO jev_gate (job_id, penalty, reason, checked_at) VALUES (?, 20, 'seniority fit, years ok', 'x')",
+                 (ids["flagged"],))
+    conn.commit()
+    rescore_all(conn, CFG)
+    plain, flagged = (conn.execute("SELECT score, score_reasons FROM jobs WHERE id = ?", (ids[n],)).fetchone()
+                      for n in ("plain", "flagged"))
+    assert flagged[0] == plain[0] - 20
+    assert "-20 quick fit check (seniority fit, years ok)" in flagged[1]

@@ -39,7 +39,9 @@ def titles(paths):
     return [appdir.load_app(p)["title"] for p in paths]
 
 
-def test_flagged_sinks_within_tier_only(cfg):
+def test_a_failed_fit_answer_takes_points_off_and_the_order_is_by_score_alone(cfg):
+    """Jake, Nov 12 2026: flagged jobs no longer sink; each failed answer costs 10 points and the
+    queue orders by the adjusted score only."""
     add(cfg, "a1", "A flagged", "A", 90)
     add(cfg, "a2", "A clean", "A", 70)
     add(cfg, "b1", "B clean", "B", 99)
@@ -49,11 +51,15 @@ def test_flagged_sinks_within_tier_only(cfg):
         return 0 if bad and q.id == "seniority_fit" else GOOD[q.id]
 
     out = run_queue(cfg, limit=5, jev=FakeJev(answers))
-    assert titles(out) == ["A clean", "A flagged", "B clean"]
+    assert titles(out) == ["B clean", "A flagged", "A clean"]   # 99, 90 - 10 = 80, 70
     flagged = appdir.load_app(out[1])
     assert flagged["gate"]["flagged"] and flagged["gate"]["queue_rank"] == 2
     assert flagged["gate"]["flags"][0]["reason"] == "failed"
-    assert not appdir.load_app(out[0])["gate"]["flagged"]
+    assert not appdir.load_app(out[2])["gate"]["flagged"]
+    conn = connect(cfg["paths"]["db"])
+    saved = [tuple(r) for r in conn.execute("SELECT penalty, reason FROM jev_gate WHERE penalty > 0")]
+    conn.close()
+    assert saved == [(10, "seniority fit")]
 
 
 def test_strictly_by_score_within_a_tier_whatever_the_posting_date(cfg):
@@ -63,7 +69,7 @@ def test_strictly_by_score_within_a_tier_whatever_the_posting_date(cfg):
     new = add(cfg, "n1", "New lower score", "A", 70)
     newer = add(cfg, "n2", "Newest lower score", "A", 70)
     unknown = add(cfg, "u1", "No date, seen today", "A", 60)
-    add(cfg, "b1", "B fresh", "B", 99)
+    add(cfg, "b1", "B fresh", "B", 50)
     conn = connect(cfg["paths"]["db"])
     day = lambda n: (date.today() - timedelta(days=n)).isoformat()
     for jid, posted in [(old, day(25)), (new, day(5)), (newer, day(1)), (unknown, None)]:
