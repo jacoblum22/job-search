@@ -95,6 +95,18 @@ def test_a_leftover_shortlisted_folder_competes_by_score_and_is_reused(cfg):
     assert first == again
 
 
+def test_a_reused_folder_keeps_the_rounds_an_earlier_run_drafted(cfg):
+    add(cfg, "h1", "High", "A", 90)
+    (folder,) = run_queue(cfg, limit=1, jev=FakeJev(GOOD))
+    appdir.log(folder, "loop", "stop", base_id="data-analyst", best_round=3,
+               rounds=[{"round": 3, "score": 70.0, "criticals": 0, "failed_items": 1}])
+    (again,) = run_queue(cfg, limit=1, jev=FakeJev(GOOD))
+    app = appdir.load_app(again)
+    assert again == folder
+    assert (app["best_round"], app["base_id"], len(app["rounds"])) == (3, "data-analyst", 1)
+    assert [h["step"] for h in app["history"]] == ["queue", "loop", "queue"]
+
+
 def test_yes_no_sides_and_unchecked(cfg):
     add(cfg, "a1", "Needs PhD", "A", 80)
     out = run_queue(cfg, jev=FakeJev({**GOOD, "requires_phd": 0.9, "is_coop": None}))
