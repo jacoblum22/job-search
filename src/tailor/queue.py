@@ -335,6 +335,23 @@ def queue_from_plan(cfg: dict[str, Any], limit: int | None = None) -> list[Path]
         conn.close()
 
 
+def queue_next(cfg: dict[str, Any], jev=None) -> list[Path]:
+    """One replacement folder: the next job in line after a job was dismissed mid-run (Jake,
+    Nov 12 2026), so the run still drafts the daily cap. It takes the next entry of today's plan
+    (jobs that already have a folder, or were dismissed, are skipped; one the open check found
+    closed is dismissed), or builds the queue afresh when there is no plan today. Locked, so two
+    sessions asking at once don't get the same job."""
+    from src.tailor import appdir
+
+    d = open_check_dir(cfg)
+    d.mkdir(parents=True, exist_ok=True)
+    with appdir.file_lock(d / "queue"):
+        try:
+            return queue_from_plan(cfg, limit=1)
+        except TailorError:
+            return run_queue(cfg, limit=1, jev=jev)
+
+
 def _make_folders(conn, cfg: dict[str, Any], entries: list[tuple[Any, list, Any]], use_jev: bool) -> list[Path]:
     apps_root = resolve(cfg, "applications")
     today = date.today().isoformat()

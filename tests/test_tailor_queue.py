@@ -513,3 +513,29 @@ def test_open_check_plan_lists_every_eligible_job_so_it_never_runs_out_of_spares
     for i in ids[:6]:
         _verdict(cfg, i, "closed", "Job closed")
     assert titles(queue_from_plan(cfg)) == ["Job 6", "Job 7"]
+
+
+def test_queue_next_replaces_a_dismissed_job_with_the_next_in_line(cfg_oc):
+    from src import db
+    from src.tailor.queue import queue_from_plan, queue_next
+
+    cfg = cfg_oc
+    ids = [add(cfg, f"n{i}", f"Job {i}", "A", 90 - i) for i in range(4)]
+    run_queue(cfg, limit=2, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
+    assert titles(queue_from_plan(cfg)) == ["Job 0", "Job 1"]
+    conn = connect(cfg["paths"]["db"])
+    db.set_job_status(conn, ids[0], "dismissed")  # the requirements step's hard stop
+    conn.close()
+    _verdict(cfg, ids[2], "closed", "Job closed")
+    assert titles(queue_next(cfg)) == ["Job 3"]  # Job 2 is closed, so it is dismissed and skipped
+    assert queue_next(cfg) == []                 # nothing left
+
+
+def test_queue_next_without_a_plan_builds_the_queue(cfg_oc):
+    from src.tailor.queue import queue_next
+
+    cfg = cfg_oc
+    add(cfg, "p0", "Job 0", "A", 90)
+    add(cfg, "p1", "Job 1", "A", 80)
+    assert titles(queue_next(cfg, jev=FakeJev(lambda s, q: GOOD[q.id]))) == ["Job 0"]
+    assert titles(queue_next(cfg, jev=FakeJev(lambda s, q: GOOD[q.id]))) == ["Job 1"]

@@ -152,7 +152,10 @@ folder before starting the next. Keep a running note of the outcome for the dige
 1. **Requirements (Claude).** Follow `prompts/tailor/requirements.md`; write `<app>/requirements.json`.
 2. `uv run python -m src.tailor requirements "<app>"`. Read the output: note what was dropped. If `"dismissed"` holds a reason, the job needs more years
    than Jake could have and was dismissed (reason saved in `app.json`, shown by `why`): skip the
-   folder, note it in the digest, and go on to the next one.
+   folder and note it in the digest. Then run `uv run python -m src.tailor queue --next`: it prints
+   a list with one new folder, the next job in line, so the run still drafts the daily cap (an
+   empty list means nothing is left). Add that folder to the end of your own list and do it like
+   the rest; it's yours even if this session was told to work on named folders only. Then go on to the next one.
 3. **Company research (only if stale).** Look in `materials/companies/<company-slug>/facts.json` (the slug is the
    company name in lowercase with every run of other characters turned into one `-`). If it has at
    least 3 facts and the newest `read` is under 30 days old, skip. Otherwise start a subagent with
