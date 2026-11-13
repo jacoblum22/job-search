@@ -284,6 +284,20 @@ function Invoke-OpenCheck {
     $plan = Get-Content $planFile -Raw -Encoding UTF8 | ConvertFrom-Json
     $cap = if ($Limit -gt 0) { $Limit } else { $plan.limit }
     $prompt = (Get-Content (Join-Path $projectRoot "prompts\tailor\open-check.md") -Raw -Encoding UTF8).Replace("{DATE}", $date).Replace("{LIMIT}", "$cap")
+    # With more than one Chrome connected to the account the browser tools stall until one is
+    # picked, and the CLI still exits 0 (found Nov 13 2026). JOBSEARCH_CHROME_DEVICE_ID in .env
+    # (git-ignored; this PC's Chrome) lets the run pick it with select_browser.
+    $browserLine = ""
+    $envFile = Join-Path $projectRoot ".env"
+    if (Test-Path $envFile) {
+        foreach ($l in Get-Content $envFile -Encoding UTF8) {
+            if ($l -match '^\s*JOBSEARCH_CHROME_DEVICE_ID\s*=\s*"?([0-9a-fA-F-]{36})"?') {
+                $browserLine = "First call select_browser with deviceId $($Matches[1]) (this PC's Chrome), then continue. "
+                break
+            }
+        }
+    }
+    $prompt = $prompt.Replace("{BROWSER}", $browserLine)
     $checkTools = @("Read(materials/tailor/open-check/**)", "Edit(materials/tailor/open-check/**)",
         "mcp__claude-in-chrome__tabs_context_mcp", "mcp__claude-in-chrome__tabs_create_mcp",
         "mcp__claude-in-chrome__tabs_close_mcp", "mcp__claude-in-chrome__navigate",

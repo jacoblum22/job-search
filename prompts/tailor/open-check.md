@@ -3,7 +3,7 @@ before we get to them, and drafting a resume for a closed job wastes the run. Yo
 pages. You never apply, never fill in or submit a form, never log in, and never click anything
 that isn't needed to read the posting.
 
-Read `materials/tailor/open-check/plan.json`. `entries` lists the next jobs in order, each with a
+{BROWSER}Read `materials/tailor/open-check/plan.json`. `entries` lists the next jobs in order, each with a
 `job_id`, `company`, `title` and `url`. Go through them in that order. For each one:
 
 1. Open its `url` in a new browser tab, read the page text, then close the tab.
