@@ -321,6 +321,21 @@ def is_aggregator(url: str, cfg: dict[str, Any]) -> bool:
     return any(host == h or host.endswith("." + h) for h in aggregator_hosts(cfg))
 
 
+# A link that ends on a site's home page or its general job list ("himalayas.app/jobs", "example.com/careers")
+# instead of one posting means the posting is gone: the site sent us to its list (Jake, Nov 13 2026).
+_GENERIC_PATHS = {"", "jobs", "job", "careers", "career", "search", "job-search", "jobs/search", "vacancies",
+                  "openings", "positions", "work-with-us", "join-us", "en/jobs", "en/careers", "ca/jobs"}
+
+
+def is_generic_landing(url: str) -> bool:
+    from urllib.parse import urlparse
+
+    u = urlparse(url or "")
+    if not u.hostname:
+        return False
+    return u.path.strip("/").lower() in _GENERIC_PATHS
+
+
 def posting_url(row: Any) -> str:
     """The link to open a job: the real employer/ATS page the open check found, else the scraped one."""
     try:
@@ -380,6 +395,11 @@ def read_verdicts(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
             host = re.sub(r"^https?://", "", landed, flags=re.I).split("/")[0]
             state = "closed"
             evidence = f"The link ended on {host}, a job-search site, and the posting was not found elsewhere. {evidence}".strip()
+        elif state != "miss" and landed and is_generic_landing(landed):
+            # The link ended on a home page or general job list, not on the posting: the posting is gone.
+            state = "closed"
+            real_url = ""
+            evidence = f"The link ended on {landed}, a general job list or home page, not on the posting. {evidence}".strip()
         out[int(f.stem)] = {"state": state if state in ("open", "closed", "miss") else "unknown",
                             "evidence": evidence, "why": str(v.get("why") or "").strip(),
                             "real_url": real_url if state == "open" else ""}
