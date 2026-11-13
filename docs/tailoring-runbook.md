@@ -63,8 +63,8 @@ Set-ScheduledTask -TaskName "JobSearch-Tailoring" -Settings $s
 (`prompts/tailor/open-check.md`) opens each link and writes `materials/tailor/open-check/<job_id>.json`
 (open, closed with a quoted line, or unknown). `queue --from-plan` dismisses the closed jobs (listed in
 `dismissed.jsonl`) and takes the next in line, so the run still drafts `daily_cap` jobs. The check is tried up to 3 times; if Chrome still
-can't read a page the run logs an ERROR and drafts no new jobs (waiting rounds still run), rather than
-draft unchecked (Jake, Nov 12 2026). The check runs with `CLAUDE_CODE_OAUTH_TOKEN` unset: that token
+can't read a page the run is cancelled (logged as RUN CANCELLED, exit code 3) and does nothing more: no drafting, no waiting
+rounds, no review (Jake, Nov 12 2026). The scrape that came before it has already happened. The check runs with `CLAUDE_CODE_OAUTH_TOKEN` unset: that token
 is an inference-only login, so with it set `claude -p` loads no Claude in Chrome link (the scheduled task and
 the dashboard's Run button both carry it). With two Chrome browsers on the account the run must
 pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrome). Turn the check off with
