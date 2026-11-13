@@ -653,7 +653,6 @@ tailor:
     # prompts/tailor/open-check.md); a closed posting is dismissed and the next in line takes its
     # place, so a run still drafts daily_cap jobs. The plan is every eligible job in rank order.
     enabled: true
-  fresh_days: 14         # within a tier, jobs posted in the last N days are drafted first (old ones may have closed)
   hard_stop:
     # Only a certain no ends a job early: a must-have asking this many years or more, quoted from the
     # posting, with no "or"/degree way around it (the requirements step dismisses it and records why).

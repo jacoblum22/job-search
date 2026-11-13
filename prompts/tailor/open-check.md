@@ -6,7 +6,9 @@ that isn't needed to read the posting.
 {BROWSER}Read `materials/tailor/open-check/plan.json`. `entries` lists the next jobs in order, each with a
 `job_id`, `company`, `title` and `url`. Go through them in that order. For each one:
 
-1. Open its `url` in a new browser tab, read the page text, then close the tab.
+1. Open its `url` in a new browser tab, read the page text, then close the tab. If
+   `tabs_context_mcp` shows no tabs, call it again with `createIfEmpty` true, then
+   `tabs_create_mcp`.
 2. Decide two things about the posting. First, whether it is still taking applications:
    - `closed`: the page itself says so ("no longer accepting applications", "this job has expired",
      "position has been filled", "posting closed", "this job is no longer available", a 404 or

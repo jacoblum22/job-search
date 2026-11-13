@@ -474,13 +474,8 @@ def rescore_all(
         "SELECT id, title, description, location_category, years_experience, location, company, "
         "posted_date, raw, first_seen, last_seen, status FROM jobs"
     ).fetchall()
-    # Jobs you applied to, or whose resume and letter are drafted, are never aged out or marked down
-    # (retention keeps them too). A folder the queue made but nobody has drafted ("shortlisted") is
-    # not work to protect: a stale leftover would otherwise keep its old score (Jake, Nov 12 2026).
-    from src.db import has_table
-
-    kept = ({r[0] for r in conn.execute("SELECT job_id FROM applications WHERE status != 'shortlisted'")}
-            if has_table(conn, "applications") else set())
+    # Every job gets the age adjustment, whatever state it is in (Jake, Nov 12 2026: a job with a
+    # folder or an application must not keep a stale score).
     age_cfg = cfg.get("age") or {}
     updates = []
     vault_cfg = cfg.get("vault_gaps") or {}
@@ -495,7 +490,7 @@ def rescore_all(
                 cache["_vault"] = vault
     for row in rows:
         age = None
-        if age_cfg and row[11] != "applied" and row[0] not in kept:
+        if age_cfg:
             age = posting_age_days(row[7], row[8], row[9], row[10])
         # The age bucket is part of the cache key: a job's score changes as the days pass.
         key = (row[1], row[2], row[3], row[4], row[5], row[6], age_adjustment(age, age_cfg))

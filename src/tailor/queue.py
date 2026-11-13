@@ -7,7 +7,7 @@ and sinks to the bottom of its tier, but is never dropped.
 from __future__ import annotations
 
 import re
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -105,14 +105,16 @@ def _eligible(conn, cfg: dict[str, Any], job_ids: list[int] | None) -> list[Any]
         missing = set(job_ids) - {r["id"] for r in rows}
         if missing:
             raise TailorError(f"no such job id(s): {sorted(missing)}")
-        taken = {r[0] for r in conn.execute("SELECT job_id FROM applications")}
+        taken = {r[0] for r in conn.execute("SELECT job_id FROM applications WHERE status != 'shortlisted'")}
         return [r for r in rows if r["id"] not in taken]
     marks = ",".join("?" * len(tiers))
     rows = conn.execute(
         f"SELECT * FROM jobs WHERE tier IN ({marks}) AND length(description) >= ? "
-        "AND id NOT IN (SELECT job_id FROM applications) "
+        # A folder that is only "shortlisted" (made, nothing drafted) doesn't take the job out: it
+        # competes on score like any other, and its folder is reused (Jake, Nov 12 2026).
+        "AND id NOT IN (SELECT job_id FROM applications WHERE status != 'shortlisted') "
         "AND dedup_group_id NOT IN (SELECT j.dedup_group_id FROM jobs j "
-        "JOIN applications a ON a.job_id = j.id) "
+        "JOIN applications a ON a.job_id = j.id WHERE a.status != 'shortlisted') "
         # A job you dismissed or applied to yourself (any posting of it) is never drafted.
         "AND status NOT IN ('dismissed', 'applied') "
         "AND dedup_group_id NOT IN (SELECT dedup_group_id FROM jobs "
@@ -196,14 +198,13 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
 
             rescore_all(conn, _settings().get("score") or {})
         rows = _eligible(conn, cfg, job_ids)
-        # Within a tier, postings from the last `fresh_days` go first (an old one may have
-        # closed already), then by score, then newest.
+        # Strictly by score within a tier (the age penalty already covers freshness), then newest;
+        # a gate-flagged job sinks below the unflagged ones of its tier.
         posted = _posted_days(conn)
-        fresh_since = date.today() - timedelta(days=int(cfg.get("fresh_days", 14)))
 
         def order(r, flagged: bool = False) -> tuple:
             day = posted.get(r["dedup_group_id"]) or date.min
-            return (tier_pos.get(r["tier"], len(tiers)), flagged, day < fresh_since,
+            return (tier_pos.get(r["tier"], len(tiers)), flagged,
                     -(r["score"] or 0), -day.toordinal(), r["id"])
 
         rows.sort(key=order)
@@ -315,7 +316,7 @@ def queue_from_plan(cfg: dict[str, Any], limit: int | None = None) -> list[Path]
     verdicts = read_verdicts(cfg)
     conn = store.connect(resolve(cfg, "db"))
     try:
-        taken = {r[0] for r in conn.execute("SELECT job_id FROM applications")}
+        taken = {r[0] for r in conn.execute("SELECT job_id FROM applications WHERE status != 'shortlisted'")}
         entries, closed = [], []
         for e in plan["entries"]:
             if len(entries) >= limit:
@@ -363,7 +364,11 @@ def _make_folders(conn, cfg: dict[str, Any], entries: list[tuple[Any, list, Any]
     today = date.today().isoformat()
     out: list[Path] = []
     for rank, (r, flags, gate_base) in enumerate(entries, 1):
-        folder = apps_root / appdir.folder_name(today, r["company"], r["title"])
+        prior = conn.execute("SELECT folder FROM applications WHERE job_id = ? AND status = 'shortlisted'",
+                             (r["id"],)).fetchone()
+        folder = store.folder_path(prior[0]) if prior and prior[0] else None
+        if folder is None or not folder.is_dir():
+            folder = apps_root / appdir.folder_name(today, r["company"], r["title"])
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "posting.md").write_text(_posting_md(r), encoding="utf-8")
         appdir.save_app(folder, {

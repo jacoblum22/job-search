@@ -62,8 +62,9 @@ Set-ScheduledTask -TaskName "JobSearch-Tailoring" -Settings $s
 **Open check.** Before the queue makes folders, the wrapper runs `queue --plan` (every eligible job in rank order), then a short `claude -p --chrome` session
 (`prompts/tailor/open-check.md`) opens each link and writes `materials/tailor/open-check/<job_id>.json`
 (open, closed with a quoted line, or unknown). `queue --from-plan` dismisses the closed jobs (listed in
-`dismissed.jsonl`) and takes the next in line, so the run still drafts `daily_cap` jobs. If Chrome can't be
-reached the run logs a warning and drafts as before. With two Chrome browsers on the account the run must
+`dismissed.jsonl`) and takes the next in line, so the run still drafts `daily_cap` jobs. The check is tried up to 3 times; if Chrome still
+can't read a page the run logs an ERROR and drafts no new jobs (waiting rounds still run), rather than
+draft unchecked (Jake, Nov 12 2026). With two Chrome browsers on the account the run must
 pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrome). Turn the check off with
 `tailor.open_check.enabled: false`.
 
@@ -71,9 +72,10 @@ pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrom
 dashboard's Run button) runs up to that many Claude sessions at once, each as a background job with
 its own transcript (`logs\tailoring\<date>_<time>_<n>-<kind>.jsonl`):
 
-- At the start the wrapper itself runs `pending` and looks for `shortlisted` folders an earlier run
-  left unfinished. Waiting rounds get one session; unfinished folders get a session per company.
-  These start straight away, while the scrape (if any) runs, since they don't need today's postings.
+- At the start the wrapper itself runs `pending`. Waiting rounds get one session; it starts straight
+  away, while the scrape (if any) runs, since it doesn't need today's postings. A `shortlisted`
+  folder an earlier run left unfinished is not resumed on its own: the queue ranks it with every
+  other job by score and reuses its folder only if it is among the top (Jake, Nov 12 2026).
 - When the scrape is done the wrapper runs the browser queue sync and the queue, then starts a
   session per company for the new folders (two jobs at one company go to the same session, one
   after the other, so two sessions never research the same company folder at once).
@@ -126,9 +128,8 @@ for another way to run it, note it for the digest.
 
 **Step A: unfinished folders, waiting rounds, then the queue**
 
-1. Glob `materials/applications/*/app.json` and read each. A folder whose `status` is still
-   `shortlisted` was left unfinished by an earlier run: finish it first (Step B, starting at the first
-   step whose output file is missing), the folder with the highest `score` first.
+1. (Nothing to do. A `shortlisted` folder is not finished first: the queue in step 3 takes the
+   highest-scored jobs, whatever has been started, and reuses such a folder if its job is picked.)
 2. Run `uv run python -m src.tailor pending`. It prints a JSON list of folders already up for review
    that have a round waiting: `{"app", "round", "build_on", "kind"}`. `kind` "repair" is a repair
    round the tool asked for; "letter" is a letter-only round (the letter fails a letter check
@@ -143,7 +144,7 @@ for another way to run it, note it for the digest.
    changed what the reviewer read, so a later round never ships unreviewed. Otherwise go to
    step 11. Don't start a first outside review for a folder that never had one.
 3. Run `{QUEUE}`. It prints a JSON list of new application folders (capped by `tailor.daily_cap`,
-   best A-tier jobs first). If the list is empty and nothing was unfinished or waiting, end with the
+   best A-tier jobs first). If the list is empty and nothing was waiting, end with the
    one-line digest "Nothing new to tailor".
 
 **Step B: for each folder, in the order printed, do steps 1 to 11 below.** Finish or skip one
