@@ -59,6 +59,15 @@ $s.WakeToRun = $true
 Set-ScheduledTask -TaskName "JobSearch-Tailoring" -Settings $s
 ```
 
+**Open check.** Before the queue makes folders, the wrapper runs `queue --plan` (the next `daily_cap` jobs
+plus `tailor.open_check.spare` spares), then a short `claude -p --chrome` session
+(`prompts/tailor/open-check.md`) opens each link and writes `materials/tailor/open-check/<job_id>.json`
+(open, closed with a quoted line, or unknown). `queue --from-plan` dismisses the closed jobs (listed in
+`closed.jsonl`) and takes the next in line, so the run still drafts `daily_cap` jobs. If Chrome can't be
+reached the run logs a warning and drafts as before. With two Chrome browsers on the account the run must
+pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrome). Turn the check off with
+`tailor.open_check.enabled: false`.
+
 **Parallel sessions (`-Parallel`, 2 by default).** A normal run (scheduled, by hand or from the
 dashboard's Run button) runs up to that many Claude sessions at once, each as a background job with
 its own transcript (`logs\tailoring\<date>_<time>_<n>-<kind>.jsonl`):
