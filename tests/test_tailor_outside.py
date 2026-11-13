@@ -248,6 +248,13 @@ def test_parse_notes_reads_the_skills_own_verdicts():
     assert first["sections"]["questions only you can answer"] == ["How many sources?"]
 
 
+def test_ready_to_explain_in_a_fit_verdict_is_not_ready_to_submit():
+    fit = parse_notes("**Verdict:** A good match. Apply, and be ready to explain the short contract.\n")
+    assert fit["verdict"] == "not yet"
+    assert parse_notes("Verdict: Ready to send.\n")["verdict"] == "ready"
+    assert parse_notes("Verdict: ready to submit now.\n")["verdict"] == "ready"
+
+
 def test_every_pass_is_a_fresh_reviewer_with_the_same_opening_and_the_new_text(tmp_path):
     # Oct 30 2026 bake-off: a brand-new reviewer each round beat one reviewer chat with "Is this better?".
     app = _app(tmp_path)
