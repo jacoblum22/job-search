@@ -49,6 +49,16 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Skills review, Nov 9 2026.
+    ("Frequently cited statistics show that people who identify with historically marginalized groups",
+     "statistics"),
+    ("Orbital mechanics and the orb of the sun", "Orb"),
+    ("Experience building AI agents for customers", "AI-assisted development"),
+    ("Thai-powered development team", "AI-assisted development"),
+    ("Take month end and period utility meter readings", "month-end / financial close"),
+    ("in accordance with all applicable provincial accessibility standards", "web accessibility (WCAG)"),
+    ("responsive to customer needs", "responsive design"),
+    ("calculations for mechanical equipment design and piping system design", "software architecture / system design"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +213,34 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Skills review, Nov 9 2026: real posting wording.
+    ("Familiarity with AI-assisted development tools and an interest in using AI responsibly",
+     "AI-assisted development"),
+    ("Regular use of AI coding tools such as Claude Code or Codex", "AI-assisted development"),
+    ("Use AI coding assistants daily for boilerplate", "AI-assisted development"),
+    ("Fluency with using LLMs and agentic coding tools is a requirement", "AI-assisted development"),
+    ("Snowflake, dbt, Hightouch, Fivetran, Looker, Stripe, Salesforce, Orb.", "Hightouch"),
+    ("Exposure to Stripe, Salesforce, or Orb in billing and finance contexts.", "Orb"),
+    ("Familiarity with billing systems, GAAP accounting, revenue recognition", "billing systems"),
+    ("Integrate with third-party billing platforms (e.g., Stripe, Metronome)", "billing systems"),
+    ("the need for fast iteration during month- and quarter-end", "month-end / financial close"),
+    ("Assist with month-end and year-end close processes.", "month-end / financial close"),
+    ("Support monthly financial close processes.", "month-end / financial close"),
+    ("Experience at a high-growth PLG SaaS company.", "product-led growth (PLG)"),
+    ("Passion for clean code, scalable architecture", "clean / maintainable code"),
+    ("Deliver clean, maintainable, and well-tested code", "clean / maintainable code"),
+    ("Passion for clean code, scalable architecture", "software architecture / system design"),
+    ("Strong command of software design fundamentals", "software architecture / system design"),
+    ("Basic system design skills (scalability, reliability)", "software architecture / system design"),
+    ("Working knowledge of HTML and CSS, including responsive and accessible user interface development",
+     "web accessibility (WCAG)"),
+    ("Working knowledge of HTML and CSS, including responsive and accessible user interface development",
+     "responsive design"),
+    ("Experience with accessibility testing against WCAG 2.2.", "web accessibility (WCAG)"),
+    ("Develop responsive web apps using React", "responsive design"),
+    ("Someone who thrives in a startup - adaptable, resourceful, and motivated by impact.", "resourcefulness"),
+    ("High attention to detail, with high standards for data accuracy and validation.",
+     "data quality / validation"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -211,7 +249,9 @@ def test_new_skills(text, skill):
 def test_new_concepts_are_not_tier_score_tools():
     # Practices and domain knowledge aren't tools a posting can list as alternatives.
     for name in ["debugging / troubleshooting", "code review", "requirements gathering",
-                 "SQL window functions / CTEs", "healthcare knowledge", "data integration"]:
+                 "SQL window functions / CTEs", "healthcare knowledge", "data integration",
+                 "AI-assisted development", "clean / maintainable code", "software architecture / system design",
+                 "web accessibility (WCAG)", "responsive design", "billing systems", "month-end / financial close"]:
         assert not _is_tool(name), name
     for name in ["Playwright", "Google Cloud Storage", "Google Cloud Pub/Sub"]:
         assert _is_tool(name), name
