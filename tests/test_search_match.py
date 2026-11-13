@@ -293,3 +293,18 @@ def test_co_op_titles_are_never_stored_or_fetched_with_live_config():
     assert not should_hydrate_record("Software Developer Co-op", live)
     intern = _job(title="Data Science Intern", description="Python and SQL. " * 100)
     assert keep_job(intern, live, match_keywords=True)
+
+
+def test_repost_naming_excluded_company_in_text_is_not_kept():
+    from types import SimpleNamespace
+
+    from src.search_match import keep_job
+
+    search = {"exclude_companies": ["AlgaeCal"], "keywords": ["data scientist"], "require_relevant_location": False}
+    job = SimpleNamespace(
+        title="Associate Data Scientist", company="Devconnectplatform", location="Vancouver, BC",
+        description="About AlgaeCal: we make supplements. data scientist", years_experience=None, raw=None,
+    )
+    assert not keep_job(job, search, match_keywords=False, include_description=True)
+    job.description = "data scientist at a supplements company"
+    assert keep_job(job, search, match_keywords=False, include_description=True)

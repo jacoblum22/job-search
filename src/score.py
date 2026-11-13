@@ -264,6 +264,10 @@ def score_job(
     age_points, age_reason, too_old = age_adjustment(age_days, cfg.get("age") or {})
     if too_old:
         return ScoreResult(None, "skip", [age_reason])
+    text_lower = f"{title}\n{description}".lower()
+    for name in cfg.get("exclude_in_text") or []:
+        if re.search(rf"\b{re.escape(str(name).lower())}\b", text_lower):
+            return ScoreResult(None, "skip", [f"posting names an excluded company: {name}"])
     skip_years = cfg.get("skip_years_over", 5)
     strictest = max((y for y in (years_experience, years_preferred) if y is not None), default=None)
     if strictest is not None and strictest > skip_years:

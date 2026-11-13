@@ -304,6 +304,9 @@ def keep_job(
     title = job.title or ""
     if company_excluded(getattr(job, "company", "") or "", search):
         return False
+    # A repost through a recruiter or aggregator names the real employer only in the text.
+    if include_description and company_excluded(getattr(job, "description", "") or "", search):
+        return False
     if match_keywords and not job_matches_keywords(
         job, search, include_description=include_description
     ):
