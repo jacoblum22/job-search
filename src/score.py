@@ -190,6 +190,21 @@ def split_linkedin_criteria(description: str) -> tuple[str, str | None]:
     return description[: m.start()], label
 
 
+def load_jev_penalties(conn: Any) -> dict[Any, tuple[int, str]]:
+    """The points the queue's quick fit check (Jev) took off each posting, by dedup group, from the
+    `jev_gate` table the queue fills (src/tailor/queue.py). Empty when the table doesn't exist yet."""
+    from src.db import has_table
+
+    if not has_table(conn, "jev_gate"):
+        return {}
+    out: dict[Any, tuple[int, str]] = {}
+    for group, points, reason in conn.execute(
+            "SELECT j.dedup_group_id, g.penalty, g.reason FROM jev_gate g JOIN jobs j ON j.id = g.job_id"):
+        if group is not None and points:
+            out[group] = (int(points), reason or "")
+    return out
+
+
 def age_adjustment(age_days: int | None, cfg: dict[str, Any]) -> tuple[int, str, bool]:
     """(points, reason, too_old) for a posting `age_days` old (Jake, Nov 12 2026).
 
@@ -235,6 +250,8 @@ def score_job(
     vault: Vault | None = None,
     years_preferred: int | None = None,
     age_days: int | None = None,
+    jev_penalty: int = 0,
+    jev_reason: str = "",
 ) -> ScoreResult:
     """`years_experience` is the years the posting requires; `years_preferred` the years it
     only asks for as a nice-to-have ("2+ years is an asset"), which cost less. `age_days` is how
@@ -439,6 +456,9 @@ def score_job(
     if age_points:
         score += age_points
         reasons.append(f"{age_points} {age_reason}")
+    if jev_penalty:
+        score -= jev_penalty
+        reasons.append(f"-{jev_penalty} quick fit check ({jev_reason})")
 
     min_desc = cfg.get("short_description_chars", 300)
     if len(description) < min_desc:
@@ -472,8 +492,9 @@ def rescore_all(
     reflow_stored(conn)
     rows = conn.execute(
         "SELECT id, title, description, location_category, years_experience, location, company, "
-        "posted_date, raw, first_seen, last_seen, status FROM jobs"
+        "posted_date, raw, first_seen, last_seen, status, dedup_group_id FROM jobs"
     ).fetchall()
+    jev = load_jev_penalties(conn)   # dedup group -> (points, reason) from the queue's quick fit check
     # Every job gets the age adjustment, whatever state it is in (Jake, Nov 12 2026: a job with a
     # folder or an application must not keep a stale score).
     age_cfg = cfg.get("age") or {}
@@ -493,7 +514,8 @@ def rescore_all(
         if age_cfg:
             age = posting_age_days(row[7], row[8], row[9], row[10])
         # The age bucket is part of the cache key: a job's score changes as the days pass.
-        key = (row[1], row[2], row[3], row[4], row[5], row[6], age_adjustment(age, age_cfg))
+        jev_pen, jev_why = jev.get(row[12], (0, ""))
+        key = (row[1], row[2], row[3], row[4], row[5], row[6], age_adjustment(age, age_cfg), jev_pen)
         if cache is not None and cache.get(row[0], (None,))[0] == key:
             counts[cache[row[0]][1]] = counts.get(cache[row[0]][1], 0) + 1
             continue
@@ -514,6 +536,8 @@ def rescore_all(
             cfg=cfg,
             vault=vault,
             age_days=age,
+            jev_penalty=jev_pen,
+            jev_reason=jev_why,
         )
         counts[result.tier] = counts.get(result.tier, 0) + 1
         updates.append((result.score, result.tier, result.reasons_text, category, row[0]))

@@ -32,6 +32,12 @@ CREATE TABLE IF NOT EXISTS applications (
     review_flags TEXT,
     applied_at TEXT
 );
+CREATE TABLE IF NOT EXISTS jev_gate (
+    job_id INTEGER PRIMARY KEY,
+    penalty INTEGER NOT NULL DEFAULT 0,
+    reason TEXT,
+    checked_at TEXT
+);
 """
 
 # Columns added after the first release; ensure_table adds them to older databases.

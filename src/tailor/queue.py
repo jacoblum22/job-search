@@ -1,7 +1,9 @@
 """Step 0: pick the jobs worth tailoring and create their application folders.
 
-Jev's gate questions only reorder: a job that fails or can't be checked is flagged
-and sinks to the bottom of its tier, but is never dropped.
+Jev's gate questions take points off the score (Jake, Nov 12 2026): each failed question costs
+`score.jev_flag_penalty` points (up to `score.jev_max_penalty`), saved in the jev_gate table so the
+dashboard's score is the same number the queue ranks by. A job is never dropped for it, and a question
+Jev couldn't answer costs nothing.
 """
 
 from __future__ import annotations
@@ -148,6 +150,39 @@ def _posted_days(conn) -> dict[str, date]:
     return out
 
 
+def gate_penalty(flags: list[dict[str, Any]], score_cfg: dict[str, Any]) -> tuple[int, str]:
+    """Points a job's failed quick-fit answers take off its score, and why. A question Jev couldn't
+    answer ("unchecked") costs nothing."""
+    per = int(score_cfg.get("jev_flag_penalty", 10))
+    cap = int(score_cfg.get("jev_max_penalty", 40))
+    failed = [f["question"].replace("_", " ") for f in flags if f.get("reason") == "failed"]
+    return min(cap, per * len(failed)), ", ".join(failed)
+
+
+def _save_gate_penalties(conn, entries: list, stored: dict, score_cfg: dict[str, Any],
+                         rescore: bool = True) -> dict[int, int]:
+    """Write each checked job's penalty to the jev_gate table, rescore so the dashboard shows the same
+    number the queue ranks by, and return, per job id, how many points to add to its (already rescored
+    from an earlier check) score to get the new one."""
+    from src.score import rescore_all
+
+    out: dict[int, int] = {}
+    stamp = appdir.now()
+    for r, flags, _ in entries:
+        points, why = gate_penalty(flags, score_cfg)
+        out[r["id"]] = int(stored.get(r["dedup_group_id"], (0, ""))[0]) - points
+        conn.execute("DELETE FROM jev_gate WHERE job_id IN (SELECT id FROM jobs WHERE dedup_group_id = ?) "
+                     "AND job_id != ?", (r["dedup_group_id"], r["id"]))
+        conn.execute(
+            "INSERT INTO jev_gate (job_id, penalty, reason, checked_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(job_id) DO UPDATE SET penalty = excluded.penalty, reason = excluded.reason, "
+            "checked_at = excluded.checked_at", (r["id"], points, why, stamp))
+    conn.commit()
+    if rescore:
+        rescore_all(conn, score_cfg)
+    return out
+
+
 def _flags(answers: list[Answer], gate: dict[str, Any]) -> list[dict[str, Any]]:
     score_fail = gate.get("score_fail", 1)
     thr = gate.get("yes_threshold", 0.5)
@@ -187,7 +222,6 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
     limit = limit if limit is not None else int(cfg.get("daily_cap", 3))
     if limit <= 0 and not job_ids:
         return []  # a run that only finishes waiting rounds (run_tailoring.ps1 -ResumeOnly)
-    tier_pos = {t: i for i, t in enumerate(tiers)}
     conn = store.connect(resolve(cfg, "db"))
     try:
         # Tiers in jobs.db are only as new as the last scrape or rescore, so a scoring fix (a
@@ -198,14 +232,18 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
 
             rescore_all(conn, _settings().get("score") or {})
         rows = _eligible(conn, cfg, job_ids)
-        # Strictly by score within a tier (the age penalty already covers freshness), then newest;
-        # a gate-flagged job sinks below the unflagged ones of its tier.
+        # Strictly by score (the age penalty already covers freshness), then newest. Jev's quick fit
+        # check takes points off the score (below), so the order is one number and nothing sinks.
         posted = _posted_days(conn)
+        from src.score import load_jev_penalties
+        from src.tailor.paths import _settings
 
-        def order(r, flagged: bool = False) -> tuple:
+        score_cfg = _settings().get("score") or {}
+        stored = load_jev_penalties(conn)   # points already off each row's score from an earlier check
+
+        def order(r, adjust: int = 0) -> tuple:
             day = posted.get(r["dedup_group_id"]) or date.min
-            return (tier_pos.get(r["tier"], len(tiers)), flagged,
-                    -(r["score"] or 0), -day.toordinal(), r["id"])
+            return (-((r["score"] or 0) + adjust), -day.toordinal(), r["id"])
 
         rows.sort(key=order)
         rest: list[Any] = []
@@ -234,11 +272,18 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
                                     int(gate.get("parallel", 6)))
             for r, (base_id, _), answers in zip(rows, states, answered):
                 entries.append((r, _flags(answers, gate), base_id or None))
-        entries.sort(key=lambda e: order(e[0], bool(e[1])))
+        # Save each checked job's penalty so the dashboard score matches, then rank by the new score.
+        adjust: dict[int, int] = {}
+        if use_jev:
+            adjust = _save_gate_penalties(conn, entries, stored, score_cfg,
+                                          rescore=bool(cfg.get("rescore_before_queue", True)))
+        entries.sort(key=lambda e: order(e[0], adjust.get(e[0]["id"], 0)))
         if plan_only:
-            # The whole ranked list: the gated candidates, then every other eligible job in the same
-            # order, so the open check can keep going down it until the cap is filled (Jake, Nov 12).
-            write_plan(cfg, [*entries, *[(r, [], None) for r in rest]], limit, use_jev)
+            # The whole ranked list: the gated candidates, then every other eligible job, all by score,
+            # so the open check can keep going down it until the cap is filled (Jake, Nov 12).
+            everything = [*entries, *[(r, [], None) for r in rest]]
+            everything.sort(key=lambda e: order(e[0], adjust.get(e[0]["id"], 0)))
+            write_plan(cfg, everything, limit, use_jev)
             return []
         if not job_ids:
             entries = entries[:limit]
@@ -364,6 +409,8 @@ def _make_folders(conn, cfg: dict[str, Any], entries: list[tuple[Any, list, Any]
     today = date.today().isoformat()
     out: list[Path] = []
     for rank, (r, flags, gate_base) in enumerate(entries, 1):
+        # The score and tier now, after the quick fit check took its points off.
+        now = conn.execute("SELECT score, tier FROM jobs WHERE id = ?", (r["id"],)).fetchone() or r
         prior = conn.execute("SELECT folder FROM applications WHERE job_id = ? AND status = 'shortlisted'",
                              (r["id"],)).fetchone()
         folder = store.folder_path(prior[0]) if prior and prior[0] else None
@@ -373,7 +420,7 @@ def _make_folders(conn, cfg: dict[str, Any], entries: list[tuple[Any, list, Any]
         (folder / "posting.md").write_text(_posting_md(r), encoding="utf-8")
         appdir.save_app(folder, {
             "job_id": r["id"], "company": r["company"], "title": r["title"], "url": r["url"],
-            "tier": r["tier"], "score": r["score"], "created": today, "status": "shortlisted",
+            "tier": now["tier"], "score": now["score"], "created": today, "status": "shortlisted",
             "gate": {"flags": flags, "flagged": bool(flags), "queue_rank": rank,
                      "checked": use_jev, "resume_base": gate_base},
             "base_id": None, "rounds": [], "best_round": None, "history": [],
