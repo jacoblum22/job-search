@@ -148,6 +148,20 @@ def test_gate_rejections(tmp_path, edit, reason):
     assert reason in res["rejected"][0]["reason"], res["rejected"]
 
 
+def test_replace_with_same_wording_may_add_a_source(tmp_path):
+    # repair.md rule 10: a jev_unsupported line keeps its wording and cites the missing passage.
+    same = sql_edit(value=sql_edit()["original"], sources=["northwind.sql-daily", "northwind.org"])
+    app, cfg = make_app(tmp_path)
+    write_edits(app, [same])
+    assert len(apply_edits(app, 1, cfg)["applied"]) == 1
+    draft = load_resume(app / "drafts/r1/resume.yaml")
+    b = {x["id"]: x for x in draft["experience"][0]["bullets"]}
+    assert b["northwind.sql-daily"]["sources"] == ["northwind.sql-daily", "northwind.org"]
+    # same wording and no new source is still a no-op
+    write_edits(app, [sql_edit(value=sql_edit()["original"])])
+    assert "same as the current text" in apply_edits(app, 1, cfg)["rejected"][0]["reason"]
+
+
 def test_coursework_replace_allowed(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [{"path": "education/exu/exu.coursework", "action": "replace",
@@ -601,6 +615,25 @@ def test_letter_gap_with_a_bridge_names_a_tool_it_denies(tmp_path):
     res, _ = letter_check(tmp_path / "b", with_(paragraphs=paras))
     msgs = [c["message"] for c in res["criticals"] if c["code"] == "invented_skill"]
     assert len(msgs) == 1 and "Power BI" in msgs[0]
+
+
+def test_letter_gap_sentence_denies_every_tool_in_a_comma_list(tmp_path):
+    # "I haven't used A, B or C yet" denied only A: the match stopped at the first comma.
+    app, cfg = make_app(tmp_path)
+    req = read_json(app / "requirements.json")
+    req["requirements"][0]["terms"] = ["SQL", "Snowflake", "Looker", "Power BI"]
+    write_json(app / "requirements.json", req)
+    put_draft(app, base_data(cfg))
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "text": "I haven't used Snowflake, Looker or Power BI yet; that is my gap."}
+    write_letter(app, with_(paragraphs=paras))
+    res = run_check(app, 1, cfg, None)
+    assert not any(c["code"] == "invented_skill" for c in res["criticals"]), res["criticals"]
+    # a bridge clause after a comma is still a claim
+    paras[1] = {**paras[1], "text": "I haven't used Snowflake, but Looker is my main tool."}
+    write_letter(app, with_(paragraphs=paras))
+    msgs = [c["message"] for c in run_check(app, 1, cfg, None)["criticals"] if c["code"] == "invented_skill"]
+    assert len(msgs) == 1 and "Looker" in msgs[0]
 
 
 def test_letter_keen_sentence_may_name_any_skill_in_a_must_term(tmp_path):
