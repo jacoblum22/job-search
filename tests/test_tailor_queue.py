@@ -513,6 +513,46 @@ def test_open_check_without_verdicts_or_with_unquoted_closed_changes_nothing(cfg
     assert titles(queue_from_plan(cfg)) == ["Job 0", "Job 1"]
 
 
+def _raw_verdict(cfg, jid, **fields):
+    from src.tailor.queue import open_check_dir
+    (open_check_dir(cfg) / f"{jid}.json").write_text(json.dumps({"job_id": jid, **fields}), encoding="utf-8")
+
+
+def test_link_that_ends_on_jobleads_is_closed_unless_the_posting_was_found_elsewhere(cfg_oc):
+    from src.tailor.queue import open_check_dir, queue_from_plan
+
+    cfg = cfg_oc
+    ids = [add(cfg, f"a{i}", f"Job {i}", "A", 90 - i) for i in range(4)]
+    run_queue(cfg, limit=2, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
+    jl = "https://www.jobleads.com/ca/jobs/l/Vancouver/q/Data%20Engineer"
+    _raw_verdict(cfg, ids[0], state="open", evidence="Apply button", landed_url=jl)  # model said open: still closed
+    _raw_verdict(cfg, ids[1], state="open", evidence="found", landed_url=jl,
+                 real_url="https://boards.greenhouse.io/acme/jobs/123")
+    _raw_verdict(cfg, ids[2], state="open", evidence="found", landed_url=jl,
+                 real_url="https://www.jobleads.com/job/9")  # another aggregator is not a real page
+    assert titles(queue_from_plan(cfg)) == ["Job 1", "Job 3"]  # 0 and 2 closed
+    conn = connect(cfg["paths"]["db"])
+    assert conn.execute("SELECT status FROM jobs WHERE id = ?", (ids[0],)).fetchone()[0] == "dismissed"
+    assert conn.execute("SELECT real_url FROM jobs WHERE id = ?", (ids[1],)).fetchone()[0] == "https://boards.greenhouse.io/acme/jobs/123"
+    assert conn.execute("SELECT real_url FROM jobs WHERE id = ?", (ids[2],)).fetchone()[0] is None
+    assert "jobleads.com" in (open_check_dir(cfg) / "dismissed.jsonl").read_text()
+
+
+def test_saved_real_url_is_what_the_next_open_check_opens(cfg_oc):
+    from src.tailor.queue import open_check_dir, posting_url
+
+    cfg = cfg_oc
+    jid = add(cfg, "r1", "Job R", "A", 90)
+    conn = connect(cfg["paths"]["db"])
+    conn.execute("UPDATE jobs SET real_url = 'https://jobs.lever.co/acme/1' WHERE id = ?", (jid,))
+    conn.commit()
+    row = conn.execute("SELECT * FROM jobs WHERE id = ?", (jid,)).fetchone()
+    assert posting_url(row) == "https://jobs.lever.co/acme/1"
+    run_queue(cfg, limit=1, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
+    plan = json.loads((open_check_dir(cfg) / "plan.json").read_text(encoding="utf-8"))
+    assert plan["entries"][0]["url"] == "https://jobs.lever.co/acme/1"
+
+
 def test_queue_from_plan_needs_todays_plan(cfg_oc):
     from src.tailor.queue import queue_from_plan
 

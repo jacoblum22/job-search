@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     raw TEXT,
     score INTEGER,
     score_reasons TEXT,
+    real_url TEXT,
     UNIQUE(source, external_id)
 );
 
@@ -239,7 +240,7 @@ def scrape_lock_held(conn: Any) -> bool:
 
 # Columns added after the first release; CREATE TABLE IF NOT EXISTS won't add
 # them to an existing jobs.db, so ALTER them in.
-_LATER_COLUMNS = {"score": "INTEGER", "score_reasons": "TEXT"}
+_LATER_COLUMNS = {"score": "INTEGER", "score_reasons": "TEXT", "real_url": "TEXT"}
 
 
 def _add_missing_columns(conn: sqlite3.Connection) -> None:
@@ -455,7 +456,7 @@ def grouped_jobs(conn: sqlite3.Connection, only_ids: set[int] | None = None,
                 "location_category": primary["location_category"],
                 "description": primary["description"],
                 "sources": sorted({m["source"] for m in members}),
-                "urls": sorted({(m["source"], m["url"]) for m in members if m["url"]}),
+                "urls": sorted({(m["source"], m["real_url"] or m["url"]) for m in members if m["real_url"] or m["url"]}),
                 "status": status,
                 "closed": closed,
                 "deadline": due.isoformat() if due else None,
