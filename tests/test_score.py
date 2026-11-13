@@ -354,3 +354,50 @@ def test_linkedin_director_label_skipped():
 def test_linkedin_entry_label_changes_nothing():
     base = _score("Data Analyst", "Use SQL.")
     assert _score("Data Analyst", "Use SQL.\nSeniority levelEntry level").score == base.score
+
+
+def _aged(days, **kw):
+    cfg = {**CFG, "age": {"penalties": [{"over_days": 7, "points": -10}, {"over_days": 20, "points": -20}],
+                          "remove_over_days": 30}}
+    return score_job(title="Junior Data Analyst", description="SQL Python dashboards " * 30,
+                     location_category="vancouver", years_experience=1, cfg=cfg, age_days=days, **kw)
+
+
+def test_age_penalty_bands_and_removal():
+    fresh = _aged(None)
+    assert _aged(7).score == fresh.score  # "over" a week: 7 days is not
+    assert _aged(8).score == fresh.score - 10
+    assert _aged(20).score == fresh.score - 10
+    assert _aged(21).score == fresh.score - 20  # replaces the -10, doesn't stack
+    assert _aged(30).score == fresh.score - 20
+    gone = _aged(31)
+    assert gone.tier == "skip" and gone.score is None and "31 days" in gone.reasons_text
+
+
+def test_rescore_ages_by_posted_date_and_exempts_applied(tmp_path):
+    from datetime import date, timedelta
+
+    conn = connect(str(tmp_path / "j.db"))
+    ids = {}
+    for name, days, status in [("fresh", 2, "new"), ("week", 10, "new"), ("old", 25, "new"),
+                               ("gone", 40, "new"), ("gone-applied", 40, "applied")]:
+        job = Job("t", name, "Junior Data Analyst", "Acme", "Vancouver, BC", "SQL Python dashboards " * 30,
+                  f"https://x/{name}", posted_date=(date.today() - timedelta(days=days)).isoformat())
+        ids[name], _ = upsert_job(conn, job)
+        conn.execute("UPDATE jobs SET status = ? WHERE id = ?", (status, ids[name]))
+    conn.commit()
+    cfg = {**CFG, "age": {"penalties": [{"over_days": 7, "points": -10}, {"over_days": 20, "points": -20}],
+                          "remove_over_days": 30}}
+    cache: dict = {}
+    rescore_all(conn, cfg, cache=cache)
+    got = {n: conn.execute("SELECT score, tier FROM jobs WHERE id = ?", (i,)).fetchone() for n, i in ids.items()}
+    assert got["week"][0] == got["fresh"][0] - 10
+    assert got["old"][0] == got["fresh"][0] - 20
+    assert got["gone"][1] == "skip"
+    assert got["gone-applied"][0] == got["fresh"][0]  # applied jobs are never aged
+    # The cache doesn't hide an age change: same row, later day.
+    conn.execute("UPDATE jobs SET posted_date = ? WHERE id = ?",
+                 ((date.today() - timedelta(days=25)).isoformat(), ids["fresh"]))
+    conn.commit()
+    rescore_all(conn, cfg, cache=cache)
+    assert conn.execute("SELECT score FROM jobs WHERE id = ?", (ids["fresh"],)).fetchone()[0] == got["old"][0]

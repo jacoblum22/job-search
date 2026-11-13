@@ -160,7 +160,8 @@ function Sync-BrowserQueue {
 $doc = Get-Content (Join-Path $projectRoot "docs\tailoring-runbook.md") -Raw -Encoding UTF8
 $basePrompt = ($doc -split "<!-- prompt start -->", 2)[1]
 $basePrompt = ($basePrompt -split "<!-- prompt end -->", 2)[0]
-$basePrompt = $basePrompt.Replace("{DATE}", $date).Replace("{QUEUE}", $queueCmd)
+$basePrompt = $basePrompt.Replace("{DATE}", $date)
+$queueNow = $queueCmd   # becomes the --from-plan command when the open check ran
 
 $tools = @(
     "Read", "Glob", "Grep", "WebSearch", "Agent", "SendMessage", "Skill", "WebFetch",
@@ -191,7 +192,7 @@ $authFailed = $false
 function Start-Session($label, $scope) {
     $n = $script:sessions.Count + 1
     $path = if ($n -eq 1 -and $label -eq "all") { $transcript } else { Join-Path $logDir "${stamp}_$n-$label.jsonl" }
-    $prompt = $basePrompt.Replace("{SCOPE}", $scope)
+    $prompt = $basePrompt.Replace("{SCOPE}", $scope).Replace("{QUEUE}", $script:queueNow)
     $job = Start-Job -ScriptBlock $sessionBlock -ArgumentList @($projectRoot, $prompt, $claudeArgs, $path)
     $s = [pscustomobject]@{ Label = $label; Transcript = $path; Job = $job; Result = $null; Done = $false }
     $script:sessions += $s
@@ -265,6 +266,43 @@ function Get-FolderScope($folders) {
         "other application folder. End with the digest for these folders only."
 }
 
+# The open check (Jake, Nov 12 2026): before folders are made, Claude in Chrome opens each planned
+# job's link and notes the ones that have closed; `queue --from-plan` dismisses those and takes the
+# next in line, so the run still drafts the daily cap. Any failure here (no Chrome, a login that
+# expired, the plan not written) is logged and the normal queue runs, so the check never costs a run.
+# Returns $true when the queue must now run as `queue --from-plan`.
+function Invoke-OpenCheck {
+    if ($JobId -gt 0 -or $ResumeOnly) { return $false }
+    $planArgs = @("queue", "--plan") + $(if ($Limit -gt 0) { @("--limit", "$Limit") } else { @() })
+    $null = & uv run python -m src.tailor @planArgs 2>$null
+    $planFile = Join-Path $projectRoot "materials\tailor\open-check\plan.json"
+    if ($LASTEXITCODE -eq 3) { return $false }   # tailor.open_check.enabled is false
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $planFile)) {
+        Log "WARNING: open check skipped: could not plan the queue (exit $LASTEXITCODE)"
+        return $false
+    }
+    $plan = Get-Content $planFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    $cap = if ($Limit -gt 0) { $Limit } else { $plan.limit }
+    $prompt = (Get-Content (Join-Path $projectRoot "prompts\tailor\open-check.md") -Raw -Encoding UTF8).Replace("{DATE}", $date).Replace("{LIMIT}", "$cap")
+    $checkTools = @("Read(materials/tailor/open-check/**)", "Edit(materials/tailor/open-check/**)",
+        "mcp__claude-in-chrome__tabs_context_mcp", "mcp__claude-in-chrome__tabs_create_mcp",
+        "mcp__claude-in-chrome__tabs_close_mcp", "mcp__claude-in-chrome__navigate",
+        "mcp__claude-in-chrome__get_page_text", "mcp__claude-in-chrome__read_page",
+        "mcp__claude-in-chrome__list_connected_browsers", "mcp__claude-in-chrome__select_browser")
+    $checkLog = Join-Path $logDir "${stamp}_open-check.jsonl"
+    Log "Open check: Claude in Chrome looking at up to $($plan.entries.Count) job links (transcript $checkLog)"
+    $out = $prompt | claude -p --chrome --output-format stream-json --verbose --permission-mode dontAsk --allowedTools @checkTools 2>&1
+    $out | ForEach-Object { "$_" } | Set-Content $checkLog -Encoding UTF8
+    $verdicts = @(Get-ChildItem (Join-Path $projectRoot "materials\tailor\open-check") -Filter "*.json" |
+        Where-Object { $_.Name -ne "plan.json" })
+    if ($verdicts.Count -eq 0) {
+        Log "WARNING: the open check wrote no verdicts (Chrome not reachable?); drafting without it. See $checkLog"
+    } else {
+        Log "Open check: $($verdicts.Count) link(s) read"
+    }
+    return $true
+}
+
 $parallelRun = $Parallel -gt 1 -and -not $ResumeOnly -and $JobId -le 0
 $doScrape = $Scrape -and -not $NoScrape -and -not $ResumeOnly -and $JobId -le 0
 
@@ -272,6 +310,9 @@ if (-not $parallelRun) {
     # One session does the whole run, as the runbook's Step A and Step B describe.
     if ($doScrape) { Complete-Scrape (Start-Scrape) }
     Sync-BrowserQueue
+    if (Invoke-OpenCheck) {
+        $queueNow = "uv run python -m src.tailor queue --from-plan" + $(if ($Limit -gt 0) { " --limit $Limit" } else { "" })
+    }
     $s = Start-Session "all" "Do all of Step A and Step B below."
     Wait-Job $s.Job | Out-Null
     Complete-Session $s
@@ -307,7 +348,8 @@ if (-not $parallelRun) {
         if ($scrapeDone -and -not $queued) {
             $queued = $true
             Sync-BrowserQueue
-            $qArgs = @("queue") + $(if ($Limit -gt 0) { @("--limit", "$Limit") } else { @() })
+            $qArgs = @("queue") + $(if (Invoke-OpenCheck) { @("--from-plan") } else { @() }) +
+                $(if ($Limit -gt 0) { @("--limit", "$Limit") } else { @() })
             $new = @(Get-JsonList $qArgs)
             Log "Queue: $($new.Count) new job(s)"
             foreach ($g in @(Group-ByCompany $new)) {

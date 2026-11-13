@@ -350,6 +350,15 @@ sources:
 # effect without scraping.
 
 score:
+  # Posting age (Jake, Nov 12 2026), counted from the posted date (else the day it was first seen).
+  # The larger band replaces the smaller (-20 over 20 days, not -30). Over remove_over_days the job
+  # becomes tier "skip", so it leaves the queue and the dashboard list (hidden by "Hide skipped");
+  # it stays in the database. Jobs you applied to or tailored are exempt. Remove the section to turn off.
+  age:
+    penalties:
+      - {over_days: 7, points: -10}
+      - {over_days: 20, points: -20}
+    remove_over_days: 30
   # Hard skips (tier "skip", no score)
   skip_years_over: 5          # more than 5 years required
   skip_other_locations: true  # not Vancouver-area or remote
@@ -639,6 +648,12 @@ tailor:
   daily_cap: 10          # application folders created per run
   tiers: [A, B]          # eligible tiers, in queue order: B-tier jobs only fill what A-tier can't (Jake, Oct 30 2026)
   min_description_chars: 1000
+  open_check:
+    # Before drafting, Claude in Chrome opens each queued job's link (scripts/run_tailoring.ps1,
+    # prompts/tailor/open-check.md); a closed posting is dismissed and the next in line takes its
+    # place, so a run still drafts daily_cap jobs. `spare` is how many extra candidates are planned.
+    enabled: true
+    spare: 10
   fresh_days: 14         # within a tier, jobs posted in the last N days are drafted first (old ones may have closed)
   hard_stop:
     # Only a certain no ends a job early: a must-have asking this many years or more, quoted from the

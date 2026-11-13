@@ -51,12 +51,22 @@ def main() -> None:
 @main.command()
 @click.option("--limit", type=int, default=None, help="Max new application folders (default: tailor.daily_cap)")
 @click.option("--job-id", type=int, multiple=True, help="Queue these jobs only (skips the tier/eligibility ordering)")
-def queue(limit, job_id):
+@click.option("--plan", "plan_only", is_flag=True,
+              help="Only list the next jobs in order (open-check/plan.json) for the browser's open check")
+@click.option("--from-plan", "from_plan", is_flag=True,
+              help="Create folders from today's plan, dismissing the jobs the open check found closed")
+def queue(limit, job_id, plan_only, from_plan):
     """Step 0: pick eligible jobs, ask Jev's gate questions, create application folders."""
-    from src.tailor.queue import run_queue
+    from src.tailor.queue import queue_from_plan, run_queue
 
     cfg = load_config()
-    _out([str(p) for p in run_queue(cfg, limit=limit, jev=_jev(), job_ids=list(job_id) or None)])
+    if plan_only and not (cfg.get("open_check") or {}).get("enabled", True):
+        raise SystemExit(3)  # the open check is off: the wrapper then runs the plain queue
+    if from_plan:
+        _out([str(p) for p in queue_from_plan(cfg, limit=limit)])
+        return
+    _out([str(p) for p in run_queue(cfg, limit=limit, jev=_jev(), job_ids=list(job_id) or None,
+                                    plan_only=plan_only)])
 
 
 @main.command()

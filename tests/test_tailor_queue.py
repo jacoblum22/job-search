@@ -452,3 +452,50 @@ def test_fit_summary_is_one_box_and_decisions_start_on_their_defaults(cfg):
     from src.tailor import review
     # The only boxes left to click are the Fit summary's Reviewed (and whatever else needs a real look).
     assert all("Reviewed" in x for x in review.undecided(check))
+
+
+def _verdict(cfg, jid, state, evidence=""):
+    from src.tailor.queue import open_check_dir
+    (open_check_dir(cfg) / f"{jid}.json").write_text(
+        json.dumps({"job_id": jid, "state": state, "evidence": evidence}), encoding="utf-8")
+
+
+@pytest.fixture
+def cfg_oc(cfg, tmp_path):
+    cfg["paths"]["materials"] = str(tmp_path / "materials")
+    return cfg
+
+
+def test_open_check_dismisses_closed_and_takes_the_next_in_line(cfg_oc):
+    from src.tailor.queue import queue_from_plan
+
+    cfg = cfg_oc
+    ids = [add(cfg, f"j{i}", f"Job {i}", "A", 90 - i) for i in range(5)]
+    assert run_queue(cfg, limit=2, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True) == []
+    _verdict(cfg, ids[0], "closed", "This job is no longer accepting applications")
+    _verdict(cfg, ids[1], "open")
+    _verdict(cfg, ids[2], "unknown")
+    out = queue_from_plan(cfg)
+    assert titles(out) == ["Job 1", "Job 2"]  # Job 0 closed, so the next in line fills the cap
+    conn = connect(cfg["paths"]["db"])
+    assert conn.execute("SELECT status FROM jobs WHERE id = ?", (ids[0],)).fetchone()[0] == "dismissed"
+    assert conn.execute("SELECT status FROM jobs WHERE id = ?", (ids[3],)).fetchone()[0] != "dismissed"
+    log = Path(cfg["paths"]["materials"]) / "tailor" / "open-check" / "closed.jsonl"
+    assert "no longer accepting" in log.read_text()
+
+
+def test_open_check_without_verdicts_or_with_unquoted_closed_changes_nothing(cfg_oc):
+    from src.tailor.queue import queue_from_plan
+
+    cfg = cfg_oc
+    ids = [add(cfg, f"k{i}", f"Job {i}", "A", 90 - i) for i in range(3)]
+    run_queue(cfg, limit=2, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
+    _verdict(cfg, ids[0], "closed", "")  # a closed call with no quoted page text is not believed
+    assert titles(queue_from_plan(cfg)) == ["Job 0", "Job 1"]
+
+
+def test_queue_from_plan_needs_todays_plan(cfg_oc):
+    from src.tailor.queue import queue_from_plan
+
+    with pytest.raises(TailorError):
+        queue_from_plan(cfg_oc)
