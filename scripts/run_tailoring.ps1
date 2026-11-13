@@ -313,7 +313,17 @@ function Invoke-OpenCheck([int]$Cap = 0) {
         if ($attempt -gt 1) { Log "Open check: attempt $attempt after a pause"; Start-Sleep -Seconds (30 * ($attempt - 1)) }
         $checkLog = Join-Path $logDir "${stamp}_open-check-$attempt.jsonl"
         Log "Open check: Claude in Chrome looking at up to $($plan.entries.Count) job links (transcript $checkLog)"
-        $out = $prompt | claude -p --chrome --output-format stream-json --verbose --permission-mode dontAsk --allowedTools @checkTools 2>&1
+        # CLAUDE_CODE_OAUTH_TOKEN (in the scheduled task's / dashboard's environment) is an
+        # inference-only login: with it set, claude -p loads no claude.ai connectors and no Claude in
+        # Chrome link (found Nov 12 2026: same command, tools present without it, absent with it). The
+        # browser check uses the normal login, so the variable is unset for this call only.
+        $savedToken = $env:CLAUDE_CODE_OAUTH_TOKEN
+        Remove-Item Env:CLAUDE_CODE_OAUTH_TOKEN -ErrorAction SilentlyContinue
+        try {
+            $out = $prompt | claude -p --chrome --output-format stream-json --verbose --permission-mode dontAsk --allowedTools @checkTools 2>&1
+        } finally {
+            if ($savedToken) { $env:CLAUDE_CODE_OAUTH_TOKEN = $savedToken }
+        }
         $out | ForEach-Object { "$_" } | Set-Content $checkLog -Encoding UTF8
         $verdicts = @(Get-ChildItem (Join-Path $projectRoot "materials\tailor\open-check") -Filter "*.json" |
             Where-Object { $_.Name -ne "plan.json" })
