@@ -89,7 +89,7 @@ T = [
 ("BI & analytics","Google Analytics",r"google analytics|\bga4\b"),
 ("BI & analytics","dashboards",r"dashboard"),
 ("BI & analytics","data visualization",r"visuali[sz]"),
-("BI & analytics","reporting",r"\breporting\b|\breports\b|\bbuild(?:ing)? reports?"),
+("BI & analytics","reporting",r"\breporting\b|(?<!defect )(?<!bug )\breports\b|\bbuild(?:ing)? reports?"),
 ("BI & analytics","KPIs/metrics",r"\bkpis?\b|key performance|metrics"),
 ("BI & analytics","A/B testing / experimentation",r"a/b test|experiment(?:ation|al design| design)|\bab test"),
 ("BI & analytics","Power Query",r"power query"),
@@ -107,7 +107,7 @@ T = [
 ("BI & analytics","Statsig",r"statsig"),
 # The discipline, not a tool. Bare "BI" counts only when it isn't part of "Power BI" or Databricks' "AI/BI".
 ("BI & analytics","business intelligence",r"business intelligence|(?-i:(?<!Power )(?<!AI/)\bBI\b)"),
-("BI & analytics","data analysis",r"\bdata analysis\b|exploratory data analys"),
+("BI & analytics","data analysis",r"\bdata analysis\b|exploratory (?:data )?analys|data exploration"),
 ("BI & analytics","self-serve analytics",r"self.serv(?:e|ice) (?:analytics|bi|reporting|dashboards?|data|insights|tools)"),
 # Data engineering / warehouse
 ("Data platforms","Snowflake",r"snowflake"),
@@ -132,11 +132,14 @@ T = [
 ("Data platforms","data warehouse",r"data warehous|warehouse|data lake|lakehouse"),
 ("Data platforms","data modeling",r"data model|dimensional model|star schema|fact (?:and|&) dimension|(?:fact|dimension) tables?|slowly changing dimension"),
 ("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"
- r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b"),
+ r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b"
+ # Profiling, contracts and record dedup are data-quality work too ("data contract and schema validation").
+ # SHA256 "content deduplication" of uploaded files is storage, not data quality.
+ r"|data-quality|data profiling|data contracts?|schema validation|(?<!content )(?<!sha256 )\bde-?duplicat"),
 ("Data platforms","data governance",r"data governance|data stewardship|metadata"),
 # Relational databases (PostgreSQL, MySQL, SQL Server, SQLite) stay under SQL: SQL skill carries
 # over between them. NoSQL databases each work differently, so each is its own skill (Jake, Oct 18 2026).
-("Data platforms","NoSQL",r"\bnosql\b"),
+("Data platforms","NoSQL",r"\bnosql\b|non.?relational"),
 ("Data platforms","MongoDB",r"mongodb|\bmongo\b"),
 ("Data platforms","DynamoDB",r"dynamodb"),
 ("Data platforms","Cassandra",r"cassandra"),
@@ -153,6 +156,12 @@ T = [
 ("Data platforms","SQLMesh",r"sqlmesh"),
 ("Data platforms","VisualCron",r"visualcron"),
 ("Data platforms","Dataiku",r"dataiku"),
+# "CDC" alone is also the Centers for Disease Control.
+("Data platforms","incremental loading / CDC",r"incremental (?:loads?|loading|logic|models?|processing|refresh|ingestion|pipelines?)|change data capture"),
+# "a Bronze Member" of a diversity charter is not the bronze layer.
+("Data platforms","medallion architecture (bronze / silver / gold)",r"medallion|bronze(?:,| and|/) ?silver|(?-i:\bBronze\b) (?:layer|tables?)"),
+# Capitalised: "we have great expectations" is the phrase.
+("Data platforms","Great Expectations / Soda",r"(?-i)\bGreat Expectations\b|\bSoda (?:Core|Cloud|checks)\b"),
 # Lowercase "rest" is the word ("the rest of", "rest and recharge"); the API style is written REST.
 # Named API products (LLM APIs, API Gateway, Graph API) go to their own entries.
 ("Data platforms","APIs / REST",r"(?<!llm )(?<!graph )\bapis?\b(?! gateway)|\brestful\b|(?-i:\bREST\b)"),
@@ -178,7 +187,8 @@ T = [
 ("Cloud & DevOps","AWS API Gateway",r"api gateway"),
 ("Cloud & DevOps","Amazon CloudWatch",r"cloudwatch"),
 ("Cloud & DevOps","Amazon RDS",r"(?-i)\bRDS\b|[Rr]elational [Dd]atabase [Ss]ervice"),
-("Cloud & DevOps","Google Cloud Composer",r"cloud composer"),
+# Bare "Composer" only in a list of Google Cloud products: PHP's Composer is a package manager.
+("Cloud & DevOps","Google Cloud Composer",r"cloud composer|(?-i:\bComposer\b)(?=[^.\n]{0,60}\b(?:Dataflow|Pub/Sub|BigQuery|Dataproc|Cloud Run)\b)"),
 ("Cloud & DevOps","Datadog",r"datadog"),
 ("Cloud & DevOps","Grafana",r"grafana"),
 ("Cloud & DevOps","Prometheus",r"(?-i)\bPrometheus\b"),
@@ -192,7 +202,7 @@ T = [
 ("Cloud & DevOps","Vertex AI",r"vertex ai"),
 ("Cloud & DevOps","Docker",r"docker|containeri[sz]"),
 ("Cloud & DevOps","Kubernetes",r"kubernetes|\bk8s\b"),
-("Cloud & DevOps","CI/CD",r"ci/cd|continuous integration|continuous deliver|github actions|jenkins|azure devops|azure pipelines"),
+("Cloud & DevOps","CI/CD",r"ci/cd|continuous integration|continuous deliver|github actions|jenkins|azure devops|azure pipelines|circle ?ci|gitlab ci|travis ci|teamcity"),
 ("Cloud & DevOps","Git",r"\bgit\b|github(?! copilot)|gitlab|bitbucket|version control"),
 ("Cloud & DevOps","Terraform/IaC",r"terraform|infrastructure as code"),
 ("Cloud & DevOps","MLOps",r"mlops|llmops|model deployment|deploy(?:ing)? models|model monitoring|(?:model|data|concept) drift|retrain(?:ing)? models?|model retraining"
@@ -203,10 +213,36 @@ T = [
  r"|regression test|integration test|end.to.end test"),
 ("Cloud & DevOps","microservices",r"microservice"),
 ("Cloud & DevOps","distributed systems",r"distributed system"),
+# Daily review, Nov 10 2026.
+("Cloud & DevOps","Google Cloud Run",r"(?-i)\bCloud Run\b"),
+("Cloud & DevOps","Google Cloud Functions",r"(?-i)\bCloud Functions\b"),
+("Cloud & DevOps","Google Cloud Scheduler",r"(?-i)\bCloud Scheduler\b"),
+("Cloud & DevOps","Microsoft Entra ID / Active Directory",r"\bentra id\b|microsoft entra|\bazure ad\b|active directory"),
+("Cloud & DevOps","Argo CD / GitOps",r"\bargo ?cd\b|\bgitops\b"),
+# Not the "work authorization" a candidate needs to be hired.
+("Cloud & DevOps","authentication / authorization (OAuth, SSO)",r"authenticat|(?<!work )(?<!legal )authori[sz]ation\b(?! to work)|\boauth|openid|\boidc\b"
+ r"|(?-i:\bSSO\b)|single sign.on|(?-i:\bSAML\b)|\bldap\b"),
+# "Retirement savings plans" are benefits, so AWS Savings Plans aren't matched; "chargeback" is also a card dispute.
+# Only the one-word "rightsizing": "right-sizing model selection" and "the right sizes of the boxes" aren't cost work.
+("Cloud & DevOps","FinOps / cloud cost management",r"\bfinops\b|cloud (?:costs?|spend|cost management)|\brightsizing\b|reserved instances|committed use discounts|cost explorer|cloudhealth|showback"),
+# "AI developer tooling (Claude Code)" is using AI coding tools, not building developer tools.
+("Cloud & DevOps","platform engineering / developer tooling",r"platform engineering|(?<!ai )developer tooling|internal (?:developer )?tooling|internal developer platform"),
+# "Piping system design" is building engineering.
+("Cloud & DevOps","software architecture / system design",r"(?<!piping )system design|software (?:architecture|design)\b|design patterns|scalable (?:architecture|system design)"),
+("Cloud & DevOps","clean / maintainable code",r"clean(?:,| and)? (?:[\w-]+,? ){0,3}code\b|maintainable (?:[\w-]+ ){0,2}code|maintainability"),
+# "60min Pair Programming" is an interview step; "pairing fast generation with judgment" isn't pairing.
+("Cloud & DevOps","pair programming",r"(?<!min )pair.programming|pairing (?:on|with|sessions)|through pairing|(?<=, )pairing\b"),
+# Not an employer calling competitors "legacy platforms".
+("Cloud & DevOps","legacy systems / modernization",r"legacy (?:systems?|code|applications?)|moderni[sz]\w* (?:of )?legacy"),
+("Cloud & DevOps","cloud migration",r"cloud migrations?|migrat(?:e|ing|ion) (?:[\w-]+ ){0,3}to (?:the )?cloud"),
+("Cloud & DevOps","idempotency",r"idempoten"),
+("Cloud & DevOps","prototyping / proof of concept",r"prototyp|proofs? of (?:concept|value)"),
 # ML / stats methods
 ("ML & statistics","machine learning",r"machine learning|\bml\b|(?:un)?supervised learning|tree.based models?|random forests?|decision trees?"),
-("ML & statistics","AI (any mention)",r"\bai\b|artificial intelligence"),
-("ML & statistics","statistics",r"statistic|probability (?:theory|distributions)"),
+# "AI/BI" is Databricks' dashboard product.
+("ML & statistics","AI (any mention)",r"\bai\b(?!/bi\b)|artificial intelligence"),
+# "the highest probability of reaching $1 billion" is a company blurb.
+("ML & statistics","statistics",r"statistic|probability (?:theory|distributions)|\bprobability\b(?! of)"),
 ("ML & statistics","descriptive statistics / correlation",r"descriptive statistic|standard deviation|\bmedian\b(?! (?:salary|pay|base|compensation|income))"
  r"|\bcorrelations?\b(?! rules)|\bquartiles?\b|trendline"),
 ("ML & statistics","predictive modeling",r"predictive|forecast"),
@@ -228,13 +264,16 @@ T = [
 ("ML & statistics","feature engineering",r"feature engineering"),
 ("ML & statistics","model evaluation/validation",r"model (?:evaluation|validation|performance)|cross.validation"),
 # Query, performance and process optimisation are tuning work, not operations research.
-("ML & statistics","optimization / OR",r"(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
-("ML & statistics","recommendation systems",r"recommend(?:er|ation) (?:system|engine|model)|recommenders?\b|next best action|ranking models?"),
+("ML & statistics","optimization / OR",r"(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )(?<!cost )optimi[sz]ation|operations research|linear programming|integer programming"),
+("ML & statistics","recommendation systems",r"recommend(?:er|ation) (?:system|engine|model)|recommenders?\b|next best action|ranking models?|ranking (?:systems?|algorithms?)"),
 # Churn is a business metric; only survival wording is the method.
 ("ML & statistics","survival analysis",r"survival analysis|survival models?|time.to.event|hazard models?"),
 ("ML & statistics","Bayesian methods",r"bayesian"),
 ("ML & statistics","mathematics (linear algebra, calculus)",r"linear algebra|calculus|mathematic"),
 ("ML & statistics","data mining",r"data mining"),
+("ML & statistics","data science",r"data science"),
+# "All hiring decisions are made by human reviewers" is hiring boilerplate.
+("ML & statistics","human-in-the-loop AI",r"human.in.the.loop|human (?:review|oversight)\b"),
 ("ML & statistics","quantitative analysis",r"quantitative"),
 # Business tools
 ("Business tools","Salesforce/CRM",r"salesforce|\bcrm\b|hubspot|dynamics 365"),
@@ -256,7 +295,7 @@ T = [
  r"|(?<=Excel, )Outlook\b|(?<=Word, )Outlook\b|(?<=PowerPoint, )Outlook\b|(?<=\()Outlook\b"),
 ("Business tools","Microsoft PowerPoint",r"powerpoint"),
 ("Business tools","Microsoft Teams",r"microsoft teams|ms teams|(?-i:(?<=SharePoint and )Teams\b)"),
-("Business tools","Google Sheets / Workspace",r"google sheets|google workspace|g suite"),
+("Business tools","Google Sheets / Workspace",r"google sheets|google workspace|g suite|google drive|google docs"),
 ("Business tools","ServiceNow",r"servicenow"),
 ("Business tools","Stripe",r"(?-i)\bStripe\b"),
 ("Business tools","test management (TestRail, qTest, Xray)",r"testrail|\bqtest\b|(?-i:\bXray\b)"),
@@ -281,6 +320,9 @@ T = [
 ("Business tools","Acumatica",r"acumatica"),
 ("Business tools","Marketo",r"marketo"),
 ("Business tools","Agentforce",r"agentforce"),
+("Business tools","ad platforms (Google / Meta / Microsoft Ads)",r"google ads|adwords|microsoft(?:/bing)? ads|bing ads|meta ads|facebook ads|facebook advertising"),
+("Business tools","LeadPerfection",r"leadperfection"),
+("Business tools","capacity planning",r"capacity planning"),
 # The terminal and data, not the company: "At Bloomberg, we..." isn't a skill.
 ("Business tools","Bloomberg",r"bloomberg (?:terminal|bql|api|data license)|(?-i:(?<!At )(?<!at )\bBloomberg\b(?=[,)]| (?:and|or|is (?:desired|an asset|required|preferred))\b))"
  r"|(?<=, )bloomberg\b|(?<=and )bloomberg\b"),
@@ -292,20 +334,20 @@ T = [
 ("ML & statistics","AI agents / agentic AI / MCP",r"agentic|ai agents?|\bmcp\b|model context protocol|langgraph|tool.calling|function.calling|\btool.use\b"),
 ("Cloud & DevOps","SDLC",r"\bsdlc\b|software development life ?cycle"),
 ("Cloud & DevOps","networking (TCP/IP)",r"tcp/ip|\btcp\b|\budp\b|networking protocols"),
-("Cloud & DevOps","QA / UAT",r"\buat\b|user acceptance|quality assurance|acceptance testing|manual testing|exploratory testing|test (?:cases|plans)\b"
+("Cloud & DevOps","QA / UAT",r"\buat\b|user acceptance|quality assurance|acceptance testing|manual testing|exploratory testing|test (?:cases|plans|strateg\w*)\b|regression suites?|defect (?:tracking|reports?|management)|quality gates?"
  r"|\b(?:acceptance|exploratory)\b[^.\n]{0,50}\btests\b"),
 # Data work and engineering practice (Oct 19 2026, from an audit of the 73 A-tier postings).
 ("Data platforms","data transformation / preparation",r"data (?:transformations?|preparation|prep|wrangling|manipulation|munging)|transform(?:s|ed|ing)? (?!(?:the way|how) )(?:[\w-]+ ){0,2}data\b|prepar(?:e|ing) data|\bwrangl"),
 # Combining sources is integration work ("multi-source data", "combining data from several sources").
 ("Data platforms","data integration",r"data integration|system integrations?|integrat(?:e|ing) data|integrations? (?:between|across) (?:systems|platforms|tools)|(?:third.party|enterprise|platform) integrations?|integrat(?:e|ed|es|ing|ion) (?:of )?(?:the )?(?:third.party|external|outside|vendor) (?:\S+ ){0,3}?(?:data|sources?|systems|feeds)|multi.source|combin(?:e|ed|ing) (?:data from )?(?:multiple|several|different|many) (?:data )?sources"),
-("Data platforms","secure coding / OWASP",r"secure coding|secure (?:software|code) (?:development|practices)|\bowasp\b"),
-("Data platforms","data privacy / security",r"data privacy|privacy (?:laws|legislation|regulations|requirements|by design)|\bpii\b|personally identifiable|\bgdpr\b|\bccpa\b|\bpipeda\b|\bfoippa\b|\bhipaa\b|data security|data protection|\bencryption\b|access controls?|role.based access|row.level security|information security|cyber.?security|secrets? management"),
+("Data platforms","secure coding / OWASP",r"secure coding|secure (?:software|code) (?:development|practices)|\bowasp\b|(?<!sap )(?<!btp )application security|\bappsec\b"),
+("Data platforms","data privacy / security",r"data privacy|privacy (?:laws|legislation|regulations|requirements|by design)|\bpii\b|personally identifiable|\bgdpr\b|\bccpa\b|\bpipeda\b|\bfoippa\b|\bpipa\b|data (?:sovereignty|residency)|\bhipaa\b|data security|data protection|\bencryption\b|access controls?|role.based access|row.level security|information security|cyber.?security|secrets? management"),
 ("Data platforms","query / performance tuning",r"query (?:optimi[sz]ation|performance|tuning)|optimi[sz](?:e|ing) (?:sql|queries|query)|performance (?:tuning|optimi[sz]ation)|(?:sql|query|database) tuning|tun(?:e|ing) (?:sql|queries)|(?:efficient|cost.effective) (?:sql|queries)|(?:sql|queries|query) (?:\w+ )?efficient|query costs?"),
 ("Data platforms","data lineage / catalog",r"data lineage|\blineage\b|data catalog(?:ue)?s?|data dictionar|metadata management"),
 ("Data platforms","semantic layer / metrics layer",r"semantic (?:layers?|models?|views)|governed metrics|metrics? (?:layer|store|registry)|metric (?:definitions|governance)"),
 ("Data platforms","data reconciliation",r"data reconciliation|reconcil(?:e|ing) (?:data|numbers|figures|across)"),
-("Data platforms","relational databases / database design",r"(?<!non-)(?<!non)relational (?:databases?|tables?)|primary (?:and|&|/) foreign keys?|foreign keys?|database design|database (?:management|development|administration)|\brdbms\b|schema design"),
-("Data platforms","real-time / streaming data",r"real.time (?:data|analytics|processing|pipelines?|streaming|ingestion)|stream processing|streaming (?:data|pipelines?|analytics)"),
+("Data platforms","relational databases / database design",r"(?<!non-)(?<!non)relational (?:databases?|tables?)|primary (?:and|&|/) foreign keys?|foreign keys?|database design|database (?:management|development|administration)|\brdbms\b|schema design|database schemas?"),
+("Data platforms","real-time / streaming data",r"real.time (?:data|analytics|processing|pipelines?|streaming|ingestion)|stream processing|streaming (?:data|pipelines?|analytics)|event streaming"),
 ("Languages","SQL window functions / CTEs",r"window functions?|\bctes?\b|common table expressions?"),
 ("Languages","SQL stored procedures",r"stored procedures?|stored procs?\b"),
 ("Languages","object-oriented programming",r"object.oriented|(?-i:\bOOP\b)|\boo design"),
@@ -322,7 +364,7 @@ T = [
 ("Languages","web development (full-stack)",r"full.?stack|front.?end|back.?end|web (?:applications?|apps?|development|developer)"),
 ("Cloud & DevOps","debugging / troubleshooting",r"debug|troubleshoot"),
 ("Cloud & DevOps","code review",r"code reviews?|review(?:ing)? (?:code|pull requests|prs)\b|pull requests?"),
-("Cloud & DevOps","pipeline monitoring / alerting",r"\balerting\b|observability|monitor(?:ing)? (?:of )?(?:data )?(?:pipelines?|jobs|loads|dags|data quality)"),
+("Cloud & DevOps","pipeline monitoring / alerting",r"\balerting\b|observability|logging,?(?: and| &)? (?:metrics|monitoring|alerting|tracing)|(?:monitoring|metrics),?(?: and| &)? logging|structured logging|monitor(?:ing)? (?:of )?(?:data )?(?:pipelines?|jobs|loads|dags|data quality)"),
 ("Cloud & DevOps","incident response / on-call",r"\bon.call\b|incident (?:response|management)|production support|data incidents?"),
 ("Cloud & DevOps","Playwright",r"playwright"),
 ("Cloud & DevOps","Selenium",r"selenium"),
@@ -335,10 +377,12 @@ T = [
 # The practice. "Azure DevOps" is the CI/CD product (above).
 ("Cloud & DevOps","DevOps",r"(?<!azure )\bdevops\b"),
 ("Cloud & DevOps","serverless",r"serverless"),
-("Cloud & DevOps","IAM (identity and access management)",r"(?-i:\bIAM\b)|identity and access management"),
+("Cloud & DevOps","IAM (identity and access management)",r"(?-i:\bIAM\b)|identity and access management|least.privilege"),
 ("Cloud & DevOps","GPU computing / CUDA",r"\bcuda\b|\bgpus?\b|\btpus?\b"),
 # Google Cloud's data products, each its own skill (as with AWS).
-("Cloud & DevOps","Google Cloud Storage",r"google cloud storage|(?-i:\bGCS\b)"),
+# Bare "Cloud Storage" only next to other Google Cloud products: "Amazon Web Services' Cloud Storage, AWS S3" is AWS.
+("Cloud & DevOps","Google Cloud Storage",r"google cloud storage|(?-i:\bGCS\b)|(?-i:(?<=GCP )Cloud Storage\b)"
+ r"|(?-i:\bCloud Storage\b)(?=[^.\n]{0,80}\b(?:BigQuery|Dataflow|Pub/Sub|Composer|Cloud Run|Cloud SQL)\b)"),
 ("Cloud & DevOps","Google Cloud Dataflow / Apache Beam",r"(?-i:\bDataflow\b)|cloud dataflow|apache beam"),
 ("Cloud & DevOps","Google Cloud Pub/Sub",r"pub/sub|\bpubsub\b"),
 ("BI & analytics","root cause analysis",r"root.cause"),
@@ -352,7 +396,7 @@ T = [
 ("ML & statistics","anomaly detection",r"anomaly detection|detect(?:ing)? anomalies|outlier detection"),
 ("ML & statistics","model interpretability / explainability",r"interpretab|explainab|(?-i:\bSHAP\b)"),
 ("ML & statistics","responsible AI / AI ethics",r"responsible ai|ai ethics|ethical ai|ethics of ai|model governance|ai governance|bias mitigation"),
-("ML & statistics","LLM / AI evaluation",r"llm evaluation|evaluat(?:e|ing|ion of) (?:llms?|model outputs?|ai outputs?|agents?|ai systems)|llm.as.a.judge|llm judges?|\bevals\b"),
+("ML & statistics","LLM / AI evaluation",r"llm evaluation|evaluat(?:e|ing|ion of) (?:llms?|model outputs?|ai outputs?|agents?|ai systems)|llm.as.a.judge|llm judges?|\bevals\b|evaluation pipelines?|scoring rubrics?|rubric.based|evaluation rubrics?"),
 ("ML & statistics","prompt engineering",r"prompt (?:engineering|design|development|evaluation|optimi[sz]ation|templates?)|structured prompting|\bprompting\b"),
 ("ML & statistics","unstructured data / OCR",r"unstructured data|(?-i:\bOCR\b)|document ai|document (?:understanding|extraction|parsing)"),
 ("ML & statistics","scenario analysis / simulation",r"scenario (?:analysis|modell?ing|planning)|what.if (?:analysis|scenarios?)|stress test|monte carlo|simulation (?:models?|modell?ing|studies)|digital twins?"),
@@ -378,9 +422,12 @@ T = [
  r"|(?:marketing|sales|lead) funnels?"),
 ("Domain knowledge","epidemiology / biostatistics",r"epidemiolog|biostatistic"),
 # Uppercase IoT: "NYSE: IOT" is a ticker.
+# Not an ad-tech employer's blurb ("connects brand and performance marketing", "performance marketing agency").
+("Domain knowledge","digital advertising / performance marketing",r"(?<!brand and )performance marketing(?! agency)|paid (?:media|search|social|advertising)|\bad.?tech\b|programmatic advertising"),
+("Domain knowledge","billing systems",r"billing (?:systems?|data|platforms?)"),
 ("Domain knowledge","IoT / sensor data",r"(?-i:\bIoT\b)|internet of things|sensor data"),
 # soft skills
-("Soft skills","communication",r"communicat"),
+("Soft skills","communication",r"communicat|writing skills|(?:strong|excellent|clear|strategic|technical) writing"),
 ("Soft skills","collaboration/teamwork",r"collaborat|team ?work|cross.functional|team player|(?:works?|interact) well with others"),
 ("Soft skills","problem solving",r"problem.solv"),
 ("Soft skills","stakeholder management",r"stakeholder|relationships with (?:key |our )?(?:internal|external|partners|clients|customers)|partner relationships"),
@@ -393,11 +440,11 @@ T = [
 ("Soft skills","leadership / mentoring",r"leadership|mentor"),
 ("Soft skills","curiosity / learning",r"curious|curiosity|eager(?:ness)? to learn|continuous learning|growth mindset|(?:motivated|willing(?:ness)?|desire|keen) to learn|quick learner|learns? quickly"),
 ("Soft skills","business acumen",r"business acumen|business needs|business problems"),
-("Soft skills","documentation",r"document(?:ation|ing)"),
-("Soft skills","adaptability",r"adaptab|fast.paced|ambiguity"),
+("Soft skills","documentation",r"document(?:ation|ing)|runbooks?"),
+("Soft skills","adaptability",r"adaptab|fast.paced|ambigu"),
 ("Soft skills","ownership / accountability",r"(?<!home )(?<!employee )(?<!share)\bownership\b|accountab|own (?:the|your) (?:work|outcomes?|projects?|results|deliverables)"),
 ("Soft skills","customer / client focus",r"(?:customer|client|user|patient).(?:first|centric|centred|centered|focused|facing|obsessed)|customer (?:service|satisfaction)|client service|service (?:mentality|orientation)"),
-("Soft skills","teaching / knowledge sharing",r"knowledge (?:sharing|transfer)|shar(?:e|es|ing) (?:your |their |our )?knowledge|(?:provide|deliver|conduct)\w* training|train(?:ing)? (?:users|staff|colleagues|others|team members|end users)|training (?:materials|sessions)|educat(?:e|ing) (?:users|stakeholders|teams|others)|\bteach|\bcoach"),
+("Soft skills","teaching / knowledge sharing",r"knowledge.(?:sharing|transfer)|shar(?:e|es|ing) (?:your |their |our )?knowledge|(?:provide|deliver|conduct)\w* training|train(?:ing)? (?:users|staff|colleagues|others|team members|end users)|training (?:materials|sessions)|educat(?:e|ing) (?:users|stakeholders|teams|others)|\bteach|\bcoach"),
 ("Soft skills","judgment",r"\bjudge?ments?\b|critically (?:evaluate|assess|review)|challenge assumptions|discernment"),
 ("Soft skills","integrity / trustworthiness",r"(?<!data )\bintegrity\b(?! of)|trustworth|\bhonest|ethical (?:conduct|standards|behaviou?r)"),
 ("Soft skills","discretion / confidentiality",r"\bdiscretion\b|confidentiality|(?:handl|maintain)\w* (?:sensitive|confidential)"),
@@ -445,7 +492,10 @@ RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Ama
            "SQL stored procedures": "SQL", "Amazon SQS / SNS": "AWS", "Amazon ECS": "AWS",
            "Delta Lake": "Databricks", "Unity Catalog": "Databricks", "Snowflake Cortex": "Snowflake",
            "Dataform": "GCP", "Agentforce": "Salesforce/CRM", "ELK Stack": "Elasticsearch",
-           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)"}
+           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)",
+           "Google Cloud Run": "GCP", "Google Cloud Functions": "GCP", "Google Cloud Scheduler": "GCP",
+           "Microsoft Entra ID / Active Directory": "Azure", "Argo CD / GitOps": "Kubernetes",
+           "LeadPerfection": "Salesforce/CRM"}
 
 # The kind of tool each one is. An open list ("e.g. Tableau, QuickSight", "or similar tools")
 # takes its type from the tools it names, so any tool of that type can stand in. Excel isn't a
@@ -479,19 +529,22 @@ _TYPES = {
                        "Amazon Kinesis", "Azure Machine Learning", "Vertex AI", "AWS Glue", "Amazon Athena",
                        "Amazon EMR", "Amazon EC2", "AWS CloudFormation", "Google Cloud Composer", "Google Cloud Storage",
                        "Google Cloud Dataflow / Apache Beam", "Google Cloud Pub/Sub", "Amazon SQS / SNS", "Amazon ECS",
-                       "AWS API Gateway", "Amazon CloudWatch", "Amazon RDS", "Azure OpenAI"],
+                       "AWS API Gateway", "Amazon CloudWatch", "Amazon RDS", "Azure OpenAI", "Google Cloud Run",
+                       "Google Cloud Functions", "Google Cloud Scheduler", "Microsoft Entra ID / Active Directory"],
     "test tool": ["Playwright", "Selenium", "Cypress", "Postman", "JMeter / k6", "Jest / Vitest"],
     "ML / AI platform": ["Amazon SageMaker", "Azure Machine Learning", "Vertex AI", "MLflow", "Databricks",
                          "Amazon Bedrock", "Snowflake Cortex", "Dataiku", "Azure OpenAI"],
     "DevOps tool": ["Docker", "Kubernetes", "CI/CD", "Git", "Terraform/IaC", "Linux/Unix", "Datadog", "Ansible / Puppet",
-                    "AWS CloudFormation", "Grafana", "Prometheus", "ELK Stack"],
+                    "AWS CloudFormation", "Grafana", "Prometheus", "ELK Stack", "Argo CD / GitOps"],
+    "data quality tool": ["Great Expectations / Soda"],
     "business software": ["Salesforce/CRM", "ERP (SAP/Oracle/Workday)", "Jira/Confluence", "Visio / diagramming",
                           "Microsoft Access", "Microsoft Word", "Microsoft Office", "SharePoint", "Excel",
                           "Microsoft Outlook", "Microsoft PowerPoint", "Microsoft Teams", "Google Sheets / Workspace",
                           "ServiceNow", "Stripe", "test management (TestRail, qTest, Xray)",
                           "project controls (Primavera P6, EcoSys)",
                           "Microsoft Power Platform", "Power Apps", "Power Automate", "Power Query", "Dataverse",
-                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica"],
+                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica",
+                          "ad platforms (Google / Meta / Microsoft Ads)", "LeadPerfection"],
 }
 TOOL_TYPES: dict[str, set[str]] = {}
 for _type, _names in _TYPES.items():
