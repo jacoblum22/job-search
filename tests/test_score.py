@@ -374,7 +374,7 @@ def test_age_penalty_bands_and_removal():
     assert gone.tier == "skip" and gone.score is None and "31 days" in gone.reasons_text
 
 
-def test_rescore_ages_by_posted_date_and_exempts_applied(tmp_path):
+def test_rescore_ages_by_posted_date_and_ages_every_job(tmp_path):
     from datetime import date, timedelta
 
     conn = connect(str(tmp_path / "j.db"))
@@ -394,10 +394,30 @@ def test_rescore_ages_by_posted_date_and_exempts_applied(tmp_path):
     assert got["week"][0] == got["fresh"][0] - 10
     assert got["old"][0] == got["fresh"][0] - 20
     assert got["gone"][1] == "skip"
-    assert got["gone-applied"][0] == got["fresh"][0]  # applied jobs are never aged
+    assert got["gone-applied"][1] == "skip"  # every job is aged, whatever its state (Jake, Nov 12 2026)
     # The cache doesn't hide an age change: same row, later day.
     conn.execute("UPDATE jobs SET posted_date = ? WHERE id = ?",
                  ((date.today() - timedelta(days=25)).isoformat(), ids["fresh"]))
     conn.commit()
     rescore_all(conn, cfg, cache=cache)
     assert conn.execute("SELECT score FROM jobs WHERE id = ?", (ids["fresh"],)).fetchone()[0] == got["old"][0]
+
+
+def test_a_job_with_a_folder_is_aged_like_any_other(tmp_path):
+    from datetime import date, timedelta
+
+    from src.tailor import store
+
+    conn = connect(str(tmp_path / "j.db"))
+    store.ensure_table(conn)
+    old = (date.today() - timedelta(days=25)).isoformat()
+    ids = {}
+    for name, status in (("queued", "shortlisted"), ("drafted", "ready_for_review")):
+        job = Job("t", name, "Junior Data Analyst", "Acme", "Vancouver, BC", "SQL Python dashboards " * 30,
+                  f"https://x/{name}", posted_date=old)
+        ids[name], _ = upsert_job(conn, job)
+        store.upsert_app(conn, {"job_id": ids[name], "status": status}, tmp_path / name)
+    cfg = {**CFG, "age": {"penalties": [{"over_days": 20, "points": -20}], "remove_over_days": 30}}
+    rescore_all(conn, cfg)
+    reasons = [conn.execute("SELECT score_reasons FROM jobs WHERE id = ?", (i,)).fetchone()[0] for i in ids.values()]
+    assert all("posted 25 days ago" in r for r in reasons)

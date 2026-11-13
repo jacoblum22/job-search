@@ -18,8 +18,8 @@
 # By hand, no scrape: .\scripts\run_tailoring.ps1
 # Waiting rounds only (repair or letter rounds on applications up for review, no new jobs):
 #                    .\scripts\run_tailoring.ps1 -ResumeOnly
-# -Parallel N (2 by default) runs up to N Claude sessions at once: waiting rounds and unfinished
-# folders start while the scrape runs, then a session per company for the queue's new jobs
+# -Parallel N (2 by default) runs up to N Claude sessions at once: waiting rounds
+# start while the scrape runs, then a session per company for the queue's new jobs
 # (docs/tailoring-runbook.md, "Parallel sessions"). -Parallel 1 is one session for everything,
 # as -JobId and -ResumeOnly runs always are.
 # Weekends: the scheduled run (-Scrape) does nothing on Saturday or Sunday and exits at once
@@ -218,7 +218,7 @@ function Complete-Session($s) {
         if ($msg -match "authenticate|OAuth|/login|login") {
             $script:authFailed = $true
             if ($script:todo) { $script:todo.Clear() }   # the other queued sessions would die the same way
-            Log "Claude login has expired: run 'claude /login' on this PC. The unfinished folders are picked up by the next run."
+            Log "Claude login has expired: run 'claude /login' on this PC. The next run picks up where this one stopped."
         }
     } elseif ($s.Result) {
         $digest = Join-Path $digestDir "$date.md"
@@ -260,7 +260,7 @@ function Group-ByCompany($folders) {
 function Get-FolderScope($folders) {
     $list = ($folders | ForEach-Object { "- `"$((Resolve-Path $_).Path)`"" }) -join "`n"
     return "Other Claude sessions are tailoring other folders at the same time. Skip Step A " +
-        "entirely: do not glob for unfinished folders, and do not run ``pending`` or the queue. Do " +
+        "entirely: do not run ``pending`` or the queue. Do " +
         "Step B for these folders only, in this order (for a folder that already has some outputs, " +
         "start at the first step whose output file is missing):`n$list`nNever read or change any " +
         "other application folder. End with the digest for these folders only."
@@ -305,17 +305,25 @@ function Invoke-OpenCheck([int]$Cap = 0) {
         "mcp__claude-in-chrome__tabs_close_mcp", "mcp__claude-in-chrome__navigate",
         "mcp__claude-in-chrome__get_page_text", "mcp__claude-in-chrome__read_page",
         "mcp__claude-in-chrome__list_connected_browsers", "mcp__claude-in-chrome__select_browser")
-    $checkLog = Join-Path $logDir "${stamp}_open-check.jsonl"
-    Log "Open check: Claude in Chrome looking at up to $($plan.entries.Count) job links (transcript $checkLog)"
-    $out = $prompt | claude -p --chrome --output-format stream-json --verbose --permission-mode dontAsk --allowedTools @checkTools 2>&1
-    $out | ForEach-Object { "$_" } | Set-Content $checkLog -Encoding UTF8
-    $verdicts = @(Get-ChildItem (Join-Path $projectRoot "materials\tailor\open-check") -Filter "*.json" |
-        Where-Object { $_.Name -ne "plan.json" })
-    if ($verdicts.Count -eq 0) {
-        Log "WARNING: the open check wrote no verdicts (Chrome not reachable?); drafting without it. See $checkLog"
-    } else {
-        Log "Open check: $($verdicts.Count) link(s) read"
+    # Claude in Chrome must be available: on Nov 12 2026 one launch started with no Chrome tools at
+    # all (the extension wasn't ready) and the run drafted unchecked. Try up to 3 times, a little
+    # apart; if it still can't read a single page, stop the new drafting rather than draft unchecked.
+    $verdicts = @()
+    for ($attempt = 1; $attempt -le 3 -and $verdicts.Count -eq 0; $attempt++) {
+        if ($attempt -gt 1) { Log "Open check: attempt $attempt after a pause"; Start-Sleep -Seconds (30 * ($attempt - 1)) }
+        $checkLog = Join-Path $logDir "${stamp}_open-check-$attempt.jsonl"
+        Log "Open check: Claude in Chrome looking at up to $($plan.entries.Count) job links (transcript $checkLog)"
+        $out = $prompt | claude -p --chrome --output-format stream-json --verbose --permission-mode dontAsk --allowedTools @checkTools 2>&1
+        $out | ForEach-Object { "$_" } | Set-Content $checkLog -Encoding UTF8
+        $verdicts = @(Get-ChildItem (Join-Path $projectRoot "materials\tailor\open-check") -Filter "*.json" |
+            Where-Object { $_.Name -ne "plan.json" })
     }
+    if ($verdicts.Count -eq 0) {
+        Log "ERROR: the open check could not read any job page after 3 attempts (Claude in Chrome not reachable?). Not drafting new jobs without it. See $checkLog"
+        $script:openCheckFailed = $true
+        return $false
+    }
+    Log "Open check: $($verdicts.Count) link(s) read"
     return $true
 }
 
@@ -328,32 +336,24 @@ if (-not $parallelRun) {
     Sync-BrowserQueue
     if (Invoke-OpenCheck) {
         $queueNow = "uv run python -m src.tailor queue --from-plan" + $(if ($Limit -gt 0) { " --limit $Limit" } else { "" })
+    } elseif ($script:openCheckFailed) {
+        $queueNow = "echo []   # the open check failed: queue nothing new"
     }
     $s = Start-Session "all" "Do all of Step A and Step B below."
     Wait-Job $s.Job | Out-Null
     Complete-Session $s
 } else {
-    # Up to $Parallel sessions at once. Waiting rounds and folders an earlier run left unfinished
-    # don't depend on today's postings, so they start while the scrape runs; today's new jobs
-    # are queued once it finishes, a session per company.
+    # Up to $Parallel sessions at once. Waiting rounds don't depend on today's postings, so they
+    # start while the scrape runs; today's new jobs are queued once it finishes, a session per company.
     Log "Running up to $Parallel Claude sessions at once"
     $todo = New-Object System.Collections.ArrayList
-    $unfinished = @(Get-ChildItem (Join-Path $projectRoot "materials\applications") -Directory -ErrorAction SilentlyContinue |
-        Where-Object {
-            $app = Join-Path $_.FullName "app.json"
-            (Test-Path $app) -and ((Get-Content $app -Raw -Encoding UTF8 | ConvertFrom-Json).status -eq "shortlisted")
-        } | ForEach-Object { $_.FullName })
     $waiting = @(Get-JsonList @("pending"))
     if ($waiting.Count -gt 0) {
         [void]$todo.Add(@{ Label = "waiting"; Scope = "Other Claude sessions are drafting new jobs at the " +
-            "same time. Do Step A step 2 only (the waiting rounds from ``pending``); skip Step A steps 1 " +
-            "and 3 and never touch a folder whose status is ``shortlisted``. End with the digest for " +
+            "same time. Do Step A step 2 only (the waiting rounds from ``pending``); skip Step A step 3 " +
+            "(the queue) and never touch a folder whose status is ``shortlisted``. End with the digest for " +
             "these folders only." })
     }
-    foreach ($g in @(Group-ByCompany $unfinished)) {
-        [void]$todo.Add(@{ Label = "unfinished"; Scope = (Get-FolderScope $g.Folders) })
-    }
-    if ($unfinished.Count -gt 0) { Log "$($unfinished.Count) unfinished folder(s) from an earlier run" }
 
     $scrapeProc = if ($doScrape) { Start-Scrape } else { $null }
     $scrapeDone = -not $doScrape -or -not $scrapeProc
@@ -364,9 +364,10 @@ if (-not $parallelRun) {
         if ($scrapeDone -and -not $queued) {
             $queued = $true
             Sync-BrowserQueue
-            $qArgs = @("queue") + $(if (Invoke-OpenCheck) { @("--from-plan") } else { @() }) +
+            $useCheck = Invoke-OpenCheck
+            $qArgs = @("queue") + $(if ($useCheck) { @("--from-plan") } else { @() }) +
                 $(if ($Limit -gt 0) { @("--limit", "$Limit") } else { @() })
-            $new = @(Get-JsonList $qArgs)
+            $new = if ($script:openCheckFailed) { @() } else { @(Get-JsonList $qArgs) }
             Log "Queue: $($new.Count) new job(s)"
             foreach ($g in @(Group-ByCompany $new)) {
                 [void]$todo.Add(@{ Label = "new"; Scope = (Get-FolderScope $g.Folders) })
@@ -400,6 +401,7 @@ function Invoke-TopUp {
         if ($LASTEXITCODE -ne 0 -or -not [int]::TryParse($raw.Trim(), [ref]$short) -or $short -le 0) { return }
         Log "Top-up round ${round}: $short job(s) short of the daily cap"
         $fromPlan = Invoke-OpenCheck $short
+        if ($script:openCheckFailed) { return }
         $nArgs = @("queue") + $(if ($fromPlan) { @("--from-plan") } else { @() }) + @("--limit", "$short")
         $new = @(Get-JsonList $nArgs)
         Log "Top-up round ${round}: $($new.Count) new job(s)"

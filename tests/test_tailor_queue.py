@@ -56,7 +56,7 @@ def test_flagged_sinks_within_tier_only(cfg):
     assert not appdir.load_app(out[0])["gate"]["flagged"]
 
 
-def test_recent_postings_go_first_within_a_tier(cfg):
+def test_strictly_by_score_within_a_tier_whatever_the_posting_date(cfg):
     from datetime import date, timedelta
 
     old = add(cfg, "o1", "Old high score", "A", 95)
@@ -72,8 +72,21 @@ def test_recent_postings_go_first_within_a_tier(cfg):
     conn.commit()
     conn.close()
     out = run_queue(cfg, limit=5, jev=FakeJev(GOOD))
-    assert titles(out) == ["Newest lower score", "New lower score", "No date, seen today",
-                           "Old high score", "B fresh"]
+    assert titles(out) == ["Old high score", "Newest lower score", "New lower score",
+                           "No date, seen today", "B fresh"]
+
+
+def test_a_leftover_shortlisted_folder_competes_by_score_and_is_reused(cfg):
+    low = add(cfg, "l1", "Leftover low", "A", 60)
+    add(cfg, "h1", "High", "A", 90)
+    first = run_queue(cfg, limit=1, jev=FakeJev(GOOD))
+    assert titles(first) == ["High"]
+    conn = connect(cfg["paths"]["db"])
+    store.upsert_app(conn, {"job_id": low, "status": "shortlisted", "score": 60}, cfg["paths"]["applications"])
+    conn.close()
+    again = run_queue(cfg, limit=1, jev=FakeJev(GOOD))
+    assert titles(again) == ["High"]   # the leftover is not resumed ahead of a higher score
+    assert first == again
 
 
 def test_yes_no_sides_and_unchecked(cfg):
@@ -101,8 +114,8 @@ def test_eligibility_dedup_and_cap(cfg):
     jev = FakeJev(GOOD)
     out = run_queue(cfg, limit=2, jev=jev)
     assert titles(out) == ["Dup long", "Third"]
-    # second run: dedup group and existing applications are excluded
-    assert run_queue(cfg, limit=5, jev=jev) == []
+    # second run: the folders are only shortlisted, so they compete again and are reused, not duplicated
+    assert sorted(titles(run_queue(cfg, limit=5, jev=jev))) == ["Dup long", "Third"]
     conn = store.connect(cfg["paths"]["db"])
     assert conn.execute("SELECT COUNT(*) FROM applications").fetchone()[0] == 2
 
