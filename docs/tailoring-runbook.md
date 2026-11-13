@@ -63,8 +63,8 @@ Set-ScheduledTask -TaskName "JobSearch-Tailoring" -Settings $s
 (`prompts/tailor/open-check.md`) opens each link and writes `materials/tailor/open-check/<job_id>.json`
 (open, closed with a quoted line, or unknown). `queue --from-plan` dismisses the closed jobs (listed in
 `dismissed.jsonl`) and takes the next in line, so the run still drafts `daily_cap` jobs. The check is tried up to 3 times; if Chrome still
-can't read a page the run logs an ERROR and drafts no new jobs (waiting rounds still run), rather than
-draft unchecked (Jake, Nov 12 2026). The check runs with `CLAUDE_CODE_OAUTH_TOKEN` unset: that token
+can't read a page the run is cancelled (logged as RUN CANCELLED, exit code 3) and does nothing more: no drafting, no waiting
+rounds, no review (Jake, Nov 12 2026). The scrape that came before it has already happened. The check runs with `CLAUDE_CODE_OAUTH_TOKEN` unset: that token
 is an inference-only login, so with it set `claude -p` loads no Claude in Chrome link (the scheduled task and
 the dashboard's Run button both carry it). With two Chrome browsers on the account the run must
 pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrome). Turn the check off with
@@ -74,10 +74,10 @@ pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrom
 dashboard's Run button) runs up to that many Claude sessions at once, each as a background job with
 its own transcript (`logs\tailoring\<date>_<time>_<n>-<kind>.jsonl`):
 
-- At the start the wrapper itself runs `pending`. Waiting rounds get one session; it starts straight
-  away, while the scrape (if any) runs, since it doesn't need today's postings. A `shortlisted`
-  folder an earlier run left unfinished is not resumed on its own: the queue ranks it with every
-  other job by score and reuses its folder only if it is among the top (Jake, Nov 12 2026).
+- A normal run does no waiting rounds on jobs drafted earlier (Jake, Nov 12 2026): it goes from the highest
+  score down. Those rounds run only in a `-ResumeOnly` run, started by hand. A `shortlisted` folder an
+  earlier run left unfinished isn't resumed on its own either: the queue ranks it with every other job by
+  score and reuses its folder only if it is among the top.
 - When the scrape is done the wrapper runs the browser queue sync and the queue, then starts a
   session per company for the new folders (two jobs at one company go to the same session, one
   after the other, so two sessions never research the same company folder at once).
@@ -128,7 +128,10 @@ for another way to run it, note it for the digest.
 
 **This session's part of the run.** {SCOPE}
 
-**Step A: unfinished folders, waiting rounds, then the queue**
+**Step A: waiting rounds (a -ResumeOnly run only), then the queue**
+
+A normal run skips step 2 and goes straight to the queue (Jake, Nov 12 2026: highest score first, no
+catch-up on jobs drafted earlier).
 
 1. (Nothing to do. A `shortlisted` folder is not finished first: the queue in step 3 takes the
    highest-scored jobs, whatever has been started, and reuses such a folder if its job is picked.)

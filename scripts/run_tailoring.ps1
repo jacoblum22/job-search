@@ -271,6 +271,14 @@ function Get-FolderScope($folders) {
 # next in line, so the run still drafts the daily cap. Any failure here (no Chrome, a login that
 # expired, the plan not written) is logged and the normal queue runs, so the check never costs a run.
 # Returns $true when the queue must now run as `queue --from-plan`.
+# Jake, Nov 12 2026: when the open check can't run, the run is cancelled and does nothing more:
+# no drafting, no catch-up rounds, no top-up, no post-run review.
+function Stop-RunCancelled {
+    Log "RUN CANCELLED: the Chrome open check could not run, so nothing was drafted or changed. Fix Claude in Chrome and run again."
+    Remove-Item $runFile -ErrorAction SilentlyContinue
+    exit 3
+}
+
 function Invoke-OpenCheck([int]$Cap = 0) {
     if ($JobId -gt 0 -or $ResumeOnly) { return $false }
     $cap = if ($Cap -gt 0) { $Cap } else { $Limit }
@@ -347,9 +355,11 @@ if (-not $parallelRun) {
     if (Invoke-OpenCheck) {
         $queueNow = "uv run python -m src.tailor queue --from-plan" + $(if ($Limit -gt 0) { " --limit $Limit" } else { "" })
     } elseif ($script:openCheckFailed) {
-        $queueNow = "echo []   # the open check failed: queue nothing new"
+        Stop-RunCancelled
     }
-    $s = Start-Session "all" "Do all of Step A and Step B below."
+    $allScope = if ($ResumeOnly) { "Do all of Step A and Step B below." }
+                else { "Do Step A step 3 and Step B below. Skip Step A step 2 (waiting rounds): a run goes from the highest score down, and a job drafted earlier gets no turn ahead of that." }
+    $s = Start-Session "all" $allScope
     Wait-Job $s.Job | Out-Null
     Complete-Session $s
 } else {
@@ -357,13 +367,9 @@ if (-not $parallelRun) {
     # start while the scrape runs; today's new jobs are queued once it finishes, a session per company.
     Log "Running up to $Parallel Claude sessions at once"
     $todo = New-Object System.Collections.ArrayList
-    $waiting = @(Get-JsonList @("pending"))
-    if ($waiting.Count -gt 0) {
-        [void]$todo.Add(@{ Label = "waiting"; Scope = "Other Claude sessions are drafting new jobs at the " +
-            "same time. Do Step A step 2 only (the waiting rounds from ``pending``); skip Step A step 3 " +
-            "(the queue) and never touch a folder whose status is ``shortlisted``. End with the digest for " +
-            "these folders only." })
-    }
+    # No catch-up rounds on jobs drafted earlier (Jake, Nov 12 2026): a run goes from the highest
+    # score down and nothing already worked on gets a turn ahead of that. Waiting rounds are only
+    # for a -ResumeOnly run, started by hand.
 
     $scrapeProc = if ($doScrape) { Start-Scrape } else { $null }
     $scrapeDone = -not $doScrape -or -not $scrapeProc
@@ -377,7 +383,8 @@ if (-not $parallelRun) {
             $useCheck = Invoke-OpenCheck
             $qArgs = @("queue") + $(if ($useCheck) { @("--from-plan") } else { @() }) +
                 $(if ($Limit -gt 0) { @("--limit", "$Limit") } else { @() })
-            $new = if ($script:openCheckFailed) { @() } else { @(Get-JsonList $qArgs) }
+            if ($script:openCheckFailed) { Stop-RunCancelled }
+            $new = @(Get-JsonList $qArgs)
             Log "Queue: $($new.Count) new job(s)"
             foreach ($g in @(Group-ByCompany $new)) {
                 [void]$todo.Add(@{ Label = "new"; Scope = (Get-FolderScope $g.Folders) })
