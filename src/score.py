@@ -474,10 +474,13 @@ def rescore_all(
         "SELECT id, title, description, location_category, years_experience, location, company, "
         "posted_date, raw, first_seen, last_seen, status FROM jobs"
     ).fetchall()
-    # Jobs you applied to or tailored for are never aged out or marked down (retention keeps them too).
+    # Jobs you applied to, or whose resume and letter are drafted, are never aged out or marked down
+    # (retention keeps them too). A folder the queue made but nobody has drafted ("shortlisted") is
+    # not work to protect: a stale leftover would otherwise keep its old score (Jake, Nov 12 2026).
     from src.db import has_table
 
-    kept = {r[0] for r in conn.execute("SELECT job_id FROM applications")} if has_table(conn, "applications") else set()
+    kept = ({r[0] for r in conn.execute("SELECT job_id FROM applications WHERE status != 'shortlisted'")}
+            if has_table(conn, "applications") else set())
     age_cfg = cfg.get("age") or {}
     updates = []
     vault_cfg = cfg.get("vault_gaps") or {}

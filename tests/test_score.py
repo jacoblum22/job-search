@@ -401,3 +401,24 @@ def test_rescore_ages_by_posted_date_and_exempts_applied(tmp_path):
     conn.commit()
     rescore_all(conn, cfg, cache=cache)
     assert conn.execute("SELECT score FROM jobs WHERE id = ?", (ids["fresh"],)).fetchone()[0] == got["old"][0]
+
+
+def test_a_queued_but_undrafted_job_is_aged_but_a_drafted_one_is_not(tmp_path):
+    from datetime import date, timedelta
+
+    from src.tailor import store
+
+    conn = connect(str(tmp_path / "j.db"))
+    store.ensure_table(conn)
+    old = (date.today() - timedelta(days=40)).isoformat()
+    ids = {}
+    for name in ("queued", "drafted"):
+        job = Job("t", name, "Junior Data Analyst", "Acme", "Vancouver, BC", "SQL Python dashboards " * 30,
+                  f"https://x/{name}", posted_date=old)
+        ids[name], _ = upsert_job(conn, job)
+    for name, status in (("queued", "shortlisted"), ("drafted", "ready_for_review")):
+        store.upsert_app(conn, {"job_id": ids[name], "status": status}, tmp_path / name)
+    cfg = {**CFG, "age": {"penalties": [{"over_days": 7, "points": -10}], "remove_over_days": 30}}
+    rescore_all(conn, cfg)
+    assert conn.execute("SELECT tier FROM jobs WHERE id = ?", (ids["queued"],)).fetchone()[0] == "skip"
+    assert conn.execute("SELECT tier FROM jobs WHERE id = ?", (ids["drafted"],)).fetchone()[0] != "skip"
