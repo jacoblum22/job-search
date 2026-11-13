@@ -80,6 +80,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .due-soon { background: #b23b3b; color: #fff; }
   .due-week { background: none; border: 1px solid #c8932f; color: #e0b050; }
   .app-shortlisted, .app-ready_for_review { background: var(--accent); }
+  .app-tailoring { background: var(--accent); animation: tailoringPulse 1.6s ease-in-out infinite; }
+  @keyframes tailoringPulse { 50% { opacity: .55; } }
   .app-needs_fixes { background: #b23b3b; }
   .app-approved { background: var(--new); }
   .app-applied { background: var(--applied); }
@@ -320,6 +322,9 @@ if (SERVER) {
   const state = document.getElementById('runState'), limitEl = document.getElementById('runLimit');
   let timer = null;
   const show = s => {
+    const since = s.running && s.started ? Date.parse(s.started) : null;
+    const sinceNow = Number.isNaN(since) ? null : since;
+    if (sinceNow !== tailoringSince) { tailoringSince = sinceNow; try { render(); } catch (e) {} }
     btn.disabled = s.running;
     limitEl.max = s.max;
     if (s.running) {
@@ -439,7 +444,16 @@ function fileLink(href, text) {
   return /^file:/i.test(href || '') ? `<a href="${escapeHtml(href)}" target="_blank">${text}</a>` : '';
 }
 
+// "Tailoring…" (Jake, Nov 12 2026): while a tailoring run is going, a job whose folder the run made
+// (or touched) and hasn't finished drafting. tailoringSince is the run's start, set from the run status.
+let tailoringSince = null;
+function isTailoring(app) {
+  return tailoringSince !== null && !!app && (app.status === 'shortlisted' || app.status === 'drafting')
+    && !!app.updated && Date.parse(app.updated) >= tailoringSince - 60000;
+}
+
 function appCell(app) {
+  if (isTailoring(app)) return '<span class="badge app-tailoring">Tailoring…</span>';
   if (!app || !app.label) return '';   // queued, not drafted yet: nothing to show
   const flags = app.flags.map(f => `<span class="badge flag">${escapeHtml(f)}</span>`).join('');
   // file: links don't open from an http page; the served dashboard has the details page instead.
@@ -790,6 +804,7 @@ def app_summary(app: dict) -> dict:
     return {
         "status": status,
         "label": label,
+        "updated": app.get("updated_at") or "",
         "flags": flags,
         "final_href": _file_uri(final) if app.get("folder") and final.is_dir() else "",
         "check_href": _file_uri(check) if app.get("folder") and check.is_file() else "",

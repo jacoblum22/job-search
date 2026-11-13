@@ -99,6 +99,8 @@ class TailoringRunner:
         by = "dashboard" if ours else None
         if by is None and self._task_running():
             by = "scheduled task"
+            if run := self._run_file():   # the script's own start time, for the dashboard's Tailoring… tag
+                started = run.get("started")
         if by is None and (run := self._run_file()):
             by = "script"
             started, limit = run.get("started"), run.get("limit") or None

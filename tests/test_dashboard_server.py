@@ -607,6 +607,22 @@ def test_shortlisted_has_no_tag():
     assert app_summary({"status": "ready_for_review"})["label"] == "Ready for review"
 
 
+def test_tailoring_tag_markup_and_scheduled_run_start(env, tmp_path):
+    """A job in a run that hasn't finished drafting shows "Tailoring…" (Jake, Nov 12 2026). The page
+    compares the application's updated time with the run's start; the scheduled task's start comes from the run file."""
+    from src.dashboard import app_summary
+
+    assert app_summary({"status": "shortlisted", "updated_at": "2026-11-13T03:30:00Z"})["updated"] == "2026-11-13T03:30:00Z"
+    page = get(env, "/")[1].decode()
+    assert "function isTailoring(app)" in page and "Tailoring…" in page
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "tailoring.run.json").write_text(
+        '{"pid": 7, "limit": 3, "started": "2026-11-12T20:00:00-07:00"}', encoding="utf-8")
+    runner = TailoringRunner(tmp_path, task_running=lambda: True, pid_alive=lambda pid: True)
+    status = runner.status()
+    assert status["by"] == "scheduled task" and status["started"] == "2026-11-12T20:00:00-07:00"
+
+
 def test_changes_endpoint_tells_other_open_dashboards_what_changed(env):
     other = env["other"]
     _, start = get(env, "/api/changes?since=0")
