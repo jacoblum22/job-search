@@ -621,3 +621,13 @@ def test_changes_endpoint_tells_other_open_dashboards_what_changed(env):
     # The refetched row says applied, and names every raw row of the posting.
     row = get(env, f"/api/rows?ids={other}")[1]["rows"][0]
     assert row["status"] == "applied" and other in row["group_ids"]
+
+
+def test_dismissed_and_applied_show_on_the_board_before_the_server_answers(env):
+    """The details page leaves the pending status for the dashboard (sessionStorage) the moment the
+    button is pressed, and the dashboard shows it at once (checked in a real browser, Nov 12 2026)."""
+    app = env["app"]
+    details = app.handle("GET", f"/job/{env['jid']}", H)[2].decode()
+    assert "setPending(shown)" in details and "dashboardPending" in details
+    board = app.handle("GET", "/", H)[2].decode()
+    assert "loadPending()" in board and "applyOptimistic" in board

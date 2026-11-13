@@ -546,6 +546,22 @@ function markDashboardStale() {
     sessionStorage.setItem('dashboardStale', JSON.stringify(ids));
   } catch (_) {}
 }
+// "Dismissed" and "applied" show on the dashboard at once, before the server has answered (Jake,
+// Nov 12 2026): the pending status is left for the dashboard when this page goes away, and taken
+// back here if the server says no. The dashboard keeps it until its rows agree, or for a minute.
+function setPending(status) {
+  try {
+    const p = JSON.parse(sessionStorage.getItem('dashboardPending') || '{}');
+    if (status) p[jobId] = {status, t: Date.now()}; else delete p[jobId];
+    sessionStorage.setItem('dashboardPending', JSON.stringify(p));
+    if (status) {
+      let ids = JSON.parse(sessionStorage.getItem('dashboardStale') || '[]');
+      if (!Array.isArray(ids)) ids = [];
+      if (!ids.includes(jobId)) ids.push(jobId);
+      sessionStorage.setItem('dashboardStale', JSON.stringify(ids));
+    }
+  } catch (_) {}
+}
 const root = document.getElementById('root');
 const msgEl = document.getElementById('msg');
 let data = null;
@@ -820,11 +836,14 @@ root.addEventListener('click', async e => {
   el.disabled = true;
   el.classList.add('saving');
   el.textContent = act === 'approve' ? 'Approving…' : 'Saving…';
+  const shown = act === 'outcome' ? (el.dataset.val === 'applied' ? 'applied' : null)
+    : act === 'status' && ['dismissed', 'applied'].includes(el.dataset.val) ? el.dataset.val : null;
+  if (shown) setPending(shown);
   try {
     if (act === 'approve') { await post('approve'); say('Approved. Apply with the files above, then press "I applied".', true); }
     if (act === 'outcome') { await post('outcome', {outcome: el.dataset.val}); say('Saved.', true); }
     if (act === 'status') { await post('status', {status: el.dataset.val}); say('Saved.', true); }
-  } catch (err) { say(`Not saved: ${err.message}`); }
+  } catch (err) { if (shown) setPending(null); say(`Not saved: ${err.message}`); }
   const y = window.scrollY;
   await load();
   window.scrollTo(0, y);
