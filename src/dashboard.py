@@ -266,13 +266,18 @@ async function refetchRows(ids) {
   for (let i = jobs.length - 1; i >= 0; i--) {
     if (gone.has(jobs[i].id) || (jobs[i].group_ids || []).some(g => gone.has(g))) jobs.splice(i, 1);
   }
-  for (const row of fresh) jobs.push({...row, sourcesStr: row.sources.join(', ')});
+  for (const row of fresh) jobs.push({...applyOptimistic({...row, sourcesStr: row.sources.join(', ')})});
   render();
 }
 // Back from a job page the browser shows this page as it was (from its back/forward cache, or
 // its HTTP cache with the old rows). If something was changed there, fetch just those rows.
 window.addEventListener('pageshow', async () => {
   if (!SERVER) return;
+  const shown = loadPending();   // back from a job page that was cached: show its change now
+  if (shown.length) {
+    for (let i = 0; i < jobs.length; i++) jobs[i] = applyOptimistic(jobs[i]);
+    render();
+  }
   let ids;
   try {
     ids = JSON.parse(sessionStorage.getItem('dashboardStale') || '[]');
@@ -343,7 +348,37 @@ if (SERVER) {
   refresh();
 }
 const rawJobs = JSON.parse(document.getElementById('jobs-data').textContent);
-const jobs = rawJobs.map(j => ({...j, sourcesStr: j.sources.join(', ')}));
+// A job dismissed or marked applied on its page shows that here at once, before the server has
+// answered (the page leaves it in sessionStorage). `optimistic` holds the status until the rows
+// from the server agree with it, or for a minute (then the server's answer wins, so a save that
+// failed shows as it really is).
+const optimistic = new Map();   // job id -> {status, until}
+function applyOptimistic(row) {
+  for (const id of [row.id, ...(row.group_ids || [])]) {
+    const o = optimistic.get(String(id));
+    if (!o) continue;
+    if (row.status === o.status || Date.now() > o.until) optimistic.delete(String(id));
+    else return {...row, status: o.status};
+  }
+  return row;
+}
+function loadPending() {   // returns the ids it found
+  let p;
+  try { p = JSON.parse(sessionStorage.getItem('dashboardPending') || '{}'); sessionStorage.removeItem('dashboardPending'); }
+  catch (_) { return []; }
+  const ids = [];
+  for (const [id, o] of Object.entries(p || {})) {
+    if (!/^\d+$/.test(id) || !o || !o.status) continue;
+    const until = (o.t || Date.now()) + 60000;
+    optimistic.set(id, {status: o.status, until});
+    ids.push(id);
+    setTimeout(() => { if (typeof refetchRows === 'function') refetchRows([id]).catch(() => {}); },
+               Math.max(1000, until - Date.now() + 1000));   // settle: the server's answer wins after a minute
+  }
+  return ids;
+}
+loadPending();
+const jobs = rawJobs.map(j => applyOptimistic({...j, sourcesStr: j.sources.join(', ')}));
 
 const sourceFilterEl = document.getElementById('sourceFilter');
 const metaCountEl = document.getElementById('metaCount');
@@ -363,7 +398,7 @@ updateSources();
 // The server page loads the rest of the jobs after the first screenful (see the loader below).
 function addJobs(rows) {
   const have = new Set(jobs.map(j => j.id));
-  for (const j of rows) if (!have.has(j.id)) jobs.push({...j, sourcesStr: j.sources.join(', ')});
+  for (const j of rows) if (!have.has(j.id)) jobs.push(applyOptimistic({...j, sourcesStr: j.sources.join(', ')}));
   updateSources();
   render();
 }
