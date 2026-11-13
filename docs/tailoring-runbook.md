@@ -128,7 +128,7 @@ for another way to run it, note it for the digest.
 
 1. Glob `materials/applications/*/app.json` and read each. A folder whose `status` is still
    `shortlisted` was left unfinished by an earlier run: finish it first (Step B, starting at the first
-   step whose output file is missing).
+   step whose output file is missing), the folder with the highest `score` first.
 2. Run `uv run python -m src.tailor pending`. It prints a JSON list of folders already up for review
    that have a round waiting: `{"app", "round", "build_on", "kind"}`. `kind` "repair" is a repair
    round the tool asked for; "letter" is a letter-only round (the letter fails a letter check

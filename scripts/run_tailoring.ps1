@@ -342,6 +342,9 @@ if (-not $parallelRun) {
         Where-Object {
             $app = Join-Path $_.FullName "app.json"
             (Test-Path $app) -and ((Get-Content $app -Raw -Encoding UTF8 | ConvertFrom-Json).status -eq "shortlisted")
+        } | Sort-Object -Descending {
+            # Highest score first (Jake, Nov 12 2026): leftovers go in rank order, not folder-name order.
+            try { [double]((Get-Content (Join-Path $_.FullName "app.json") -Raw -Encoding UTF8 | ConvertFrom-Json).score) } catch { 0 }
         } | ForEach-Object { $_.FullName })
     $waiting = @(Get-JsonList @("pending"))
     if ($waiting.Count -gt 0) {
