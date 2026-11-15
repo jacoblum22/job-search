@@ -49,6 +49,18 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Daily review, Nov 15 2026.
+    ("safety systems supporting incident management, inspections, audits, corrective actions",
+     "incident response / on-call"),
+    ("We make data products that solve problems for the auto industry", "data products"),
+    ("Work with the Data Product team to improve pipelines", "data products"),
+    ("supports business consulting, data products development, analytics and AI services", "data products"),
+    ("a coda to the quarter", "Coda"),
+    ("psychological health & safety programs and holistic wellness resources", "occupational health and safety (OHS)"),
+    ("Comply with health and safety rules", "occupational health and safety (OHS)"),
+    ("At WorkSafeBC, we promote safe and healthy workplaces", "occupational health and safety (OHS)"),
+    ("Work with the Occupational Health and Safety Committee", "occupational health and safety (OHS)"),
+    ("If there's anything we can do to improve, we're always open to feedback.", "receptive to feedback"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +215,26 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Daily review, Nov 15 2026: real posting wording.
+    ("Experience with APIs, webhooks, SQL, JSON, JavaScript, Python", "webhooks"),
+    ("Experience with Coda, Power Platform, Power BI, or similar low-code platforms", "Coda"),
+    ("Design and develop data products", "data products"),
+    ("help business teams own and build trusted data products", "data products"),
+    ("data analysis, data modelling, data product design and delivery", "data products"),
+    ("Formal training in quantitative and/or qualitative research methodologies", "qualitative research / analysis"),
+    ("collect and analyze quantitative and qualitative data", "qualitative research / analysis"),
+    ("Knowledge of ISO 45001 and other health and safety frameworks", "occupational health and safety (OHS)"),
+    ("meet WorkSafeBC regulation and Occupational Health & Safety best practices",
+     "occupational health and safety (OHS)"),
+    ("Collaborative team player with low ego who is open to feedback", "receptive to feedback"),
+    ("You learn quickly, ask good questions, and take feedback well.", "receptive to feedback"),
+    ("analyze and provide guidance to business functions to meet their OKRs", "KPIs/metrics"),
+    ("the semantic layer that supports natural language query (NLQ)", "text-to-SQL / conversational analytics"),
+    ("Integrate AI models and APIs for tasks like document processing", "unstructured data / OCR"),
+    ("Manage the end-to-end analytics production pipeline including ingestion, calculation, and distribution",
+     "data pipelines"),
+    ("Superior analytical, problem-solving and system analysis skills", "requirements gathering"),
+    ("participate in the incident management process for production outages", "incident response / on-call"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -238,6 +270,15 @@ def test_oct_20_review_products_and_concepts():
         assert product in taxonomy.TOOL_TYPES, product
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
+
+
+def test_nov_15_review_products_and_concepts():
+    for name in ["webhooks", "data products", "qualitative research / analysis",
+                 "occupational health and safety (OHS)", "receptive to feedback"]:
+        assert not _is_tool(name), name
+    assert _is_tool("Coda")
+    assert "business software" in taxonomy.TOOL_TYPES["Coda"]
+    assert taxonomy.RELATED["Coda"] == "low-code / no-code"
 
 
 def test_named_api_products_and_node_get_their_own_skills():

@@ -90,7 +90,7 @@ T = [
 ("BI & analytics","dashboards",r"dashboard"),
 ("BI & analytics","data visualization",r"visuali[sz]"),
 ("BI & analytics","reporting",r"\breporting\b|\breports\b|\bbuild(?:ing)? reports?"),
-("BI & analytics","KPIs/metrics",r"\bkpis?\b|key performance|metrics"),
+("BI & analytics","KPIs/metrics",r"\bkpis?\b|key performance|metrics|(?-i:\bOKR(?:'?s)?\b)|objectives and key results"),
 ("BI & analytics","A/B testing / experimentation",r"a/b test|experiment(?:ation|al design| design)|\bab test"),
 ("BI & analytics","Power Query",r"power query"),
 ("BI & analytics","Power Automate",r"power automate"),
@@ -128,7 +128,7 @@ T = [
 ("Data platforms","Confluent",r"\bconfluent\b"),
 ("Data platforms","Hadoop/Hive",r"hadoop|\bhive\b|\bhbase\b|mapreduce"),
 ("Data platforms","ETL/ELT",r"\betl\b|\belt\b|extract, transform"),
-("Data platforms","data pipelines",r"data pipelines?|etl pipelines?|ml pipelines?|pipelines? (?:for|that) data"),
+("Data platforms","data pipelines",r"data pipelines?|etl pipelines?|ml pipelines?|pipelines? (?:for|that) data|\bingest(?:ion|ing)?\b"),
 ("Data platforms","data warehouse",r"data warehous|warehouse|data lake|lakehouse"),
 ("Data platforms","data modeling",r"data model|dimensional model|star schema|fact (?:and|&) dimension|(?:fact|dimension) tables?|slowly changing dimension"),
 ("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"
@@ -156,6 +156,11 @@ T = [
 # Lowercase "rest" is the word ("the rest of", "rest and recharge"); the API style is written REST.
 # Named API products (LLM APIs, API Gateway, Graph API) go to their own entries.
 ("Data platforms","APIs / REST",r"(?<!llm )(?<!graph )\bapis?\b(?! gateway)|\brestful\b|(?-i:\bREST\b)"),
+("Data platforms","webhooks",r"\bwebhooks?\b"),
+# The practice of building data as a product. "Data products development" in an employer blurb, or a
+# "Data Product team", isn't asked of the candidate.
+("Data platforms","data products",r"(?:build|design|develop|deliver|own|ship|creat|maintain)\w* (?:\w+ ){0,3}data products"
+ r"|data products? (?:design|thinking|management|delivery|mindset|lifecycle)|data.as.a.product"),
 ("Data platforms","Microsoft Fabric / Azure Synapse / ADF",r"microsoft fabric|\bfabric\b(?= data| lakehouse)|synapse|data factory"),
 ("Data platforms","SSIS/SSRS",r"\bssis\b|\bssrs\b|\bssas\b"),
 # Cloud & devops
@@ -236,6 +241,7 @@ T = [
 ("ML & statistics","mathematics (linear algebra, calculus)",r"linear algebra|calculus|mathematic"),
 ("ML & statistics","data mining",r"data mining"),
 ("ML & statistics","quantitative analysis",r"quantitative"),
+("ML & statistics","qualitative research / analysis",r"qualitative (?:and quantitative )?(?:data|analys|research|method|interviews|coding)"),
 # Business tools
 ("Business tools","Salesforce/CRM",r"salesforce|\bcrm\b|hubspot|dynamics 365"),
 # ERP only on ERP product wording: a sponsor name ("WiDS × SAP datathon") or a Workday careers
@@ -261,6 +267,8 @@ T = [
 ("Business tools","Stripe",r"(?-i)\bStripe\b"),
 ("Business tools","test management (TestRail, qTest, Xray)",r"testrail|\bqtest\b|(?-i:\bXray\b)"),
 ("Business tools","project controls (Primavera P6, EcoSys)",r"primavera|\becosys\b"),
+# The doc/app platform is capitalised; lowercase "coda" is the word.
+("Business tools","Coda",r"(?-i)\bCoda\b"),
 # AI assistants and model APIs: products, each its own skill.
 ("AI tools","Claude / Claude Code",r"\bclaude\b|\banthropic\b"),
 ("AI tools","ChatGPT",r"chatgpt"),
@@ -323,7 +331,9 @@ T = [
 ("Cloud & DevOps","debugging / troubleshooting",r"debug|troubleshoot"),
 ("Cloud & DevOps","code review",r"code reviews?|review(?:ing)? (?:code|pull requests|prs)\b|pull requests?"),
 ("Cloud & DevOps","pipeline monitoring / alerting",r"\balerting\b|observability|monitor(?:ing)? (?:of )?(?:data )?(?:pipelines?|jobs|loads|dags|data quality)"),
-("Cloud & DevOps","incident response / on-call",r"\bon.call\b|incident (?:response|management)|production support|data incidents?"),
+# Workplace safety incidents (next to inspections, injuries, corrective actions) aren't software incidents.
+("Cloud & DevOps","incident response / on-call",r"\bon.call\b|incident (?:response|management)(?![^.\n]{0,40}\b(?:inspections?|injur|hazards?|corrective actions?))"
+ r"|production support|data incidents?"),
 ("Cloud & DevOps","Playwright",r"playwright"),
 ("Cloud & DevOps","Selenium",r"selenium"),
 ("Cloud & DevOps","Cypress",r"(?-i)\bCypress\b"),
@@ -354,7 +364,7 @@ T = [
 ("ML & statistics","responsible AI / AI ethics",r"responsible ai|ai ethics|ethical ai|ethics of ai|model governance|ai governance|bias mitigation"),
 ("ML & statistics","LLM / AI evaluation",r"llm evaluation|evaluat(?:e|ing|ion of) (?:llms?|model outputs?|ai outputs?|agents?|ai systems)|llm.as.a.judge|llm judges?|\bevals\b"),
 ("ML & statistics","prompt engineering",r"prompt (?:engineering|design|development|evaluation|optimi[sz]ation|templates?)|structured prompting|\bprompting\b"),
-("ML & statistics","unstructured data / OCR",r"unstructured data|(?-i:\bOCR\b)|document ai|document (?:understanding|extraction|parsing)"),
+("ML & statistics","unstructured data / OCR",r"unstructured data|(?-i:\bOCR\b)|document ai|document (?:understanding|extraction|parsing|processing)"),
 ("ML & statistics","scenario analysis / simulation",r"scenario (?:analysis|modell?ing|planning)|what.if (?:analysis|scenarios?)|stress test|monte carlo|simulation (?:models?|modell?ing|studies)|digital twins?"),
 # Model fine-tuning, not tuning a process. Uppercase LoRA only: LoRa is the IoT radio.
 ("ML & statistics","fine-tuning (LoRA / PEFT)",r"\bfine.tun(?:ing|e|ed)\b(?! (?:our |the |your |their |my )?(?:process|processes|workflows?|strateg|operations|skills?|abilities))"
@@ -362,8 +372,8 @@ T = [
 ("ML & statistics","named entity recognition / entity resolution",r"named entity|entity (?:resolution|linking|extraction|recognition)|(?-i:\bNER\b)"),
 ("ML & statistics","model serving / inference optimization",r"model serving|serving models|inference (?:optimi[sz]ation|serving|latency|endpoints?)|quantization|(?:model|knowledge) distillation"),
 ("ML & statistics","search / information retrieval",r"information retrieval|retrieval systems|re-?rank(?:ing|ers?)\b|hybrid search|vector search|semantic search|search relevance|retrieval.based"),
-("ML & statistics","text-to-SQL / conversational analytics",r"text.to.sql|natural language (?:to sql|queries|querying)|conversational analytics"),
-("Business tools","requirements gathering",r"requirements? gathering|gather(?:ing)?(?: and document(?:ing)?)? (?:the )?(?:business |data |reporting |user |stakeholder )?requirements|(?:business|data|reporting|analytical|analytics|user|functional) requirements|business analysis"),
+("ML & statistics","text-to-SQL / conversational analytics",r"text.to.sql|natural language (?:to sql|quer(?:y|ies|ying))|(?-i:\bNLQ\b)|conversational analytics"),
+("Business tools","requirements gathering",r"requirements? gathering|gather(?:ing)?(?: and document(?:ing)?)? (?:the )?(?:business |data |reporting |user |stakeholder )?requirements|(?:business|data|reporting|analytical|analytics|user|functional) requirements|business analysis|systems? analysis"),
 # Business Process Outsourcing is an industry (call centres), not process work.
 ("Business tools","process improvement",r"process improvements?|business process(?:es)?(?! outsourcing)|process mapping|improv(?:e|ing) (?:business |existing |internal )?processes|process (?:optimi[sz]ation|re-?engineering)"),
 ("Business tools","Lean / Six Sigma",r"six sigma|lean six|(?-i:\bLEAN\b)|\blean\b(?= (?:methodolog|principles|management|practices|certification|thinking))|\bkaizen\b"),
@@ -379,6 +389,11 @@ T = [
 ("Domain knowledge","epidemiology / biostatistics",r"epidemiolog|biostatistic"),
 # Uppercase IoT: "NYSE: IOT" is a ticker.
 ("Domain knowledge","IoT / sensor data",r"(?-i:\bIoT\b)|internet of things|sensor data"),
+# Safety programs, not benefits ("psychological health & safety programs") or a generic duty
+# ("comply with health and safety rules"). WorkSafeBC alone is an employer name.
+("Domain knowledge","occupational health and safety (OHS)",r"occupational health (?:and|&) safety(?! committee)"
+ r"|(?<!psychological )health (?:and|&) safety (?:systems|frameworks|best practices|regulations?|legislation|management|programs?|data)"
+ r"|iso ?45001|worksafebc regulation|\bwhmis\b"),
 # soft skills
 ("Soft skills","communication",r"communicat"),
 ("Soft skills","collaboration/teamwork",r"collaborat|team ?work|cross.functional|team player|(?:works?|interact) well with others"),
@@ -413,6 +428,9 @@ T = [
 ("Soft skills","organization",r"organi[sz]ational skills|(?:well|highly|very|extremely|stay) organi[sz]ed|strong organi[sz]ation"),
 ("Soft skills","empathy / compassion",r"empath|compassion"),
 ("Soft skills","interpersonal skills",r"interpersonal"),
+# The employer's "we're always open to feedback" is about their hiring process.
+("Soft skills","receptive to feedback",r"(?<!always )open to (?:constructive )?feedback|receptive to (?:constructive )?feedback"
+ r"|\b(?:take|takes|taking|accept|accepts|accepting|incorporate|incorporates|incorporating|welcomes?|act on) (?:constructive )?feedback|coachab"),
 # Credentials
 # \b before "b.sc": "subscriptions" contains "bsc".
 ("Credentials","Bachelor's degree",r"bachelor|undergraduate degree|\bb\.?sc|\bbs\b|\bba\b"),
@@ -445,7 +463,7 @@ RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Ama
            "SQL stored procedures": "SQL", "Amazon SQS / SNS": "AWS", "Amazon ECS": "AWS",
            "Delta Lake": "Databricks", "Unity Catalog": "Databricks", "Snowflake Cortex": "Snowflake",
            "Dataform": "GCP", "Agentforce": "Salesforce/CRM", "ELK Stack": "Elasticsearch",
-           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)"}
+           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)", "Coda": "low-code / no-code"}
 
 # The kind of tool each one is. An open list ("e.g. Tableau, QuickSight", "or similar tools")
 # takes its type from the tools it names, so any tool of that type can stand in. Excel isn't a
@@ -491,7 +509,7 @@ _TYPES = {
                           "ServiceNow", "Stripe", "test management (TestRail, qTest, Xray)",
                           "project controls (Primavera P6, EcoSys)",
                           "Microsoft Power Platform", "Power Apps", "Power Automate", "Power Query", "Dataverse",
-                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica"],
+                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica", "Coda"],
 }
 TOOL_TYPES: dict[str, set[str]] = {}
 for _type, _names in _TYPES.items():
