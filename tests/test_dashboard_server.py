@@ -697,3 +697,33 @@ def test_skill_gaps_count_postings_with_full_descriptions_only(env, tmp_path):
     assert out["full"] == 3 and out["ab"]["postings"] == 1 and out["live"]["postings"] == 2
     assert out["ab"]["skills"][0]["skill"] == "Tableau" and out["ab"]["skills"][0]["percent"] == 100.0
     assert missing_skills(conn, {"vault_gaps": {"index": str(tmp_path / "nope.json")}})["error"]
+
+
+def test_skill_gaps_save_each_posting_and_redo_only_what_changed(env, tmp_path, monkeypatch):
+    import json as _json
+
+    from src import skill_demand
+
+    index = tmp_path / "vault-index.json"
+    index.write_text(_json.dumps({"passages": [{"id": "a", "text": "Wrote SQL daily"}]}), encoding="utf-8")
+    cfg = {"vault_gaps": {"index": str(index), "record": str(tmp_path / "none.json")}}
+    cache = tmp_path / "cache.json"
+    conn = connect(env["cfg"]["paths"]["db"])
+    full = "Requirements\nExperience with SQL and Tableau. " + "We build data products. " * 60
+    ins = ("INSERT INTO jobs (dedup_group_id, source, external_id, title, company, location, description, first_seen, "
+           "last_seen, tier) VALUES (?, 's', ?, 'Analyst', 'Co', 'Vancouver', ?, '2026-11-01', '2026-11-01', 'A')")
+    conn.execute(ins, ("g0", "e0", full))
+    conn.commit()
+    calls = []
+    real = skill_demand.find_gaps
+    monkeypatch.setattr(skill_demand, "find_gaps", lambda *a, **k: calls.append(1) or real(*a, **k))
+    run = lambda: skill_demand.missing_skills(conn, cfg, cache_path=cache)  # noqa: E731
+    first = run()
+    assert first["ab"]["skills"][0]["postings"] == 1 and len(calls) == 1
+    run()
+    assert len(calls) == 1                       # nothing new: read from the saved file
+    conn.execute(ins, ("g1", "e1", full + " Tableau again."))
+    conn.commit()
+    assert run()["ab"]["skills"][0]["postings"] == 2 and len(calls) == 2   # only the new posting
+    index.write_text(_json.dumps({"passages": [{"id": "a", "text": "Wrote SQL and Tableau daily"}]}), encoding="utf-8")
+    assert run()["ab"]["skills"] == [] and len(calls) == 4                 # vault changed: all redone
