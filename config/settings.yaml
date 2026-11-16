@@ -622,8 +622,9 @@ score:
       "Kubernetes": -3
     # Tools the vault shows only lightly: they halve a gap instead of closing it.
     # C/C++ (one systems course), Java (one course plus a small project), PowerShell
-    # (0.9% of one repo), Salesforce (Trailhead badges).
-    light: ["C/C++", "Java", "PowerShell", "Salesforce/CRM"]
+    # (0.9% of one repo). Salesforce left this list Nov 16 2026: the vault now has real work with
+    # it (AlgaeCal queried Salesforce account/lead/campaign data and QA'd its sync), not just badges.
+    light: ["C/C++", "Java", "PowerShell"]
     light_factor: 0.5
     # The same vault check gives points: any tool the posting names that the vault shows earns
     # have_points (preferred_factor and light_factor apply), up to have_max, on top of the hand

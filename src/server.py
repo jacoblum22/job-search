@@ -88,6 +88,9 @@ class DashboardApp:
         self.version = 0
         self._jobs_cache: tuple[int, float, list[dict]] | None = None  # (version, built at, sorted rows)
         self._build_lock = threading.Lock()
+        self._gaps_lock = threading.Lock()
+        self._gaps_result: dict[str, Any] | None = None
+        self._gaps_at = float("-inf")
         self._changes: list[tuple[int, int]] = []  # (version, job id), newest last
         self.db_path = Path(db_path)
         self._pg = None  # the kept Postgres connection, once the main database is Postgres
@@ -332,26 +335,38 @@ class DashboardApp:
             }
         return self._json(out)
 
-    def _skill_gaps(self) -> dict[str, Any]:
-        """Missing-skills stats; worked out once per change and per vault edit (it reads every posting)."""
+    def refresh_skill_gaps(self) -> None:
+        """Work out the missing-skills stats now (src/skill_demand.py reads only new or changed postings,
+        or everything after a vault edit). Runs on a thread of its own, one at a time."""
         from src.skill_demand import missing_skills
-        from src.vault_gaps import _abs
 
-        score_cfg = tailor_paths._settings().get("score") or {}
-        vault_cfg = score_cfg.get("vault_gaps") or {}
-        files = [_abs(vault_cfg.get(k, d)) for k, d in (("index", "materials/profile/vault-index.json"),
-                                                        ("record", "materials/tailor/skill-record.json"))]
-        stamp = (self.version, tuple(f.stat().st_mtime if f.exists() else 0 for f in files))
-        c = getattr(self, "_gaps_cache", None)
-        if c and c[0] == stamp:
-            return c[1]
-        conn = connect(self.db_path)
+        if not self._gaps_lock.acquire(blocking=False):
+            return
         try:
-            result = missing_skills(conn, score_cfg)
+            conn = connect(self.db_path)
+            try:
+                self._gaps_result = missing_skills(conn, tailor_paths._settings().get("score") or {})
+            finally:
+                conn.close()
+            self._gaps_at = time.monotonic()
+        except Exception as e:  # noqa: BLE001 - the stats are optional; never take the server down
+            print(f"skill stats failed: {e}")
         finally:
-            conn.close()
-        self._gaps_cache = (stamp, result)
-        return result
+            self._gaps_lock.release()
+
+    def warm_skill_gaps(self) -> None:
+        threading.Thread(target=self.refresh_skill_gaps, daemon=True).start()
+
+    def _skill_gaps(self) -> dict[str, Any]:
+        """The last missing-skills stats, at once, never computed here. A refresh starts in the background
+        (at server start, and on a request when the last one is over 30 s old, which picks up new postings);
+        `refreshing` tells the page to ask again shortly."""
+        if time.monotonic() - self._gaps_at > 30 and not self._gaps_lock.locked():
+            self.warm_skill_gaps()
+        running = self._gaps_lock.locked()
+        if self._gaps_result is None:
+            return {"pending": True}
+        return {**self._gaps_result, "refreshing": running}
 
     def _goal(self) -> dict[str, Any]:
         conn = self._conn()

@@ -42,9 +42,9 @@ def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else b""
             t0 = time.monotonic()
-            # One request at a time, except the job list: it builds on its own connection, so the seconds
+            # One request at a time, except the job list and the skill stats: they build on its own connection, so the seconds
             # it takes must not make every other request (the autofill extension's) wait behind it.
-            with contextlib.nullcontext() if self.path.startswith(("/api/jobs", "/speedtest", "/api/speedtest")) else app.lock:
+            with contextlib.nullcontext() if self.path.startswith(("/api/jobs", "/api/skill-gaps", "/speedtest", "/api/speedtest")) else app.lock:
                 t1 = time.monotonic()
                 status, ctype, data = app.handle(method, self.path, dict(self.headers.items()), body)
             t2 = time.monotonic()
@@ -105,6 +105,7 @@ def main(port: int, no_browser: bool, allow_hosts: tuple[str, ...]) -> None:
         app.handle("GET", "/api/jobs?limit=1", {"host": f"127.0.0.1:{port}"})
 
     threading.Thread(target=warm, daemon=True).start()
+    app.warm_skill_gaps()  # the Stats tab's missing-skills numbers, ready before it is opened
     url = f"http://127.0.0.1:{port}/"
     click.echo(f"Dashboard at {url} (Ctrl+C to stop)")
     if not no_browser:
