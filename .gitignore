@@ -68,6 +68,7 @@ config/contact.yaml
 # Claude Code: personal permission approvals; Chrome task scratch files
 .claude/settings.local.json
 .browser-queue/
+.phone-inbox/
 
 # Power BI report (docs/power-bi-guide.md): the saved data copy and per-PC settings stay local.
 # cache.abf holds every imported row, application outcomes included; the repo is public.

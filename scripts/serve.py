@@ -99,6 +99,10 @@ def main(port: int, no_browser: bool, allow_hosts: tuple[str, ...]) -> None:
     cfg = load_config()
     app = DashboardApp(cfg, resolve(cfg, "db"), PROJECT_ROOT / "dashboard.html", port=port,
                        extra_hosts=allow_hosts, refresh_delay=2.0)
+    from src import phone_notify
+
+    app.phone_watcher = phone_notify.PhoneWatcher(app)
+    app.phone_watcher.start()
     server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app))
     # Build the job list now, so the first page opened after a start doesn't wait 10+ seconds for it.
     def warm() -> None:

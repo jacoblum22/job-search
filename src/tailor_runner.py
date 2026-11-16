@@ -33,6 +33,16 @@ def _launch(root: Path, limit: int) -> subprocess.Popen:
                             creationflags=_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP)
 
 
+def _launch_job(root: Path, job_id: int) -> subprocess.Popen:
+    if os.name != "nt":
+        raise TailorError("tailoring runs only on the Windows PC")
+    cmd = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+           "-File", str(root / "scripts" / "run_tailoring.ps1"), "-JobId", str(int(job_id)), "-NoReview"]
+    return subprocess.Popen(cmd, cwd=root, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            creationflags=_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP)
+
+
 def _task_running() -> bool:
     """Is the scheduled tailoring task running right now?"""
     if os.name != "nt":
@@ -93,9 +103,11 @@ def working_job_ids(root: Path, started: str | None) -> list[int]:
 class TailoringRunner:
     def __init__(self, root: Path = ROOT, launch: Callable[[Path, int], Any] = _launch,
                  task_running: Callable[[], bool] = _task_running,
-                 pid_alive: Callable[[int], bool] = _pid_alive) -> None:
+                 pid_alive: Callable[[int], bool] = _pid_alive,
+                 launch_job: Callable[[Path, int], Any] = _launch_job) -> None:
         self.root = Path(root)
         self._launch = launch
+        self._launch_job = launch_job
         self._task_running = task_running
         self._pid_alive = pid_alive
         self._proc: Any = None
@@ -150,4 +162,13 @@ class TailoringRunner:
         self._proc = self._launch(self.root, limit)
         self._started = datetime.now().astimezone().isoformat(timespec="seconds")
         self._limit = limit
+        return self.status()
+
+    def start_job(self, job_id: int) -> dict[str, Any]:
+        """Tailor one job now (a phone notification asked for it). Same guard as start()."""
+        if self.status()["running"]:
+            raise TailorError("a tailoring run is already going")
+        self._proc = self._launch_job(self.root, int(job_id))
+        self._started = datetime.now().astimezone().isoformat(timespec="seconds")
+        self._limit = 1
         return self.status()

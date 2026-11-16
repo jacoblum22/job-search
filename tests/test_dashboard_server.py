@@ -676,3 +676,35 @@ def test_dismissed_and_applied_show_on_the_board_before_the_server_answers(env):
     assert "setPending(shown)" in details and "dashboardPending" in details
     board = app.handle("GET", "/", H)[2].decode()
     assert "loadPending()" in board and "applyOptimistic" in board
+
+
+def test_phone_notify_needs_the_secret_token(env, monkeypatch):
+    from src import phone_notify
+
+    monkeypatch.setattr(phone_notify, "INBOX_DIR", env["tmp"] / "inbox")
+    monkeypatch.setattr("src.db._env", lambda name: "s3cret" if name == "PHONE_NOTIFY_TOKEN" else None)
+    app = env["app"]
+    # The phone app sends no Origin and may send any content type.
+    base = {"Host": "127.0.0.1:8765", "Content-Type": "text/plain"}
+    body = json.dumps({"title": "LinkedIn", "text": "Acme is hiring a Data Analyst"}).encode()
+    assert app.handle("POST", "/api/phone-notify", base, body)[0] == 403
+    assert app.handle("POST", "/api/phone-notify", {**base, "X-Notify-Token": "wrong"}, body)[0] == 403
+    status, _, data = app.handle("POST", "/api/phone-notify", {**base, "X-Notify-Token": "s3cret"}, body)
+    assert status == 200 and json.loads(data)["ok"] is True
+    assert len(phone_notify.read_inbox(env["tmp"] / "inbox")) == 1
+    # A request naming another host is still refused, token or not.
+    assert app.handle("POST", "/api/phone-notify", {**base, "Host": "evil.com", "X-Notify-Token": "s3cret"}, body)[0] == 403
+    # No token set on the PC = receiver off.
+    monkeypatch.setattr("src.db._env", lambda name: None)
+    assert app.handle("POST", "/api/phone-notify", {**base, "X-Notify-Token": ""}, body)[0] == 403
+
+
+def test_phone_notify_keeps_text_when_the_json_is_broken(env, monkeypatch):
+    from src import phone_notify
+
+    monkeypatch.setattr(phone_notify, "INBOX_DIR", env["tmp"] / "inbox")
+    monkeypatch.setattr("src.db._env", lambda name: "s3cret" if name == "PHONE_NOTIFY_TOKEN" else None)
+    h = {"Host": "127.0.0.1:8765", "X-Notify-Token": "s3cret"}
+    status, _, _ = env["app"].handle("POST", "/api/phone-notify", h, b'{"text": "Acme said "hi" - Data Analyst"}')
+    assert status == 200
+    assert "Data Analyst" in phone_notify.read_inbox(env["tmp"] / "inbox")[0]["text"]

@@ -165,6 +165,14 @@ def _result_ids(queue_dir: Path) -> set[int]:
     return {int(f.stem) for f in queue_dir.glob("*") if f.suffix in (".md", ".fail") and f.stem.isdigit()}
 
 
+def _priority_ids(queue_dir: Path) -> list[int]:
+    try:
+        ids = json.loads((queue_dir / "priority.json").read_text(encoding="utf-8"))
+        return [int(i) for i in ids] if isinstance(ids, list) else []
+    except (OSError, ValueError, TypeError):
+        return []
+
+
 def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int | None = None,
                  limit: int | None = None) -> list[dict]:
     """Write queue.json for the Chrome task: everything pending() lists (the
@@ -178,6 +186,9 @@ def export_queue(conn, queue_dir: Path = QUEUE_DIR, *, days: int | None = None,
     queue_dir.mkdir(parents=True, exist_ok=True)
     waiting = _result_ids(queue_dir)
     listings = [r for r in pending(conn, days=days, limit=limit) if r["id"] not in waiting]
+    # Jobs a phone notification asked for (src/phone_notify.py) go first, whatever their source.
+    first = _priority_ids(queue_dir)
+    listings.sort(key=lambda r: first.index(r["id"]) if r["id"] in first else len(first))
     payload = {"generated_at": _now().isoformat(timespec="seconds"), "listings": listings}
     tmp = queue_dir / (QUEUE_FILE + ".tmp")
     tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
