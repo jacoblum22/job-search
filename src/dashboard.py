@@ -621,7 +621,11 @@ let gapsData = null, gapsScope = 'ab';
 function loadGaps() {
   const card = () => document.getElementById('gapsCard');
   if (gapsData) { drawGaps(); return; }
-  fetch('/api/skill-gaps').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => { gapsData = d; drawGaps(); })
+  fetch('/api/skill-gaps').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => {
+    if (d.refreshing) setTimeout(() => { gapsData = null; if (card()) loadGaps(); }, 3000);  // a rebuild is running: show what there is, ask again
+    if (!d.refreshing || d.ab) { gapsData = d; drawGaps(); }
+    else if (card()) card().querySelector('.sub').textContent = 'Working out the missing skills…';
+  })
     .catch(() => { if (card()) card().querySelector('.sub').textContent = 'Only available from the dashboard server (scripts/serve.py), not this saved file.'; });
 }
 function drawGaps() {

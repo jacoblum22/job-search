@@ -727,3 +727,17 @@ def test_skill_gaps_save_each_posting_and_redo_only_what_changed(env, tmp_path, 
     assert run()["ab"]["skills"][0]["postings"] == 2 and len(calls) == 2   # only the new posting
     index.write_text(_json.dumps({"passages": [{"id": "a", "text": "Wrote SQL and Tableau daily"}]}), encoding="utf-8")
     assert run()["ab"]["skills"] == [] and len(calls) == 4                 # vault changed: all redone
+
+
+def test_skill_gaps_answers_while_a_slow_pass_runs(env, monkeypatch):
+    import threading
+
+    from src import skill_demand
+
+    go = threading.Event()
+    monkeypatch.setattr(skill_demand, "missing_skills", lambda *a, **k: go.wait(5) and {"stored": 1})
+    app = env["app"]
+    assert app._skill_gaps() == {"refreshing": True}   # first run: nothing yet, answers within ~1 s
+    go.set()
+    app._gaps_thread.join(5)
+    assert app._skill_gaps()["stored"] == 1

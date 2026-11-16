@@ -89,6 +89,8 @@ class DashboardApp:
         self._jobs_cache: tuple[int, float, list[dict]] | None = None  # (version, built at, sorted rows)
         self._build_lock = threading.Lock()
         self._gaps_lock = threading.Lock()
+        self._gaps_thread: threading.Thread | None = None
+        self._gaps_result: dict[str, Any] | None = None
         self._changes: list[tuple[int, int]] = []  # (version, job id), newest last
         self.db_path = Path(db_path)
         self._pg = None  # the kept Postgres connection, once the main database is Postgres
@@ -334,17 +336,32 @@ class DashboardApp:
         return self._json(out)
 
     def _skill_gaps(self) -> dict[str, Any]:
-        """Missing-skills stats. Each posting's result is saved (src/skill_demand.py), so a call only
-        reads the postings that are new or changed; it runs outside the server's request lock
-        (scripts/serve.py), one at a time."""
+        """Missing-skills stats. Each posting's result is saved (src/skill_demand.py), so a pass only
+        reads the postings that are new or changed. The pass runs in a thread of its own and this waits
+        at most a second for it: the usual (nothing or a few new postings) answers current, a full
+        rebuild (vault changed, first run) answers the last result with refreshing=true, or
+        {"refreshing": true} when there is none yet, and the page asks again."""
         from src.skill_demand import missing_skills
 
-        with self._gaps_lock:
+        def work() -> None:
             conn = connect(self.db_path)
             try:
-                return missing_skills(conn, tailor_paths._settings().get("score") or {})
+                self._gaps_result = missing_skills(conn, tailor_paths._settings().get("score") or {})
+            except Exception as e:  # noqa: BLE001 - shown on the Stats tab instead of a hung card
+                self._gaps_result = {"error": f"Couldn't work out missing skills: {e}"}
             finally:
                 conn.close()
+
+        with self._gaps_lock:
+            t = self._gaps_thread
+            if t is None or not t.is_alive():
+                t = self._gaps_thread = threading.Thread(target=work, daemon=True)
+                t.start()
+        t.join(1.0)
+        last = self._gaps_result
+        if t.is_alive():
+            return {**(last or {}), "refreshing": True}
+        return last
 
     def _goal(self) -> dict[str, Any]:
         conn = self._conn()
