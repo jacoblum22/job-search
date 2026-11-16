@@ -2,6 +2,7 @@
 
 import sys
 import types
+from pathlib import Path
 
 import pytest
 
@@ -70,6 +71,33 @@ def test_word_error_is_reported_not_hidden(fake_com, tmp_path, monkeypatch):
     monkeypatch.setattr(FakeWord, "open", lambda self, *a: (_ for _ in ()).throw(RuntimeError("file locked")))
     with pytest.raises(RuntimeError, match="Word could not convert a.docx to PDF: file locked"):
         resume.docx_to_pdf(tmp_path / "a.docx", tmp_path / "a.pdf")
+
+
+def test_a_path_too_long_for_word_is_converted_from_a_short_copy(tmp_path, monkeypatch):
+    def too_long(path):
+        return len(str(path).encode("utf-16-le")) // 2 > 259
+
+    class Doc:
+        def __init__(self, path):
+            self.path = path
+
+        def ExportAsFixedFormat(self, out, fmt):
+            if too_long(out):
+                raise RuntimeError("path too long")
+            Path(out).write_bytes(Path(self.path).read_bytes())
+
+        def Close(self, save):
+            pass
+
+    word = types.SimpleNamespace(Quit=lambda *a: None, Documents=types.SimpleNamespace(
+        Open=lambda path, *a: None if too_long(path) else Doc(path)))  # what Word does past MAX_PATH
+    monkeypatch.setattr(resume._Word, "app", word)
+    monkeypatch.setattr(resume._Word, "quit", classmethod(lambda cls: None))  # the retry gets the same fake
+    folder = tmp_path / ("d" * 120) / ("e" * 120)
+    folder.mkdir(parents=True)
+    (folder / "🌍 letter.docx").write_bytes(b"letter")
+    resume._word_to_pdf(folder / "🌍 letter.docx", folder / "🌍 letter.pdf")
+    assert (folder / "🌍 letter.pdf").read_bytes() == b"letter"
 
 
 def test_locked_docx_says_word_has_it_open(tmp_path):

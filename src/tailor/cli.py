@@ -150,7 +150,7 @@ def passages(ids):
 @main.command()
 @click.argument("query")
 def why(query):
-    """One application's status and what is left to review: a job id or words from the folder name."""
+    """One application's status and what is left to review: a folder path, a job id or words from the folder name."""
     from src.tailor.why import find, summarize
 
     cfg = load_config()

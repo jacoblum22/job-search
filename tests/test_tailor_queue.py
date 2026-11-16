@@ -95,6 +95,19 @@ def test_a_leftover_shortlisted_folder_competes_by_score_and_is_reused(cfg):
     assert first == again
 
 
+def test_a_reused_shortlisted_folder_keeps_its_rounds(cfg):
+    add(cfg, "h1", "High", "A", 90)
+    (folder,) = run_queue(cfg, limit=1, jev=FakeJev(GOOD))
+    appdir.save_app(folder, {**appdir.load_app(folder), "created": "2026-01-02", "base_id": "analyst",
+                             "rounds": [{"round": 1}, {"round": 2}], "best_round": 2})
+    (again,) = run_queue(cfg, limit=1, jev=FakeJev(GOOD))
+    app = appdir.load_app(again)
+    assert again == folder
+    assert (app["rounds"], app["best_round"], app["base_id"]) == ([{"round": 1}, {"round": 2}], 2, "analyst")
+    assert app["created"] == "2026-01-02" and app["status"] == "shortlisted"
+    assert [h["step"] for h in app["history"]] == ["queue", "queue"]
+
+
 def test_yes_no_sides_and_unchecked(cfg):
     add(cfg, "a1", "Needs PhD", "A", 80)
     out = run_queue(cfg, jev=FakeJev({**GOOD, "requires_phd": 0.9, "is_coop": None}))
