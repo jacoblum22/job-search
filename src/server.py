@@ -88,6 +88,8 @@ class DashboardApp:
         self.version = 0
         self._jobs_cache: tuple[int, float, list[dict]] | None = None  # (version, built at, sorted rows)
         self._build_lock = threading.Lock()
+        self._gaps_lock = threading.Lock()
+        self._gaps_cache: tuple[Any, float, dict[str, Any]] | None = None
         self._changes: list[tuple[int, int]] = []  # (version, job id), newest last
         self.db_path = Path(db_path)
         self._pg = None  # the kept Postgres connection, once the main database is Postgres
@@ -333,7 +335,9 @@ class DashboardApp:
         return self._json(out)
 
     def _skill_gaps(self) -> dict[str, Any]:
-        """Missing-skills stats; worked out once per change and per vault edit (it reads every posting)."""
+        """Missing-skills stats. Reading every posting takes seconds, so this runs outside the server's
+        request lock (scripts/serve.py), one build at a time, and the last answer is served while a
+        newer one builds: it is rebuilt when the vault or skill record changes, or after ten minutes."""
         from src.skill_demand import missing_skills
         from src.vault_gaps import _abs
 
@@ -341,17 +345,26 @@ class DashboardApp:
         vault_cfg = score_cfg.get("vault_gaps") or {}
         files = [_abs(vault_cfg.get(k, d)) for k, d in (("index", "materials/profile/vault-index.json"),
                                                         ("record", "materials/tailor/skill-record.json"))]
-        stamp = (self.version, tuple(f.stat().st_mtime if f.exists() else 0 for f in files))
-        c = getattr(self, "_gaps_cache", None)
-        if c and c[0] == stamp:
-            return c[1]
-        conn = connect(self.db_path)
-        try:
-            result = missing_skills(conn, score_cfg)
-        finally:
-            conn.close()
-        self._gaps_cache = (stamp, result)
-        return result
+        stamp = tuple(f.stat().st_mtime if f.exists() else 0 for f in files)
+
+        def build() -> None:
+            with self._gaps_lock:
+                c = self._gaps_cache
+                if c and c[0] == stamp and time.monotonic() - c[1] < 600:
+                    return
+                conn = connect(self.db_path)
+                try:
+                    result = missing_skills(conn, score_cfg)
+                finally:
+                    conn.close()
+                self._gaps_cache = (stamp, time.monotonic(), result)
+
+        c = self._gaps_cache
+        if c is None:
+            build()
+        elif (c[0] != stamp or time.monotonic() - c[1] >= 600) and not self._gaps_lock.locked():
+            threading.Thread(target=build, daemon=True).start()
+        return self._gaps_cache[2]
 
     def _goal(self) -> dict[str, Any]:
         conn = self._conn()

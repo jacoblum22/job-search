@@ -42,9 +42,9 @@ def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length) if length else b""
             t0 = time.monotonic()
-            # One request at a time, except the job list: it builds on its own connection, so the seconds
+            # One request at a time, except the job list and the skill stats: they build on its own connection, so the seconds
             # it takes must not make every other request (the autofill extension's) wait behind it.
-            with contextlib.nullcontext() if self.path.startswith(("/api/jobs", "/speedtest", "/api/speedtest")) else app.lock:
+            with contextlib.nullcontext() if self.path.startswith(("/api/jobs", "/api/skill-gaps", "/speedtest", "/api/speedtest")) else app.lock:
                 t1 = time.monotonic()
                 status, ctype, data = app.handle(method, self.path, dict(self.headers.items()), body)
             t2 = time.monotonic()
