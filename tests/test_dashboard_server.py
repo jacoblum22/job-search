@@ -708,3 +708,24 @@ def test_phone_notify_keeps_text_when_the_json_is_broken(env, monkeypatch):
     status, _, _ = env["app"].handle("POST", "/api/phone-notify", h, b'{"text": "Acme said "hi" - Data Analyst"}')
     assert status == 200
     assert "Data Analyst" in phone_notify.read_inbox(env["tmp"] / "inbox")[0]["text"]
+
+
+def test_skill_gaps_count_postings_with_full_descriptions_only(env, tmp_path):
+    import json as _json
+
+    from src.skill_demand import missing_skills
+
+    index = tmp_path / "vault-index.json"
+    index.write_text(_json.dumps({"passages": [{"id": "a", "text": "Wrote SQL and Python daily"}]}), encoding="utf-8")
+    cfg = {"vault_gaps": {"index": str(index), "record": str(tmp_path / "none.json")}}
+    conn = connect(env["cfg"]["paths"]["db"])
+    full = "Requirements\nExperience with SQL and Tableau. " + "We build data products. " * 60
+    for i, (tier, desc) in enumerate([("A", full), ("C", full), ("skip", full), ("A", "Tableau snippet")]):
+        conn.execute("INSERT INTO jobs (dedup_group_id, source, external_id, title, company, location, description, "
+                     "first_seen, last_seen, tier) VALUES (?, 's', ?, 'Analyst', 'Co', 'Vancouver', ?, '2026-11-01', "
+                     "'2026-11-01', ?)", (f"g{i}", f"e{i}", desc, tier))
+    conn.commit()
+    out = missing_skills(conn, cfg)
+    assert out["full"] == 3 and out["ab"]["postings"] == 1 and out["live"]["postings"] == 2
+    assert out["ab"]["skills"][0]["skill"] == "Tableau" and out["ab"]["skills"][0]["percent"] == 100.0
+    assert missing_skills(conn, {"vault_gaps": {"index": str(tmp_path / "nope.json")}})["error"]
