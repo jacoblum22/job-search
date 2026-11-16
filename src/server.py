@@ -14,6 +14,7 @@ tests call it directly without a socket.
 
 from __future__ import annotations
 
+import hmac
 import json
 import mimetypes
 import os
@@ -44,6 +45,7 @@ from src.tailor_runner import TailoringRunner
 
 Response = tuple[int, str, bytes]
 _DIAG_PATH = "/api/autofill-diagnostics"
+_PHONE_PATH = "/api/phone-notify"
 _JOB = re.compile(r"^/(?:api/)?job/(\d+)(/.*)?$")
 # Files from an application's final/ folder the details page may link to.
 _SERVABLE = {".pdf", ".docx", ".md", ".json", ".yaml"}
@@ -83,6 +85,7 @@ class DashboardApp:
         self.refresh_delay = refresh_delay
         self._refresh_timer: threading.Timer | None = None
         self.runner = runner or TailoringRunner()
+        self.phone_watcher = None  # set by scripts/serve.py
         # Every change made through the server is numbered, so any open dashboard (another tab,
         # the phone) can ask which rows changed since the number it has and refresh just those.
         self.version = 0
@@ -167,6 +170,8 @@ class DashboardApp:
             if method == "POST":
                 # The Job Autofill extension reports page diagnostics from its own origin.
                 extension = path == _DIAG_PATH and (headers.get("origin") or "").startswith("chrome-extension://")
+                if path == _PHONE_PATH:   # the phone app sends no Origin; the secret token is the check
+                    return self._phone_notify(headers, body)
                 if headers.get("origin") not in self.origins and not extension:
                     return self._error("cross-site request refused", 403)
                 if not headers.get("content-type", "").startswith("application/json"):
@@ -419,6 +424,29 @@ class DashboardApp:
         tmp.write_text(json.dumps({"runs": merged}, indent=1), encoding="utf-8")
         tmp.replace(path)
         return self._json({"ok": True, "saved": len(runs), "total": len(merged)})
+
+    def _phone_notify(self, headers: dict[str, str], body: bytes) -> Response:
+        """A LinkedIn notification forwarded from the phone (src/phone_notify.py). Needs the secret in
+        X-Notify-Token (PHONE_NOTIFY_TOKEN in .env); with none set the endpoint is off."""
+        from src import phone_notify
+        from src.db import _env
+
+        token = _env("PHONE_NOTIFY_TOKEN") or ""
+        sent = headers.get("x-notify-token") or ""
+        if not token or not hmac.compare_digest(token.encode(), sent.encode()):
+            return self._error("forbidden", 403)
+        try:
+            data = json.loads(body or b"{}")
+        except json.JSONDecodeError:
+            # A quote in the notification can break the phone app's JSON; the text is still useful.
+            data = {"text": body.decode("utf-8", errors="replace")}
+        try:
+            nid = phone_notify.record(data if isinstance(data, dict) else {})
+        except ValueError as e:
+            return self._error(str(e))
+        if self.phone_watcher is not None:
+            self.phone_watcher.wake()
+        return self._json({"ok": True, "id": nid})
 
     def _post(self, path: str, data: dict[str, Any]) -> Response:
         if path == _DIAG_PATH:
