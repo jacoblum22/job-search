@@ -89,6 +89,8 @@ class DashboardApp:
         self._jobs_cache: tuple[int, float, list[dict]] | None = None  # (version, built at, sorted rows)
         self._build_lock = threading.Lock()
         self._gaps_lock = threading.Lock()
+        self._gaps_result: dict[str, Any] | None = None
+        self._gaps_at = float("-inf")
         self._changes: list[tuple[int, int]] = []  # (version, job id), newest last
         self.db_path = Path(db_path)
         self._pg = None  # the kept Postgres connection, once the main database is Postgres
@@ -333,18 +335,38 @@ class DashboardApp:
             }
         return self._json(out)
 
-    def _skill_gaps(self) -> dict[str, Any]:
-        """Missing-skills stats. Each posting's result is saved (src/skill_demand.py), so a call only
-        reads the postings that are new or changed; it runs outside the server's request lock
-        (scripts/serve.py), one at a time."""
+    def refresh_skill_gaps(self) -> None:
+        """Work out the missing-skills stats now (src/skill_demand.py reads only new or changed postings,
+        or everything after a vault edit). Runs on a thread of its own, one at a time."""
         from src.skill_demand import missing_skills
 
-        with self._gaps_lock:
+        if not self._gaps_lock.acquire(blocking=False):
+            return
+        try:
             conn = connect(self.db_path)
             try:
-                return missing_skills(conn, tailor_paths._settings().get("score") or {})
+                self._gaps_result = missing_skills(conn, tailor_paths._settings().get("score") or {})
             finally:
                 conn.close()
+            self._gaps_at = time.monotonic()
+        except Exception as e:  # noqa: BLE001 - the stats are optional; never take the server down
+            print(f"skill stats failed: {e}")
+        finally:
+            self._gaps_lock.release()
+
+    def warm_skill_gaps(self) -> None:
+        threading.Thread(target=self.refresh_skill_gaps, daemon=True).start()
+
+    def _skill_gaps(self) -> dict[str, Any]:
+        """The last missing-skills stats, at once, never computed here. A refresh starts in the background
+        (at server start, and on a request when the last one is over 30 s old, which picks up new postings);
+        `refreshing` tells the page to ask again shortly."""
+        if time.monotonic() - self._gaps_at > 30 and not self._gaps_lock.locked():
+            self.warm_skill_gaps()
+        running = self._gaps_lock.locked()
+        if self._gaps_result is None:
+            return {"pending": True}
+        return {**self._gaps_result, "refreshing": running}
 
     def _goal(self) -> dict[str, Any]:
         conn = self._conn()

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from datetime import date
 
 import pytest
@@ -727,3 +729,17 @@ def test_skill_gaps_save_each_posting_and_redo_only_what_changed(env, tmp_path, 
     assert run()["ab"]["skills"][0]["postings"] == 2 and len(calls) == 2   # only the new posting
     index.write_text(_json.dumps({"passages": [{"id": "a", "text": "Wrote SQL and Tableau daily"}]}), encoding="utf-8")
     assert run()["ab"]["skills"] == [] and len(calls) == 4                 # vault changed: all redone
+
+
+def test_skill_gaps_endpoint_answers_at_once_and_fills_in_from_the_background(env, monkeypatch):
+    app = env["app"]
+    gate = threading.Event()
+    monkeypatch.setattr("src.skill_demand.missing_skills", lambda *a, **k: gate.wait(5) and {"stored": 1, "full": 1})
+    assert json.loads(app.handle("GET", "/api/skill-gaps", H)[2]) == {"pending": True}
+    gate.set()
+    for _ in range(50):
+        body = json.loads(app.handle("GET", "/api/skill-gaps", H)[2])
+        if "stored" in body:
+            break
+        time.sleep(0.1)
+    assert body["stored"] == 1

@@ -105,6 +105,7 @@ def main(port: int, no_browser: bool, allow_hosts: tuple[str, ...]) -> None:
         app.handle("GET", "/api/jobs?limit=1", {"host": f"127.0.0.1:{port}"})
 
     threading.Thread(target=warm, daemon=True).start()
+    app.warm_skill_gaps()  # the Stats tab's missing-skills numbers, ready before it is opened
     url = f"http://127.0.0.1:{port}/"
     click.echo(f"Dashboard at {url} (Ctrl+C to stop)")
     if not no_browser:

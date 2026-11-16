@@ -617,12 +617,16 @@ function renderStats() {
 }
 
 // Tools postings ask for that the experience vault doesn't show (the same gaps the score charges).
-let gapsData = null, gapsScope = 'ab';
+let gapsData = null, gapsScope = 'ab', gapsTimer = null;
 function loadGaps() {
   const card = () => document.getElementById('gapsCard');
-  if (gapsData) { drawGaps(); return; }
-  fetch('/api/skill-gaps').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => { gapsData = d; drawGaps(); })
-    .catch(() => { if (card()) card().querySelector('.sub').textContent = 'Only available from the dashboard server (scripts/serve.py), not this saved file.'; });
+  clearTimeout(gapsTimer);
+  if (gapsData) drawGaps();  // the last numbers show at once while fresh ones load
+  fetch('/api/skill-gaps').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => {
+    if (!d.pending) { gapsData = d; drawGaps(); }
+    else if (card() && !gapsData) card().querySelector('.sub').textContent = 'Calculating… (the first time takes about 10 seconds)';
+    if ((d.pending || d.refreshing) && activeTab === 'stats') gapsTimer = setTimeout(loadGaps, 3000);
+  }).catch(() => { if (card() && !gapsData) card().querySelector('.sub').textContent = 'Only available from the dashboard server (scripts/serve.py), not this saved file.'; });
 }
 function drawGaps() {
   const card = document.getElementById('gapsCard');
