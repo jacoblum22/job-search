@@ -37,6 +37,7 @@ from src.db import JOB_STATUSES, backend, connect, is_main, set_job_status
 from src.posting_status import closed_reason, due_date, seen_date
 from src.retention import posted_on
 from src.tailor import TailorError, rejects, review, store
+from src.tailor import paths as tailor_paths
 from src.tailor.paths import resolve
 from src.tailor.packet import OUTCOMES, approve, record_outcome
 from src.tailor_runner import TailoringRunner
@@ -196,6 +197,8 @@ class DashboardApp:
             return self._json(self.runner.status())
         if path == "/api/goal":
             return self._json(self._goal())
+        if path == "/api/skill-gaps":
+            return self._json(self._skill_gaps())
         if path == "/api/rows":
             return self._rows(query)
         if path == "/api/changes":
@@ -328,6 +331,27 @@ class DashboardApp:
                                 and not p.name.startswith("~$")) if final.is_dir() else [],
             }
         return self._json(out)
+
+    def _skill_gaps(self) -> dict[str, Any]:
+        """Missing-skills stats; worked out once per change and per vault edit (it reads every posting)."""
+        from src.skill_demand import missing_skills
+        from src.vault_gaps import _abs
+
+        score_cfg = tailor_paths._settings().get("score") or {}
+        vault_cfg = score_cfg.get("vault_gaps") or {}
+        files = [_abs(vault_cfg.get(k, d)) for k, d in (("index", "materials/profile/vault-index.json"),
+                                                        ("record", "materials/tailor/skill-record.json"))]
+        stamp = (self.version, tuple(f.stat().st_mtime if f.exists() else 0 for f in files))
+        c = getattr(self, "_gaps_cache", None)
+        if c and c[0] == stamp:
+            return c[1]
+        conn = connect(self.db_path)
+        try:
+            result = missing_skills(conn, score_cfg)
+        finally:
+            conn.close()
+        self._gaps_cache = (stamp, result)
+        return result
 
     def _goal(self) -> dict[str, Any]:
         conn = self._conn()
