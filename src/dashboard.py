@@ -142,6 +142,11 @@ _TEMPLATE = r"""<!DOCTYPE html>
   .hbars .r > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c9ced8; }
   .hbars .track { background: #10131a; border-radius: 999px; height: 10px; overflow: hidden; }
   .hbars .fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c, #5b8cff), var(--c2, #8fb0ff)); }
+  .scopes { margin: -6px 0 10px; display: flex; gap: 6px; }
+  .seg-btn { background: #10131a; color: #c9ced8; border: 1px solid #262b36; border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+  .seg-btn.on { background: #2a3350; border-color: #4a6fe0; color: #fff; }
+  .hbars.gaps .r { grid-template-columns: minmax(120px, 220px) 1fr 90px; }
+  .hbars .n small { color: #6d7587; }
   .hbars .n { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
   .cols { display: flex; align-items: stretch; gap: 10px; height: 200px; border-bottom: 1px solid #2a2e38; padding-top: 8px; }
   .cols .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; }
@@ -606,7 +611,37 @@ function renderStats() {
     <tbody>${rows}</tbody></table></div>`;
   h += barsCard('Companies with the most jobs', 'Top 12, skipped jobs left out',
                 countBy(live, j => j.company || 'Unknown').slice(0, 12), '', () => ['#7b5cd6', '#b49af5']);
+  h += `<div class="card wide" id="gapsCard"><h2>Skills you're missing</h2><div class="sub">Loading…</div></div>`;
   document.getElementById('statsView').innerHTML = h;
+  loadGaps();
+}
+
+// Tools postings ask for that the experience vault doesn't show (the same gaps the score charges).
+let gapsData = null, gapsScope = 'ab';
+function loadGaps() {
+  const card = () => document.getElementById('gapsCard');
+  if (gapsData) { drawGaps(); return; }
+  fetch('/api/skill-gaps').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => { gapsData = d; drawGaps(); })
+    .catch(() => { if (card()) card().querySelector('.sub').textContent = 'Only available from the dashboard server (scripts/serve.py), not this saved file.'; });
+}
+function drawGaps() {
+  const card = document.getElementById('gapsCard');
+  if (!card) return;
+  const d = gapsData;
+  if (d.error) { card.innerHTML = `<h2>Skills you're missing</h2><div class="sub">${escapeHtml(d.error)}</div>`; return; }
+  const s = d[gapsScope];
+  const btn = (k, t) => `<button class="seg-btn${gapsScope === k ? ' on' : ''}" data-scope="${k}">${t}</button>`;
+  const max = Math.max(1, ...s.skills.map(g => g.percent));
+  const bars = s.skills.map(g => `<div class="r" title="${escapeHtml(g.skill)}: ${g.postings} of ${s.postings} postings (${g.required} as a requirement)">
+      <span>${escapeHtml(g.skill)}</span><div class="track"><div class="fill" style="width:${Math.max(2, 100 * g.percent / max)}%;--c:#b23b3b;--c2:#f07178"></div></div>
+      <span class="n">${g.percent}%<small> · ${g.postings}</small></span></div>`).join('');
+  card.innerHTML = `<h2>Skills you're missing</h2>
+    <div class="sub">Tools postings ask for that your experience vault doesn't show, and the share of postings asking.
+      ${fmt(d.full)} of ${fmt(d.stored)} stored postings have a full description and are the only ones checked; listings with just a snippet are left out.
+      A "one or more of these" list counts once, and only if you have none of them.</div>
+    <div class="scopes">${btn('ab', 'Tier A and B (' + fmt(d.ab.postings) + ' postings)')}${btn('live', 'All not skipped (' + fmt(d.live.postings) + ')')}</div>
+    <div class="hbars gaps">${bars || '<span class="sub">Nothing missing.</span>'}</div>`;
+  card.querySelectorAll('.seg-btn').forEach(b => b.onclick = () => { gapsScope = b.dataset.scope; drawGaps(); });
 }
 
 function render() {
