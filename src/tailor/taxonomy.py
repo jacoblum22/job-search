@@ -399,7 +399,11 @@ T = [
 ("Soft skills","customer / client focus",r"(?:customer|client|user|patient).(?:first|centric|centred|centered|focused|facing|obsessed)|customer (?:service|satisfaction)|client service|service (?:mentality|orientation)"),
 ("Soft skills","teaching / knowledge sharing",r"knowledge (?:sharing|transfer)|shar(?:e|es|ing) (?:your |their |our )?knowledge|(?:provide|deliver|conduct)\w* training|train(?:ing)? (?:users|staff|colleagues|others|team members|end users)|training (?:materials|sessions)|educat(?:e|ing) (?:users|stakeholders|teams|others)|\bteach|\bcoach"),
 ("Soft skills","judgment",r"\bjudge?ments?\b|critically (?:evaluate|assess|review)|challenge assumptions|discernment"),
-("Soft skills","integrity / trustworthiness",r"(?<!data )\bintegrity\b(?! of)|trustworth|\bhonest|ethical (?:conduct|standards|behaviou?r)"),
+# Integrity of data or systems ("data accuracy and integrity", "integrity issues", "the integrity and
+# confidentiality of sensitive information") is data quality or security, not the trait.
+("Soft skills","integrity / trustworthiness",r"(?<!data )(?<!accuracy/)(?<!accuracy, )(?<!accuracy and )(?<!quality and )"
+ r"(?<!consistency and )(?<!information )(?<!system )\bintegrity\b"
+ r"(?! of| (?:and|&) (?:confidentiality|availability|accuracy|quality|security)| (?:issues|checks?|constraints|controls|monitoring|rules|validation))|trustworth|\bhonest|ethical (?:conduct|standards|behaviou?r)"),
 ("Soft skills","discretion / confidentiality",r"\bdiscretion\b|confidentiality|(?:handl|maintain)\w* (?:sensitive|confidential)"),
 ("Soft skills","influence / negotiation",r"influenc(?:e|ing) (?:stakeholders|decisions|others|leaders|without)|persua|negotiat"),
 ("Soft skills","proactive",r"proactiv"),

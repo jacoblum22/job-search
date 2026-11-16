@@ -49,6 +49,15 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Daily review, Nov 16 2026: data and system integrity aren't the trait.
+    ("Ensure data accuracy and integrity across all analytical activities", "integrity / trustworthiness"),
+    ("to ensure the integrity and confidentiality of sensitive information", "integrity / trustworthiness"),
+    ("optimizing performance or troubleshooting integrity issues", "integrity / trustworthiness"),
+    ("Understands quality control and data accuracy/integrity", "integrity / trustworthiness"),
+    ("remediate data quality and integrity as necessary", "integrity / trustworthiness"),
+    ("Our work strengthens system integrity, supports fair play", "integrity / trustworthiness"),
+    ("maintaining the accuracy, integrity, traceability, and control of engineering product data",
+     "integrity / trustworthiness"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -66,6 +75,8 @@ def test_false_matches_are_gone(text, wrong):
     ("degree in Business or Economics", "degree in economics/business"),
     ("Data QA and integration of third-party e-commerce/marketing sources", "data integration"),
     ("integrated external vendor data feeds", "data integration"),
+    ("Integrity, drive and ownership; good listener", "integrity / trustworthiness"),
+    ("act with honesty and integrity", "integrity / trustworthiness"),
 ])
 def test_real_matches_still_work(text, right):
     assert right in taxonomy.find(text)
