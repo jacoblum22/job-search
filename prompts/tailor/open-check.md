@@ -18,6 +18,12 @@ that isn't needed to read the posting.
    - `unknown`: anything else: a login wall, a CAPTCHA or "verification" screen, a blank page, a
      page that didn't load, a site the browser wouldn't open, or a different job than the one
      named. Never click through a login or CAPTCHA, and never solve one.
+   **Where the link ends.** Always compare the address you opened with the address the browser ended on.
+   If you ended on a site's home page or general job list instead of one posting (for example
+   `himalayas.app/jobs`, `example.com/careers`), the site has dropped the posting: write that address as
+   `landed_url` and call it `closed`, quoting where it ended. A verification or "checking your browser"
+   screen is different: wait about 10 seconds and read the page again once before calling it `unknown`
+   (these usually clear on their own); never click or solve anything on it.
    **Aggregator pages.** Some links start at Adzuna and end on a job-search site such as jobleads.com
    (a page of search results or "similar jobs", not this posting). That is never the posting and not
    proof it is open. Note the address the browser ended on as `landed_url`, then search the web for the

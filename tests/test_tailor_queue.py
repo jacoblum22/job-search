@@ -538,6 +538,19 @@ def test_link_that_ends_on_jobleads_is_closed_unless_the_posting_was_found_elsew
     assert "jobleads.com" in (open_check_dir(cfg) / "dismissed.jsonl").read_text()
 
 
+def test_link_that_ends_on_a_site_home_or_general_job_list_is_closed(cfg_oc):
+    from src.tailor.queue import is_generic_landing, queue_from_plan
+
+    assert is_generic_landing("https://himalayas.app/jobs") and is_generic_landing("https://x.com/")
+    assert is_generic_landing("https://x.com/careers/?q=1")
+    assert not is_generic_landing("https://himalayas.app/companies/acme/jobs/swe")
+    cfg = cfg_oc
+    ids = [add(cfg, f"g{i}", f"Job {i}", "A", 90 - i) for i in range(3)]
+    run_queue(cfg, limit=2, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
+    _raw_verdict(cfg, ids[0], state="unknown", evidence="verification screen", landed_url="https://himalayas.app/jobs")
+    assert titles(queue_from_plan(cfg)) == ["Job 1", "Job 2"]
+
+
 def test_saved_real_url_is_what_the_next_open_check_opens(cfg_oc):
     from src.tailor.queue import open_check_dir, posting_url
 
