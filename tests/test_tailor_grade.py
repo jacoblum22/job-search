@@ -291,6 +291,22 @@ def test_letter_specific_is_not_met_by_the_company_name_alone(tmp_path):
     assert "verified company facts" in line and "name doesn't count" in line
 
 
+@pytest.mark.parametrize("verified,fit_gap", [(False, ["company facts"]), (True, None)])
+def test_letter_specific_with_no_facts_anywhere_is_not_repaired(tmp_path, verified, fit_gap):
+    # Research found nothing and the posting names nothing about the employer (Auction Frogs, Nov 17
+    # 2026): repair was asked for a fact that didn't exist. With a verified fact it is asked as usual.
+    app = make_app(tmp_path)
+    companies = tmp_path / "companies"
+    (companies / "contoso-retail").mkdir(parents=True)
+    write_json(companies / "contoso-retail" / "facts.json",
+               {"facts": [{"id": "f1", "fact": "Opened a Vancouver store", "verified": verified}]})
+    cfg = {**CFG, "paths": {"companies": str(companies)}}
+    out = run_grade(app, 1, cfg, FakeJev(lambda state, q: 0.2 if q.id == "letter.specific" else 0.8))
+    item = next(it for it in out["checklist"] if it["id"] == "letter.specific")
+    assert item["passed"] is False and item.get("fit_gap") == fit_gap
+    assert any("Contoso Retail" in f for f in out["feedback"]) is (fit_gap is None)
+
+
 def test_unshown_must_feedback_names_only_backed_terms(tmp_path):
     # "Looker" comes first but the vault can't back it; repair must only be asked for dbt.
     app = make_app(tmp_path)
