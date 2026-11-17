@@ -265,6 +265,19 @@ def test_rows_endpoint_returns_only_the_changed_rows_fresh(env):
     assert get(env, "/api/rows?ids=99999")[1] == {"rows": []}
 
 
+def test_autofill_candidates_list_every_job_even_though_the_page_ships_none(env):
+    # The extension must not read the dashboard page (it is served with an empty list).
+    status, data = get(env, "/api/autofill/candidates")
+    assert status == 200 and data["total"] == 2
+    by_id = {c["id"]: c for c in data["candidates"]}
+    a = by_id[env["jid"]]
+    assert (a["title"], a["company"], a["urls"], a["status"], a["hasApp"]) == \
+        ("Junior Analyst", "VCH", ["https://x/a1"], "ready_for_review", True)
+    b = by_id[env["other"]]
+    assert b["status"] is None and b["hasApp"] is False
+    assert "description" not in a
+
+
 def test_needs_fixes_cannot_be_approved(env):
     appdir.log(env["dir"], "packet", status="needs_fixes")
     text = CHECK.replace("[ ]", "[x]")

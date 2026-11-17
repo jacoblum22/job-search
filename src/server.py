@@ -209,6 +209,8 @@ class DashboardApp:
             return self._json(self._skill_gaps())
         if path == "/api/rows":
             return self._rows(query)
+        if path == "/api/autofill/candidates":
+            return self._autofill_candidates()
         if path == "/api/changes":
             return self._changes_since(query)
         m = _JOB.match(path)
@@ -273,6 +275,24 @@ class DashboardApp:
         self.version += 1
         self._changes.append((self.version, job_id))
         del self._changes[:-500]
+
+    def _autofill_candidates(self) -> Response:
+        """What the Job Autofill extension matches an application page against: one slim record
+        per job (id, title, company, posting links, packet status). This is the extension's
+        contract with the dashboard; it must not depend on how the dashboard page is rendered
+        (the page ships an empty list and loads jobs afterwards)."""
+        c = self._jobs_cache
+        if c is None or c[0] != self.version:
+            self._build_jobs()
+        out = []
+        for r in self._jobs_cache[2]:
+            app = r.get("app")
+            out.append({
+                "id": r["id"], "title": r.get("title") or "", "company": r.get("company") or "",
+                "urls": [u[1] if isinstance(u, (list, tuple)) else u for u in (r.get("urls") or []) if u],
+                "status": app.get("status") if app else None, "hasApp": bool(app),
+            })
+        return self._json({"candidates": out, "total": len(out)})
 
     def _rows(self, query: str) -> Response:
         """Fresh dashboard rows for the jobs a details page changed (?ids=12,40), so going
