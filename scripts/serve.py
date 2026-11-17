@@ -44,7 +44,7 @@ def make_handler(app: DashboardApp) -> type[BaseHTTPRequestHandler]:
             t0 = time.monotonic()
             # One request at a time, except the job list and the skill stats: they build on its own connection, so the seconds
             # it takes must not make every other request (the autofill extension's) wait behind it.
-            with contextlib.nullcontext() if self.path.startswith(("/api/jobs", "/api/skill-gaps", "/speedtest", "/api/speedtest")) else app.lock:
+            with contextlib.nullcontext() if self.path.startswith(("/api/jobs", "/api/autofill/candidates", "/api/skill-gaps", "/speedtest", "/api/speedtest")) else app.lock:
                 t1 = time.monotonic()
                 status, ctype, data = app.handle(method, self.path, dict(self.headers.items()), body)
             t2 = time.monotonic()
