@@ -493,6 +493,25 @@ _TYPES = {
                           "Microsoft Power Platform", "Power Apps", "Power Automate", "Power Query", "Dataverse",
                           "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica"],
 }
+# Entries above that bundle several different tools. The bundle says a posting wants this kind of tool;
+# MEMBERS says which one. Having one member covers the entry only partly for a posting that names a
+# different member (FastAPI is not Django): src/vault_gaps.py gives half the have-points and half the gap
+# for it, and the gap shows by the member's own name. A mention of the bundle with no member named
+# ("CRM") is met by any member.
+MEMBERS: dict[str, dict[str, str]] = {
+    "FastAPI/Flask/Django": {"FastAPI": r"fastapi", "Flask": r"\bflask\b", "Django": r"django"},
+    "Salesforce/CRM": {"Salesforce": r"salesforce", "HubSpot": r"hubspot", "Dynamics 365": r"dynamics 365"},
+    "spaCy / NLTK": {"spaCy": r"\b(?:med)?spacy\b", "NLTK": r"\bnltk\b"},
+    "LangChain/LlamaIndex": {"LangChain": r"langchain|langgraph", "LlamaIndex": r"llamaindex"},
+    "matplotlib/seaborn/plotly": {"matplotlib": r"matplotlib", "seaborn": r"seaborn", "plotly": r"plotly",
+                                  "ggplot": r"ggplot"},
+    "XGBoost/LightGBM": {"XGBoost": r"xgboost", "LightGBM": r"lightgbm", "CatBoost": r"catboost"},
+    "Hadoop/Hive": {"Hadoop": r"hadoop|mapreduce", "Hive": r"\bhive\b", "HBase": r"\bhbase\b"},
+    "Microsoft Fabric / Azure Synapse / ADF": {"Microsoft Fabric": r"microsoft fabric|\bfabric\b(?= data| lakehouse)",
+                                               "Azure Synapse": r"synapse", "Azure Data Factory": r"data factory"},
+    "SSIS/SSRS": {"SSIS": r"\bssis\b", "SSRS": r"\bssrs\b", "SSAS": r"\bssas\b"},
+    "Kotlin/Swift": {"Kotlin": r"\bkotlin\b", "Swift": r"\bswift\b"},
+}
 TOOL_TYPES: dict[str, set[str]] = {}
 for _type, _names in _TYPES.items():
     for _n in _names:
@@ -532,6 +551,20 @@ def is_hard(name: str) -> bool:
 def find(text: str) -> set[str]:
     """Display names of every taxonomy skill mentioned in `text`."""
     return {name for _, name, rx in compiled() if rx.search(text)}
+
+
+@lru_cache(maxsize=1)
+def _compiled_members() -> list[tuple[str, str, re.Pattern[str]]]:
+    return [(skill, member, re.compile(rx, re.I)) for skill, ms in MEMBERS.items() for member, rx in ms.items()]
+
+
+def members(text: str) -> dict[str, set[str]]:
+    """The named members of each bundled skill that `text` mentions: {"FastAPI/Flask/Django": {"Django"}}."""
+    out: dict[str, set[str]] = {}
+    for skill, member, rx in _compiled_members():
+        if rx.search(text):
+            out.setdefault(skill, set()).add(member)
+    return out
 
 
 def find_wordings(text: str) -> dict[str, set[str]]:

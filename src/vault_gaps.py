@@ -40,6 +40,7 @@ ROOT = Path(__file__).resolve().parent.parent
 class Vault:
     tools: frozenset[str]  # tools a claim passage names
     types: frozenset[str]  # the tool types those tools have (a light tool's type counts too)
+    members: frozenset[tuple[str, str]] = frozenset()  # (bundled skill, member) the vault names: ("FastAPI/Flask/Django", "FastAPI")
 
 
 @dataclass(frozen=True)
@@ -73,12 +74,16 @@ def _load(path: str, mtime: float, record_path: str, record_mtime: float) -> Vau
     tools = {s for p in passages if p.get("use", "claim") == "claim" for s in taxonomy.find(p["text"])
              if _is_hard_tool(s) and (s, p.get("id")) not in not_shown}
     # Jev's remembered answers are soft-skill stories; the candidate's and the plan's matches are tools too.
+    held = {(sk, m) for p in passages if p.get("use", "claim") == "claim"
+            for sk, ms in taxonomy.members(p["text"]).items() for m in ms if (sk, p.get("id")) not in not_shown}
+    held |= {(sk, m) for e in live("has") if e.get("source") in ("jake", "plan")
+             for sk, ms in taxonomy.members(str(e.get("term", ""))).items() for m in ms}
     mine = {_skill(e.get("term", "")) for e in live("has") if e.get("source") == "jake"}
     tools |= {s for s in (_skill(e.get("term", "")) for e in live("has") if e.get("source") in ("jake", "plan"))
               if _is_hard_tool(s)}
     tools -= {_skill(e.get("skill", "")) for e in live("lacks")} - mine
     types = frozenset(t for s in tools for t in taxonomy.TOOL_TYPES.get(s, ()))
-    return Vault(frozenset(tools), types)
+    return Vault(frozenset(tools), types, frozenset(held))
 
 
 def _abs(p: str | Path) -> Path:
@@ -100,6 +105,16 @@ def load_vault(index_path: str | Path, record_path: str | Path | None = None) ->
 
 def _family(skill: str) -> str:
     return taxonomy.RELATED.get(skill, skill)
+
+
+def _partial(md: str, vault: Vault) -> dict[str, str]:
+    """Bundled skills the vault covers only through another member: the posting names Django, the vault
+    has FastAPI. Maps the skill to the member names the posting asks, for the gap's label."""
+    out: dict[str, str] = {}
+    for skill, named in taxonomy.members(md).items():
+        if skill in vault.tools and not any((skill, m) in vault.members for m in named):
+            out[skill] = " or ".join(sorted(named))
+    return out
 
 
 def find_gaps(description: str, vault: Vault, cfg: dict[str, Any]) -> list[Gap]:
@@ -126,7 +141,8 @@ def find_gaps(description: str, vault: Vault, cfg: dict[str, Any]) -> list[Gap]:
             alone[name] = "preferred" if lone == {"preferred"} else "required"
 
     # Tools the vault shows only lightly (one course, a badge) cover an ask for part of its cost.
-    light = set(cfg.get("light") or ()) & vault.tools
+    partial = _partial(md, vault)  # a different member of the same bundle: covered, but only half
+    light = (set(cfg.get("light") or ()) | set(partial)) & vault.tools
     strong = vault.tools - light
     light_factor = cfg.get("light_factor", 0.5)
     default = cfg.get("points", -2)
@@ -151,7 +167,7 @@ def find_gaps(description: str, vault: Vault, cfg: dict[str, Any]) -> list[Gap]:
             continue
         charged |= families
         preferred = all(asked[s] == "preferred" for s in skills)
-        gaps.append(Gap(" or ".join(sorted(skills)), preferred, points(skills, preferred)))
+        gaps.append(Gap(" or ".join(partial.get(s, s) for s in sorted(skills)), preferred, points(skills, preferred)))
     # "Experience building with C++, Go, or Python" is met by Python, but "professional experience
     # in C++" elsewhere in the posting is still its own ask.
     for s in sorted(alone, key=lambda s: (alone[s] != "required", s)):
@@ -159,7 +175,7 @@ def find_gaps(description: str, vault: Vault, cfg: dict[str, Any]) -> list[Gap]:
             continue
         charged |= {s, _family(s)}
         preferred = alone[s] == "preferred"
-        gaps.append(Gap(s, preferred, points({s}, preferred)))
+        gaps.append(Gap(partial.get(s, s), preferred, points({s}, preferred)))
     return gaps
 
 
@@ -174,7 +190,7 @@ def find_haves(description: str, vault: Vault, cfg: dict[str, Any], skip: set[st
     """
     md = html.unescape(to_markdown(description))
     sections = Sections(md)
-    light = set(cfg.get("light") or ())
+    light = set(cfg.get("light") or ()) | set(_partial(md, vault))
     weights = cfg.get("have_weights") or {}
     default = cfg.get("have_points", 2)
     factor = cfg.get("preferred_factor", 0.5)

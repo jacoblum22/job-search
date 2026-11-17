@@ -48,6 +48,11 @@ STOP = set("a an the and or of to in on for with from by at as is are was were b
 def term_mentioned(entry: dict, text: str) -> bool:
     """True when `text` mentions a term entry (taxonomy synonyms, else the exact phrase)."""
     if entry.get("canonical"):
+        # A posting that names one tool of a bundle (Django, in "FastAPI/Flask/Django") is only met by
+        # a passage naming that tool, not a different one of the bundle.
+        named = taxonomy.members(str(entry.get("term", ""))).get(entry["canonical"])
+        if named:
+            return bool(named & taxonomy.members(text).get(entry["canonical"], set()))
         return taxonomy.mentions(entry["canonical"], text)
     return taxonomy.exact(entry["term"], text) or wording.same(entry["term"], text)
 
