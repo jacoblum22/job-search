@@ -872,3 +872,12 @@ def test_no_chance_needs_a_real_quote(env):
     appdir.write_json(app / "requirements.json", reqs)
     out = normalize(app, cfg)
     assert out["no_chance"] is None and out["_normalized"]["dropped"][-1]["type"] == "no_chance"
+
+
+def test_a_posting_that_names_django_is_not_met_by_a_fastapi_passage():
+    from src.tailor.evidence import term_mentioned
+
+    entry = {"term": "Django", "canonical": "FastAPI/Flask/Django"}
+    assert not term_mentioned(entry, "Built the FastAPI backend")
+    assert term_mentioned(entry, "Built the Django backend")
+    assert term_mentioned({"term": "web frameworks", "canonical": "FastAPI/Flask/Django"}, "Built the FastAPI backend")

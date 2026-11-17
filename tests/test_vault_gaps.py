@@ -143,3 +143,20 @@ def test_score_gives_points_for_vault_tools_not_in_the_hand_list(vault):
     text = "Builder. Hands-on with AWS S3, scikit-learn and Looker Studio every day. " * 5
     kw = dict(title="Builder", description=text, location_category="vancouver", years_experience=None, cfg=CFG)
     assert score_job(**kw, vault=vault).score > score_job(**kw).score
+
+
+def test_a_different_member_of_a_bundle_is_covered_only_half(tmp_path):
+    passages = [{"id": "a", "text": "Built a FastAPI backend with pytest"}, {"id": "b", "text": "Python and SQL daily"}]
+    path = tmp_path / "vault-index.json"
+    path.write_text(json.dumps({"passages": passages}), encoding="utf-8")
+    v = load_vault(path)
+    cfg = CFG["vault_gaps"]
+    # FastAPI named: fully met, no gap. Django named: a half-price gap under its own name.
+    assert find_gaps("Experience with FastAPI.", v, cfg) == []
+    g = find_gaps("Experience with Django and Flask.", v, cfg)
+    assert [(x.label, x.points) for x in g] == [("Django or Flask", cfg["points"] * cfg["light_factor"])]
+    assert find_gaps("Experience with Flask, Django, or FastAPI.", v, cfg) == []   # one is enough when you have it
+    from src.vault_gaps import find_haves
+    full = {h.skill: h.points for h in find_haves("We use FastAPI.", v, cfg)}["FastAPI/Flask/Django"]
+    half = {h.skill: h.points for h in find_haves("We use Django.", v, cfg)}["FastAPI/Flask/Django"]
+    assert half == full * cfg["light_factor"]
