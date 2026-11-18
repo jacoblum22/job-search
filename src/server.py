@@ -212,6 +212,8 @@ class DashboardApp:
             return self._json(self._goal())
         if path == "/api/skill-gaps":
             return self._json(self._skill_gaps())
+        if path == "/api/resume-projects":
+            return self._json(self._resume_projects())
         if path == "/api/rows":
             return self._rows(query)
         if path == "/api/autofill/candidates":
@@ -397,6 +399,19 @@ class DashboardApp:
         if self._gaps_result is None:
             return {"pending": True}
         return {**self._gaps_result, "refreshing": running}
+
+    def _resume_projects(self) -> dict[str, Any]:
+        """Projects ranked by how many tailored resumes feature them (reads each resume file, so it is
+        asked for once each time the Stats tab opens)."""
+        from src.project_usage import project_usage
+
+        conn = self._conn()
+        try:
+            return project_usage(conn)
+        except Exception as e:  # noqa: BLE001 - optional stats; never fail the page
+            return {"error": f"Couldn't read the resumes: {e}"}
+        finally:
+            conn.close()
 
     def _goal(self) -> dict[str, Any]:
         conn = self._conn()

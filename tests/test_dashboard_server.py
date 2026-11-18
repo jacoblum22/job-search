@@ -788,3 +788,20 @@ def test_skill_gaps_endpoint_answers_at_once_and_fills_in_from_the_background(en
             break
         time.sleep(0.1)
     assert body["stored"] == 1
+
+
+def test_resume_projects_count_each_tailored_resume_once(env):
+    import yaml
+
+    d = env["dir"]
+    (d / "drafts" / "r1").mkdir(parents=True)
+    (d / "drafts" / "r1" / "resume.yaml").write_text(yaml.safe_dump({"projects": [
+        {"id": "job-search", "name": "Job Search Aggregator", "bullets": [{"id": "a", "text": "x"}]},
+        {"id": "empty", "name": "No Bullets", "bullets": []},
+        {"id": "the-game", "name": "The Game", "bullets": [{"id": "b", "text": "y"}]}]}), encoding="utf-8")
+    appdir.write_json(d / "app.json", {"job_id": env["jid"], "status": "ready_for_review", "best_round": 1, "history": []})
+    status, body = get(env, "/api/resume-projects")
+    assert status == 200
+    assert body["resumes"] == 1 and body["applied_resumes"] == 0
+    assert [(p["name"], p["resumes"], p["percent"]) for p in body["projects"]] == [
+        ("Job Search Aggregator", 1, 100), ("The Game", 1, 100)]

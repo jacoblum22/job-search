@@ -611,9 +611,27 @@ function renderStats() {
     <tbody>${rows}</tbody></table></div>`;
   h += barsCard('Companies with the most jobs', 'Top 12, skipped jobs left out',
                 countBy(live, j => j.company || 'Unknown').slice(0, 12), '', () => ['#7b5cd6', '#b49af5']);
+  h += `<div class="card wide" id="projectsCard"><h2>Projects on your resumes</h2><div class="sub">Loading…</div></div>`;
   h += `<div class="card wide" id="gapsCard"><h2>Skills you're missing</h2><div class="sub">Loading…</div></div>`;
   document.getElementById('statsView').innerHTML = h;
+  loadProjects();
   loadGaps();
+}
+
+// Which projects the tailored resumes feature most often (read from each application's resume file).
+function loadProjects() {
+  const card = document.getElementById('projectsCard');
+  fetch('/api/resume-projects').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => {
+    if (!card.isConnected) return;
+    if (d.error) { card.querySelector('.sub').textContent = d.error; return; }
+    if (!d.resumes) { card.querySelector('.sub').textContent = 'No tailored resumes yet.'; return; }
+    const bars = d.projects.map(p => `<div class="r" title="${escapeHtml(p.name)}: on ${p.resumes} of ${d.resumes} resumes (${p.applied} applied)">
+      <span>${escapeHtml(p.name)}</span><div class="track"><div class="fill" style="width:${Math.max(2, p.percent)}%;--c:#7b5cd6;--c2:#b49af5"></div></div>
+      <span class="n">${p.percent}%<small> · ${p.resumes}</small></span></div>`).join('');
+    card.innerHTML = `<h2>Projects on your resumes</h2>
+      <div class="sub">How many of your ${fmt(d.resumes)} tailored resumes feature each project (${fmt(d.applied_resumes)} applied with). A project with no bullets on a resume isn't counted for it.</div>
+      <div class="hbars gaps">${bars || '<span class="sub">No projects on any resume.</span>'}</div>`;
+  }).catch(() => { if (card.isConnected) card.querySelector('.sub').textContent = 'Only available from the dashboard server (scripts/serve.py), not this saved file.'; });
 }
 
 // Tools postings ask for that the experience vault doesn't show (the same gaps the score charges).
