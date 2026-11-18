@@ -29,6 +29,7 @@ def _send(tmp_path, text, title="LinkedIn"):
 def _run(conn, tmp_path, **kw):
     started = []
     kw.setdefault("fetch", lambda ext: "")
+    kw.setdefault("search", lambda t, c: None)
     out = phone_notify.process(conn, {}, inbox=tmp_path / "inbox", start_tailoring=started.append,
                                priority_file=tmp_path / "priority.json", score_cfg={}, **kw)
     return out, started
@@ -113,3 +114,36 @@ def test_record_needs_text(tmp_path):
         phone_notify.record({}, tmp_path)
     line = json.loads((tmp_path / "inbox" / "inbox.jsonl").read_text()) if (tmp_path / "inbox").exists() else None
     assert line is None
+
+
+def test_parse_notification_reads_title_and_company():
+    p = phone_notify.parse_notification("Software Engineer - New Grad (2027 Start) at Databricks and 9 more jobs similar to one you recently viewed.")
+    assert p == ("Software Engineer - New Grad (2027 Start)", "Databricks")
+    assert phone_notify.parse_notification("Ryan Su completed Wend.") is None
+
+
+def test_unknown_job_is_searched_once_stored_and_tailored(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    monkeypatch.setattr("src.score.rescore_all", lambda c, cfg: conn.execute("UPDATE jobs SET tier = 'A'") and {})
+    calls = []
+
+    def search(title, company):
+        calls.append((title, company))
+        return {"external_id": "777", "title": title, "company": company, "location": "Vancouver, BC",
+                "url": "https://www.linkedin.com/jobs/view/777/"}
+
+    _send(tmp_path, "Data Engineer at Databricks and 9 more jobs similar to one you recently viewed.")
+    out, started = _run(conn, tmp_path, search=search, fetch=lambda ext: LONG)
+    assert calls == [("Data Engineer", "Databricks")]
+    assert len(started) == 1
+    row = conn.execute("SELECT company FROM jobs WHERE external_id = '777'").fetchone()
+    assert row["company"] == "Databricks"
+
+
+def test_search_that_finds_nothing_is_not_repeated(tmp_path):
+    conn = _conn(tmp_path)
+    calls = []
+    _send(tmp_path, "Data Engineer at Nowhere Inc is hiring")
+    for _ in range(3):
+        _run(conn, tmp_path, search=lambda t, c: calls.append(1))
+    assert len(calls) == 1
