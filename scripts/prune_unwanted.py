@@ -26,7 +26,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 def unwanted_rows(conn, search: dict) -> list[tuple]:
     rows = conn.execute(
         "SELECT id, source, external_id, title, company, location, description, url FROM jobs"
-        " WHERE status != 'applied'" + kept_clause(conn)
+        " WHERE status != 'applied' AND source != 'linkedin'" + kept_clause(conn)
     ).fetchall()
 
     def wanted(j: Job) -> bool:

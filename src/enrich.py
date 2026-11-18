@@ -94,7 +94,11 @@ def worth_keeping(job: Job, wanted: Callable[[Job], bool]) -> bool:
     it's one we'd spend a fetch on (`wanted`, normally title relevance);
     anything less relevant isn't worth storing at all.
     """
-    return len(job.description or "") >= SNIPPET_MAX_CHARS or wanted(job)
+    # A LinkedIn job-alert email is one of Jake's own saved searches, so a title with no data/analyst
+    # keyword ("Performance Measurement Specialist") is still a job he asked to see (Nov 18 2026).
+    # Hard excludes (senior, location, excluded companies) still apply in keep_job.
+    alert = job.source == "linkedin" and bool((job.raw or {}).get("gmail_message_id"))
+    return alert or len(job.description or "") >= SNIPPET_MAX_CHARS or wanted(job)
 
 
 def needs_enrichment(job: Job) -> bool:
