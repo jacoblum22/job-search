@@ -20,6 +20,7 @@ import mimetypes
 import os
 import re
 import sqlite3
+import logging
 import threading
 import time
 from collections.abc import Callable
@@ -43,8 +44,10 @@ from src.tailor.paths import resolve
 from src.tailor.packet import OUTCOMES, approve, record_outcome
 from src.tailor_runner import TailoringRunner
 
+log = logging.getLogger(__name__)
 Response = tuple[int, str, bytes]
 _DIAG_PATH = "/api/autofill-diagnostics"
+_CAPTURE_PATH = "/api/autofill/capture"
 _PHONE_PATH = "/api/phone-notify"
 _JOB = re.compile(r"^/(?:api/)?job/(\d+)(/.*)?$")
 # Files from an application's final/ folder the details page may link to.
@@ -91,6 +94,8 @@ class DashboardApp:
         self.version = 0
         self._jobs_cache: tuple[int, float, list[dict]] | None = None  # (version, built at, sorted rows)
         self._build_lock = threading.Lock()
+        self._capture_lock = threading.Lock()
+        self.capture_inline = False  # tests finish captured jobs on the request thread
         self._gaps_lock = threading.Lock()
         self._gaps_result: dict[str, Any] | None = None
         self._gaps_at = float("-inf")
@@ -169,7 +174,7 @@ class DashboardApp:
                 return self._get(path, query)
             if method == "POST":
                 # The Job Autofill extension reports page diagnostics from its own origin.
-                extension = path == _DIAG_PATH and (headers.get("origin") or "").startswith("chrome-extension://")
+                extension = path in (_DIAG_PATH, _CAPTURE_PATH) and (headers.get("origin") or "").startswith("chrome-extension://")
                 if path == _PHONE_PATH:   # the phone app sends no Origin; the secret token is the check
                     return self._phone_notify(headers, body)
                 if headers.get("origin") not in self.origins and not extension:
@@ -445,6 +450,53 @@ class DashboardApp:
         tmp.replace(path)
         return self._json({"ok": True, "saved": len(runs), "total": len(merged)})
 
+    def _capture(self, data: dict[str, Any]) -> Response:
+        """Job links the extension found on a page: say which are stored already, store the new ones.
+        The answer is sent as soon as the links are checked and saved; fetching full postings and
+        scoring the new rows continue on a background thread (src/capture.py)."""
+        from src import capture
+
+        items = data.get("jobs")
+        if not isinstance(items, list):
+            return self._error("send jobs: a list of {url, title, company, location, description}")
+        items = [{**i, "page": i.get("page") or data.get("page")} for i in items if isinstance(i, dict)]
+        settings = capture.load_settings()
+        conn = self._conn()
+        try:
+            results, added = capture.process(conn, items, settings)
+            for r in results:
+                if r.get("status") == "added":
+                    self._note_change(r["job_id"])
+            if added:
+                self._refresh_file(conn)
+        finally:
+            conn.close()
+        if added:
+            if self.capture_inline:
+                self._capture_finish(added, settings)
+            else:
+                threading.Thread(target=self._capture_finish, args=(added, settings), daemon=True).start()
+        counts: dict[str, int] = {}
+        for r in results:
+            counts[r["status"]] = counts.get(r["status"], 0) + 1
+        return self._json({"ok": True, "counts": counts, "results": results})
+
+    def _capture_finish(self, jobs: list, settings: dict[str, Any]) -> None:
+        from src import capture
+
+        with self._capture_lock:  # one batch at a time; they share the host rate limits
+            conn = connect(self.db_path)
+            try:
+                ids = capture.finish(conn, jobs, settings)
+            except Exception:
+                log.exception("Capture: finishing %d new job(s) failed", len(jobs))
+                return
+            finally:
+                conn.close()
+        with self.lock:
+            for job_id in ids:
+                self._note_change(job_id)
+
     def _phone_notify(self, headers: dict[str, str], body: bytes) -> Response:
         """A LinkedIn notification forwarded from the phone (src/phone_notify.py). Needs the secret in
         X-Notify-Token (PHONE_NOTIFY_TOKEN in .env); with none set the endpoint is off."""
@@ -471,6 +523,8 @@ class DashboardApp:
     def _post(self, path: str, data: dict[str, Any]) -> Response:
         if path == _DIAG_PATH:
             return self._autofill_diagnostics(data)
+        if path == _CAPTURE_PATH:
+            return self._capture(data)
         if path == "/api/tailoring":
             return self._json({"ok": True, "result": self.runner.start(data.get("limit"))})
         m = _JOB.match(path)
