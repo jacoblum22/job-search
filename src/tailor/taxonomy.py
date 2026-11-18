@@ -46,8 +46,9 @@ T = [
 ("Languages","Ruby",r"\bruby\b"),
 ("Languages","PowerShell",r"powershell"),
 ("Languages","VBA",r"\bvba\b|\bmacros?\b"),
-("Languages","Bash/Shell",r"\bbash\b|shell script"),
+("Languages","Bash/Shell",r"\bbash\b|shell script|command.line"),
 ("Cloud & DevOps","Linux/Unix",r"\blinux\b|\bunix\b"),
+("Cloud & DevOps","macOS",r"\bmac ?os\b"),
 ("Languages","Kotlin/Swift",r"\bkotlin\b|\bswift\b"),
 ("Languages","Rust",r"\brust\b"),
 ("Languages","HTML/CSS",r"(?<![./-])\bhtml\b|(?<![./-])\bcss\b"),  # not a file name ("about-cibc.html")
@@ -74,6 +75,9 @@ T = [
 ("Libraries","Vue",r"(?-i)\bVue(?:\.js)?\b"),
 ("Libraries","Spring",r"(?-i)\bSpring(?: Boot)?\b(?! (?:term|semester|break|20\d\d))"),
 ("Libraries","FastAPI/Flask/Django",r"fastapi|\bflask\b|django"),
+("Libraries","Qt / PyQt",r"(?-i)\bQt\b|\bPyQt\d?\b|\bPySide\d?\b"),
+# Uppercase: the Robot Operating System. RELATED links it to robotics.
+("Libraries","ROS (Robot Operating System)",r"(?-i)\bROS(?: ?2)?\b"),
 # BI / analytics
 # Capitalised "Excel" is the tool; lowercase "excel" is usually the verb ("our people can excel").
 # A sentence that opens "Excel at" / "Excel in" is the verb too.
@@ -105,16 +109,17 @@ T = [
 ("BI & analytics","Amplitude / Mixpanel",r"(?-i)\bAmplitude\b|\b[Mm]ixpanel\b"),
 ("BI & analytics","Hex",r"(?-i)\bHex\b(?! (?:code|codes|colou?rs?|values?|keys?))"),
 ("BI & analytics","Statsig",r"statsig"),
+("BI & analytics","Pendo",r"\bpendo\b"),
 # The discipline, not a tool. Bare "BI" counts only when it isn't part of "Power BI" or Databricks' "AI/BI".
 ("BI & analytics","business intelligence",r"business intelligence|(?-i:(?<!Power )(?<!AI/)\bBI\b)"),
-("BI & analytics","data analysis",r"\bdata analysis\b|exploratory data analys"),
+("BI & analytics","data analysis",r"\bdata analysis\b|exploratory data analys|\b(?:data|business) analytics\b"),
 ("BI & analytics","self-serve analytics",r"self.serv(?:e|ice) (?:analytics|bi|reporting|dashboards?|data|insights|tools)"),
 # Data engineering / warehouse
 ("Data platforms","Snowflake",r"snowflake"),
 ("Data platforms","Databricks",r"databricks"),
 ("Data platforms","BigQuery",r"bigquery|big query"),
 ("Data platforms","Redshift",r"redshift"),
-("Data platforms","Spark/PySpark",r"\bspark\b|pyspark"),
+("Data platforms","Spark/PySpark",r"\bspark(?:sql)?\b|pyspark"),
 ("Data platforms","dbt",r"\bdbt\b"),
 ("Data platforms","Airflow",r"airflow"),
 ("Data platforms","Dagster",r"dagster"),
@@ -132,11 +137,11 @@ T = [
 ("Data platforms","data warehouse",r"data warehous|warehouse|data lake|lakehouse"),
 ("Data platforms","data modeling",r"data model|dimensional model|star schema|fact (?:and|&) dimension|(?:fact|dimension) tables?|slowly changing dimension"),
 ("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"
- r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b"),
+ r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b|data profiling"),
 ("Data platforms","data governance",r"data governance|data stewardship|metadata"),
 # Relational databases (PostgreSQL, MySQL, SQL Server, SQLite) stay under SQL: SQL skill carries
 # over between them. NoSQL databases each work differently, so each is its own skill (Jake, Oct 18 2026).
-("Data platforms","NoSQL",r"\bnosql\b"),
+("Data platforms","NoSQL",r"\bno-?sql\b"),
 ("Data platforms","MongoDB",r"mongodb|\bmongo\b"),
 ("Data platforms","DynamoDB",r"dynamodb"),
 ("Data platforms","Cassandra",r"cassandra"),
@@ -187,22 +192,33 @@ T = [
 ("Cloud & DevOps","Azure",r"\bazure\b"),
 ("Cloud & DevOps","Azure Machine Learning",r"azure machine learning|azure ml\b"),
 ("Cloud & DevOps","Azure OpenAI",r"azure openai"),
+("Cloud & DevOps","Azure Communication Services",r"azure communication services"),
 ("Cloud & DevOps","Microsoft Graph API",r"microsoft graph|\bgraph api\b"),
 ("Cloud & DevOps","GCP",r"\bgcp\b|google cloud(?! oauth)"),
 ("Cloud & DevOps","Vertex AI",r"vertex ai"),
 ("Cloud & DevOps","Docker",r"docker|containeri[sz]"),
+# The HPC container runtime, only as a container ("Docker/Singularity"): "the singularity" is the AI idea.
+("Cloud & DevOps","Singularity / Apptainer",r"(?-i)(?<=/)Singularity\b|\bSingularity(?= containers?\b)|\b[Aa]pptainer\b"),
 ("Cloud & DevOps","Kubernetes",r"kubernetes|\bk8s\b"),
 ("Cloud & DevOps","CI/CD",r"ci/cd|continuous integration|continuous deliver|github actions|jenkins|azure devops|azure pipelines"),
-("Cloud & DevOps","Git",r"\bgit\b|github(?! copilot)|gitlab|bitbucket|version control"),
+("Cloud & DevOps","Git",r"\bgit\b|github(?! copilot)|gitlab|bitbucket|version control|source control"),
 ("Cloud & DevOps","Terraform/IaC",r"terraform|infrastructure as code"),
 ("Cloud & DevOps","MLOps",r"mlops|llmops|model deployment|deploy(?:ing)? models|model monitoring|(?:model|data|concept) drift|retrain(?:ing)? models?|model retraining"
  r"|experiment tracking|model registr|feature stores?"),
 ("Cloud & DevOps","MLflow",r"mlflow"),
 # Regression testing is re-running tests after a change, not statistical regression.
 ("Cloud & DevOps","testing (unit/automated)",r"unit test|automated test|test automation|pytest|\btdd\b|(?-i:\bBDD\b)|behaviou?r.driven"
- r"|regression test|integration test|end.to.end test"),
+ r"|regression test|integration test|end.to.end test|test.driven|(?:test|code) coverage"),
 ("Cloud & DevOps","microservices",r"microservice"),
 ("Cloud & DevOps","distributed systems",r"distributed system"),
+# Engineering practice (Nov 18 2026 review). A "Firmware" team name isn't the skill; firmware work is.
+("Cloud & DevOps","embedded / real-time systems",r"real.time (?:systems|embedded|operating systems?|linux)|\brtos\b"
+ r"|embedded (?:systems|hardware|software|firmware|linux|gpus?|devices|c\b)|firmware (?:development|engineering|engineers?)"),
+("Cloud & DevOps","cloud-native architecture",r"cloud.native"),
+# Steps to reproduce a bug are QA, not reproducible research or builds.
+("Cloud & DevOps","reproducible workflows",r"reproducib(?:le|ility)(?! (?:bugs?|issues|defects|steps|test cases))"),
+# Contributing to projects. An "open-source-first" company or "open-source tools" isn't contribution.
+("Cloud & DevOps","open-source contribution",r"open.source (?:contributions?|contributors?|projects?)|contribut\w* (?:to )?(?:\w+ )?open.source"),
 # ML / stats methods
 ("ML & statistics","machine learning",r"machine learning|\bml\b|(?:un)?supervised learning|tree.based models?|random forests?|decision trees?"),
 ("ML & statistics","AI (any mention)",r"\bai\b|artificial intelligence"),
@@ -227,8 +243,9 @@ T = [
  r"|quasi.experiment|difference.in.differences|propensity score"),
 ("ML & statistics","feature engineering",r"feature engineering"),
 ("ML & statistics","model evaluation/validation",r"model (?:evaluation|validation|performance)|cross.validation"),
-# Query, performance and process optimisation are tuning work, not operations research.
-("ML & statistics","optimization / OR",r"(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
+# Query, performance and process optimisation are tuning work, not operations research; nor is
+# "AI optimization" (getting a product surfaced by LLM assistants).
+("ML & statistics","optimization / OR",r"(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )(?<!ai )(?<!ai-)optimi[sz]ation|operations research|linear programming|integer programming"),
 ("ML & statistics","recommendation systems",r"recommend(?:er|ation) (?:system|engine|model)|recommenders?\b|next best action|ranking models?"),
 # Churn is a business metric; only survival wording is the method.
 ("ML & statistics","survival analysis",r"survival analysis|survival models?|time.to.event|hazard models?"),
@@ -270,16 +287,25 @@ T = [
 ("AI tools","Cursor",r"(?-i)\bCursor\b"),
 ("AI tools","Codex",r"\bcodex\b"),
 ("AI tools","Gemini",r"(?-i)\bGemini\b"),
+# The practice of coding with AI tools, whichever one. Building agents is "AI agents" below.
+("AI tools","AI-assisted coding / coding agents",r"coding agents?|ai.assisted (?:coding|development|software development|engineering)"
+ r"|ai coding (?:tools|assistants|agents)|agentic coding"),
 ("Business tools","Microsoft Office",r"microsoft office|ms office|office 365|microsoft 365|word, excel|powerpoint"),
 ("Business tools","Agile/Scrum",r"\bagile\b|scrum|kanban|sprint"),
 ("Business tools","project management",r"project management|project manager|pmp|pmbok|\bcapm\b"),
 ("Business tools","change management",r"change management"),
-("Business tools","market research",r"market research|market sizing|competitive (?:analysis|landscape|intelligence)"),
+("Business tools","market research",r"market research|market sizing|competitive (?:analysis|landscape|intelligence)|opportunity sizing"),
 ("Business tools","robotic process automation (RPA)",r"robotic process automation|(?-i:\bRPA\b)|uipath|automation anywhere|blue prism"),
 ("Business tools","low-code / no-code",r"low.code|\bno-code\b"),
 ("Business tools","Anaplan",r"anaplan"),
 ("Business tools","Acumatica",r"acumatica"),
 ("Business tools","Marketo",r"marketo"),
+("Business tools","Zapier",r"zapier"),
+# Apple's spreadsheet app, only next to another spreadsheet: "Numbers" is otherwise the word.
+("Business tools","Apple Numbers",r"(?-i)\bApple Numbers\b|\bExcel\W{1,6}Numbers\b|\bNumbers\W{1,8}(?:and/or |or |and )?\W{0,4}Google Sheets"),
+("Business tools","ShotGrid (Flow Production Tracking)",r"shotgrid|flow production tracking"),
+# Digital content creation apps for VFX and animation. "Maya HTT" is a company.
+("Business tools","DCC software (Maya, Houdini, Nuke, Katana)",r"(?-i)\bMaya\b(?! HTT)|\bHoudini\b|\bNuke\b|\bKatana\b"),
 ("Business tools","Agentforce",r"agentforce"),
 # The terminal and data, not the company: "At Bloomberg, we..." isn't a skill.
 ("Business tools","Bloomberg",r"bloomberg (?:terminal|bql|api|data license)|(?-i:(?<!At )(?<!at )\bBloomberg\b(?=[,)]| (?:and|or|is (?:desired|an asset|required|preferred))\b))"
@@ -293,12 +319,12 @@ T = [
 ("Cloud & DevOps","SDLC",r"\bsdlc\b|software development life ?cycle"),
 ("Cloud & DevOps","networking (TCP/IP)",r"tcp/ip|\btcp\b|\budp\b|networking protocols"),
 ("Cloud & DevOps","QA / UAT",r"\buat\b|user acceptance|quality assurance|acceptance testing|manual testing|exploratory testing|test (?:cases|plans)\b"
- r"|\b(?:acceptance|exploratory)\b[^.\n]{0,50}\btests\b"),
+ r"|\b(?:acceptance|exploratory)\b[^.\n]{0,50}\btests\b|(?-i:\bSIT\b)|system integration testing|defect (?:tracking|management|triage)"),
 # Data work and engineering practice (Oct 19 2026, from an audit of the 73 A-tier postings).
 ("Data platforms","data transformation / preparation",r"data (?:transformations?|preparation|prep|wrangling|manipulation|munging)|transform(?:s|ed|ing)? (?!(?:the way|how) )(?:[\w-]+ ){0,2}data\b|prepar(?:e|ing) data|\bwrangl"),
 # Combining sources is integration work ("multi-source data", "combining data from several sources").
 ("Data platforms","data integration",r"data integration|system integrations?|integrat(?:e|ing) data|integrations? (?:between|across) (?:systems|platforms|tools)|(?:third.party|enterprise|platform) integrations?|integrat(?:e|ed|es|ing|ion) (?:of )?(?:the )?(?:third.party|external|outside|vendor) (?:\S+ ){0,3}?(?:data|sources?|systems|feeds)|multi.source|combin(?:e|ed|ing) (?:data from )?(?:multiple|several|different|many) (?:data )?sources"),
-("Data platforms","secure coding / OWASP",r"secure coding|secure (?:software|code) (?:development|practices)|\bowasp\b"),
+("Data platforms","secure coding / OWASP",r"secure coding|secure (?:software|code) (?:development|practices)|\bowasp\b|application security|\bappsec\b"),
 ("Data platforms","data privacy / security",r"data privacy|privacy (?:laws|legislation|regulations|requirements|by design)|\bpii\b|personally identifiable|\bgdpr\b|\bccpa\b|\bpipeda\b|\bfoippa\b|\bhipaa\b|data security|data protection|\bencryption\b|access controls?|role.based access|row.level security|information security|cyber.?security|secrets? management"),
 ("Data platforms","query / performance tuning",r"query (?:optimi[sz]ation|performance|tuning)|optimi[sz](?:e|ing) (?:sql|queries|query)|performance (?:tuning|optimi[sz]ation)|(?:sql|query|database) tuning|tun(?:e|ing) (?:sql|queries)|(?:efficient|cost.effective) (?:sql|queries)|(?:sql|queries|query) (?:\w+ )?efficient|query costs?"),
 ("Data platforms","data lineage / catalog",r"data lineage|\blineage\b|data catalog(?:ue)?s?|data dictionar|metadata management"),
@@ -337,6 +363,8 @@ T = [
 ("Cloud & DevOps","serverless",r"serverless"),
 ("Cloud & DevOps","IAM (identity and access management)",r"(?-i:\bIAM\b)|identity and access management"),
 ("Cloud & DevOps","GPU computing / CUDA",r"\bcuda\b|\bgpus?\b|\btpus?\b"),
+# The embedded GPU board, not the company "Jetson" ("About Jetson", "At Jetson, we value").
+("Cloud & DevOps","NVIDIA Jetson",r"(?-i)NVIDIA Jetson|(?<!At )\bJetson\b(?= or\b| and\b|,|/| Orin| Nano| Xavier)"),
 # Google Cloud's data products, each its own skill (as with AWS).
 ("Cloud & DevOps","Google Cloud Storage",r"google cloud storage|(?-i:\bGCS\b)"),
 ("Cloud & DevOps","Google Cloud Dataflow / Apache Beam",r"(?-i:\bDataflow\b)|cloud dataflow|apache beam"),
@@ -344,10 +372,10 @@ T = [
 ("BI & analytics","root cause analysis",r"root.cause"),
 ("BI & analytics","data-driven decision-making",r"data.driven (?:decisions?|decision.making|insights?|approach|culture|recommendations)|evidence.based (?:decisions?|decision.making)|inform(?:s|ed|ing)? (?:business |key |strategic )?decisions|decision support"),
 # A marketing or sales funnel is demand generation (below), not in-product funnels.
-("BI & analytics","product analytics (funnels / cohorts / LTV)",r"(?<!marketing )(?<!sales )(?<!lead )\bfunnels?\b|cohort|lifetime value|(?-i:\b(?:LTV|CLV|CLTV)\b)|feature adoption|product analytics"),
+("BI & analytics","product analytics (funnels / cohorts / LTV)",r"(?<!marketing )(?<!sales )(?<!lead )\bfunnels?\b|cohort|lifetime value|(?-i:\b(?:LTV|CLV|CLTV)\b)|feature adoption|product adoption|clickstream|product analytics"),
 ("BI & analytics","churn / retention analysis",r"\bchurn|customer retention|retention (?:analysis|rates?|modell?ing)"),
 ("BI & analytics","SaaS metrics (ARR / MRR / NRR)",r"(?-i:\b(?:ARR|MRR|NRR|GRR)\b)|recurring revenue|net (?:revenue|dollar) retention|saas metrics"),
-("BI & analytics","marketing analytics / attribution",r"marketing analytics|(?:marketing|multi.?touch|campaign|channel) attribution|attribution model|marketing mix model|(?-i:\bUTMs?\b)"),
+("BI & analytics","marketing analytics / attribution",r"marketing analytics|(?:marketing|multi.?touch|campaign|channel) attribution|attribution model|marketing mix model|(?-i:\bUTMs?\b)|campaign (?:analytics|performance|analysis|data)"),
 ("BI & analytics","report / process automation",r"automat(?:e|ed|ing|ion of) (?:the |our )?(?:recurring |manual |routine )?(?:reports?|reporting|processes|workflows?|tasks|data (?:loads|ingest|ingestion|collection))|(?:report|reporting|process|workflow) automation|automat(?:e|es|ed|ing) (?:repetitive|manual)\b"),
 ("ML & statistics","anomaly detection",r"anomaly detection|detect(?:ing)? anomalies|outlier detection"),
 ("ML & statistics","model interpretability / explainability",r"interpretab|explainab|(?-i:\bSHAP\b)"),
@@ -360,16 +388,25 @@ T = [
 ("ML & statistics","fine-tuning (LoRA / PEFT)",r"\bfine.tun(?:ing|e|ed)\b(?! (?:our |the |your |their |my )?(?:process|processes|workflows?|strateg|operations|skills?|abilities))"
  r"|(?-i:\bQ?LoRA\b)|\bpeft\b|parameter.efficient"),
 ("ML & statistics","named entity recognition / entity resolution",r"named entity|entity (?:resolution|linking|extraction|recognition)|(?-i:\bNER\b)"),
-("ML & statistics","model serving / inference optimization",r"model serving|serving models|inference (?:optimi[sz]ation|serving|latency|endpoints?)|quantization|(?:model|knowledge) distillation"),
+("ML & statistics","model serving / inference optimization",r"model serving|serving models|inference (?:optimi[sz]ation|serving|latency|endpoints?)|quantization|(?:model|knowledge) distillation|model compression"),
 ("ML & statistics","search / information retrieval",r"information retrieval|retrieval systems|re-?rank(?:ing|ers?)\b|hybrid search|vector search|semantic search|search relevance|retrieval.based"),
+# Bare "RL" only in a list ("RL/IL", "RL, CNNs"): "evals and RL environments" is an employer blurb.
+("ML & statistics","reinforcement learning",r"reinforcement learning|imitation learning|\brlhf\b|(?-i:\bRL\b(?=/|,))"),
+("ML & statistics","numerical methods / scientific computing",r"numerical (?:methods|computing|analysis|optimization|simulation|linear algebra)|scientific computing"),
+# "Ask questions via a chatbot" is the hiring process.
+("ML & statistics","conversational AI / chatbots",r"conversational (?:ai|agents?)|(?<!via a )\bchatbots?\b"),
+# "Localization" alone is also robot localization (SLAM): only the translation wording.
+("ML & statistics","machine translation / localization",r"machine translation|(?-i:\bNMT\b)|translation (?:management systems?|memory|quality)"
+ r"|locali[sz]ation (?:engineering|engineers?|workflows?|software|systems|program)"),
 ("ML & statistics","text-to-SQL / conversational analytics",r"text.to.sql|natural language (?:to sql|queries|querying)|conversational analytics"),
 ("Business tools","requirements gathering",r"requirements? gathering|gather(?:ing)?(?: and document(?:ing)?)? (?:the )?(?:business |data |reporting |user |stakeholder )?requirements|(?:business|data|reporting|analytical|analytics|user|functional) requirements|business analysis"),
 # Business Process Outsourcing is an industry (call centres), not process work.
 ("Business tools","process improvement",r"process improvements?|business process(?:es)?(?! outsourcing)|process mapping|improv(?:e|ing) (?:business |existing |internal )?processes|process (?:optimi[sz]ation|re-?engineering)"),
+("Business tools","feasibility studies",r"feasibility (?:stud(?:y|ies)|analys[ie]s|assessments?)"),
 ("Business tools","Lean / Six Sigma",r"six sigma|lean six|(?-i:\bLEAN\b)|\blean\b(?= (?:methodolog|principles|management|practices|certification|thinking))|\bkaizen\b"),
 # Domain knowledge.
 ("Domain knowledge","healthcare knowledge",r"health ?care (?:data|systems?|terminology|environment|sector|settings?|experience|industry|operations)|clinical (?:data|terminology|systems?|workflows?)|health (?:information|records|data)|electronic (?:health|medical) records?|(?-i:\b(?:HL7|EHR|CIHI)\b)|\bcerner\b|medical terminology|healthcare analytics"),
-("Domain knowledge","financial analysis / FP&A",r"financial (?:analysis|modell?ing|planning|statements)|fp&a|variance analysis|unit economics|budget(?:ing)? and forecast"),
+("Domain knowledge","financial analysis / FP&A",r"financial (?:analysis|modell?ing|(?:or operational )?models?\b|planning|statements)|fp&a|variance analysis|unit economics|budget(?:ing)? and forecast"),
 ("Domain knowledge","investment performance / attribution",r"performance attribution|return attribution|attribution, risk|risk (?:and|&) exposure|investment (?:performance|analytics)|portfolio management theory"),
 ("Domain knowledge","accounting (GAAP / IFRS)",r"\bgaap\b|\bifrs\b|revenue recognition|accounting (?:knowledge|principles|standards|concepts|working knowledge)|knowledge of (?:[a-z]+(?:,\s*(?:and\s+)?|\s+and\s+))*accounting|(?:basic|sound) accounting"),
 ("Domain knowledge","risk management / regulatory compliance",r"risk management|regulatory (?:compliance|requirements|reporting|frameworks)"),
@@ -379,8 +416,21 @@ T = [
 ("Domain knowledge","epidemiology / biostatistics",r"epidemiolog|biostatistic"),
 # Uppercase IoT: "NYSE: IOT" is a ticker.
 ("Domain knowledge","IoT / sensor data",r"(?-i:\bIoT\b)|internet of things|sensor data"),
+# Nov 18 2026 review. "Robotic process automation" is RPA, above.
+("Domain knowledge","robotics",r"\brobotics\b"),
+("Domain knowledge","energy / power markets",r"energy (?:markets|sector|industry|infrastructure|data|systems)|power (?:markets|generation|systems)"
+ r"|electricity markets|grid interconnection"),
+# "Time permitting" / "weather permitting" are the idiom.
+("Domain knowledge","permitting / regulatory filings",r"regulatory filings|(?<!time )(?<!weather )(?<!schedule )\bpermitting\b"),
+("Domain knowledge","project finance / infrastructure investing",r"project finance|infrastructure invest(?:ing|ment)"),
+# "Pipeline management" alone is often CI/CD or data pipelines: only the sales wording.
+("Domain knowledge","revenue / sales operations",r"revenue operations|sales operations|\brevops\b|sales pipelines?|pipeline generation"
+ r"|commission (?:administration|calculations?)|incentive compensation"),
+("Domain knowledge","email marketing",r"email marketing|email campaigns?|marketing automation platforms?"),
+("Domain knowledge","VFX / animation pipeline",r"\bvfx\b|visual effects|animation pipeline"),
 # soft skills
-("Soft skills","communication",r"communicat"),
+# Not the Azure Communication Services product.
+("Soft skills","communication",r"communicat(?!ions? services)"),
 ("Soft skills","collaboration/teamwork",r"collaborat|team ?work|cross.functional|team player|(?:works?|interact) well with others"),
 ("Soft skills","problem solving",r"problem.solv"),
 ("Soft skills","stakeholder management",r"stakeholder|relationships with (?:key |our )?(?:internal|external|partners|clients|customers)|partner relationships"),
@@ -445,7 +495,10 @@ RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Ama
            "SQL stored procedures": "SQL", "Amazon SQS / SNS": "AWS", "Amazon ECS": "AWS",
            "Delta Lake": "Databricks", "Unity Catalog": "Databricks", "Snowflake Cortex": "Snowflake",
            "Dataform": "GCP", "Agentforce": "Salesforce/CRM", "ELK Stack": "Elasticsearch",
-           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)"}
+           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)",
+           "Azure Communication Services": "Azure", "ROS (Robot Operating System)": "robotics",
+           "NVIDIA Jetson": "GPU computing / CUDA", "Singularity / Apptainer": "Docker",
+           "Apple Numbers": "macOS"}
 
 # The kind of tool each one is. An open list ("e.g. Tableau, QuickSight", "or similar tools")
 # takes its type from the tools it names, so any tool of that type can stand in. Excel isn't a
@@ -459,11 +512,15 @@ _TYPES = {
                      "LangChain/LlamaIndex", "spaCy / NLTK", "vLLM"],
     "data library": ["pandas", "NumPy", "scikit-learn", "matplotlib/seaborn/plotly", "Jupyter"],
     "web framework": ["React", "FastAPI/Flask/Django", "Angular", "Vue", "Spring", "Node.js"],
+    "desktop UI toolkit": ["Qt / PyQt"],
+    "robotics / embedded platform": ["ROS (Robot Operating System)", "NVIDIA Jetson"],
+    "operating system": ["Linux/Unix", "macOS"],
+    "3D / VFX software": ["DCC software (Maya, Houdini, Nuke, Katana)", "ShotGrid (Flow Production Tracking)"],
     "AI assistant": ["Claude / Claude Code", "ChatGPT", "GitHub Copilot", "Microsoft Copilot", "Cursor", "Codex",
                      "Gemini"],
     "BI / visualization tool": ["Power BI", "Tableau", "Looker", "Looker Studio", "Qlik", "Superset", "Metabase",
                                 "Sigma", "MicroStrategy", "Cognos", "Amazon QuickSight", "SSIS/SSRS", "Hex"],
-    "product analytics": ["Google Analytics", "Amplitude / Mixpanel", "Statsig"],
+    "product analytics": ["Google Analytics", "Amplitude / Mixpanel", "Statsig", "Pendo"],
     "data warehouse": ["Snowflake", "Databricks", "BigQuery", "Redshift", "Microsoft Fabric / Azure Synapse / ADF"],
     "table format": ["Delta Lake", "Apache Iceberg"],
     "data catalog": ["Unity Catalog"],
@@ -479,19 +536,21 @@ _TYPES = {
                        "Amazon Kinesis", "Azure Machine Learning", "Vertex AI", "AWS Glue", "Amazon Athena",
                        "Amazon EMR", "Amazon EC2", "AWS CloudFormation", "Google Cloud Composer", "Google Cloud Storage",
                        "Google Cloud Dataflow / Apache Beam", "Google Cloud Pub/Sub", "Amazon SQS / SNS", "Amazon ECS",
-                       "AWS API Gateway", "Amazon CloudWatch", "Amazon RDS", "Azure OpenAI"],
+                       "AWS API Gateway", "Amazon CloudWatch", "Amazon RDS", "Azure OpenAI",
+                       "Azure Communication Services"],
     "test tool": ["Playwright", "Selenium", "Cypress", "Postman", "JMeter / k6", "Jest / Vitest"],
     "ML / AI platform": ["Amazon SageMaker", "Azure Machine Learning", "Vertex AI", "MLflow", "Databricks",
                          "Amazon Bedrock", "Snowflake Cortex", "Dataiku", "Azure OpenAI"],
     "DevOps tool": ["Docker", "Kubernetes", "CI/CD", "Git", "Terraform/IaC", "Linux/Unix", "Datadog", "Ansible / Puppet",
-                    "AWS CloudFormation", "Grafana", "Prometheus", "ELK Stack"],
+                    "AWS CloudFormation", "Grafana", "Prometheus", "ELK Stack", "Singularity / Apptainer"],
     "business software": ["Salesforce/CRM", "ERP (SAP/Oracle/Workday)", "Jira/Confluence", "Visio / diagramming",
                           "Microsoft Access", "Microsoft Word", "Microsoft Office", "SharePoint", "Excel",
                           "Microsoft Outlook", "Microsoft PowerPoint", "Microsoft Teams", "Google Sheets / Workspace",
                           "ServiceNow", "Stripe", "test management (TestRail, qTest, Xray)",
                           "project controls (Primavera P6, EcoSys)",
                           "Microsoft Power Platform", "Power Apps", "Power Automate", "Power Query", "Dataverse",
-                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica"],
+                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica", "Zapier", "Apple Numbers",
+                          "ShotGrid (Flow Production Tracking)"],
 }
 # Entries above that bundle several different tools. The bundle says a posting wants this kind of tool;
 # MEMBERS says which one. Having one member covers the entry only partly for a posting that names a
@@ -511,6 +570,8 @@ MEMBERS: dict[str, dict[str, str]] = {
                                                "Azure Synapse": r"synapse", "Azure Data Factory": r"data factory"},
     "SSIS/SSRS": {"SSIS": r"\bssis\b", "SSRS": r"\bssrs\b", "SSAS": r"\bssas\b"},
     "Kotlin/Swift": {"Kotlin": r"\bkotlin\b", "Swift": r"\bswift\b"},
+    "DCC software (Maya, Houdini, Nuke, Katana)": {"Maya": r"\bmaya\b(?! htt)", "Houdini": r"\bhoudini\b",
+                                                   "Nuke": r"\bnuke\b", "Katana": r"\bkatana\b"},
 }
 TOOL_TYPES: dict[str, set[str]] = {}
 for _type, _names in _TYPES.items():
