@@ -24,11 +24,13 @@ that isn't needed to read the posting.
    `landed_url` and call it `closed`, quoting where it ended. A verification or "checking your browser"
    screen is different: wait about 10 seconds and read the page again once before calling it `unknown`
    (these usually clear on their own); never click or solve anything on it.
-   **Aggregator pages.** Some links are themselves a job-search site's copy of the posting, such as an
-   `adzuna.ca/details/...` page, and others start at Adzuna and end on a search-results or "similar jobs"
-   page (jobleads.com and the like). These pages are never proof that the job is open: an Adzuna details
-   page keeps showing the full description and an Apply button after the employer has taken the posting
-   down. Never call one `open` from that page alone.
+   **Job-board pages.** Each entry has `via_board`. When it is true, the link is a job board's copy of the
+   posting (an `adzuna.ca/details/...` page, a Himalayas, Jobicy, LinkedIn or Indeed listing, any board, known
+   or not), and when a link starts on a site that is not the employer's own site or applicant tracking
+   system, treat it the same way. Some of these links start at Adzuna and end on a search-results or "similar jobs"
+   page (jobleads.com and the like). These pages are never proof that the job is open: a board keeps
+   showing the full description and an Apply button after the employer has taken the posting
+   down (Adzuna and Himalayas both did). Never call one `open` from that page alone.
    - If the page has an Apply (or "View original posting") link, read its address (use `find` or
      `read_page` on the link) and open that address in the same tab. Do not click through any form and
      never submit anything. Note the address you ended on as `landed_url`. If it ended on an
@@ -43,7 +45,7 @@ that isn't needed to read the posting.
      like a Senior or a different team) is a different job and does not count. If you find it only on
      another aggregator, or not at all, it is `closed`: `evidence` says where the link ended and that a
      search found nothing.
-   An `open` answer for a job whose link is on an aggregator is ignored unless it has a `real_url`.
+   An `open` answer for a `via_board` job is ignored unless it has a `real_url`.
    Second, while you have the text open, whether it is an **obvious miss**: you are completely
    certain Jake cannot get this job. That means a must-have he does not have and cannot honestly
    bridge: an employer pedigree ("experience at a leading technology, research, or quantitative

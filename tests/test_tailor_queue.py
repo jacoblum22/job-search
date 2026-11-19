@@ -24,9 +24,9 @@ def cfg(tmp_path):
     }, "tiers": ["A", "B"], "rescore_before_queue": False})
 
 
-def add(cfg, ext, title, tier, score, desc=DESC, group=None, company="Contoso Retail"):
+def add(cfg, ext, title, tier, score, desc=DESC, group=None, company="Contoso Retail", source="greenhouse:test"):
     conn = connect(cfg["paths"]["db"])
-    job = Job("test", ext, title, company, "Vancouver, BC", desc, f"https://x/{ext}")
+    job = Job(source, ext, title, company, "Vancouver, BC", desc, f"https://x/{ext}")
     job.dedup_group_id = group
     jid, _ = upsert_job(conn, job)
     conn.execute("UPDATE jobs SET tier = ?, score = ? WHERE id = ?", (tier, score, jid))
@@ -538,25 +538,33 @@ def test_link_that_ends_on_jobleads_is_closed_unless_the_posting_was_found_elsew
     assert "jobleads.com" in (open_check_dir(cfg) / "dismissed.jsonl").read_text()
 
 
-def test_open_on_an_adzuna_details_page_alone_is_closed_unless_the_employer_page_was_reached(cfg_oc):
+def test_open_on_a_job_boards_page_alone_is_closed_unless_the_employer_page_was_reached(cfg_oc):
     from src.tailor.queue import open_check_dir, queue_from_plan
 
     cfg = cfg_oc
-    ids = [add(cfg, f"z{i}", f"Job {i}", "A", 90 - i) for i in range(5)]
-    conn = connect(cfg["paths"]["db"])
-    for i in ids[:4]:
-        conn.execute("UPDATE jobs SET url = 'https://www.adzuna.ca/details/5969280070?utm_medium=api' WHERE id = ?", (i,))
-    conn.commit()
-    run_queue(cfg, limit=2, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
-    # Jake, Nov 19 2026: the details page still showed Apply after the employer's posting was gone (410).
+    # Jake, Nov 19 2026: Adzuna (HCL) and Himalayas (TELUS) pages still showed Apply after the posting was gone.
+    ids = [add(cfg, "z0", "Job 0", "A", 90, source="adzuna"), add(cfg, "z1", "Job 1", "A", 89, source="himalayas"),
+           add(cfg, "z2", "Job 2", "A", 88, source="someNewBoard"), add(cfg, "z3", "Job 3", "A", 87, source="adzuna"),
+           add(cfg, "z4", "Job 4", "A", 86, source="workday:acme"), add(cfg, "z5", "Job 5", "A", 85)]
+    run_queue(cfg, limit=3, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
     _raw_verdict(cfg, ids[0], state="open", evidence="Apply button shown")
-    _raw_verdict(cfg, ids[1], state="open", evidence="found on Workday",
+    _raw_verdict(cfg, ids[1], state="open", evidence="Apply button shown")
+    _raw_verdict(cfg, ids[2], state="open", evidence="Apply button shown")
+    _raw_verdict(cfg, ids[3], state="open", evidence="found on Workday",
                  real_url="https://hcl.wd3.myworkdayjobs.com/en-US/careers/job/Data-Engineer_R1")
-    _raw_verdict(cfg, ids[2], state="unknown", evidence="verification screen")  # can't judge: kept
-    assert titles(queue_from_plan(cfg)) == ["Job 1", "Job 2"]
+    _raw_verdict(cfg, ids[4], state="open", evidence="Apply button shown")  # the employer's own board: trusted
+    assert titles(queue_from_plan(cfg)) == ["Job 3", "Job 4", "Job 5"]
     conn = connect(cfg["paths"]["db"])
-    assert conn.execute("SELECT status FROM jobs WHERE id = ?", (ids[0],)).fetchone()[0] == "dismissed"
+    for i in ids[:3]:
+        assert conn.execute("SELECT status FROM jobs WHERE id = ?", (i,)).fetchone()[0] == "dismissed"
     assert "employer's own page was not reached" in (open_check_dir(cfg) / "dismissed.jsonl").read_text()
+
+
+def test_is_board_source():
+    from src.tailor.queue import is_board_source
+
+    assert all(is_board_source(x) for x in ("adzuna", "himalayas", "jobicy", "jobbank", "careerjet", "linkedin"))
+    assert not any(is_board_source(x) for x in ("greenhouse:acme", "workday:vch", "bcps", ""))
 
 
 def test_link_that_ends_on_a_site_home_or_general_job_list_is_closed(cfg_oc):
