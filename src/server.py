@@ -370,21 +370,28 @@ class DashboardApp:
     def refresh_skill_gaps(self) -> None:
         """Work out the missing-skills stats now (src/skill_demand.py reads only new or changed postings,
         or everything after a vault edit). Runs on a thread of its own, one at a time."""
-        from src.skill_demand import missing_skills
-
         if not self._gaps_lock.acquire(blocking=False):
             return
         try:
-            conn = connect(self.db_path)
-            try:
-                self._gaps_result = missing_skills(conn, tailor_paths._settings().get("score") or {})
-            finally:
-                conn.close()
+            self._gaps_result = self._compute_gaps()
             self._gaps_at = time.monotonic()
         except Exception as e:  # noqa: BLE001 - the stats are optional; never take the server down
             print(f"skill stats failed: {e}")
         finally:
             self._gaps_lock.release()
+
+    def _compute_gaps(self) -> dict[str, Any]:
+        """Run src/skill_demand.py in a child process. After a vault edit it re-reads every posting
+        (minutes of regex work); on a thread of this process that holds the GIL and freezes every request."""
+        import subprocess
+        import sys
+
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
+        out = subprocess.run([sys.executable, "-m", "src.skill_demand", str(self.db_path)], capture_output=True,
+                             text=True, encoding="utf-8", creationflags=flags, cwd=Path(__file__).resolve().parent.parent)
+        if out.returncode:
+            raise RuntimeError(out.stderr.strip()[-300:] or f"exit {out.returncode}")
+        return json.loads(out.stdout)
 
     def warm_skill_gaps(self) -> None:
         threading.Thread(target=self.refresh_skill_gaps, daemon=True).start()

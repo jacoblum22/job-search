@@ -114,3 +114,13 @@ def missing_skills(conn: sqlite3.Connection, score_cfg: dict[str, Any], root: Pa
             ] if n else [],
         }
     return out
+
+
+if __name__ == "__main__":  # the dashboard server runs this in a child process: python -m src.skill_demand <db>
+    import sys
+
+    from src.db import connect
+    from src.tailor import paths
+
+    _conn = connect(Path(sys.argv[1]))
+    print(json.dumps(missing_skills(_conn, paths._settings().get("score") or {})))
