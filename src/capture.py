@@ -241,6 +241,6 @@ def finish(conn, jobs: list[Job], settings: dict[str, Any]) -> list[int]:
         ids.append(row[0])
     conn.commit()
     if ids:
-        rescore_all(conn, settings.get("score") or {})
+        rescore_all(conn, settings.get("score") or {}, only_ids=ids)
         conn.commit()
     return ids

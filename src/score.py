@@ -482,9 +482,10 @@ def score_job(
 
 
 def rescore_all(
-    conn: sqlite3.Connection, cfg: dict[str, Any], *, cache: dict | None = None
+    conn: sqlite3.Connection, cfg: dict[str, Any], *, cache: dict | None = None,
+    only_ids: list[int] | None = None,
 ) -> dict[str, int]:
-    """Recompute score/tier for every row. Returns a count per tier.
+    """Recompute score/tier for every row (or just `only_ids`). Returns a count per tier.
 
     `cache` (kept by the caller across calls in one run, same cfg) skips rows
     whose scored fields haven't changed since the previous call.
@@ -498,7 +499,10 @@ def rescore_all(
         "SELECT id, title, description, location_category, years_experience, location, company, "
         "posted_date, raw, first_seen, last_seen, status, dedup_group_id FROM jobs"
     ).fetchall()
-    jev = load_jev_penalties(conn)   # dedup group -> (points, reason) from the queue's quick fit check
+    if only_ids is not None:  # a few new rows: scoring all of them takes minutes of CPU
+        keep = set(only_ids)
+        rows = [r for r in rows if r[0] in keep]
+    jev = load_jev_penalties(conn)  # dedup group -> (points, reason) from the queue's quick fit check
     # Every job gets the age adjustment, whatever state it is in (Jake, Nov 12 2026: a job with a
     # folder or an application must not keep a stale score).
     age_cfg = cfg.get("age") or {}
