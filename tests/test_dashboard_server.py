@@ -779,7 +779,7 @@ def test_skill_gaps_save_each_posting_and_redo_only_what_changed(env, tmp_path, 
 def test_skill_gaps_endpoint_answers_at_once_and_fills_in_from_the_background(env, monkeypatch):
     app = env["app"]
     gate = threading.Event()
-    monkeypatch.setattr("src.skill_demand.missing_skills", lambda *a, **k: gate.wait(5) and {"stored": 1, "full": 1})
+    monkeypatch.setattr(app, "_compute_gaps", lambda: gate.wait(5) and {"stored": 1, "full": 1})
     assert json.loads(app.handle("GET", "/api/skill-gaps", H)[2]) == {"pending": True}
     gate.set()
     for _ in range(50):
