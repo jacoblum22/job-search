@@ -471,8 +471,10 @@ function appCell(app, row) {
   const flags = app.flags.map(f => `<span class="badge flag">${escapeHtml(f)}</span>`).join('');
   // file: links don't open from an http page; the served dashboard has the details page instead.
   const links = SERVER ? '' : fileLink(app.final_href, 'Files') + fileLink(app.check_href, 'Checklist');
+  const v = app.verdict;
+  const verdict = v ? `<div class="applinks" title="${escapeHtml(v.text)}">${escapeHtml(v.outlook)} outlook · ${escapeHtml(v.stretch)} · score ${escapeHtml(v.score_check)}</div>` : '';
   return `<span class="badge app-${escapeHtml(app.status)}">${escapeHtml(app.label)}</span>${flags}`
-    + (links ? `<div class="applinks">${links}</div>` : '');
+    + verdict + (links ? `<div class="applinks">${links}</div>` : '');
 }
 
 // --- Stats tab (plain SVG and divs, so the page still works offline) -------------
@@ -853,6 +855,21 @@ def _file_uri(path: Path) -> str:
         return ""
 
 
+def _verdict_cell(folder: Path) -> dict | None:
+    """The saved AI fit verdict for a reviewed application (src/tailor/fitverdict.py), as the
+    short fields the table shows; the text is the hover note."""
+    from src.tailor import fitverdict
+
+    try:
+        v = fitverdict.load(folder)
+    except OSError:
+        return None
+    if not v:
+        return None
+    return {"outlook": v.get("outlook"), "stretch": v.get("stretch"), "score_check": v.get("score_check"),
+            "text": v.get("text")}
+
+
 def app_summary(app: dict) -> dict:
     """What the dashboard shows for one tailoring application (src/tailor/store.py row)."""
     status = app.get("status") or "shortlisted"
@@ -873,6 +890,7 @@ def app_summary(app: dict) -> dict:
         "flags": flags,
         "final_href": _file_uri(final) if app.get("folder") and final.is_dir() else "",
         "check_href": _file_uri(check) if app.get("folder") and check.is_file() else "",
+        "verdict": _verdict_cell(folder) if app.get("folder") else None,
     }
 
 

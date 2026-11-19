@@ -352,7 +352,7 @@ def packet(app_dir):
     _refresh_dashboard(cfg)
 
 
-def _open_folders(cfg) -> list[Path]:
+def _open_folders(cfg, statuses=("ready_for_review", "needs_fixes")) -> list[Path]:
     """Application folders still waiting on review: not approved, applied or dismissed."""
     from src.db import connect
     from src.tailor import store
@@ -361,7 +361,7 @@ def _open_folders(cfg) -> list[Path]:
     try:
         dismissed = {r[0] for r in conn.execute("SELECT id FROM jobs WHERE status = 'dismissed'")}
         apps = [a for a in store.all_apps(conn).values()
-                if a.get("status") in ("ready_for_review", "needs_fixes") and a["job_id"] not in dismissed]
+                if a.get("status") in statuses and a["job_id"] not in dismissed]
     finally:
         conn.close()
     out = []
@@ -370,6 +370,37 @@ def _open_folders(cfg) -> list[Path]:
         if (folder / "app.json").exists():
             out.append(folder)
     return out
+
+
+@main.command("fit-verdict-pending")
+@click.option("--limit", type=int, default=None, help="At most this many (default: tailor.fit_verdict.max_per_run)")
+def fit_verdict_pending(limit):
+    """Step 12: reviewed applications (ready, needs fixes or approved) with no fit verdict for what is
+    there now, newest first. Folders from earlier days that never got one are included."""
+    from src.tailor import fitverdict
+
+    cfg = load_config()
+    cap = limit if limit is not None else (cfg.get("fit_verdict") or {}).get("max_per_run", 10)
+    _out(fitverdict.pending(_open_folders(cfg, fitverdict.REVIEWED), cap))
+
+
+@main.command("fit-verdict-input")
+@APP
+def fit_verdict_input(app_dir):
+    """Step 12: write fit-verdict/input.md (the score and why, the review packet, the evidence, the posting)."""
+    from src.tailor import fitverdict
+
+    _out(fitverdict.build_input(app_dir, load_config()))
+
+
+@main.command("fit-verdict-save")
+@APP
+def fit_verdict_save(app_dir):
+    """Step 12: validate fit-verdict/verdict.json and keep it as fit-verdict.json (the dashboard shows it)."""
+    from src.tailor import fitverdict
+
+    _out(fitverdict.save(app_dir))
+    _refresh_dashboard(load_config())
 
 
 @main.command()

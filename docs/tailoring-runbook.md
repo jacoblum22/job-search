@@ -154,7 +154,7 @@ catch-up on jobs drafted earlier).
    best A-tier jobs first). If the list is empty and nothing was waiting, end with the
    one-line digest "Nothing new to tailor".
 
-**Step B: for each folder, in the order printed, do steps 1 to 11 below.** Finish or skip one
+**Step B: for each folder, in the order printed, do steps 1 to 12 below.** Finish or skip one
 folder before starting the next. Keep a running note of the outcome for the digest.
 
 1. **Requirements (Claude).** Follow `prompts/tailor/requirements.md`; write `<app>/requirements.json`.
@@ -235,6 +235,22 @@ folder before starting the next. Keep a running note of the outcome for the dige
     - Otherwise follow `prompts/tailor/humanize.md`, write `<app>/humanize/patches.json`, then run
       `humanize-apply "<app>"`. A rejected or reverted pass is fine; do not retry it.
     - `uv run python -m src.tailor render "<app>"`, then `packet "<app>"`.
+12. **Fit verdict (a Claude subagent), after `packet`.** Jake, Nov 19 2026: every job that reaches
+    review gets a few sentences of AI-written judgment on the dashboard: is the score about right,
+    how much of a stretch is it, how good should he feel about it. Only for the folders this session
+    packeted, never for the other jobs in the database.
+    - `uv run python -m src.tailor fit-verdict-input "<app>"`. It writes `fit-verdict/input.md` and
+      prints the `output` path.
+    - Start a subagent with model **sonnet** and effort **medium**, telling it to follow
+      `prompts/tailor/fit-verdict.md` for this folder, and give it the "How to run commands"
+      paragraph above. Run it in the foreground and wait for its answer, as in step 3. It writes
+      `fit-verdict/verdict.json` and runs `uv run python -m src.tailor fit-verdict-save "<app>"`.
+    - If the subagent failed or the save printed an error twice, skip it and note it for the digest:
+      the verdict is a nicety, and nothing else waits on it. A folder with a packet and no verdict
+      is listed by `fit-verdict-pending`.
+
+Skip step 12 for a folder you stopped on before `packet`, and for a job `review-input` found
+the candidate can't apply to only if `packet` didn't run. If `packet` ran, it gets a verdict.
 
 **Stop conditions (stop working on this folder, mark it, move on)**
 
@@ -335,6 +351,12 @@ summary; read it before continuing.
     dashboard (`uv run python scripts/serve.py`): click the job's title to open its details page, which shows
     the files, lets you tick check.md's boxes, approve, and press "I applied" (or record a later outcome).
     The CLI equivalents are `... approve "$APP"` and `... outcome "$APP" applied`.
+12. **Fit verdict:** `... fit-verdict-input "$APP"`, run a sonnet subagent on
+    `prompts/tailor/fit-verdict.md`, which writes `APP/fit-verdict/verdict.json` and runs
+    `... fit-verdict-save "$APP"`. `... fit-verdict-pending` lists every reviewed folder (ready,
+    needs fixes or approved) with no verdict for what is there now, newest first, at most
+    `tailor.fit_verdict.max_per_run` (10); use it to backfill folders drafted before this step
+    existed. A verdict stays until the posting or the packet changes.
 
 To redo a step, rerun its command; code steps overwrite their own outputs. To redo a Claude step,
 overwrite its JSON file and rerun the command after it. Delete a later round's folder

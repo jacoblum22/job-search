@@ -658,6 +658,8 @@ tailor:
   daily_cap: 10          # application folders created per run
   tiers: [A, B]          # eligible tiers, in queue order: B-tier jobs only fill what A-tier can't (Jake, Oct 30 2026)
   min_description_chars: 1000
+  fit_verdict:
+    max_per_run: 10     # `fit-verdict-pending` lists at most this many reviewed folders lacking a verdict
   # LinkedIn notifications forwarded from the phone (src/phone_notify.py, docs/phone-notifications.md):
   # the job is found, read, gated and tailored at once, up to daily_cap a day (Jake's usage limit).
   phone_notify:
