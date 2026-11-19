@@ -538,6 +538,27 @@ def test_link_that_ends_on_jobleads_is_closed_unless_the_posting_was_found_elsew
     assert "jobleads.com" in (open_check_dir(cfg) / "dismissed.jsonl").read_text()
 
 
+def test_open_on_an_adzuna_details_page_alone_is_closed_unless_the_employer_page_was_reached(cfg_oc):
+    from src.tailor.queue import open_check_dir, queue_from_plan
+
+    cfg = cfg_oc
+    ids = [add(cfg, f"z{i}", f"Job {i}", "A", 90 - i) for i in range(5)]
+    conn = connect(cfg["paths"]["db"])
+    for i in ids[:4]:
+        conn.execute("UPDATE jobs SET url = 'https://www.adzuna.ca/details/5969280070?utm_medium=api' WHERE id = ?", (i,))
+    conn.commit()
+    run_queue(cfg, limit=2, jev=FakeJev(lambda s, q: GOOD[q.id]), plan_only=True)
+    # Jake, Nov 19 2026: the details page still showed Apply after the employer's posting was gone (410).
+    _raw_verdict(cfg, ids[0], state="open", evidence="Apply button shown")
+    _raw_verdict(cfg, ids[1], state="open", evidence="found on Workday",
+                 real_url="https://hcl.wd3.myworkdayjobs.com/en-US/careers/job/Data-Engineer_R1")
+    _raw_verdict(cfg, ids[2], state="unknown", evidence="verification screen")  # can't judge: kept
+    assert titles(queue_from_plan(cfg)) == ["Job 1", "Job 2"]
+    conn = connect(cfg["paths"]["db"])
+    assert conn.execute("SELECT status FROM jobs WHERE id = ?", (ids[0],)).fetchone()[0] == "dismissed"
+    assert "employer's own page was not reached" in (open_check_dir(cfg) / "dismissed.jsonl").read_text()
+
+
 def test_link_that_ends_on_a_site_home_or_general_job_list_is_closed(cfg_oc):
     from src.tailor.queue import is_generic_landing, queue_from_plan
 

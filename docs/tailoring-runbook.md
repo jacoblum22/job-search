@@ -69,7 +69,7 @@ is an inference-only login, so with it set `claude -p` loads no Claude in Chrome
 the dashboard's Run button both carry it). With two Chrome browsers on the account the run must
 pick one: put `JOBSEARCH_CHROME_DEVICE_ID=<deviceId>` in `.env` (this PC's Chrome). A link that ends on a job-search aggregator (jobleads.com, where Adzuna links often land) is not the posting: the check searches the
 web for the title and company, saves the employer/ATS page it finds as the job's `real_url` (shown as "Open the posting" and used by later checks),
-and otherwise calls the job closed, which dismisses it (Jake, Nov 13 2026). Hosts: `AGGREGATOR_HOSTS` in `src/tailor/queue.py` plus `tailor.open_check.aggregator_hosts`. Turn the check off with
+and otherwise calls the job closed, which dismisses it (Jake, Nov 13 2026). A link that is itself an aggregator page (an `adzuna.ca/details` page keeps showing Apply after the employer's posting is gone) must be followed through its Apply link to the employer page; an `open` verdict for such a link without a `real_url` is turned into closed in code (`read_verdicts`), whatever the model said (Nov 19 2026). Hosts: `AGGREGATOR_HOSTS` in `src/tailor/queue.py` plus `tailor.open_check.aggregator_hosts`. Turn the check off with
 `tailor.open_check.enabled: false`.
 
 **Parallel sessions (`-Parallel`, 2 by default).** A normal run (scheduled, by hand or from the

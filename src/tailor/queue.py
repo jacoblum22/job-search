@@ -365,12 +365,25 @@ def write_plan(cfg: dict[str, Any], entries: list[tuple[Any, list, Any]], limit:
     return path
 
 
+def _planned_urls(cfg: dict[str, Any]) -> dict[int, str]:
+    """The link each job had in today's plan, by job id (the verdict files don't repeat it)."""
+    import json
+
+    path = open_check_dir(cfg) / "plan.json"
+    try:
+        plan = json.loads(path.read_text(encoding="utf-8"))
+        return {int(e["job_id"]): str(e.get("url") or "") for e in plan.get("entries", [])}
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+
+
 def read_verdicts(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
     """The browser step's verdicts by job id. A file that isn't valid, or calls a job closed
     without quoting the page, counts as unknown."""
     import json
 
     out: dict[int, dict[str, Any]] = {}
+    planned = _planned_urls(cfg)
     for f in open_check_dir(cfg).glob("*.json"):
         if f.name == "plan.json" or not f.stem.isdigit():
             continue
@@ -395,6 +408,14 @@ def read_verdicts(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
             host = re.sub(r"^https?://", "", landed, flags=re.I).split("/")[0]
             state = "closed"
             evidence = f"The link ended on {host}, a job-search site, and the posting was not found elsewhere. {evidence}".strip()
+        elif state == "open" and not real_url and is_aggregator(planned.get(int(f.stem), ""), cfg):
+            # The link we were given is itself an aggregator page (an Adzuna details page keeps rendering,
+            # Apply button and all, after the employer's posting is gone: HCL job, Nov 19 2026). Seeing
+            # only that page proves nothing; "open" needs the employer/ATS page (real_url). Else closed.
+            host = re.sub(r"^https?://", "", planned[int(f.stem)], flags=re.I).split("/")[0]
+            state = "closed"
+            evidence = (f"Only the {host} page was read (a job-search site that keeps showing a posting after the "
+                        f"employer has removed it); the employer's own page was not reached. {evidence}").strip()
         elif state != "miss" and landed and is_generic_landing(landed):
             # The link ended on a home page or general job list, not on the posting: the posting is gone.
             state = "closed"

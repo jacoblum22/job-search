@@ -24,15 +24,26 @@ that isn't needed to read the posting.
    `landed_url` and call it `closed`, quoting where it ended. A verification or "checking your browser"
    screen is different: wait about 10 seconds and read the page again once before calling it `unknown`
    (these usually clear on their own); never click or solve anything on it.
-   **Aggregator pages.** Some links start at Adzuna and end on a job-search site such as jobleads.com
-   (a page of search results or "similar jobs", not this posting). That is never the posting and not
-   proof it is open. Note the address the browser ended on as `landed_url`, then search the web for the
-   exact job title plus company (also try "<company> careers <title>"). If you find the same posting
-   on the employer's own site or an applicant tracking system (Workday, Greenhouse, Lever, Ashby,
-   iCIMS and the like) with the same title and company, open it, judge `open`/`closed` from that page,
-   and write its address as `real_url`. A different title (even close, like a Senior or a different
-   team) is a different job and does not count. If you find it only on another aggregator, or not at
-   all, it is `closed`: `evidence` says where the link ended and that a search found nothing.
+   **Aggregator pages.** Some links are themselves a job-search site's copy of the posting, such as an
+   `adzuna.ca/details/...` page, and others start at Adzuna and end on a search-results or "similar jobs"
+   page (jobleads.com and the like). These pages are never proof that the job is open: an Adzuna details
+   page keeps showing the full description and an Apply button after the employer has taken the posting
+   down. Never call one `open` from that page alone.
+   - If the page has an Apply (or "View original posting") link, read its address (use `find` or
+     `read_page` on the link) and open that address in the same tab. Do not click through any form and
+     never submit anything. Note the address you ended on as `landed_url`. If it ended on an
+     employer or applicant-tracking-system page (Workday, Greenhouse, Lever, Ashby, iCIMS and the like)
+     for this exact title and company, judge `open`/`closed` from that page and write its address as
+     `real_url`. If it ended on an error or "Job Expired" page (a 410 or 404), or back on an aggregator,
+     it is `closed` and `evidence` quotes that page's words.
+   - If there is no usable Apply link, or it ends on a general job list, search the web for the exact job
+     title plus company (also try "<company> careers <title>"). If you find the same posting on the
+     employer's own site or an applicant tracking system with the same title and company, open it, judge
+     `open`/`closed` from that page, and write its address as `real_url`. A different title (even close,
+     like a Senior or a different team) is a different job and does not count. If you find it only on
+     another aggregator, or not at all, it is `closed`: `evidence` says where the link ended and that a
+     search found nothing.
+   An `open` answer for a job whose link is on an aggregator is ignored unless it has a `real_url`.
    Second, while you have the text open, whether it is an **obvious miss**: you are completely
    certain Jake cannot get this job. That means a must-have he does not have and cannot honestly
    bridge: an employer pedigree ("experience at a leading technology, research, or quantitative
