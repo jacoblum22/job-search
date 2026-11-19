@@ -154,3 +154,18 @@ def test_fetch_chooses_per_site_cap_and_skips_existing_files(tmp_path):
     assert [r["id"] for r in got if r["source"] == "linkedin"] == list(range(3, 18))
     assert [r["id"] for r in got if r["source"] == "glassdoor"] == [100]
     assert [r["id"] for r in browser_fetch.choose(listings, tmp_path, 15, {"glassdoor"})] == [100]
+
+
+def test_linkedin_alert_jobs_are_kept_whatever_the_title():
+    from src.db import Job
+    from src.enrich import worth_keeping
+
+    never = lambda j: False  # noqa: E731
+    alert = Job("linkedin", "1", "Performance Measurement Specialist", "BCCNM", "Vancouver, BC", "",
+                raw={"gmail_message_id": "abc"})
+    captured = Job("linkedin", "2", "Dental Hygienist", "Smile", "Vancouver, BC", "")
+    glassdoor = Job("glassdoor", "3", "Performance Measurement Specialist", "BCCNM", "Vancouver, BC", "",
+                    raw={"gmail_message_id": "abc"})
+    assert worth_keeping(alert, never)
+    assert not worth_keeping(captured, never)
+    assert not worth_keeping(glassdoor, never)
