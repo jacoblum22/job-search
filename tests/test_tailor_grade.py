@@ -608,3 +608,24 @@ def test_letter_only_change_reuses_the_resume_answers(tmp_path):
     assert asked and all(i.startswith("letter.") for i in asked)
     items = {it["id"]: it for it in out["checklist"]}
     assert items["top_third"]["p_pass"] == 0.55
+
+
+def test_a_term_only_another_base_says_is_not_backed(tmp_path):
+    """Wesgar, Oct 31 2026: "baselines" was in the ML base only; the plan built from the analyst
+    base, so it must not lift the ceiling or be asked for."""
+    from src.tailor.grade import _backed_set, chosen_base_only
+
+    (tmp_path / "plan.json").write_text(json.dumps({"base_id": "data-analyst-bi"}), encoding="utf-8")
+    ev = {"present": ["SQL", "baselines", "Excel"], "absent": [], "terms": [
+        {"term": "baselines", "passages": [], "related": [],
+         "in_base": {"data-analyst-bi": False, "ml-applied-ai": True}},
+        {"term": "SQL", "passages": [], "related": [],
+         "in_base": {"data-analyst-bi": True, "ml-applied-ai": True}},
+        {"term": "Excel", "passages": ["algaecal.sheets"], "related": [],
+         "in_base": {"data-analyst-bi": False, "ml-applied-ai": True}}]}
+    backed = _backed_set(chosen_base_only(ev, tmp_path))
+    assert "sql" in backed and "excel" in backed and "baselines" not in backed
+    # No plan yet: nothing changes.
+    other = tmp_path / "x"
+    other.mkdir()
+    assert chosen_base_only(ev, other) is ev
