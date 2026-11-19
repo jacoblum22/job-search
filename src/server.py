@@ -38,7 +38,7 @@ from src.dashboard import (
 from src.db import JOB_STATUSES, backend, connect, is_main, set_job_status
 from src.posting_status import closed_reason, due_date, seen_date
 from src.retention import posted_on
-from src.tailor import TailorError, rejects, review, store
+from src.tailor import TailorError, fitverdict, rejects, review, store
 from src.tailor import paths as tailor_paths
 from src.tailor.paths import resolve
 from src.tailor.packet import OUTCOMES, approve, record_outcome
@@ -362,6 +362,7 @@ class DashboardApp:
                 "folder": str(folder),
                 "check": review.parse(text) if text is not None else None,
                 "open_items": review.open_items(text) if text is not None else None,
+                "fit_verdict": fitverdict.load(folder),
                 "files": sorted(p.name for p in final.iterdir() if p.is_file() and p.suffix.lower() in _SERVABLE
                                 and not p.name.startswith("~$")) if final.is_dir() else [],
             }
@@ -938,6 +939,14 @@ function render() {
     + `</div><div class="meta" style="margin-top:6px">${app
       ? 'Mark dismissed if you won\'t apply: it stops showing as waiting on you. Evidence picks you made are already saved.'
       : 'No tailored resume or cover letter yet.'}</div></div>`;
+  if (app && app.fit_verdict) {
+    const v = app.fit_verdict;
+    h += `<h2>Fit verdict</h2><div class="panel">
+      <div class="row"><span class="badge">${esc(v.outlook)} outlook</span><span class="badge">${esc(v.stretch)}</span>
+        <span class="badge">score ${esc(v.score_check)}</span></div>
+      <div style="margin-top:8px">${esc(v.text)}</div>
+      <div class="meta" style="margin-top:6px">Written by Claude from the posting, the score and the review packet.</div></div>`;
+  }
   if (app && app.check) h += `<h2>Checklist</h2><div class="panel" id="check">${checkHtml(app.check)}</div>`;
   if (job.score_reasons) h += `<details style="margin-top:20px"><summary>Why it scored ${job.score ?? ''}</summary><pre class="meta">${esc(job.score_reasons)}</pre></details>`;
   h += `<h2>Posting</h2><div class="panel posting">${markdown(job.description)}</div>`;

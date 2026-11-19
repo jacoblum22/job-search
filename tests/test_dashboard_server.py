@@ -805,3 +805,13 @@ def test_resume_projects_count_each_tailored_resume_once(env):
     assert body["resumes"] == 1 and body["applied_resumes"] == 0
     assert [(p["name"], p["resumes"], p["percent"]) for p in body["projects"]] == [
         ("Job Search Aggregator", 1, 100), ("The Game", 1, 100)]
+
+
+def test_details_and_rows_carry_the_fit_verdict(env):
+    verdict = {"score_check": "too high", "stretch": "big stretch", "outlook": "poor",
+               "text": "Probably not worth the time: the real work is data engineering."}
+    assert get(env, f"/api/job/{env['jid']}")[1]["app"]["fit_verdict"] is None
+    appdir.write_json(env["dir"] / "fit-verdict.json", verdict)
+    assert get(env, f"/api/job/{env['jid']}")[1]["app"]["fit_verdict"]["outlook"] == "poor"
+    row = next(r for r in get(env, f"/api/rows?ids={env['jid']}")[1]["rows"] if r["id"] == env["jid"])
+    assert row["app"]["verdict"]["stretch"] == "big stretch"

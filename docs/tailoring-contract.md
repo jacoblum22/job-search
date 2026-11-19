@@ -63,6 +63,7 @@ max 120 chars). Contents, in the order steps create them:
 | `jev-answers.json` | code (Jev's answers, reused for unchanged text) | 5, 6 |
 | `final/` resume + letter `.yaml/.json/.docx/.pdf`, `parse.json` | code | 9 |
 | `fit-notes.md`, `check.md` | code | 10 |
+| `fit-verdict/input.md`, `fit-verdict/verdict.json`, then `fit-verdict.json` (`score_check`, `stretch`, `outlook`, `text`, `fingerprint`, `at`) | code, then a Claude (sonnet) following `prompts/tailor/fit-verdict.md`, then code | 12 |
 
 Company research lives outside the application folder, shared by every job at that company:
 `materials/companies/<company-slug>/` with `facts.json`, `notes.md` (the research step's notes),
