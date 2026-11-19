@@ -73,6 +73,15 @@ def test_plural_skills_match():
     assert any("dashboard" in x for x in r.reasons)
 
 
+def test_rescore_only_ids_leaves_other_rows(tmp_path):
+    conn = connect(tmp_path / "jobs.db")
+    a, _ = upsert_job(conn, Job("t", "1", "Junior Data Scientist", "Acme", "Vancouver, BC", "python sql"))
+    upsert_job(conn, Job("t", "2", "Junior Data Scientist", "Acme", "Vancouver, BC", "python sql"))
+    rescore_all(conn, CFG, only_ids=[a])
+    rows = {r["external_id"]: r for r in conn.execute("SELECT * FROM jobs")}
+    assert rows["1"]["score"] is not None and rows["2"]["score"] is None
+
+
 def test_rescore_all_writes_columns(tmp_path):
     conn = connect(tmp_path / "jobs.db")
     upsert_job(conn, Job("t", "1", "Junior Data Scientist", "Acme", "Vancouver, BC", "python sql"))
