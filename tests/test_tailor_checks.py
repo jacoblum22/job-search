@@ -148,6 +148,18 @@ def test_gate_rejections(tmp_path, edit, reason):
     assert reason in res["rejected"][0]["reason"], res["rejected"]
 
 
+def test_replace_with_same_words_adds_a_missing_citation(tmp_path):
+    # repair.md rule 10: a Jev doubt that is only a citation gap is fixed by citing the passage.
+    app, cfg = make_app(tmp_path)
+    same = "wrote sql daily in postgresql (ctes, window functions) to answer data requests from the  Operations and Sales teams."
+    write_edits(app, [sql_edit(value=same, sources=["northwind.sql-daily", "northwind.stakeholders"])])
+    assert apply_edits(app, 1, cfg)["rejected"] == []
+    b = {x["id"]: x for x in load_resume(app / "drafts/r1/resume.yaml")["experience"][0]["bullets"]}
+    assert b["northwind.sql-daily"]["sources"] == ["northwind.sql-daily", "northwind.stakeholders"]
+    write_edits(app, [sql_edit(value=same)])
+    assert "same as the current text" in apply_edits(app, 1, cfg)["rejected"][0]["reason"]
+
+
 def test_coursework_replace_allowed(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [{"path": "education/exu/exu.coursework", "action": "replace",
