@@ -49,6 +49,25 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Skills review, Nov 19 2026.
+    ("Optimize pipeline performance and cost (partitioning, clustering, incremental models)",
+     "clustering/segmentation"),
+    ("define clustering keys on large tables", "clustering/segmentation"),
+    ("Advanced Node Layout: Learn and apply FinFET layout rules", "Node.js"),
+    ("Canvas-based graphics experience (React Skia or similar)", "Canvas LMS"),
+    ("Software Developer (hybrid) – Splunk AI Canvas", "Canvas LMS"),
+    ("This role is a backfill for an existing position.", "incremental loads / CDC"),
+    ("follow CDC guidelines for workplace health", "incremental loads / CDC"),
+    ("build intuitive UX design patterns for the app", "design patterns"),
+    ("StackAdapt is our cloud platform for marketers", "cloud computing"),
+    ("analyze log analytics data from web servers", "Azure Monitor / Log Analytics"),
+    ("serverless cloud functions on AWS", "Google Cloud Functions"),
+    ("own the work E2E from design to launch", "testing (unit/automated)"),
+    ("the desktop fetches that one source when the cloud run has already happened", "Google Cloud Run"),
+    ("Ubuntu is widely used in initiatives such as public cloud, data science, AI", "cloud computing"),
+    ("Our customers include the world's leading public cloud and silicon providers", "cloud computing"),
+    ("Infrastructure and Cloud-First Application Security", "Canvas LMS"),
+    ("teaming up with iconic partners like Oracle Red Bull Racing", "SQL"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +222,48 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Skills review, Nov 19 2026: real posting wording.
+    ("Fluency in Python, Node or other imperative language.", "Node.js"),
+    ("React on the front end, Node on the back end", "Node.js"),
+    ("Experience with Next.js and React", "Next.js"),
+    ("Familiarity with design patterns and clean code", "design patterns"),
+    ("Pendo, Gainsight, Intercom", "Pendo"),
+    ("primarily using Cloud Run, Cloud Functions, and Vertex AI", "Google Cloud Run"),
+    ("primarily using Cloud Run, Cloud Functions, and Vertex AI", "Google Cloud Functions"),
+    ("configuring alerts using Azure Monitor and Log Analytics", "Azure Monitor / Log Analytics"),
+    ("Knowledge of Azure SQL Database, Azure Storage / Data Lake, and Azure Key Vault", "Azure Key Vault"),
+    ("Some of these, not all: system design, APIs and software architecture", "system design / software architecture"),
+    ("Previous experience working in a public cloud (e.g AWS, GCP, Azure)", "cloud computing"),
+    ("experience with cloud platforms and containers", "cloud computing"),
+    ("frameworks such as Playwright, Selenium, Cypress, Mocha, Jest or Junit", "JUnit"),
+    ("browser automation with Puppeteer", "Puppeteer"),
+    ("Optimize pipeline performance and cost (partitioning, clustering, incremental models)",
+     "incremental loads / CDC"),
+    ("staging vs. modeled layers, incremental loads, deduplication", "incremental loads / CDC"),
+    ("rerunning or backfilling data as needed", "incremental loads / CDC"),
+    ("Familiarity with time series data and late-arriving data", "incremental loads / CDC"),
+    ("Change Data Capture and incremental data loads", "incremental loads / CDC"),
+    ("web scraping, browser automation", "web scraping"),
+    ("apply a wide range of scientific computing, statistical, and physics-based methods", "scientific / numerical computing"),
+    ("training and inference systems, numerical computing, performance optimization", "scientific / numerical computing"),
+    ("identifying and quantifying uncertainty in the data and in our predictions", "uncertainty quantification"),
+    ("probability theory, and uncertainty quantification", "uncertainty quantification"),
+    ("automation tools like Zapier or n8n", "Zapier"),
+    ("automation tools like Zapier or n8n", "n8n"),
+    ("ensure course content is up to date on Canvas (e.g. updating announcement dates", "Canvas LMS"),
+    ("Remote sensing", "remote sensing"),
+    ("aerial imagery", "remote sensing"),
+    ("campaign data, and email marketing platforms", "email marketing"),
+    # Fixes to existing entries.
+    ("SQL, as well as familiarity with non-relational databases", "NoSQL"),
+    ("familiarity with software engineering best practices like unit test / integration test suites, and CICD pipelines",
+     "CI/CD"),
+    ("IaC, CI-CD", "CI/CD"),
+    ("CI/CD tools like Jenkins, Github Actions, CircleCI", "CI/CD"),
+    ("E2E testing with Playwright", "testing (unit/automated)"),
+    ("DuckDB, Apache Sedona", "SQL"),
+    ("PostGIS", "GIS"),
+    ("PostGIS", "SQL"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -236,6 +297,22 @@ def test_oct_20_review_products_and_concepts():
     for product, platform in [("SOQL", "Salesforce/CRM"), ("Acumatica", "ERP (SAP/Oracle/Workday)")]:
         assert _is_tool(product), product
         assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+
+
+def test_nov_19_review_products_and_concepts():
+    for name in ["design patterns", "system design / software architecture", "cloud computing",
+                 "incremental loads / CDC", "web scraping", "scientific / numerical computing",
+                 "uncertainty quantification", "remote sensing", "email marketing"]:
+        assert not _is_tool(name), name
+    for name in ["Next.js", "Pendo", "Google Cloud Run", "Google Cloud Functions", "Azure Monitor / Log Analytics",
+                 "Azure Key Vault", "JUnit", "Puppeteer", "Zapier", "n8n", "Canvas LMS"]:
+        assert _is_tool(name), name
+        assert name in taxonomy.TOOL_TYPES, name
+    for product, platform in [("Google Cloud Run", "GCP"), ("Google Cloud Functions", "GCP"),
+                              ("Azure Monitor / Log Analytics", "Azure"), ("Azure Key Vault", "Azure"),
+                              ("Next.js", "React"), ("JUnit", "Java")]:
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
 
