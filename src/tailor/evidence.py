@@ -125,6 +125,15 @@ _LEVELS = ["bachelor", "master", "phd"]
 # degree") asks for the first one; "a high degree of accuracy", "a 360-degree view" and "to some
 # degree" are no degree.
 _ANY_DEGREE = re.compile(r"(?<![\d-])(?<!\bsome )(?<!\bto a )\bdegree\b(?!\s+of\b)", re.IGNORECASE)
+# "Currently enrolled in an undergraduate degree" asks for a student, which a degree already held
+# doesn't meet (Seaspan intern, Nov 17 2026: a conferred degree passed it). A posting that also takes
+# graduates ("pursuing or completed") asks for the degree as usual.
+_ENROLLED = re.compile(r"\b(?:currently|presently)\s+(?:enrol(?:l)?ed|pursuing|studying|registered|attending)\b|"
+                       r"\benrol(?:l)?ed\s+(?:in|at)\b|\bcurrent\s+(?:students?|enrol(?:l)?ment)\b", re.IGNORECASE)
+_GRADS_TOO = re.compile(r"\bcompleted\b|\brecent(?:ly)?\s+grad|\bgraduates?\b|\bgraduated\b", re.IGNORECASE)
+# A vault line saying the candidate is a student now.
+_STUDENT = re.compile(r"\bcurrently\s+enrol(?:l)?ed\b|\bexpected\s+(?:graduation|to\s+graduate)\b|"
+                      r"\bgraduating\s+in\b|\bin\s+progress\b", re.IGNORECASE)
 
 
 def degree_level(text: str) -> str | None:
@@ -135,9 +144,14 @@ def degree_level(text: str) -> str | None:
 
 def _degree_check(r: dict, claims: dict[str, dict]) -> dict | None:
     """Evidence entry for a degree requirement, or None when the requirement isn't about a degree."""
-    need = degree_level(f"{r.get('text', '')} {r.get('quote', '')}")
+    asked = f"{r.get('text', '')} {r.get('quote', '')}"
+    need = degree_level(asked)
     if need is None:
         return None
+    if _ENROLLED.search(asked) and not _GRADS_TOO.search(asked):
+        now = [pid for pid, p in claims.items() if _STUDENT.search(p["text"]) and degree_level(p["text"])]
+        return {"id": r["id"], "status": "covered" if now else "missing", "strength": 2 if now else 0,
+                "passages": now, "method": "degree"}
     # A graduate degree must read as held ("Master's degree, conferred ..."), not as a
     # passing mention ("worked with Master's students").
     held = {lvl: [pid for pid, p in claims.items() if _DEGREE[lvl].search(p["text"])
@@ -413,7 +427,9 @@ def run_evidence(app_dir: Path, cfg: dict[str, Any], jev: Any) -> dict:
     base_texts = {bid: base_text(b) for bid, b in bases.items()}
 
     entries = collect_terms(reqs)
-    by_name = {e["term"]: e for e in entries}
+    # A requirement names a term in its own spelling ("inference" where an earlier one said
+    # "Inference"), which collect_terms merged into one entry: every spelling finds it.
+    by_name = {n: e for e in entries for n in e["raw"]} | {e["term"]: e for e in entries}
     cap = int((cfg.get("evidence") or {}).get("max_passages", 8))
     # Real bullets before skills-list mentions; within those, work before projects before coursework,
     # then the stronger passage, primary copies before cross-references.

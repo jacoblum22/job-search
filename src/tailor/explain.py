@@ -236,6 +236,9 @@ def jev_item(item: dict[str, Any], reqs: dict[str, dict], data: dict[str, Any] |
         details.append("Judge: does it name something only you did (a tool, a number, a result)?")
     elif qid == "letter.specific":
         head = f"The cover letter may not mention anything specific to {company or 'the company'}{sure}."
+        if item.get("fit_gap"):
+            details.append("Company research found nothing and the posting names nothing about the employer, "
+                           "so no repair round tried to fix this.")
         details.append("Judge: does it name something about this company a generic letter wouldn't?")
     elif qid in ("letter.opener", "letter.closer"):
         which = "opening" if qid == "letter.opener" else "closing"

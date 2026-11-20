@@ -555,6 +555,15 @@ def run_grade(app_dir: Path, rnd: int, cfg: dict[str, Any], jev) -> dict[str, An
             r = must_reqs[meta[it["id"]]["req_id"]]
             it["sections"] = _must_sections(data, {p for e in evidence.get("requirements") or [] if e.get("id") == r["id"] for p in e.get("passages") or []})
     _mark_fit_gaps(items, must_reqs, evidence, text, cfg, data)
+    if not req.get("company_facts") and (cfg.get("paths") or {}).get("companies"):
+        from src.tailor.letter import load_company_facts
+
+        if not load_company_facts(cfg, company):
+            # Research found nothing and the posting names nothing about the employer: no rewrite can
+            # name a fact only true of it (Auction Frogs, Nov 17 2026: repair was asked for one anyway).
+            for it in items:
+                if it["id"] == "letter.specific" and it["passed"] is False:
+                    it["fit_gap"] = ["company facts"]
 
     rate = sum(p_pass(it) for it in items) / len(items) if items else 1.0
     score = round(0.6 * ats["total"] + 0.4 * rate * 100, 1)
@@ -774,7 +783,7 @@ def _gaps_and_feedback(items, must_reqs, evidence, data, text, req, cfg, repeate
             sentences.append(f"Must-have {label} needs a bullet that names the tool and its scope; {passage_clause(rid, r)}.")
         elif iid == "top_third":
             sentences.append(f"Rewrite the summary so the top of the resume reads as {_a(req.get('title') or 'target')} role.")
-        elif iid == "letter.specific":
+        elif iid == "letter.specific" and not it.get("fit_gap"):
             sentences.append(f"Name one fact only true of {req.get('company') or 'the company'} (a number, or a named "
                              "product, project, launch or event) from the posting or the verified company facts "
                              "in the letter; adding the company's name doesn't count.")

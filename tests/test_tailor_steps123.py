@@ -579,6 +579,45 @@ def test_degree_requirement(env, quote, status):
     assert r["passages"] == (["course.degree"] if status == "covered" else [])
 
 
+@pytest.mark.parametrize("quote,status", [
+    # A degree held (the fixture's BSc, 2026) isn't current enrollment.
+    ("Currently enrolled in an undergraduate degree program in Statistics", "missing"),
+    ("Enrolled in a Bachelor's degree in a quantitative field", "missing"),
+    # Graduates welcome too: the degree is what's asked.
+    ("Currently enrolled in or recently graduated from a Bachelor's degree in Statistics", "covered"),
+])
+def test_degree_requirement_enrollment(env, quote, status):
+    cfg, app = env
+    _with_reqs(app, [{"id": "a", "text": quote, "kind": "must", "terms": [], "weight": "role", "quote": quote}])
+    r = run_evidence(app, cfg, FakeJev(lambda s, q: 0.9))["requirements"][0]
+    assert r["status"] == status and r["method"] == "degree"
+
+
+def test_degree_enrollment_met_by_a_degree_in_progress(env):
+    cfg, app = env
+    idx = json.loads(Path(cfg["paths"]["vault_index"]).read_text(encoding="utf-8"))
+    p = next(p for p in idx["passages"] if p["id"] == "course.degree")
+    p["text"] = "BSc in Statistics, Example University, expected graduation 2027."
+    Path(cfg["paths"]["vault_index"]).write_text(json.dumps(idx), encoding="utf-8")
+    quote = "Currently enrolled in an undergraduate degree program in Statistics"
+    _with_reqs(app, [{"id": "a", "text": quote, "kind": "must", "terms": [], "weight": "role", "quote": quote}])
+    r = run_evidence(app, cfg, None)["requirements"][0]
+    assert r["status"] == "covered" and r["passages"] == ["course.degree"]
+
+
+def test_evidence_term_spelled_two_ways(env):
+    # Two requirements naming one unknown term in different case are one term (micro1 ML Engineer,
+    # Nov 17 2026: "Inference" and "inference" crashed evidence with a KeyError).
+    cfg, app = env
+    _with_reqs(app, [
+        {"id": "a", "text": "Model inference", "kind": "must", "terms": ["Widget tuning"], "weight": "role", "quote": "SQL"},
+        {"id": "b", "text": "Fast inference", "kind": "nice", "terms": ["widget tuning"], "weight": "role", "quote": "SQL"},
+    ])
+    ev = run_evidence(app, cfg, None)
+    assert [r["id"] for r in ev["requirements"]] == ["a", "b"]
+    assert sum(t["term"].lower() == "widget tuning" for t in ev["terms"]) == 1
+
+
 def test_degree_of_is_not_a_degree():
     from src.tailor.evidence import degree_level
     assert degree_level("A high degree of accuracy in reporting") is None
