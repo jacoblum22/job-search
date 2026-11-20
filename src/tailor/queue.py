@@ -92,11 +92,14 @@ def _gate_resume(bases: dict[str, str], posting: str, default: str) -> tuple[str
 
 
 def _to_markdown(description: str) -> str:
-    if _HTML.search(description or ""):
+    # Some sources send the two characters "\n" instead of a line break. Glued to a word
+    # ("\nDesign") they hid it from every later step that matches posting words.
+    description = (description or "").replace("\\n", "\n")
+    if _HTML.search(description):
         from markdownify import markdownify
 
         return re.sub(r"\n{3,}", "\n\n", markdownify(description)).strip()
-    return (description or "").strip()
+    return description.strip()
 
 
 def _eligible(conn, cfg: dict[str, Any], job_ids: list[int] | None) -> list[Any]:

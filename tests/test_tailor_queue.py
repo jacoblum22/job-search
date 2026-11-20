@@ -637,3 +637,14 @@ def test_shortfall_counts_the_cap_minus_folders_made_today_that_are_still_wanted
     db.set_job_status(conn, ids[0], "dismissed")  # a hard stop during drafting
     conn.close()
     assert shortfall(cfg, 3) == 1
+
+
+def test_literal_backslash_n_in_a_description_becomes_a_line_break():
+    from src.tailor.queue import _to_markdown
+    from src.tailor.requirements import norm_text, quote_in
+
+    for desc in (r"<p>About us</p>\n\n<p>\nBuild pipelines.\nMonitor daily loads.</p>",
+                 r"About us\n\nBuild pipelines.\nMonitor daily loads."):
+        md = _to_markdown(desc)
+        assert "\\n" not in md
+        assert quote_in("Monitor daily loads", norm_text(md))
