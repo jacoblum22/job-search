@@ -49,6 +49,25 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Skills review, Nov 18 2026.
+    ("Experience with Azure Communication Services (ACS)", "communication"),
+    ("learn about the upcoming field of AI-Optimization", "optimization / OR"),
+    ("Familiarity with prompt engineering and AI optimization", "optimization / OR"),
+    ("No SQL experience required", "NoSQL"),
+    ("the AI singularity", "Singularity / Apptainer"),
+    ("About Jetson", "NVIDIA Jetson"),
+    ("At Jetson, we value people who are excellent", "NVIDIA Jetson"),
+    ("Maya HTT is a world leading developer", "DCC software (Maya, Houdini, Nuke, Katana)"),
+    ("Numbers don't lie", "Apple Numbers"),
+    ("Respond to requests, time permitting", "permitting / regulatory filings"),
+    ("asking you clarifying questions via a chatbot", "conversational AI / chatbots"),
+    ("robot localization and mapping", "machine translation / localization"),
+    ("Robotic process automation", "robotics"),
+    ("Supabase was born-remote and open-source-first", "open-source contribution"),
+    ("provide steps for reproducible bugs", "reproducible workflows"),
+    ("Collaborate effectively with Firmware, Electronics, Mechanical Engineering", "embedded / real-time systems"),
+    ("CI/CD pipeline management", "revenue / sales operations"),
+    ("from evals and RL environments to training data", "reinforcement learning"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +222,66 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Skills review, Nov 18 2026: real posting wording. New skills, then synonyms added to existing ones.
+    ("Experience with ROS/ROS 2, Jetson or other embedded GPUs, or real-time systems", "ROS (Robot Operating System)"),
+    ("Experience with ROS/ROS 2, Jetson or other embedded GPUs, or real-time systems", "NVIDIA Jetson"),
+    ("Experience with ROS/ROS 2, Jetson or other embedded GPUs, or real-time systems", "embedded / real-time systems"),
+    ("Help port, optimize and test models on embedded hardware", "embedded / real-time systems"),
+    ("Maintain build systems, containers (Docker/Singularity) and CI", "Singularity / Apptainer"),
+    ("Familiarity with ROS2\n* Extensive knowledge of RL/IL principles", "reinforcement learning"),
+    ("Reinforcement learning, imitation learning", "reinforcement learning"),
+    ("Background in robotics, kinesiology, sensor-based data collection", "robotics"),
+    ("training and inference systems, numerical computing, performance optimization",
+     "numerical methods / scientific computing"),
+    ("constructing a reproducible training or inference workflow", "reproducible workflows"),
+    ("Practical proficiency with Python and coding agents.", "AI-assisted coding / coding agents"),
+    ("Practical experience with AI-assisted development as a regular part of the engineering workflow",
+     "AI-assisted coding / coding agents"),
+    ("Contributions to open-source AI projects or personal AI applications", "open-source contribution"),
+    ("Experience with SQL/NoSQL databases and cloud-native architectures", "cloud-native architecture"),
+    ("Strong preference for candidates who've worked with conversational AI", "conversational AI / chatbots"),
+    ("Experience working with Translation Management Systems such as Phrase, Passolo",
+     "machine translation / localization"),
+    ("Experience with Azure Communication Services (ACS)", "Azure Communication Services"),
+    ("Advanced proficiency in **Excel**, **Numbers**, and/or **Google Sheets**.", "Apple Numbers"),
+    ("Desktop UI toolkits (Qt/PyQt)", "Qt / PyQt"),
+    ("Production tracking systems (Autodesk Flow Production Tracking / ShotGrid)", "ShotGrid (Flow Production Tracking)"),
+    ("DCCs (Maya, Nuke, Houdini, Katana)", "DCC software (Maya, Houdini, Nuke, Katana)"),
+    ("Knowledge of the VFX or animation pipeline", "VFX / animation pipeline"),
+    ("Has a computer running macOS, Linux, or Windows with WSL2", "macOS"),
+    ("Experience automating workflows using Zapier, Power Automate, Salesforce Flow", "Zapier"),
+    ("including Salesforce, Pendo, G2, RepVue", "Pendo"),
+    ("3-5 years of professional experience in Revenue Operations, Sales Operations", "revenue / sales operations"),
+    ("Familiarity with commission administration, incentive compensation", "revenue / sales operations"),
+    ("experience working with audience segmentation, campaign data, and email marketing platforms", "email marketing"),
+    ("experience working with audience segmentation, campaign data, and email marketing platforms",
+     "marketing analytics / attribution"),
+    ("Exposure to energy markets, infrastructure investing, or industrial project finance", "energy / power markets"),
+    ("Exposure to energy markets, infrastructure investing, or industrial project finance",
+     "project finance / infrastructure investing"),
+    ("Review regulatory filings, environmental assessments", "permitting / regulatory filings"),
+    ("Familiarity with U.S. permitting frameworks", "permitting / regulatory filings"),
+    ("Ability to interpret technical documents (permits, grid filings, environmental reviews, feasibility studies)",
+     "feasibility studies"),
+    ("Test-driven development experience using Python, with hands-on experience in pytest",
+     "testing (unit/automated)"),
+    ("expanding existing test coverage", "testing (unit/automated)"),
+    ("Familiarity with Git/source control, CI/CD, SDLC, and application security practices", "secure coding / OWASP"),
+    ("Experience with source control, CI/CD pipelines", "Git"),
+    ("utilizing SparkSQL and Pyspark", "Spark/PySpark"),
+    ("SparkSQL", "Spark/PySpark"),
+    ("Familiarity working with various databases (SQL, No-SQL, Graph)", "NoSQL"),
+    ("Perform data profiling and validation", "data quality / validation"),
+    ("experience in data analysis, business analytics, or a similar role", "data analysis"),
+    ("innovations in data analytics and business intelligence tools", "data analysis"),
+    ("Experience in SIT, UAT support, regression testing, defect fixing", "QA / UAT"),
+    ("Experience working with clickstream event data is preferred", "product analytics (funnels / cohorts / LTV)"),
+    ("Curiosity about B2B marketing measurement, digital analytics, campaign performance",
+     "marketing analytics / attribution"),
+    ("Model Compression/Optimization", "model serving / inference optimization"),
+    ("including opportunity sizing, experiment analysis", "market research"),
+    ("data cleaning, and financial or operational models", "financial analysis / FP&A"),
+    ("Build reproducible programmatic workflows using Python and command-line tools", "Bash/Shell"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -238,6 +317,25 @@ def test_oct_20_review_products_and_concepts():
         assert product in taxonomy.TOOL_TYPES, product
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
+
+
+def test_nov_18_review_products_and_concepts():
+    for name in ["embedded / real-time systems", "cloud-native architecture", "reproducible workflows",
+                 "open-source contribution", "AI-assisted coding / coding agents", "feasibility studies",
+                 "reinforcement learning", "robotics", "email marketing"]:
+        assert not _is_tool(name), name
+    for name in ["macOS", "Qt / PyQt", "Pendo", "Zapier", "Apple Numbers", "ShotGrid (Flow Production Tracking)",
+                 "DCC software (Maya, Houdini, Nuke, Katana)"]:
+        assert _is_tool(name), name
+        assert name in taxonomy.TOOL_TYPES, name
+    for product, platform in [("Azure Communication Services", "Azure"), ("ROS (Robot Operating System)", "robotics"),
+                              ("NVIDIA Jetson", "GPU computing / CUDA"), ("Singularity / Apptainer", "Docker"),
+                              ("Apple Numbers", "macOS")]:
+        assert _is_tool(product), product
+        assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+    assert taxonomy.members("Maya or Houdini tools") == {"DCC software (Maya, Houdini, Nuke, Katana)": {"Maya", "Houdini"}}
 
 
 def test_named_api_products_and_node_get_their_own_skills():
