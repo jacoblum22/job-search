@@ -49,6 +49,34 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Daily review, Nov 20 2026.
+    ("optimization, probability, statistical modeling, econometrics, or control theory", "KPIs/metrics"),
+    ("Bachelor's Degree in Statistics, Econometrics, Computer Science, Electrical or Computer Engineering",
+     "econometrics"),
+    ("Add data labels to the chart", "data labeling / annotation"),
+    ("eligible to apply through Express Entry", "Express.js"),
+    ("American Express card", "Express.js"),
+    ("express your ideas, Node developers welcome", "Express.js"),
+    ("Helm, Kustomize, Ansible", "KQL"),
+    ("Legal authorization to work in the U.S. indefinitely is required", "authentication (OAuth / OIDC / SSO)"),
+    ("requests for accommodation in accordance with all applicable provincial accessibility standards",
+     "web accessibility (WCAG)"),
+    ("Accessibility for Ontarians with Disabilities Act (AODA)", "web accessibility (WCAG)"),
+    ("You will design systems that scale to millions of users", "design systems / component libraries"),
+    ("orchestrate high-impact campaigns across programmatic advertising and marketing channels",
+     "ad tech / programmatic advertising"),
+    ("presents to the Senior Management Team (SMT) quarterly", "PCB / electronics manufacturing (SMT, AOI)"),
+    ("The team is part of the eCommerce services group.", "e-commerce"),
+    ("Due to a high volume of fraudulent applications, you must share a valid LinkedIn profile",
+     "fraud detection / prevention"),
+    ("Beware of recruitment fraud and fake job offers", "fraud detection / prevention"),
+    ("Extended health and dental insurance, life insurance", "insurance"),
+    ("Ability to lift filled 20 litre containers (45 lb)", "Docker"),
+    ("https://aws.amazon.com/blogs/containers/quora-3x-faster", "Docker"),
+    ("stationarity checked with an ADF test", "Microsoft Fabric / Azure Synapse / ADF"),
+    ("we've built our systems to ensure that a human always reviews AI-generated output", "LLM / AI evaluation"),
+    ("see HTTP://example.com", "APIs / REST"),
+    ("Concrete Evidence: Cross-disciplinary synthesis and structured argument", "collaboration/teamwork"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +231,64 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Daily review, Nov 20 2026: real posting wording.
+    ("Working knowledge of classical computer vision with OpenCV: filtering and morphology", "OpenCV"),
+    ("Deployment experience: ONNX, TensorRT, quantization, or C++ inference.", "ONNX"),
+    ("Deployment experience: ONNX, TensorRT, quantization, or C++ inference.", "TensorRT"),
+    ("component detection and localization, segmentation, defect classification", "object detection"),
+    ("apply labeling rules, and review label quality", "data labeling / annotation"),
+    ("Remote Data Labeling Specialist", "data labeling / annotation"),
+    ("optimization, probability, statistical modeling, econometrics, or control theory", "econometrics"),
+    ("optimization, probability, statistical modeling, econometrics, or control theory", "control theory"),
+    ("de-identification, synthetic data creation, visualizations", "synthetic data generation"),
+    ("using tools such as Azure Machine Learning, MLflow, Kubeflow, TensorFlow Serving", "Kubeflow"),
+    ("Experience with a web framework such as Express, Next.js, or similar.", "Express.js"),
+    ("Node.js / Express / NestJS", "Express.js"),
+    ("query languages like SQL and KQL", "KQL"),
+    ("Experience with google analytics, google tag manager, and facebook pixel is an asset", "Google Tag Manager"),
+    ("Working knowledge of Microsoft 365, Entra ID, Intune, Exchange Online",
+     "Microsoft Entra ID / Active Directory"),
+    ("Working knowledge of Active Directory, including user and computer management",
+     "Microsoft Entra ID / Active Directory"),
+    ("Strong background in working with microservices and event-driven architecture", "event-driven architecture"),
+    ("Microsoft Entra ID/Azure AD, Microsoft Graph API, OAuth 2.0, and role-based access control",
+     "authentication (OAuth / OIDC / SSO)"),
+    ("Awareness of accessibility, performance, and basic security considerations.", "web accessibility (WCAG)"),
+    ("Knowledge of web accessibility (WCAG) or experience with assistive technology", "web accessibility (WCAG)"),
+    ("Experience with e-commerce, design systems, or component libraries.", "design systems / component libraries"),
+    ("Experience with web design and design systems.", "design systems / component libraries"),
+    ("A good understanding of UX/UI design methods", "UX design / user research"),
+    ("Experience with user research, product lifecycle, user experience", "UX design / user research"),
+    ("Hands-on experience developing and backtesting systematic, rules-based trading strategies",
+     "trading strategies / backtesting"),
+    ("Familiarity with ads systems, auction theory, or related marketplace optimization problems",
+     "ad tech / programmatic advertising"),
+    ("Exposure to industrial inspection, PCB/PCBA, AOI/SPI or SMT processes",
+     "PCB / electronics manufacturing (SMT, AOI)"),
+    ("Perform product-level cost and margin analysis across multiple pharmacy and client scenarios",
+     "pricing / margin analysis"),
+    ("growth experiments on onboarding, pricing and packaging, and upgrade flows", "pricing / margin analysis"),
+    ("Experience in healthcare, pharmacy, eCommerce, or another regulated industry", "e-commerce"),
+    ("A detection model is flagging real people alongside fraudsters.", "fraud detection / prevention"),
+    ("Understand at least one insurance operating domain, such as underwriting, policy administration, claims",
+     "insurance"),
+    # Fixes to existing entries.
+    ("Familiarity with Git/source control, CI/CD, SDLC", "Git"),
+    ("Containers and orchestration (Docker, Kubernetes)", "Docker"),
+    ("utilizing SparkSQL and Pyspark", "Spark/PySpark"),
+    ("utilizing SparkSQL and Pyspark", "SQL"),
+    ("developing and maintaining Azure Data Factory (ADF) pipelines", "Microsoft Fabric / Azure Synapse / ADF"),
+    ("recovery processes using ADF / Databricks Automation Bundles", "Microsoft Fabric / Azure Synapse / ADF"),
+    ("Works well in a multidisciplinary team", "collaboration/teamwork"),
+    ("Ability to collaborate closely with multi-functional teams", "collaboration/teamwork"),
+    ("you understand precision and recall, know how to build a trustworthy test set", "model evaluation/validation"),
+    ("A/B testing, power analysis, quasi-experimental methods", "hypothesis testing / inference"),
+    ("Experience in SIT, UAT support, regression testing", "QA / UAT"),
+    ("Contribute to security testing, including SAST, DAST, dependency scanning",
+     "threat modeling / penetration testing"),
+    ("Grade AI-generated responses against structured rubrics", "LLM / AI evaluation"),
+    ("Evaluate AI-generated or human-created work against established criteria", "LLM / AI evaluation"),
+    ("Basic understanding of HTTP, JSON, and how front-end code communicates with backend services", "APIs / REST"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -234,6 +320,21 @@ def test_daily_review_concepts_and_products():
 def test_oct_20_review_products_and_concepts():
     assert not _is_tool("demand generation / lead funnel (MQLs)")
     for product, platform in [("SOQL", "Salesforce/CRM"), ("Acumatica", "ERP (SAP/Oracle/Workday)")]:
+        assert _is_tool(product), product
+        assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+
+
+def test_nov_20_review_products_and_concepts():
+    for name in ["event-driven architecture", "authentication (OAuth / OIDC / SSO)", "web accessibility (WCAG)",
+                 "design systems / component libraries", "UX design / user research", "object detection",
+                 "econometrics", "e-commerce"]:
+        assert not _is_tool(name), name
+    for product, platform in [("OpenCV", "computer vision"), ("ONNX", "model serving / inference optimization"),
+                              ("TensorRT", "model serving / inference optimization"), ("Kubeflow", "MLOps"),
+                              ("Express.js", "Node.js"), ("KQL", "Azure"), ("Google Tag Manager", "Google Analytics"),
+                              ("Microsoft Entra ID / Active Directory", "Azure")]:
         assert _is_tool(product), product
         assert product in taxonomy.TOOL_TYPES, product
         assert taxonomy.RELATED[product] == platform
