@@ -13,7 +13,7 @@ import yaml
 
 from src import resume as resume_mod
 from src.tailor import TailorError
-from src.tailor.company import company_dir, company_slug, is_stale, verify_company
+from src.tailor.company import company_dir, company_slug, fetch_page, is_stale, verify_company
 from src.tailor.parsecheck import parse_check
 from src.tailor.render import build_letter_document, drop_order, fit_to_page, run_render
 
@@ -55,6 +55,18 @@ def test_verify_company(tmp_path):
     notes = (d / "verified.md").read_text(encoding="utf-8")
     assert "Founded 2015" in notes and "https://example.com/about" in notes
     assert notes.index("Unverified") < notes.index("Has 400 staff")
+
+
+def test_company_folder_ending_in_a_dash_is_refused(tmp_path):
+    # "Wesgar Inc." slugged by hand as "wesgar-inc-": the letter check reads "wesgar-inc" and never saw the facts.
+    d = tmp_path / "acme-inc-"
+    shutil.copytree(FIX / "render", d)
+    with pytest.raises(TailorError, match="acme-inc"):
+        verify_company(d)
+    with pytest.raises(TailorError, match="acme-inc"):
+        fetch_page(d, "https://example.com/about")
+    d.rename(tmp_path / "acme-inc")
+    assert verify_company(tmp_path / "acme-inc")["verified"] == 2
 
 
 def test_verify_company_malformed(tmp_path):
