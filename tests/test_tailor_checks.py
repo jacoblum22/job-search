@@ -603,6 +603,20 @@ def test_letter_gap_with_a_bridge_names_a_tool_it_denies(tmp_path):
     assert len(msgs) == 1 and "Power BI" in msgs[0]
 
 
+def test_letter_gap_sentence_denies_every_tool_in_a_comma_list():
+    # Princeton IT Services, Oct 30 2026: "Hadoop, Spark or Hive" denied only Hadoop.
+    from src.tailor.letter import _DENIED
+
+    def denied(s):
+        return [m.group(1) for m in _DENIED.finditer(s)]
+
+    assert denied("I haven't used Hadoop, Spark or Hive yet, but I ran SQL.") == ["Hadoop, Spark or Hive"]
+    assert denied("I haven't used Looker, Mode, and Sigma.") == ["Looker, Mode, and Sigma"]
+    # The bridge after the comma is still a claim.
+    assert denied("I haven't used Looker, but I use Power BI daily.") == ["Looker"]
+    assert denied("I haven't used Looker, and at Northwind I built reports in Power BI.") == ["Looker"]
+
+
 def test_letter_keen_sentence_may_name_any_skill_in_a_must_term(tmp_path):
     # "Snowflake SQL" names SQL and Snowflake; canonical() gives only SQL, so Snowflake was "invented".
     app, cfg = make_app(tmp_path)

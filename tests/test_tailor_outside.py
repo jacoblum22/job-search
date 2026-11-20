@@ -165,6 +165,33 @@ def test_review_round_with_a_new_critical_gets_one_fix_round(tmp_path):
     assert kept(app, 1) is False
 
 
+def test_review_round_that_copies_the_posting_gets_one_fix_round(tmp_path):
+    # Banco Plata, Oct 30 2026: a review round added a bullet copying 8 posting words, and it shipped.
+    app = _app(tmp_path)
+    (app / "review").mkdir()
+    (app / "review" / "notes.md").write_text("1. x", encoding="utf-8")
+    review_round(app)
+    add_round(app, 3, 75, ats=67)
+    copy = {"code": "verbatim_posting_copy", "message": "8 or more consecutive words copied from the posting",
+            "path": "experience/northwind/northwind.new-1", "doc": "resume"}
+    write_json(app / "drafts" / "r3" / "check.json", {"criticals": [], "warnings": [copy], "flags": []})
+    out = next_round(app, CFG)
+    assert out["action"] == "repair" and out["next_round"] == 4 and "verbatim_posting_copy" in out["reason"]
+    fb = json.loads((app / "drafts" / "r4" / "feedback.json").read_text())
+    assert fb["review_fix"] and fb["warnings"][0]["code"] == "verbatim_posting_copy"
+    assert fb["sections"] == ["experience/northwind"]
+    # A warning the round the review read already had is not the review's doing.
+    (tmp_path / "b").mkdir()
+    app = _app(tmp_path / "b")
+    write_json(app / "drafts" / "r2" / "check.json", {"criticals": [], "warnings": [copy], "flags": []})
+    (app / "review").mkdir()
+    (app / "review" / "notes.md").write_text("1. x", encoding="utf-8")
+    review_round(app)
+    add_round(app, 3, 75, ats=67)
+    write_json(app / "drafts" / "r3" / "check.json", {"criticals": [], "warnings": [copy], "flags": []})
+    assert next_round(app, CFG)["action"] == "stop"
+
+
 def test_a_round_made_after_the_review_gets_another_pass(tmp_path):
     # Nexthop, Oct 27 2026: gap rounds after the review shipped a draft no reviewer read.
     app = _app(tmp_path)
