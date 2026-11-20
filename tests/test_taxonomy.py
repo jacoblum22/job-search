@@ -275,6 +275,91 @@ def test_bare_ownership_is_the_soft_skill_but_home_ownership_isnt():
     assert tx.canonical("employee ownership plan") is None
 
 
+@pytest.mark.parametrize("text, skill", [
+    # Daily review, Nov 8 2026: real posting wording.
+    ("PostgreSQL and SQL: schema design, migrations, transactions, and an ORM such as Drizzle or Prisma",
+     "ORMs (SQLAlchemy / Prisma / Hibernate)"),
+    ("Relational Databases, SQL and ORM technologies (JPA2, Hibernate)", "ORMs (SQLAlchemy / Prisma / Hibernate)"),
+    ("Familiarity with ORM libraries like SQLAlchemy, Django", "ORMs (SQLAlchemy / Prisma / Hibernate)"),
+    ("REST APIs, webhooks and third-party integrations", "webhooks"),
+    ("at least one orchestration service such as Step Functions, or Airflow", "AWS Step Functions"),
+    ("Experience in AWS, Azure, or Google Cloud using Terraform for IaC/CI-CD", "Terraform/IaC"),
+    ("AWS (CDK) and Docker-based on-prem deployments", "Terraform/IaC"),
+    ("staging vs. modeled layers, incremental loads, deduplication, and idempotent design", "idempotency"),
+    ("staging vs. modeled layers, incremental loads, deduplication, and idempotent design",
+     "incremental loads / models"),
+    ("implementing incremental logic, slowly changing dimensions", "incremental loads / models"),
+    ("Administer, optimize, and expand a multi-tenanted Databricks platform", "multi-tenant architecture"),
+    ("Knowledge of multi-tenant SaaS architectures", "multi-tenant architecture"),
+    ("Understanding of system design and analysis", "system design"),
+    ("Experience with Spring Cloud and distributed systems design", "system design"),
+    ("Write SQL & Python-based automation using GCP services — Cloud Run, Cloud Functions, and Pub/Sub",
+     "Google Cloud Functions"),
+    ("Participate in daily stand-ups, design reviews, demonstrations", "Agile/Scrum"),
+    ("You own the entire software life cycle", "SDLC"),
+    ("Contribute to the full software lifecycle, including requirements definition", "SDLC"),
+    ("profiling of diverse source database schemas (including relational and non-relational legacy systems)",
+     "NoSQL"),
+    ("Evaluate code for common vulnerabilities, such as SQL injection or buffer overflows", "secure coding / OWASP"),
+    ("Extend and maintain API connectors (REST/OAuth2)", "OAuth / OpenID Connect"),
+    ("OAuth 2.0 / OpenID Connect identity provider integration", "OAuth / OpenID Connect"),
+    ("Conduct in-depth analysis and profiling of diverse source database schemas", "data profiling"),
+    ("Perform data profiling, cleansing, reconciliation, and quality analysis", "data profiling"),
+    ("Analyze and profile data across enterprise systems", "data profiling"),
+    ("scheduled batch loads and near-real-time change data capture", "change data capture (CDC)"),
+    ("Verify batch, incremental, and CDC (Change Data Capture) processing", "change data capture (CDC)"),
+    ("Experience with Docker, Kafka, CDC, or Flink is a plus", "change data capture (CDC)"),
+    ("Develop data transformation layers (medallion architecture) and dimensional models",
+     "medallion architecture"),
+    ("Develop and support bronze, silver, and gold data models", "medallion architecture"),
+    ("Own reliable Bronze layer ingestion for your assigned sources", "medallion architecture"),
+    ("ingesting data from Google Ads, Meta Ads, and Microsoft/Bing Ads APIs", "Google Ads / Meta Ads"),
+    ("Stablecoins and blockchain data on Ethereum or Tron", "blockchain / Web3"),
+    ("Familiarity with cryptocurrency markets and financial systems", "blockchain / Web3"),
+    ("DeFi lending protocols, ERC-4626, Solidity and the EVM", "blockchain / Web3"),
+])
+def test_nov_8_review_skills(text, skill):
+    assert skill in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text, wrong", [
+    ("Prompt Optimization: improve the relationship between instructions and code outputs", "optimization / OR"),
+    ("Evaluate code for common vulnerabilities, such as SQL injection or buffer overflows", "SQL"),
+    ("Working knowledge of CNAPP or CSPM tooling such as Wiz or Prisma Cloud",
+     "ORMs (SQLAlchemy / Prisma / Hibernate)"),
+    ("Kids hibernate in winter; drizzle the sauce", "ORMs (SQLAlchemy / Prisma / Hibernate)"),
+    ("Contribute to Airbyte's open-source connectors and the Java/Kotlin Bulk CDK", "Terraform/IaC"),
+    ("leasing multi-tenant industrial properties", "multi-tenant architecture"),
+    ("mechanical equipment design and piping system design of industrial buildings", "system design"),
+    ("transition optical sub-system designs from research prototypes", "system design"),
+    ("Systems Design Engineer, AMD", "system design"),
+    ("Standup desks can be requested too", "Agile/Scrum"),
+    ("select the option to use your profile data for \"Any Roles Globally\"", "data profiling"),
+    ("drive incremental revenue and incremental improvements", "incremental loads / models"),
+    ("follow CDC guidelines on vaccination", "change data capture (CDC)"),
+    ("the Centers for Disease Control (CDC)", "change data capture (CDC)"),
+    ("Bronze, Silver and Gold sponsorship tiers", "medallion architecture"),
+    ("Kraken is one of the world's longest-standing crypto platforms", "blockchain / Web3"),
+    ("managed investing, do-it-yourself trading, cryptocurrency, tax filing", "blockchain / Web3"),
+])
+def test_nov_8_review_false_matches(text, wrong):
+    assert wrong not in taxonomy.find(text)
+
+
+def test_nov_8_review_products_and_concepts():
+    for name in ["webhooks", "OAuth / OpenID Connect", "data profiling", "incremental loads / models",
+                 "change data capture (CDC)", "medallion architecture", "idempotency",
+                 "multi-tenant architecture", "system design", "blockchain / Web3"]:
+        assert not _is_tool(name), name
+    for product, platform in [("AWS Step Functions", "AWS"), ("Google Cloud Functions", "GCP"),
+                              ("ORMs (SQLAlchemy / Prisma / Hibernate)", "SQL")]:
+        assert _is_tool(product), product
+        assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+    assert "Google Ads / Meta Ads" in taxonomy.TOOL_TYPES
+
+
 def test_owasp_is_its_own_skill_not_data_privacy():
     from src.tailor import taxonomy as tx
 
