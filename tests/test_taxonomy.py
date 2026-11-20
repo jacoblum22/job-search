@@ -49,6 +49,25 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Daily review, Nov 5 2026.
+    ("We call it PHD: Passion, Hunger, Drive.", "PhD"),
+    ("**Passion, Hunger and Drive.** Our PHD. You want to learn", "PhD"),
+    ("collaborates with students, postdoctoral fellows, research staff", "PhD"),
+    ("support the team comprised of post doctoral fellows, research assistants", "PhD"),
+    ("Alimentiv is a global CRO with a singular focus: advancing therapies", "conversion rate optimization (CRO)"),
+    ("MMS is an award-winning, data-focused clinical research organization (CRO). We pride ourselves",
+     "conversion rate optimization (CRO)"),
+    ("Baker Tilly US, LLP is a licensed independent CPA firm that provides attest services", "CPA"),
+    ("CPA designation is not required.", "CPA"),
+    ("This is the CoLab Software team", "Jupyter"),
+    ("build agents that are mission-critical from day one embedded in Teams, Slack, intranets, voice lines",
+     "Microsoft Teams"),
+    ("As Canada’s largest Indigenous‑owned software testing company", "QA / UAT"),
+    ("Exposure to real-world software testing scenarios.", "QA / UAT"),
+    ("contribute to projects across industrial, municipal, transportation, and energy sectors", "energy / utilities"),
+    ("Good knowledge of power systems, AC and DC design", "energy / utilities"),
+    ("Commitment to global ESG standards", "ESG / sustainable investing"),
+    ("answer prequalification, quality, ESG, Indigenous participation, statistics", "ESG / sustainable investing"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +222,45 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Daily review, Nov 5 2026: real posting wording.
+    ("Experience with Python, Power BI, Streamlit, or similar analytical tools.", "Streamlit"),
+    ("Experience with Informatica PowerCenter", "Informatica"),
+    ("Experience in using ETL tools, e.g. SSIS, Informatica", "Informatica"),
+    ("enterprise integration platforms (e.g., Workato, MuleSoft, Boomi)", "MuleSoft / Boomi"),
+    ("data warehouse solutions such as Apache Trino, or ClickHouse", "ClickHouse"),
+    ("data formats (JSON, XML)", "XML"),
+    ("CRO tools such as Optimizely, VWO or similar, and landing page builders", "Optimizely / VWO"),
+    ("own marketing analytics, reporting and conversion rate optimisation", "conversion rate optimization (CRO)"),
+    ("Experience with CRO and experimentation platforms.", "conversion rate optimization (CRO)"),
+    ("Professional designation (CPA, CFA) or progress toward one is an asset", "CPA"),
+    ("a professional accounting program (Chartered Professional Accountant)", "CPA"),
+    ("Guidewire reporting experience", "Guidewire"),
+    ("Actuate BIRT experience", "BIRT"),
+    ("cloud platforms (such as AWS, GCP, Azure, Cloudflare)", "Cloudflare"),
+    ("work at the intersection of utility operations, data analytics, AI", "energy / utilities"),
+    ("Experience in energy, commodities, or trading is an asset", "energy / utilities"),
+    ("Utility industry experience is required for this role.", "energy / utilities"),
+    ("data from Tantalus Advanced Metering Infrastructure (AMI) deployments", "energy / utilities"),
+    ("ESG scoring frameworks, fee analysis", "ESG / sustainable investing"),
+    ("Tools: Jupyter Notebook, Google Colab, Git", "Jupyter"),
+    ("Java, Software Testing, Test Automation, SQL, Python, Jira, Greenhopper", "Jira/Confluence"),
+    ("Java, Software Testing, Test Automation, SQL, Python, Jira, Greenhopper", "QA / UAT"),
+    ("Write code to do unit testing, integration testing and functional testing.", "QA / UAT"),
+    ("Microsoft 365 ecosystem (Excel, Teams, Power Platform exposure an asset)", "Microsoft Teams"),
+    ("Proficiency in Microsoft 365 (Excel, SharePoint, Teams)", "Microsoft Teams"),
+    ("Microsoft 365 platform, including Teams, SharePoint, OneDrive", "Microsoft Teams"),
+    ("Microsoft Office (Outlook, Word, Excel, PowerPoint, Teams)", "Microsoft Teams"),
+    ("GitHub, CI/CD, React, REST APIs, SQL, NoSQL, AWS, IT Security", "data privacy / security"),
+    ("hypothetical scenario analysis, competitor analysis, liquidity risk", "market research"),
+    ("user research, product lifecycle, user experience, user analytics, or tools like Jira", "product analytics (funnels / cohorts / LTV)"),
+    ("LLM-based approaches such as retrieval and prompt tuning", "prompt engineering"),
+    ("financial modelling, anomaly detection, and natural-language database querying",
+     "text-to-SQL / conversational analytics"),
+    ("the semantic layer that supports natural language query (NLQ)", "text-to-SQL / conversational analytics"),
+    ("Present findings to technical and non-technical audiences.", "presentation / storytelling"),
+    ("Currently enrolled full time in a Doctorate program in Computer Science", "PhD"),
+    ("Master ou doctorat dans un domaine lié à l'IA", "PhD"),
+    ("PHD in Statistics, Mathematics, Computer Science", "PhD"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -238,6 +296,15 @@ def test_oct_20_review_products_and_concepts():
         assert product in taxonomy.TOOL_TYPES, product
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
+
+
+def test_nov_5_review_products_and_concepts():
+    assert not _is_tool("conversion rate optimization (CRO)")
+    for name in ["Streamlit", "Informatica", "MuleSoft / Boomi", "ClickHouse", "Optimizely / VWO", "Guidewire",
+                 "BIRT", "Cloudflare"]:
+        assert _is_tool(name), name
+        assert name in taxonomy.TOOL_TYPES, name
+    assert taxonomy.RELATED["Streamlit"] == "Python"
 
 
 def test_named_api_products_and_node_get_their_own_skills():
