@@ -54,9 +54,15 @@ _MS = re.compile(r"\bMS(?=[\s\-]+(?:Office|Excel|Word|PowerPoint|Outlook|Access|
                  r"|SQL|Azure|Dynamics|Power\s*BI|365)\b)", re.I)
 
 
+# A standalone "&" is "and" ("Algorithms & Data Structures"); "R&D" and "AT&T" are left alone.
+# Quora ML platform, Oct 30 2026: the vault's course name with "and" didn't back the draft's "&".
+_AMP = re.compile(r"\s+&\s+")
+
+
 def _blind(text: str) -> str:
-    """`text` as `same` compares it: US spelling, and "MS" spelled out before a Microsoft product."""
-    return _MS.sub("Microsoft", us_spelling(text))
+    """`text` as `same` compares it: US spelling, "MS" spelled out before a Microsoft product,
+    and "&" read as "and"."""
+    return _AMP.sub(" and ", _MS.sub("Microsoft", us_spelling(text)))
 
 
 def _last_word(word: str) -> str:

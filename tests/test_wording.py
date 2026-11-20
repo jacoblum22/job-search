@@ -28,6 +28,8 @@ def test_variants_every_step_treats_as_the_same(words, text):
     ("data modeling", "data modelling in BigQuery"),
     ("visualisation", "data visualization"),
     ("behavioral data", "behavioural data"),
+    ("Algorithms & Data Structures", "Intro Algorithms and Data Structures"),  # "&" for "and"
+    ("research and development", "a research & development team"),
 ])
 def test_spelling_counts_for_truth_checks_not_for_the_ats(words, text):
     assert wording.same(words, text) and _wording_in(words, text)

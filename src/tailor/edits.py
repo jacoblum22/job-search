@@ -204,8 +204,9 @@ def _apply_one(
         if not isinstance(original, str) or norm(original) != norm(node["text"]):
             raise _Reject("original does not match the current text")
         sources = _check_sources(edit, index, required=True)
-        if norm(value) == norm(node["text"]):
-            raise _Reject("value is the same as the current text")
+        # Same wording with a passage added is repair.md rule 10's fix for a jev_unsupported line.
+        if norm(value) == norm(node["text"]) and set(sources) <= set(node.get("sources") or []):
+            raise _Reject("value is the same as the current text and adds no source")
         before = node["text"]
         node["text"] = value
         node["sources"] = sources

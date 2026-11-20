@@ -245,8 +245,11 @@ def next_pass(app_dir: Path, cfg: dict[str, Any] | None = None) -> tuple[int | N
     if rnd is None:
         return None, f"review pass {last} has no round acting on it yet (run review-round)"
     from src.tailor.loop import _feedback, unchanged
-    built_on = int(_feedback(app_dir, rnd).get("build_on") or 0)
-    if built_on and unchanged(app_dir, rnd, built_on):
+    # Against the round the reviewer read, not the one this round built on: a review fix round builds
+    # on the review round, so citing a passage there "changed nothing" though the review round's
+    # rewrite was never shown to a reviewer (Five and Fly, Oct 30 2026).
+    seen = _reviewed_round(app_dir, last) or int(_feedback(app_dir, rnd).get("build_on") or 0)
+    if seen and unchanged(app_dir, rnd, seen):
         # Jake, Oct 29 2026: advice in, apply what is valid, show a reviewer again, done when the reviewer
         # says so OR nothing left is worth applying. A round that changed nothing means every note was
         # judged not worth applying; the reviewer would see the same text and repeat itself (Evismart,
