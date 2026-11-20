@@ -523,6 +523,18 @@ def test_letter_company_facts(tmp_path):
     assert len(bad) == 3  # f2 (unverified), posting:7, zzz
 
 
+def test_letter_posting_fact_edited_after_requirements_is_unverified(tmp_path):
+    res, _ = letter_check(tmp_path / "a", LETTER)
+    assert "unverified_company_fact" not in codes(res["criticals"])   # posting:1 as `requirements` kept it
+    app, cfg = make_app(tmp_path / "b")
+    req = read_json(app / "requirements.json")
+    req["company_facts"][0]["quote"] = "Contoso Retail opened 500 stores this year"   # not in posting.md
+    write_json(app / "requirements.json", req)
+    put_draft(app, base_data(cfg))
+    write_letter(app, LETTER)
+    assert "unverified_company_fact" in codes(run_check(app, 1, cfg, None)["criticals"])
+
+
 def test_letter_numbers_skills_sources(tmp_path):
     paras = copy.deepcopy(LETTER["paragraphs"])
     paras[0]["text"] = "I grew revenue by 45% at Northwind and use Looker. Contoso opened 140 stores."
@@ -601,6 +613,21 @@ def test_letter_gap_with_a_bridge_names_a_tool_it_denies(tmp_path):
     res, _ = letter_check(tmp_path / "b", with_(paragraphs=paras))
     msgs = [c["message"] for c in res["criticals"] if c["code"] == "invented_skill"]
     assert len(msgs) == 1 and "Power BI" in msgs[0]
+
+
+def test_letter_gap_sentence_with_any_verb_or_new_to_me_is_not_a_claim(tmp_path):
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    for i, gap in enumerate(["I haven't run Looker yet; the closest tool I know is Tableau.",
+                             "I have never deployed with Looker, but I kept Tableau dashboards for operations.",
+                             "I know Tableau well; Looker is new to me."]):
+        paras[1] = {**paras[1], "text": gap}
+        res, _ = letter_check(tmp_path / str(i), with_(paragraphs=paras))
+        assert not any(c["code"] == "invented_skill" for c in res["criticals"]), (gap, res["criticals"])
+    # a tool claimed earlier in the "new to me" sentence is still checked
+    paras[1] = {**paras[1], "text": "At Northwind I used Power BI and Looker is new to me."}
+    res, _ = letter_check(tmp_path / "claim", with_(paragraphs=paras))
+    msgs = [c["message"] for c in res["criticals"] if c["code"] == "invented_skill"]
+    assert any("Power BI" in m for m in msgs) and not any("Looker" in m for m in msgs)
 
 
 def test_letter_keen_sentence_may_name_any_skill_in_a_must_term(tmp_path):

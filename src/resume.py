@@ -455,6 +455,15 @@ def _word_available() -> bool:
 
 def _word_to_pdf(docx_path: Path, pdf_path: Path) -> None:
     """Export with Word; retried once on a fresh instance, and Word's own error is raised if it fails."""
+    # Word can't open or save a path over 259 UTF-16 units (MAX_PATH): Documents.Open returns None.
+    # A long folder name plus review/pass2/ crossed it (Xperteez, Nov 16 2026), so convert a short copy.
+    if max(len(str(p).encode("utf-16-le")) // 2 for p in (docx_path, pdf_path)) > 259:
+        with tempfile.TemporaryDirectory() as tmp:
+            short_docx, short_pdf = Path(tmp) / "doc.docx", Path(tmp) / "doc.pdf"
+            shutil.copyfile(docx_path, short_docx)
+            _word_to_pdf(short_docx, short_pdf)
+            shutil.copyfile(short_pdf, pdf_path)
+        return
     for attempt in (1, 2):
         try:
             word = _Word.get()

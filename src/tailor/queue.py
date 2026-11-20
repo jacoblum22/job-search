@@ -502,12 +502,16 @@ def _make_folders(conn, cfg: dict[str, Any], entries: list[tuple[Any, list, Any]
             folder = apps_root / appdir.folder_name(today, r["company"], r["title"])
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "posting.md").write_text(_posting_md(r), encoding="utf-8")
+        # A reused folder keeps its rounds and history: wiping best_round made review-input call the
+        # last review round "not kept" and stop at pass 3 of 6 (Remarcable, Nov 16 2026).
+        old = appdir.load_app(folder) if (folder / "app.json").is_file() else {}
         appdir.save_app(folder, {
+            "base_id": None, "rounds": [], "best_round": None, "history": [], **old,
             "job_id": r["id"], "company": r["company"], "title": r["title"], "url": r["url"],
-            "tier": now["tier"], "score": now["score"], "created": today, "status": "shortlisted",
+            "tier": now["tier"], "score": now["score"], "created": old.get("created", today),
+            "status": "shortlisted",
             "gate": {"flags": flags, "flagged": bool(flags), "queue_rank": rank,
                      "checked": use_jev, "resume_base": gate_base},
-            "base_id": None, "rounds": [], "best_round": None, "history": [],
         })
         note = f"rank {rank}, " + (f"{len(flags)} gate flag(s)" if flags else "no gate flags")
         if not use_jev:
