@@ -98,7 +98,9 @@ _CONCEPTS = {"dashboards", "data visualization", "reporting", "KPIs/metrics", "A
              "knowledge graphs / ontologies", "performance / load testing", "threat modeling / penetration testing",
              "DevOps", "serverless", "IAM (identity and access management)", "GPU computing / CUDA",
              "change management", "market research", "robotic process automation (RPA)", "low-code / no-code",
-             "demand generation / lead funnel (MQLs)"}
+             "demand generation / lead funnel (MQLs)", "event-driven architecture",
+             "authentication (OAuth / OIDC / SSO)", "web accessibility (WCAG)",
+             "design systems / component libraries", "UX design / user research"}
 
 
 def _is_tool(name: str) -> bool:
