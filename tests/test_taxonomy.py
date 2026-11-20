@@ -281,3 +281,152 @@ def test_owasp_is_its_own_skill_not_data_privacy():
     assert tx.canonical("OWASP Top 10") == "secure coding / OWASP"
     assert tx.canonical("secure coding practices") == "secure coding / OWASP"
     assert tx.canonical("data security") == "data privacy / security"
+
+
+# Daily review, Nov 14 2026: real posting wording.
+@pytest.mark.parametrize("text, skill", [
+    ("Understanding of regular expressions (RegEx) for data validation and pattern recognition.",
+     "regular expressions (regex)"),
+    ("Scripting experience (e.g., JavaScript / Google Apps Script or Python).", "Google Apps Script"),
+    ("Experience with a web framework such as Express, Next.js, or similar.", "Next.js"),
+    ("Experience with a web framework such as Express, Next.js, or similar.", "Express"),
+    ("Strong in React, Node.js, Express, and databases (PostgreSQL, MongoDB).", "Express"),
+    ("Python-based web applications using frameworks such as Dash and Streamlit.", "Streamlit"),
+    ("Python-based web applications using frameworks such as Dash and Streamlit.", "Plotly Dash"),
+    ("including state management and basic forms", "state management (Redux)"),
+    ("Apply UI/UX principles to create consistent and responsive applications", "UI/UX design"),
+    ("Apply UI/UX principles to create consistent and responsive applications", "responsive design"),
+    ("Comfort with HTML and CSS, responsive layouts, and common web patterns", "responsive design"),
+    ("Knowledge of web accessibility standards is considered an asset.", "web accessibility (WCAG)"),
+    ("Experience with e-commerce, design systems, or component libraries.", "design systems / component libraries"),
+    ("Experience with analytical data models, ideally Bronze/Silver/Gold or dimensional models",
+     "medallion architecture (bronze / silver / gold)"),
+    ("incremental loads, partitioning, and CDC patterns", "incremental loading / CDC"),
+    ("Knowledge of web scraping technologies, Scrapy, or browser automation tools", "web scraping"),
+    ("Write clean, well-documented, and testable code following engineering best practices",
+     "clean / maintainable code"),
+    ("Write clear, maintainable code and basic tests", "clean / maintainable code"),
+    ("ensure it is functional and follows clean-code principles", "clean / maintainable code"),
+    ("Experience with serverless architectures or event-driven design patterns",
+     "software architecture / design patterns"),
+    ("Integrate with databases, message queues, cloud services, and third-party APIs",
+     "event-driven architecture / message queues"),
+    ("Background in performance optimization, caching strategies, or high-throughput systems", "caching"),
+    ("post-incident reviews, service-level objectives (SLOs), and error budgets",
+     "site reliability engineering (SRE / SLOs)"),
+    ("at least four years of experience in site reliability engineering (SRE)",
+     "site reliability engineering (SRE / SLOs)"),
+    ("FinOps, cloud cost management, and chargeback/showback reporting", "FinOps / cloud cost management"),
+    ("Manage Azure infrastructure, including Azure Web Apps, Functions, and Container Jobs",
+     "Azure Functions / App Service"),
+    ("participate in the data science lifecycle to develop and deploy analytical models", "data science"),
+    ("including descriptive statistics, forecasting, economic modeling, exploratory analysis",
+     "econometrics / economic modeling"),
+    ("Hands-on experience with AI coding agents and development tools such as Claude Code",
+     "AI-assisted development"),
+    ("Use AI assisted tools, such as Claude Code, in a disciplined way", "AI-assisted development"),
+    ("Linear and Notion as the system of record", "Linear"),
+    ("Linear and Notion as the system of record", "Notion"),
+    ("tools like Claude, Cursor, Linear, Supabase, Slack.", "Linear"),
+    ("tools like Claude, Cursor, Linear, Supabase, Slack.", "Slack"),
+    ("integrations across Rootly, PagerDuty, Jira, Confluence, Slack, and the service catalog", "Slack"),
+    ("no-code/low-code automation (Zapier, Power Automate, n8n)", "workflow automation tools (Zapier, n8n, Make)"),
+    ("Power Automate/n8n/Zapier/Make.", "workflow automation tools (Zapier, n8n, Make)"),
+    ("enterprise platforms (Salesforce, Greenhouse, Dayforce)", "HRIS (Workday HCM, Dayforce, SuccessFactors)"),
+    ("experience in data engineering, analytics engineering, or a technical RevOps / BizOps role",
+     "RevOps / sales operations"),
+    ("Experience in Property & Casualty insurance is an asset", "insurance (P&C)"),
+    ("Experience in the automotive industry, dealership operations, automotive finance", "automotive industry"),
+    ("Strong systems thinking and problem-solving", "systems thinking"),
+    ("Deep knowledge of data management or investment analytics; systems thinker", "systems thinking"),
+])
+def test_nov_14_review_new_skills(text, skill):
+    assert skill in taxonomy.find(text)
+
+
+# Fixes to existing entries, Nov 14 2026.
+@pytest.mark.parametrize("text, skill", [
+    ("React on the front end, Node on the back end", "Node.js"),
+    ("Software Engineer - React, Node, TypeScript & AI Coding Tools", "Node.js"),
+    ("Python and command-line tools", "Bash/Shell"),
+    ("TypeScript, Vue.js, HTML, and CSS/LESS.", "HTML/CSS"),
+    ("Experience with CSS preprocessors like SASS or LESS is a plus.", "HTML/CSS"),
+    ("Ability to perform univariate analytic analysis", "data analysis"),
+    ("Conduct exploratory analyses and data set characterizations.", "data analysis"),
+    ("Analyze and profile data across enterprise systems", "data quality / validation"),
+    ("Perform data quality, reconciliation, and validation activities", "data reconciliation"),
+    ("Experience with Git/GitHub or other source control tools.", "Git"),
+    ("Terraform/ pulumi", "Terraform/IaC"),
+    ("infrastructure-as-code", "Terraform/IaC"),
+    ("Maintain deployed models by running and delivering model output", "MLOps"),
+    ("unit-testing", "testing (unit/automated)"),
+    ("numerical computing", "mathematics (linear algebra, calculus)"),
+    ("JD Edwards data gathering/manipulation experience would be an asset", "ERP (SAP/Oracle/Workday)"),
+    ("Evaluate AI-generated outputs to ensure they meet business requirements", "LLM / AI evaluation"),
+    ("Create and refine prompts that improve productivity, quality, and consistency.", "prompt engineering"),
+    ("Ability to develop effective prompts and assess AI-generated outputs.", "prompt engineering"),
+    ("3-5 years in data analysis, business systems analysis, data integration", "requirements gathering"),
+    ("Knowledge of authentication, authorization, and security best practices",
+     "IAM (identity and access management)"),
+    ("Understanding of Okta SSO integration", "IAM (identity and access management)"),
+    ("take initiative, drive execution of systems projects", "independent / self-starter"),
+])
+def test_nov_14_review_fixes(text, skill):
+    assert skill in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text, wrong", [
+    ("Experience participating in process improvement or operational excellence initiatives",
+     "independent / self-starter"),
+    ("complete your CIP, FCIP, CRM or other courses desired", "Salesforce/CRM"),
+    ("The British Columbia CRISM Node is housed at the BC Centre on Substance Use", "Node.js"),
+    ("Advanced Node Layout: apply FinFET layout rules", "Node.js"),
+    ("You will do less manual work", "HTML/CSS"),
+    ("select the option to use your profile data for Any Roles Globally", "data quality / validation"),
+    ("Letters of Authorization, and channel price files", "IAM (identity and access management)"),
+    ("Ensure that a human always reviews AI-generated output", "LLM / AI evaluation"),
+    ("Metrolinx runs GO Transit, UP Express and PRESTO", "Express"),
+    ("in a dash of time", "Plotly Dash"),
+    ("improve the user experience for customers", "UI/UX design"),
+    ("Please let us know of any accessibility needs during the recruitment process", "web accessibility (WCAG)"),
+    ("We design systems that scale", "design systems / component libraries"),
+    ("Design systems using LLMs to ingest feature specifications", "design systems / component libraries"),
+    ("CDC guidelines for public health reporting", "incremental loading / CDC"),
+    ("clean and validate data before loading", "clean / maintainable code"),
+    ("Systems design integrating multiple perspectives", "software architecture / design patterns"),
+    ("fraud prevention, chargeback mitigation in electronic payments", "FinOps / cloud cost management"),
+    ("cost allocation and month-end close", "FinOps / cloud cost management"),
+    ("Data Science partners across the business", "data science"),
+    ("Partner with Risk, Data Science, Engineering and Product.", "data science"),
+    ("Women in Data Science datathon", "data science"),
+    ("Linear regression and classification", "Linear"),
+    ("Linear, logistic and polynomial regression", "Linear"),
+    ("a notion of fairness", "Notion"),
+    ("We work with companies like Slack, LaunchDarkly, and Vanguard", "Slack"),
+    ("an impromptu quote from Arjun in our company Slack", "Slack"),
+    ("Make sure your data is accurate", "workflow automation tools (Zapier, n8n, Make)"),
+    ("life insurance, staff insurance discounts", "insurance (P&C)"),
+    ("our underwriting platform for partnered merchants", "insurance (P&C)"),
+    ("Automotive benefits and transit passes", "automotive industry"),
+])
+def test_nov_14_review_false_matches(text, wrong):
+    assert wrong not in taxonomy.find(text)
+
+
+def test_nov_14_review_products_and_concepts():
+    for name in ["regular expressions (regex)", "UI/UX design", "clean / maintainable code", "caching",
+                 "AI-assisted development", "state management (Redux)",
+                 "medallion architecture (bronze / silver / gold)", "site reliability engineering (SRE / SLOs)",
+                 "data science", "insurance (P&C)", "systems thinking"]:
+        assert not _is_tool(name), name
+    for product, platform in [("Google Apps Script", "Google Sheets / Workspace"), ("Next.js", "React"),
+                              ("Express", "Node.js"), ("Streamlit", "Python"),
+                              ("Plotly Dash", "matplotlib/seaborn/plotly"), ("Azure Functions / App Service", "Azure"),
+                              ("workflow automation tools (Zapier, n8n, Make)", "low-code / no-code"),
+                              ("HRIS (Workday HCM, Dayforce, SuccessFactors)", "ERP (SAP/Oracle/Workday)")]:
+        assert _is_tool(product), product
+        assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+    for name in ["Linear", "Notion", "Slack"]:
+        assert _is_tool(name) and name in taxonomy.TOOL_TYPES, name
