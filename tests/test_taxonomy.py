@@ -49,6 +49,24 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Nov 7 2026 review.
+    ("base pay benchmarking and pay band development", "benchmarking"),
+    ("Recruitment Fraud Alert: Protect Yourself", "fraud / AML (financial crime)"),
+    ("We use Tofu, a fraud detection tool, to validate the authenticity of applicants",
+     "fraud / AML (financial crime)"),
+    ("AI technologies used in our recruitment process undergo detailed risk assessments",
+     "risk management / regulatory compliance"),
+    ("admired a towering skyscraper", "web scraping"),
+    ("Our Data Architecture & Engineering team works across AWS", "data architecture"),
+    ("Salaire de base concurrentiel", "concurrency / multithreading"),
+    ("Ability to handle multiple concurrent tasks", "concurrency / multithreading"),
+    ("work closely with Engineering and SRE teams", "site reliability engineering (SRE)"),
+    ("equivalence partitioning and boundary value analysis", "query / performance tuning"),
+    ("make sure the data is right", "Zapier / n8n / Make"),
+    ("networking events with the team", "networking (TCP/IP)"),
+    ("access tokens and Excel files", "Microsoft Access"),
+    ("Hugo Boss", "static site generators (Hugo / Docusaurus)"),
+    ("MQTT, Kafka", "RabbitMQ / ActiveMQ / IBM MQ"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +221,73 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Nov 7 2026 review: real posting wording.
+    ("hands-on experience with Pytest, Pydantic and FastAPI", "Pydantic"),
+    ("including scraping, proxy management and working with public APIs", "web scraping"),
+    ("Familiarity with large-scale web scraping, crawling, and web data extraction", "web scraping"),
+    ("Understanding of operating systems, software configuration, and basic networking concepts", "operating systems"),
+    ("Understanding of operating systems, software configuration, and basic networking concepts", "networking (TCP/IP)"),
+    ("scenario modelling, cash flow forecasting, leverage and liquidity analysis in Anaplan plus ad-hoc financial models",
+     "financial analysis / FP&A"),
+    ("forecasting and portfolio analysis across the RE Debt portfolio", "investment performance / attribution"),
+    ("ad hoc research (benchmarking, peer and risk analysis)", "benchmarking"),
+    ("ad hoc research (benchmarking, peer and risk analysis)", "risk management / regulatory compliance"),
+    ("Supports fraud risk assessments, quality assurance, data validation", "risk management / regulatory compliance"),
+    ("Statistics, Excel, SAS, R, SPSS, Python, VBA, SQL, Tableau, A/B Testing, Digital Marketing",
+     "digital marketing / SEO / SEM"),
+    ("Familiarity with technologies such as Spark, Kafka, Delta Lake, Unity Catalog, Dataplex, Dataflow",
+     "Google Cloud Dataplex"),
+    ("distributed processing, lakehouse architectures, streaming", "distributed systems"),
+    ("experience with data architecture and governance", "data architecture"),
+    ("High proficiency in Python, Spark, Hadoop tools (Hive, Impala, Airflow, NiFi), SQL", "Impala"),
+    ("High proficiency in Python, Spark, Hadoop tools (Hive, Impala, Airflow, NiFi), SQL", "Apache NiFi"),
+    ("Orchestration tools such as Apache Airflow, NiFi or Talend", "Talend"),
+    ("Develop data processing jobs using PySpark/Spark and Python on platforms such as Cloudera and Databricks",
+     "Cloudera"),
+    ("Optimize pipeline performance and cost (partitioning, file formats, compute tuning, query patterns)",
+     "query / performance tuning"),
+    ("DevOps/CI-CD: Git, automated testing, release pipelines, observability", "CI/CD"),
+    ("Experience with CI/CD (GitLab CI, GitHub Actions)", "CI/CD"),
+    ("Build and support data ingestion, integration, and orchestration processes", "data pipelines"),
+    ("3 years relevant experience in fraud prevention, fraud detection, transaction monitoring, or financial crime analytics",
+     "fraud / AML (financial crime)"),
+    ("Collaborates with Fraud Investigations, AML, Technology, Operations", "fraud / AML (financial crime)"),
+    ("CFCI, CFE are considered an asset", "CFE / CFCI"),
+    ("Working Knowledge of SQL Server, Power BI, PowerPivot, Dashboards and Data Visualization", "Power Pivot"),
+    ("Familiarity with Python and basic machine-learning concepts is considered an asset", "machine learning"),
+    ("Strong analytical, critical-thinking, and problem-solving skills", "critical thinking"),
+    ("Ability to use approved generative-AI tools responsibly", "LLMs / generative AI"),
+    ("Proficiency in SQL, Excel and Access", "Microsoft Access"),
+    ("Cloud Run services and jobs, Cloud Scheduler, Cloud Storage, BigQuery", "Google Cloud Run"),
+    ("Cloud Run services and jobs, Cloud Scheduler, Cloud Storage, BigQuery", "Google Cloud Scheduler"),
+    ("credentials and access: rotation, least privilege, and immediate revocation", "IAM (identity and access management)"),
+    ("integration components, including SSO, security, and messaging (Kafka or MQ)", "IAM (identity and access management)"),
+    ("integration components, including SSO, security, and messaging (Kafka or MQ)", "RabbitMQ / ActiveMQ / IBM MQ"),
+    ("Production experience with Redis, Elasticsearch, RabbitMQ, or Celery", "RabbitMQ / ActiveMQ / IBM MQ"),
+    ("Familiarity with Canadian privacy law (PIPEDA, Alberta PIPA)", "data privacy / security"),
+    ("Jira, confluence, Grafana, ClickHouse, and various NoSQL databases", "ClickHouse"),
+    ("performance and monitoring with tools such as Splunk or Elastic", "Splunk"),
+    ("SQL Server or PostgreSQL administration, performance tuning, replication, high availability, and disaster recovery",
+     "high availability / disaster recovery"),
+    ("1+ year working in a Database / SRE / Engineering-related role", "site reliability engineering (SRE)"),
+    ("frameworks such as LangChain, AutoGen, or CrewAI", "CrewAI / AutoGen"),
+    ("low-code orchestration (n8n, Make, Zapier or similar)", "Zapier / n8n / Make"),
+    ("build reliable workflows using tools such as Make, Zapier, or n8n", "Zapier / n8n / Make"),
+    ("static site generators like Hugo or Docusaurus, or documentation platforms built on NextJS, Astro",
+     "static site generators (Hugo / Docusaurus)"),
+    ("static site generators like Hugo or Docusaurus, or documentation platforms built on NextJS, Astro", "Next.js"),
+    ("Familiarity with Markdown-based documentation or docs-as-code practices", "docs-as-code"),
+    ("Familiarity with Markdown-based documentation or docs-as-code practices", "Markdown"),
+    ("multi-format content output (HTML, JSON, XML, raw Markdown, PDF, ePub", "XML"),
+    ("Experience with building APIs and services using SOAP", "APIs / REST"),
+    ("Software development expertise, particularly large-scale, real-time embedded systems", "embedded systems"),
+    ("Familiarity with developing software on multi-processor, highly concurrent systems", "concurrency / multithreading"),
+    ("parallel and distributed computing, high-performance computing", "distributed systems"),
+    ("cloud platforms (AWS, Azure, GCP) or virtualization (KVM, VMware, OpenStack)", "virtualization"),
+    ("Basic networking and security knowledge (TCP/IP, firewalls, VPNs)", "network security (firewalls / VPNs)"),
+    ("make recommendations on pricing through profitability analyses, market trends, and pricing optimization performance",
+     "pricing analysis / strategy"),
+    ("data platform modernization and cloud migration", "cloud migration"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -236,6 +321,24 @@ def test_oct_20_review_products_and_concepts():
     for product, platform in [("SOQL", "Salesforce/CRM"), ("Acumatica", "ERP (SAP/Oracle/Workday)")]:
         assert _is_tool(product), product
         assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+
+
+def test_nov_7_review_products_and_concepts():
+    for name in ["benchmarking", "web scraping", "data architecture", "operating systems", "embedded systems",
+                 "high availability / disaster recovery", "docs-as-code", "fraud / AML (financial crime)",
+                 "digital marketing / SEO / SEM", "CFE / CFCI"]:
+        assert not _is_tool(name), name
+    for name in ["Pydantic", "Next.js", "CrewAI / AutoGen", "Cloudera", "Impala", "Apache NiFi", "Talend",
+                 "ClickHouse", "Splunk", "Power Pivot", "Zapier / n8n / Make", "Google Cloud Run",
+                 "Google Cloud Scheduler", "Google Cloud Dataplex", "RabbitMQ / ActiveMQ / IBM MQ",
+                 "static site generators (Hugo / Docusaurus)"]:
+        assert _is_tool(name), name
+        assert name in taxonomy.TOOL_TYPES, name
+    for product, platform in [("Next.js", "React"), ("Power Pivot", "Excel"), ("Cloudera", "Hadoop/Hive"),
+                              ("Impala", "Hadoop/Hive"), ("Google Cloud Run", "GCP"),
+                              ("Google Cloud Scheduler", "GCP"), ("Google Cloud Dataplex", "GCP")]:
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
 
