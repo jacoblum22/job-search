@@ -435,6 +435,26 @@ def test_failed_years_requirement_is_a_fit_gap(tmp_path):
     assert not any("software development" in f for f in out["feedback"])
 
 
+def test_failed_must_with_no_terms_and_no_passage_is_a_fit_gap(tmp_path):
+    # A licence or on-site must-have the vault says nothing about went back to repair every round.
+    app = make_app(tmp_path)
+    r = json.loads((app / "requirements.json").read_text())
+    r["requirements"][2] = {"id": "r3", "text": "Own a forklift certificate", "kind": "must", "terms": [],
+                            "weight": "role", "quote": "A valid forklift certificate"}
+    write_json(app / "requirements.json", r)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r3" else 0.8))
+    item = next(it for it in out["checklist"] if it["id"] == "must.r3")
+    assert item["fit_gap"] == ["not in the vault"]
+    assert not any("forklift" in f for f in out["feedback"])
+    # With a passage behind it, repair is still asked.
+    e = json.loads((app / "evidence.json").read_text())
+    e["requirements"][2]["passages"] = ["northwind.sql-daily"]
+    write_json(app / "evidence.json", e)
+    forget(app)
+    out = run_grade(app, 1, CFG, FakeJev(lambda state, q: 0.2 if q.id == "must.r3" else 0.8))
+    assert "fit_gap" not in next(it for it in out["checklist"] if it["id"] == "must.r3")
+
+
 def test_years_beyond_the_dates_are_a_fit_gap_even_with_a_named_skill(tmp_path):
     # Amazon ICQA, Oct 27 2026: a years must-have beyond the dates went back to repair every round,
     # because the requirement named a term.

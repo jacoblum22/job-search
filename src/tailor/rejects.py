@@ -60,9 +60,17 @@ def _path(cfg: dict[str, Any], name: str) -> Path:
     return resolve({"paths": {**DEFAULT_PATHS, **(cfg.get("paths") or {})}}, name)
 
 
+# Marks the key of a requirement with no skill terms (its own text), which `_key` keeps whole: the
+# taxonomy search finds a skill word inside a sentence (Wesgar, Nov 1 2026: "On-site work in
+# production and warehouse areas" was keyed "data warehouse", so a dbt passage covered it).
+TEXT_KEY = "requirement: "
+
+
 def _key(term: str) -> str:
     """One key per skill: "Problem-solving" and "problem solving" both map to the taxonomy name."""
     term = str(term)
+    if term.lower().startswith(TEXT_KEY):
+        return " ".join(term.lower().split())
     return " ".join((taxonomy.canonical(term) or term).lower().split())
 
 
@@ -120,7 +128,7 @@ def req_keys(r: dict[str, Any]) -> list[str]:
     soft = [c for c in taxonomy.find(f"{r.get('text', '')}. {r.get('quote', '')}")
             if taxonomy.category(c) == "Soft skills"]
     keys = list(dict.fromkeys(_key(n) for n in names + soft if n))
-    return keys or [_key(r.get("text", ""))]
+    return keys or [_key(TEXT_KEY + str(r.get("text", "")))]
 
 
 def load(cfg: dict[str, Any]) -> list[dict[str, Any]]:

@@ -77,7 +77,9 @@ _HEADING = re.compile(r"^\s*(?:#+\s*(.+?)|\*\*([^*]+?)\*\*:?)\s*:?\s*$")
 _VERDICT_LINE = re.compile(r"^\W*verdict\W*:?\W*(.*)$", re.IGNORECASE)
 _NOT_YET = re.compile(r"\bnot (?:yet|ready)\b|\bdon'?t submit\b|\bdo not submit\b|\bhold off\b", re.IGNORECASE)
 _BLOCKED = re.compile(r"^\W*blocked\b", re.IGNORECASE)
-_SUBMIT = re.compile(r"\bsubmit\b|\bready\b", re.IGNORECASE)
+# "Ready" about the documents, not "be ready to explain the gap" in a fit verdict (Xperteez, Nov 1
+# 2026: that line ended the reviews with seven notes never acted on).
+_SUBMIT = re.compile(r"\bsubmit\b|\bready\b(?!\s+to\s+(?!submit\b|send\b|apply\b|go\b)\w)", re.IGNORECASE)
 # "Submit after items 1 to 3", "ready to submit once you do the checks below": Jake, Oct 29 2026,
 # only "ready to submit now" stops the passes (after those changes it often finds more).
 _CONDITION = re.compile(r"\b(?:after|once|when|but|if|until|before|provided)\b|\bfix", re.IGNORECASE)

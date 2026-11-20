@@ -148,6 +148,19 @@ def test_gate_rejections(tmp_path, edit, reason):
     assert reason in res["rejected"][0]["reason"], res["rejected"]
 
 
+def test_replace_that_only_adds_citations_is_applied(tmp_path):
+    # repair.md rule 10: a Jev doubt is answered by citing the missing passage, wording kept.
+    app, cfg = make_app(tmp_path)
+    text = base_data(cfg)["summary"]["text"]
+    same = {"path": "summary", "action": "replace", "original": text, "value": text,
+            "sources": ["northwind.sql-daily", "northwind.dashboards", "course.degree"]}
+    write_edits(app, [{**same, "sources": same["sources"] + ["northwind.stakeholders"]}])
+    assert len(apply_edits(app, 1, cfg)["applied"]) == 1
+    assert "northwind.stakeholders" in load_resume(app / "drafts/r1/resume.yaml")["summary"]["sources"]
+    write_edits(app, [same])  # nothing changes at all: still refused
+    assert "same as the current text" in apply_edits(app, 1, cfg)["rejected"][0]["reason"]
+
+
 def test_coursework_replace_allowed(tmp_path):
     app, cfg = make_app(tmp_path)
     write_edits(app, [{"path": "education/exu/exu.coursework", "action": "replace",
@@ -601,6 +614,20 @@ def test_letter_gap_with_a_bridge_names_a_tool_it_denies(tmp_path):
     res, _ = letter_check(tmp_path / "b", with_(paragraphs=paras))
     msgs = [c["message"] for c in res["criticals"] if c["code"] == "invented_skill"]
     assert len(msgs) == 1 and "Power BI" in msgs[0]
+
+
+def test_letter_denied_tool_with_a_dot_in_its_name_is_a_gap(tmp_path):
+    # "Node.js" was cut at its dot, so the sentence denying it was read as claiming it.
+    app, cfg = make_app(tmp_path)
+    req = read_json(app / "requirements.json")
+    req.setdefault("keywords", []).append({"term": "Node.js", "weight": "role", "quote": "Node.js"})
+    write_json(app / "requirements.json", req)
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "text": paras[1]["text"] + " I haven't used Node.js yet."}
+    put_draft(app, base_data(cfg))
+    write_letter(app, with_(paragraphs=paras))
+    invented = [c for c in run_check(app, 1, cfg, None)["criticals"] if c["code"] == "invented_skill"]
+    assert invented == [], invented
 
 
 def test_letter_keen_sentence_may_name_any_skill_in_a_must_term(tmp_path):

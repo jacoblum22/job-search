@@ -204,7 +204,9 @@ def _apply_one(
         if not isinstance(original, str) or norm(original) != norm(node["text"]):
             raise _Reject("original does not match the current text")
         sources = _check_sources(edit, index, required=True)
-        if norm(value) == norm(node["text"]):
+        # Same wording with more citations is a real change: repair.md rule 10 answers a Jev doubt
+        # that way (Wesgar and Siegen, Nov 1 2026: the gate refused it, so the doubt stayed).
+        if norm(value) == norm(node["text"]) and set(sources) == set(node.get("sources") or []):
             raise _Reject("value is the same as the current text")
         before = node["text"]
         node["text"] = value
