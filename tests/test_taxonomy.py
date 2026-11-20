@@ -49,6 +49,35 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Daily review, Nov 10 2026.
+    ("Drive cost optimization across GCP and AWS", "optimization / OR"),
+    ("Databricks AI/BI, Tableau, or similar reporting tools", "AI (any mention)"),
+    ("companies with the highest probability of reaching $1 billion in annual revenue", "statistics"),
+    ("Maintain clear test plans, test cases, defect reports and regression suites", "reporting"),
+    ("Content deduplication: SHA256 hashing prevents re-processing identical uploads", "data quality / validation"),
+    ("Amazon Web Services' Cloud Storage, AWS S3, is one of the largest distributed storage systems",
+     "Google Cloud Storage"),
+    ("Solid understanding of Composer and dependency management", "Google Cloud Composer"),
+    ("SAP authorization objects; SAP BTP application security", "secure coding / OWASP"),
+    ("Must be able to obtain work authorization in the country of employment",
+     "authentication / authorization (OAuth, SSO)"),
+    ("Legal authorization to work in the U.S. indefinitely is required", "authentication / authorization (OAuth, SSO)"),
+    ("health benefits, retirement savings plans, and paid time off", "FinOps / cloud cost management"),
+    ("caching, batching, streaming responses, and right-sizing model selection to the task",
+     "FinOps / cloud cost management"),
+    ("marry the right product to the right sizes of the boxes", "FinOps / cloud cost management"),
+    ("Use and evaluate AI developer tooling, including Copilot, Claude Code, Codex",
+     "platform engineering / developer tooling"),
+    ("design of piping system design for buildings", "software architecture / system design"),
+    ("3. Technical Skills Evaluation - 60min Pair Programming", "pair programming"),
+    ("pairing fast generation with the sharp judgment needed", "pair programming"),
+    ("Workday differentiates across the Finance landscape versus legacy platforms", "legacy systems / modernization"),
+    ("All hiring decisions are made by human reviewers.", "human-in-the-loop AI"),
+    ("A human reviews each application, with the AI assessment as just one input", "human-in-the-loop AI"),
+    ("proud members of the Diversity Mark NI initiative as a Bronze Member", "medallion architecture (bronze / silver / gold)"),
+    ("we have great expectations for this role", "Great Expectations / Soda"),
+    ("StackAdapt seamlessly connects brand and performance marketing", "digital advertising / performance marketing"),
+    ("an AI-powered performance marketing agency", "digital advertising / performance marketing"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +232,77 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Daily review, Nov 10 2026: real posting wording.
+    ("Google Cloud: Cloud Run services and jobs, Cloud Scheduler, Cloud Storage, BigQuery", "Google Cloud Run"),
+    ("Google Cloud: Cloud Run services and jobs, Cloud Scheduler, Cloud Storage, BigQuery", "Google Cloud Scheduler"),
+    ("Google Cloud: Cloud Run services and jobs, Cloud Scheduler, Cloud Storage, BigQuery", "Google Cloud Storage"),
+    ("Cloud Run, Cloud Functions, Pub/Sub", "Google Cloud Functions"),
+    ("GCP Cloud Storage, Composer, IAM, Dataflow, Pub/Sub", "Google Cloud Composer"),
+    ("Familiarity with Entra ID (Azure AD), SSO, OAuth, OpenID Connect, LDAP",
+     "Microsoft Entra ID / Active Directory"),
+    ("Familiarity with Entra ID (Azure AD), SSO, OAuth, OpenID Connect, LDAP",
+     "authentication / authorization (OAuth, SSO)"),
+    ("Basic understanding of authentication, authorization, identity management",
+     "authentication / authorization (OAuth, SSO)"),
+    ("CI/CD tools such as GitHub Actions or ArgoCD", "Argo CD / GitOps"),
+    ("modern application security concepts", "secure coding / OWASP"),
+    ("Experience in cloud engineering, infrastructure, DevOps, or FinOps", "FinOps / cloud cost management"),
+    ("cloud cost-management tools such as AWS Cost Explorer/CUR, CloudHealth", "FinOps / cloud cost management"),
+    ("rightsizing recommendations", "FinOps / cloud cost management"),
+    ("build automation, developer tooling, AI-enabled workflows", "platform engineering / developer tooling"),
+    ("join our Platform Engineering team", "platform engineering / developer tooling"),
+    ("grow skills in system design, coding best practices", "software architecture / system design"),
+    ("Write clean, maintainable and testable code", "clean / maintainable code"),
+    ("staging vs. modeled layers, incremental loads, deduplication, and idempotent design",
+     "incremental loading / CDC"),
+    ("staging vs. modeled layers, incremental loads, deduplication, and idempotent design", "idempotency"),
+    ("staging vs. modeled layers, incremental loads, deduplication, and idempotent design",
+     "data quality / validation"),
+    ("Build dbt models, tests, docs, macros and incremental logic", "incremental loading / CDC"),
+    ("near-real-time change data capture", "incremental loading / CDC"),
+    ("Own reliable Bronze layer ingestion for your assigned sources", "medallion architecture (bronze / silver / gold)"),
+    ("Develop and support bronze, silver, and gold data models", "medallion architecture (bronze / silver / gold)"),
+    ("Great Expectations or Soda Core", "Great Expectations / Soda"),
+    ("collaborate with pair programming", "pair programming"),
+    ("Help junior engineers grow through pairing and knowledge sharing", "pair programming"),
+    ("migration of utility billing data from legacy systems", "legacy systems / modernization"),
+    ("migration of utility billing data from legacy systems", "billing systems"),
+    ("modernizing legacy data environments or migrating to cloud", "cloud migration"),
+    ("Experience with contact centre modernization, cloud migration, and AI solutions", "cloud migration"),
+    ("Build and demonstrate prototypes and proofs of value", "prototyping / proof of concept"),
+    ("Experience in data science and machine learning", "data science"),
+    ("automated graders, human review and production monitoring", "human-in-the-loop AI"),
+    ("ingesting data from Google Ads, Meta Ads, and Microsoft/Bing Ads APIs",
+     "ad platforms (Google / Meta / Microsoft Ads)"),
+    ("Familiarity with LeadPerfection", "LeadPerfection"),
+    ("Contribute to capacity planning and cost optimisation", "capacity planning"),
+    ("Partner with performance marketing teams", "digital advertising / performance marketing"),
+    ("full-funnel performance across GA4, paid search, social campaigns",
+     "digital advertising / performance marketing"),
+    ("Familiarity with billing systems, GAAP accounting", "billing systems"),
+    # Fixes to existing entries.
+    ("dbt tests, data-quality checks", "data quality / validation"),
+    ("Data contract and schema validation experience", "data quality / validation"),
+    ("Experience with non-relational databases", "NoSQL"),
+    ("database schemas, data profiling", "relational databases / database design"),
+    ("database schemas, data profiling", "data quality / validation"),
+    ("real-time event streaming systems", "real-time / streaming data"),
+    ("rotation, least privilege, and immediate revocation", "IAM (identity and access management)"),
+    ("privacy laws (PIPA) and data sovereignty", "data privacy / security"),
+    ("Google Drive and Google Docs", "Google Sheets / Workspace"),
+    ("Jenkins, GitLab CI, CircleCI or similar", "CI/CD"),
+    ("Basic statistics (probability, correlation, regression)", "statistics"),
+    ("Build ranking systems for candidates", "recommendation systems"),
+    ("evaluate prompts, interview strategies, scoring rubrics", "LLM / AI evaluation"),
+    ("monitoring and logging, alerting", "pipeline monitoring / alerting"),
+    ("Experience with Git, code review, automated testing, CI/CD, logging, and monitoring",
+     "pipeline monitoring / alerting"),
+    ("solution documentation, runbooks, and handover materials", "documentation"),
+    ("Superior strategic writing skills", "communication"),
+    ("navigating ambiguous requirements", "adaptability"),
+    ("Lead technical demonstrations and knowledge-transfer sessions", "teaching / knowledge sharing"),
+    ("notebook-based tools for data wrangling, exploratory analysis", "data analysis"),
+    ("Design test strategies for data pipelines", "QA / UAT"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -238,6 +338,26 @@ def test_oct_20_review_products_and_concepts():
         assert product in taxonomy.TOOL_TYPES, product
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
+
+
+def test_nov_10_review_products_and_concepts():
+    for name in ["authentication / authorization (OAuth, SSO)", "FinOps / cloud cost management",
+                 "platform engineering / developer tooling", "software architecture / system design",
+                 "clean / maintainable code", "pair programming", "legacy systems / modernization",
+                 "cloud migration", "idempotency", "prototyping / proof of concept", "incremental loading / CDC",
+                 "medallion architecture (bronze / silver / gold)", "capacity planning", "data science",
+                 "human-in-the-loop AI", "digital advertising / performance marketing", "billing systems"]:
+        assert not _is_tool(name), name
+    for product, platform in [("Google Cloud Run", "GCP"), ("Google Cloud Functions", "GCP"),
+                              ("Google Cloud Scheduler", "GCP"), ("Microsoft Entra ID / Active Directory", "Azure"),
+                              ("Argo CD / GitOps", "Kubernetes"), ("LeadPerfection", "Salesforce/CRM")]:
+        assert _is_tool(product), product
+        assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+    for product in ["Great Expectations / Soda", "ad platforms (Google / Meta / Microsoft Ads)"]:
+        assert _is_tool(product), product
+        assert product in taxonomy.TOOL_TYPES, product
 
 
 def test_named_api_products_and_node_get_their_own_skills():
