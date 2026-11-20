@@ -29,7 +29,8 @@ T = [
 ("Languages","Java",r"\bjava\b(?!script)"),
 ("Languages","JavaScript",r"javascript"),
 # Node.js is a server runtime: front-end JavaScript or TypeScript doesn't show it. RELATED links it to JavaScript.
-("Libraries","Node.js",r"\bnode\.?js\b|\bnodejs\b"),
+# Bare "Node" only inside a tech list ("Python, Node or ..."): "each Node in the cluster" is a server.
+("Libraries","Node.js",r"\bnode\.?js\b|\bnodejs\b|(?-i:(?:(?<=, )|(?<=and )|(?<=: ))Node\b(?![-.])|\bNode(?=,| or | and ))"),
 ("Languages","TypeScript",r"typescript"),
 ("Languages","C#/.NET",r"c#|(?<!\w)\.net\b|\b(?:asp|vb)\.net\b"),
 ("Languages","C/C++",r"(?-i)[Cc]\+\+|\bC\b(?!#|\+)(?=[,/ ]+(?:C\+\+|and|or|Java|Python))"),
@@ -192,17 +193,20 @@ T = [
 ("Cloud & DevOps","Vertex AI",r"vertex ai"),
 ("Cloud & DevOps","Docker",r"docker|containeri[sz]"),
 ("Cloud & DevOps","Kubernetes",r"kubernetes|\bk8s\b"),
-("Cloud & DevOps","CI/CD",r"ci/cd|continuous integration|continuous deliver|github actions|jenkins|azure devops|azure pipelines"),
+("Cloud & DevOps","CI/CD",r"ci/cd|\bci ?[-/] ?cd\b|continuous integration|continuous deliver|github actions|jenkins|azure devops|azure pipelines"),
 ("Cloud & DevOps","Git",r"\bgit\b|github(?! copilot)|gitlab|bitbucket|version control"),
-("Cloud & DevOps","Terraform/IaC",r"terraform|infrastructure as code"),
+("Cloud & DevOps","Terraform/IaC",r"terraform|infrastructure as code|(?-i:\bIaC\b)"),
 ("Cloud & DevOps","MLOps",r"mlops|llmops|model deployment|deploy(?:ing)? models|model monitoring|(?:model|data|concept) drift|retrain(?:ing)? models?|model retraining"
- r"|experiment tracking|model registr|feature stores?"),
+ r"|experiment tracking|model registr|feature stores?"
+ # "deploy machine learning models"; not "5,500 deployed AI models" (an employer boast).
+ r"|deploy(?:s|ing)? (?:(?:and )?(?:ml|ai|machine learning|deep learning|statistical|predictive)\s+){1,3}models"),
 ("Cloud & DevOps","MLflow",r"mlflow"),
 # Regression testing is re-running tests after a change, not statistical regression.
-("Cloud & DevOps","testing (unit/automated)",r"unit test|automated test|test automation|pytest|\btdd\b|(?-i:\bBDD\b)|behaviou?r.driven"
+# "writing tests" is code tests; "write skills tests" in a hiring process isn't.
+("Cloud & DevOps","testing (unit/automated)",r"unit test|writ(?:e|es|ing) (?:(?!skills?\b|aptitude\b|assessment)\w+ ){0,2}tests\b|automated test|test automation|pytest|\btdd\b|(?-i:\bBDD\b)|behaviou?r.driven"
  r"|regression test|integration test|end.to.end test"),
 ("Cloud & DevOps","microservices",r"microservice"),
-("Cloud & DevOps","distributed systems",r"distributed system"),
+("Cloud & DevOps","distributed systems",r"distributed (?:system|computing)"),
 # ML / stats methods
 ("ML & statistics","machine learning",r"machine learning|\bml\b|(?:un)?supervised learning|tree.based models?|random forests?|decision trees?"),
 ("ML & statistics","AI (any mention)",r"\bai\b|artificial intelligence"),
@@ -227,8 +231,8 @@ T = [
  r"|quasi.experiment|difference.in.differences|propensity score"),
 ("ML & statistics","feature engineering",r"feature engineering"),
 ("ML & statistics","model evaluation/validation",r"model (?:evaluation|validation|performance)|cross.validation"),
-# Query, performance and process optimisation are tuning work, not operations research.
-("ML & statistics","optimization / OR",r"(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
+# Query, performance, process and model optimisation are tuning work, not operations research.
+("ML & statistics","optimization / OR",r"(?<!model )(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
 ("ML & statistics","recommendation systems",r"recommend(?:er|ation) (?:system|engine|model)|recommenders?\b|next best action|ranking models?"),
 # Churn is a business metric; only survival wording is the method.
 ("ML & statistics","survival analysis",r"survival analysis|survival models?|time.to.event|hazard models?"),
@@ -244,7 +248,9 @@ T = [
  r"|oracle ?(?:erp|fusion|e-?business|netsuite|cloud erp|financials|hcm)|netsuite"
  r"|\boracle\b(?=[^.;\n]{0,80}" + _BUSINESS_SYSTEMS + r")|(?<=sap, )oracle|(?<=sap or )oracle|(?<=sap/)oracle"
  r"|workday (?:hcm|financials|adaptive|prism)"),
-("Business tools","Jira/Confluence",r"\bjira\b|confluence(?! cloud)"),
+# "Atlassian" counts as its tools in a list ("Atlassian, GitHub, Notion"), not as the employer ("At Atlassian, we", "improving Atlassian products").
+("Business tools","Jira/Confluence",r"\bjira\b|confluence(?! cloud)|atlassian (?:suite|tools|stack|apis?)\b"
+ r"|(?<=, )atlassian\b|(?<!at )(?<!join )\batlassian(?=,)"),
 ("Business tools","Visio / diagramming",r"\bvisio\b|lucidchart|draw\.io|\bmiro\b"),
 # A bare "Access" or "Word" only counts as the Microsoft tool when it is the whole term
 # (a posting's tools list), never as a word inside a sentence ("access tokens").
@@ -289,7 +295,7 @@ T = [
 ("Business tools","SharePoint",r"sharepoint"),
 ("Data platforms","GraphQL",r"graphql"),
 ("Data platforms","JSON",r"\bjson\b"),
-("ML & statistics","AI agents / agentic AI / MCP",r"agentic|ai agents?|\bmcp\b|model context protocol|langgraph|tool.calling|function.calling|\btool.use\b"),
+("ML & statistics","AI agents / agentic AI / MCP",r"agentic|ai agents?|\bmcp\b|model context protocol|langgraph|tool.calling|function.calling|\btool.use\b|agent harness"),
 ("Cloud & DevOps","SDLC",r"\bsdlc\b|software development life ?cycle"),
 ("Cloud & DevOps","networking (TCP/IP)",r"tcp/ip|\btcp\b|\budp\b|networking protocols"),
 ("Cloud & DevOps","QA / UAT",r"\buat\b|user acceptance|quality assurance|acceptance testing|manual testing|exploratory testing|test (?:cases|plans)\b"
@@ -298,7 +304,8 @@ T = [
 ("Data platforms","data transformation / preparation",r"data (?:transformations?|preparation|prep|wrangling|manipulation|munging)|transform(?:s|ed|ing)? (?!(?:the way|how) )(?:[\w-]+ ){0,2}data\b|prepar(?:e|ing) data|\bwrangl"),
 # Combining sources is integration work ("multi-source data", "combining data from several sources").
 ("Data platforms","data integration",r"data integration|system integrations?|integrat(?:e|ing) data|integrations? (?:between|across) (?:systems|platforms|tools)|(?:third.party|enterprise|platform) integrations?|integrat(?:e|ed|es|ing|ion) (?:of )?(?:the )?(?:third.party|external|outside|vendor) (?:\S+ ){0,3}?(?:data|sources?|systems|feeds)|multi.source|combin(?:e|ed|ing) (?:data from )?(?:multiple|several|different|many) (?:data )?sources"),
-("Data platforms","secure coding / OWASP",r"secure coding|secure (?:software|code) (?:development|practices)|\bowasp\b"),
+("Data platforms","secure coding / OWASP",r"secure coding|secure (?:software|code) (?:development|practices)|\bowasp\b"
+ r"|secure development (?:practices|standards|frameworks|life ?cycle)|secure sdlc"),
 ("Data platforms","data privacy / security",r"data privacy|privacy (?:laws|legislation|regulations|requirements|by design)|\bpii\b|personally identifiable|\bgdpr\b|\bccpa\b|\bpipeda\b|\bfoippa\b|\bhipaa\b|data security|data protection|\bencryption\b|access controls?|role.based access|row.level security|information security|cyber.?security|secrets? management"),
 ("Data platforms","query / performance tuning",r"query (?:optimi[sz]ation|performance|tuning)|optimi[sz](?:e|ing) (?:sql|queries|query)|performance (?:tuning|optimi[sz]ation)|(?:sql|query|database) tuning|tun(?:e|ing) (?:sql|queries)|(?:efficient|cost.effective) (?:sql|queries)|(?:sql|queries|query) (?:\w+ )?efficient|query costs?"),
 ("Data platforms","data lineage / catalog",r"data lineage|\blineage\b|data catalog(?:ue)?s?|data dictionar|metadata management"),
@@ -337,6 +344,13 @@ T = [
 ("Cloud & DevOps","serverless",r"serverless"),
 ("Cloud & DevOps","IAM (identity and access management)",r"(?-i:\bIAM\b)|identity and access management"),
 ("Cloud & DevOps","GPU computing / CUDA",r"\bcuda\b|\bgpus?\b|\btpus?\b"),
+# Hardware makers pair it with AI in their own blurb ("powering ... high-performance computing, cloud, and AI",
+# "the world of AI and HPC"); those aren't asks.
+("Cloud & DevOps","high-performance computing (HPC)",r"high.performance computing(?!, cloud)|(?-i:(?<!AI and )(?<!AI, )\bHPC\b)"),
+# Capitalised only: "*nix" is shorthand for Unix.
+("Cloud & DevOps","Nix",r"(?-i)\bNix(?:OS)?\b"),
+# The practice, not a pair-programming round in the hiring process.
+("Cloud & DevOps","pair programming",r"(?<!min )pair.program(?:s|ming)?\b(?! (?:session|interview|exercise|round|assessment)s?\b)"),
 # Google Cloud's data products, each its own skill (as with AWS).
 ("Cloud & DevOps","Google Cloud Storage",r"google cloud storage|(?-i:\bGCS\b)"),
 ("Cloud & DevOps","Google Cloud Dataflow / Apache Beam",r"(?-i:\bDataflow\b)|cloud dataflow|apache beam"),
@@ -371,7 +385,9 @@ T = [
 ("Domain knowledge","healthcare knowledge",r"health ?care (?:data|systems?|terminology|environment|sector|settings?|experience|industry|operations)|clinical (?:data|terminology|systems?|workflows?)|health (?:information|records|data)|electronic (?:health|medical) records?|(?-i:\b(?:HL7|EHR|CIHI)\b)|\bcerner\b|medical terminology|healthcare analytics"),
 ("Domain knowledge","financial analysis / FP&A",r"financial (?:analysis|modell?ing|planning|statements)|fp&a|variance analysis|unit economics|budget(?:ing)? and forecast"),
 ("Domain knowledge","investment performance / attribution",r"performance attribution|return attribution|attribution, risk|risk (?:and|&) exposure|investment (?:performance|analytics)|portfolio management theory"),
-("Domain knowledge","accounting (GAAP / IFRS)",r"\bgaap\b|\bifrs\b|revenue recognition|accounting (?:knowledge|principles|standards|concepts|working knowledge)|knowledge of (?:[a-z]+(?:,\s*(?:and\s+)?|\s+and\s+))*accounting|(?:basic|sound) accounting"),
+("Domain knowledge","accounting (GAAP / IFRS)",r"\bgaap\b|\bifrs\b|revenue recognition|accounting (?:knowledge|principles|standards|concepts|working knowledge)|knowledge of (?:[a-z]+(?:,\s*(?:and\s+)?|\s+and\s+))*accounting|(?:basic|sound) accounting"
+ # The financial close cycle. Not "End Month End" (a company tagline).
+ r"|month.end (?:and (?:quarter|year).end )?(?:close|closing|reporting|processes)|month.? and quarter.end|(?:monthly |financial |period.end )close\b"),
 ("Domain knowledge","risk management / regulatory compliance",r"risk management|regulatory (?:compliance|requirements|reporting|frameworks)"),
 # B2B marketing's lead funnel. Uppercase MQL only; "SQLs" is left out, it reads as the language.
 ("Domain knowledge","demand generation / lead funnel (MQLs)",r"demand gen(?:eration)?\b|(?-i:\bMQLs?\b)|marketing.qualified leads?"
@@ -389,7 +405,7 @@ T = [
 ("Soft skills","critical thinking",r"critical thinking"),
 ("Soft skills","presentation / storytelling",r"present(?:ation|ing|ed) (?:skills|findings|results|insights|to)|storytelling|\bpresentations?\b(?! layer)"),
 ("Soft skills","time management / prioritization",r"time management|prioriti[sz]|multi.?task|deadlines|multiple (?:tasks|projects|priorities)|competing priorities|several (?:projects|tasks|things) at once"),
-("Soft skills","independent / self-starter",r"independently|self.starter|self.motivated|self.directed|self.driven|autonomous|initiative|(?:minimal|limited|little) supervision|on (?:your|my|their) own"),
+("Soft skills","independent / self-starter",r"independently|self.starter|self.motivated|self.directed|self.driven|autonomous|initiative|self.propelled|(?:minimal|limited|little) supervision|on (?:your|my|their) own"),
 ("Soft skills","leadership / mentoring",r"leadership|mentor"),
 ("Soft skills","curiosity / learning",r"curious|curiosity|eager(?:ness)? to learn|continuous learning|growth mindset|(?:motivated|willing(?:ness)?|desire|keen) to learn|quick learner|learns? quickly"),
 ("Soft skills","business acumen",r"business acumen|business needs|business problems"),
@@ -400,7 +416,7 @@ T = [
 ("Soft skills","teaching / knowledge sharing",r"knowledge (?:sharing|transfer)|shar(?:e|es|ing) (?:your |their |our )?knowledge|(?:provide|deliver|conduct)\w* training|train(?:ing)? (?:users|staff|colleagues|others|team members|end users)|training (?:materials|sessions)|educat(?:e|ing) (?:users|stakeholders|teams|others)|\bteach|\bcoach"),
 ("Soft skills","judgment",r"\bjudge?ments?\b|critically (?:evaluate|assess|review)|challenge assumptions|discernment"),
 ("Soft skills","integrity / trustworthiness",r"(?<!data )\bintegrity\b(?! of)|trustworth|\bhonest|ethical (?:conduct|standards|behaviou?r)"),
-("Soft skills","discretion / confidentiality",r"\bdiscretion\b|confidentiality|(?:handl|maintain)\w* (?:sensitive|confidential)"),
+("Soft skills","discretion / confidentiality",r"\bdiscretion\b|confidentiality|(?:handl|maintain|process)\w* (?:sensitive|confidential)"),
 ("Soft skills","influence / negotiation",r"influenc(?:e|ing) (?:stakeholders|decisions|others|leaders|without)|persua|negotiat"),
 ("Soft skills","proactive",r"proactiv"),
 ("Soft skills","entrepreneurial / bias to action",r"entrepreneur|bias (?:to|toward|towards|for) action|builder mindset|scrappy|startup (?:mindset|environment|experience)"),
@@ -484,7 +500,7 @@ _TYPES = {
     "ML / AI platform": ["Amazon SageMaker", "Azure Machine Learning", "Vertex AI", "MLflow", "Databricks",
                          "Amazon Bedrock", "Snowflake Cortex", "Dataiku", "Azure OpenAI"],
     "DevOps tool": ["Docker", "Kubernetes", "CI/CD", "Git", "Terraform/IaC", "Linux/Unix", "Datadog", "Ansible / Puppet",
-                    "AWS CloudFormation", "Grafana", "Prometheus", "ELK Stack"],
+                    "AWS CloudFormation", "Grafana", "Prometheus", "ELK Stack", "Nix"],
     "business software": ["Salesforce/CRM", "ERP (SAP/Oracle/Workday)", "Jira/Confluence", "Visio / diagramming",
                           "Microsoft Access", "Microsoft Word", "Microsoft Office", "SharePoint", "Excel",
                           "Microsoft Outlook", "Microsoft PowerPoint", "Microsoft Teams", "Google Sheets / Workspace",
