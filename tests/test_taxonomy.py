@@ -49,6 +49,23 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Daily review, Nov 21 2026.
+    ("preference learning, reward modeling, and policy optimization", "optimization / OR"),
+    ("Build real-time timekeeping systems with precise event tracking", "web analytics / tracking implementation"),
+    ("attention to detail; pixel level perfection is core to what we do", "web analytics / tracking implementation"),
+    ("Use COALESCE(a, b) to fill nulls", "Coalesce"),
+    ("the coalesce function in SQL", "Coalesce"),
+    ("Experience with PowerShell, Azure CLI, or infrastructure automation", "command line (CLI)"),
+    ("automation and AI-assisted approaches to survey scripting", "scripting"),
+    ("Training Period: Monday to Friday. Post-Training: Up to 8-week rotation", "LLM post-training (RLHF / reward modeling)"),
+    ("Student Loan Repayment Program", "credit risk / lending"),
+    ("Preferred staff loan rates", "credit risk / lending"),
+    ("As the leading AI lending marketplace, we partner with banks", "credit risk / lending"),
+    ("Comprehensive group benefits including health, dental, and vision", "employee benefits / pensions"),
+    ("company contribution to pension/RRSP matching program", "employee benefits / pensions"),
+    ("defined benefit pension plan", "employee benefits / pensions"),
+    ("Both pension plans are administered by the UBC Pension Administration Office", "employee benefits / pensions"),
+    ("providing feedback to other engineers through code reviews and peer review", "research publications"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +220,44 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Daily review, Nov 21 2026.
+    ("Google Tag Manager, Looker or Looker Studio, Adobe Analytics, Adobe Tags/Launch, Google Ads", "Adobe Analytics"),
+    ("Google Tag Manager, Looker or Looker Studio, Adobe Analytics, Adobe Tags/Launch, Google Ads",
+     "Adobe Launch (Adobe Tags)"),
+    ("gather and prepare data from media, web analytics, CRM, and marketing automation systems",
+     "web analytics / tracking implementation"),
+    ("Experience with google analytics, google tag manager, and facebook pixel is an asset",
+     "web analytics / tracking implementation"),
+    ("Snowflake SQL analytics queries and ETL pipelines (Coalesce.IO)", "Coalesce"),
+    ("Amazon S3 and Secure FTP file integrations", "SFTP / file transfer"),
+    ("bank integrations via SFTP or APIs", "SFTP / file transfer"),
+    ("Unix command-line proficiency", "command line (CLI)"),
+    ("You'll develop CLI tools, services, and integrations", "command line (CLI)"),
+    ("Proficiency in at least one scripting language, with Python preferred", "scripting"),
+    ("Experience with large-scale model training, distributed training, or ML systems optimization",
+     "distributed model training"),
+    ("Design approaches to preference learning, reward modeling, and policy optimization",
+     "LLM post-training (RLHF / reward modeling)"),
+    ("LLM fine-tuning, pre-training, or post-training techniques", "LLM post-training (RLHF / reward modeling)"),
+    ("exploring deployment and domain adaptation of System One models", "transfer learning / domain adaptation"),
+    ("Experience in simulation-to-reality transfer learning", "transfer learning / domain adaptation"),
+    ("improve how we evaluate risk and make lending decisions", "credit risk / lending"),
+    ("Credit scoring, underwriting, admissions", "credit risk / lending"),
+    ("Some familiarity with employee benefits, group insurance, pension, or financial services",
+     "employee benefits / pensions"),
+    ("Experience working with group benefits or insurance", "employee benefits / pensions"),
+    ("Research publications at leading conferences such as NeurIPS, ICML, ICLR", "research publications"),
+    ("publications at top-tier peer-reviewed conferences or journals", "research publications"),
+    # Fixes to existing entries.
+    ("As the Data Steward for the division", "data governance"),
+    ("Produce conversion reports and assist with data cleanup activities", "data quality / validation"),
+    ("end-to-end data conversion and migration efforts from legacy systems", "data migration"),
+    ("Support testing efforts, defect tracking, business validation", "QA / UAT"),
+    ("experimental design, evaluation methodology, and error analysis", "model evaluation/validation"),
+    ("the ability to craft effective prompts and critically evaluate AI-generated outputs", "prompt engineering"),
+    ("Experience working with CAC and LTV, sales and marketing attribution", "marketing analytics / attribution"),
+    ("Customer Acquisition Cost (CAC), Return on Ad Spend (ROAS)", "marketing analytics / attribution"),
+    ("Customer focus and ability to make high-quality, user-centric product decisions", "customer / client focus"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -238,6 +293,18 @@ def test_oct_20_review_products_and_concepts():
         assert product in taxonomy.TOOL_TYPES, product
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
+
+
+def test_nov_21_review_products_and_concepts():
+    for concept in ["web analytics / tracking implementation", "scripting", "command line (CLI)",
+                    "distributed model training", "credit risk / lending"]:
+        assert not _is_tool(concept), concept
+    for product, platform in [("Adobe Launch (Adobe Tags)", "Adobe Analytics"), ("Coalesce", "Snowflake")]:
+        assert _is_tool(product), product
+        assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+    assert "product analytics" in taxonomy.TOOL_TYPES["Adobe Analytics"]
 
 
 def test_named_api_products_and_node_get_their_own_skills():
