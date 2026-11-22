@@ -281,3 +281,77 @@ def test_owasp_is_its_own_skill_not_data_privacy():
     assert tx.canonical("OWASP Top 10") == "secure coding / OWASP"
     assert tx.canonical("secure coding practices") == "secure coding / OWASP"
     assert tx.canonical("data security") == "data privacy / security"
+
+
+@pytest.mark.parametrize("text, skill", [
+    # Daily review, Nov 22 2026: real posting wording.
+    ("Working Knowledge of SQL Server, Power BI, PowerPivot, Dashboards and Data Visualization", "Power Pivot"),
+    ("Design and deploy AI-powered analytics solutions — including Databricks Genie", "Databricks Genie"),
+    ("BI and semantic layer: e.g., Unity Catalog metric views, AI/BI and Genie, Power BI, Tableau", "Databricks Genie"),
+    ("Declarative pipelines and orchestration: e.g., Lakeflow Spark Declarative Pipelines, Lakeflow Jobs",
+     "Databricks Lakeflow"),
+    ("Exposure to Palantir Foundry or similar enterprise data platforms", "Palantir Foundry"),
+    ("Lakehouse architecture: Medallion architecture and open table formats", "medallion architecture"),
+    ("Develop and support bronze, silver, and gold data models", "medallion architecture"),
+    ("Real-time streaming: e.g., Apache Kafka, Azure Event Hubs, Amazon Kinesis", "Azure Event Hubs"),
+    ("Develop, train, and evaluate models for speech recognition (STT), end of turn detection, and speech synthesis (TTS)",
+     "speech / audio ML (ASR, TTS)"),
+    ("Voice AI experience: speech-to-text, text-to-speech, latency tuning", "speech / audio ML (ASR, TTS)"),
+    ("Audio: pydub, RNNoise (denoising), faster-whisper", "speech / audio ML (ASR, TTS)"),
+    ("Design and implement guardrails and governance frameworks for AI tools",
+     "AI guardrails / hallucination mitigation"),
+    ("Quality and reliability of AI agent outputs and guardrail effectiveness",
+     "AI guardrails / hallucination mitigation"),
+    ("Familiar with prompt engineering and techniques to reduce hallucination.",
+     "AI guardrails / hallucination mitigation"),
+    ("3 years relevant experience in fraud prevention, fraud detection, transaction monitoring, or financial crime analytics",
+     "anti-money laundering (AML) / financial crime"),
+    ("support our Financial Crime, Anti-Money Laundering (AML), Fraud, and Security teams",
+     "anti-money laundering (AML) / financial crime"),
+    ("Having prior experience in supply chain analytics is a very strong asset", "supply chain"),
+    ("Experience with Blue Yonder Supply Chain Planning Optimization (SCPO)", "supply chain"),
+    ("CFCI, CFE are considered an asset", "fraud / AML certification (CFE, CFCI, CAMS)"),
+    # Fixes to existing entries.
+    ("Design and execute website A/B and multivariate tests across eCommerce touchpoints",
+     "A/B testing / experimentation"),
+    ("Ability to use approved generative-AI tools responsibly", "LLMs / generative AI"),
+    ("OLTP and OLAP: How transactional and analytical systems differ", "relational databases / database design"),
+])
+def test_nov_22_review_skills(text, skill):
+    assert skill in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text, wrong", [
+    ("Insurance covers massage therapy, speech therapy, mental health coverage", "speech / audio ML (ASR, TTS)"),
+    ("Speech-Language Pathology, or another related health profession", "speech / audio ML (ASR, TTS)"),
+    ("You will be reporting to our Head of ASR Transformation", "speech / audio ML (ASR, TTS)"),
+    ("The Assurance Innovation Lab (ASR Labs) serves as the experimentation engine", "speech / audio ML (ASR, TTS)"),
+    ("building security guardrails directly into CI/CD pipelines", "AI guardrails / hallucination mitigation"),
+    ("Write tests that guard the rules that matter most, like pricing guardrails and ledger balances",
+     "AI guardrails / hallucination mitigation"),
+    ("feature flags, success and guardrail metrics, safe rollouts", "AI guardrails / hallucination mitigation"),
+    ("Reporting to the Supply Chain Operations Manager", "supply chain"),
+    ("Provides support to Medical/Scientific, Supply Chain Management, Business Development, IT", "supply chain"),
+    ("software supply chain hardening", "supply chain"),
+    ("combined with the largest supply chain knowledge asset", "supply chain"),
+    ("successful completion of the CPA Common Final Examination (CFE)", "fraud / AML certification (CFE, CFCI, CAMS)"),
+    ("Bronze, Silver and Gold sponsorship tiers", "medallion architecture"),
+    ("make a wish to the genie", "Databricks Genie"),
+    ("direct preference optimization (DPO)", "optimization / OR"),
+    ("supervised fine-tuning, RLHF, DPO, or other preference-optimization methods", "optimization / OR"),
+])
+def test_nov_22_review_false_matches(text, wrong):
+    assert wrong not in taxonomy.find(text)
+
+
+def test_nov_22_review_products_and_concepts():
+    for name in ["medallion architecture", "speech / audio ML (ASR, TTS)", "supply chain",
+                 "anti-money laundering (AML) / financial crime"]:
+        assert not _is_tool(name), name
+    for product, platform in [("Power Pivot", "Excel"), ("Databricks Genie", "Databricks"),
+                              ("Databricks Lakeflow", "Databricks"), ("Azure Event Hubs", "Azure")]:
+        assert _is_tool(product), product
+        assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+    assert "Palantir Foundry" in taxonomy.TOOL_TYPES
