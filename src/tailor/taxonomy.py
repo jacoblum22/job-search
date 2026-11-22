@@ -91,8 +91,12 @@ T = [
 ("BI & analytics","data visualization",r"visuali[sz]"),
 ("BI & analytics","reporting",r"\breporting\b|\breports\b|\bbuild(?:ing)? reports?"),
 ("BI & analytics","KPIs/metrics",r"\bkpis?\b|key performance|metrics"),
-("BI & analytics","A/B testing / experimentation",r"a/b test|experiment(?:ation|al design| design)|\bab test"),
+("BI & analytics","A/B testing / experimentation",r"a/b test|experiment(?:ation|al design| design)|\bab test|multivariate test|hold.?out groups?"),
 ("BI & analytics","Power Query",r"power query"),
+# Excel's data model add-in. RELATED links it to Excel.
+("BI & analytics","Power Pivot",r"power ?pivot"),
+# Databricks' natural-language analytics ("AI/BI Genie"). Capitalised: lowercase "genie" is the word.
+("BI & analytics","Databricks Genie",r"(?-i)\bGenie\b"),
 ("BI & analytics","Power Automate",r"power automate"),
 ("BI & analytics","Power Apps",r"power apps"),
 ("BI & analytics","Microsoft Power Platform",r"power platform"),
@@ -148,6 +152,10 @@ T = [
 # "The tip of the iceberg" is the idiom, not the table format.
 ("Data platforms","Apache Iceberg",r"(?<!tip of the )\biceberg\b"),
 ("Data platforms","Unity Catalog",r"unity catalog"),
+("Data platforms","Databricks Lakeflow",r"lakeflow"),
+("Data platforms","Palantir Foundry",r"\bpalantir\b"),
+# Bronze/silver/gold lakehouse layers, not "Bronze, Silver and Gold sponsorship tiers".
+("Data platforms","medallion architecture",r"medallion|bronze[^.\n]{0,40}silver[^.\n]{0,40}gold(?![^.\n]{0,30}(?:sponsor|tier|member|level|partner))"),
 ("Data platforms","Snowflake Cortex",r"snowflake cortex|\bcortex (?:analyst|agents?|search|aisql|ai)\b|snowflake intelligence"),
 ("Data platforms","Dataform",r"\bdataform\b"),
 ("Data platforms","SQLMesh",r"sqlmesh"),
@@ -187,6 +195,7 @@ T = [
 ("Cloud & DevOps","Azure",r"\bazure\b"),
 ("Cloud & DevOps","Azure Machine Learning",r"azure machine learning|azure ml\b"),
 ("Cloud & DevOps","Azure OpenAI",r"azure openai"),
+("Cloud & DevOps","Azure Event Hubs",r"event hubs?\b"),
 ("Cloud & DevOps","Microsoft Graph API",r"microsoft graph|\bgraph api\b"),
 ("Cloud & DevOps","GCP",r"\bgcp\b|google cloud(?! oauth)"),
 ("Cloud & DevOps","Vertex AI",r"vertex ai"),
@@ -218,17 +227,28 @@ T = [
 ("ML & statistics","NLP",r"\bnlp\b|natural language"),
 # Positional embeddings (RoPE) are a transformer part, not vector embeddings for search or RAG.
 ("ML & statistics","embeddings",r"(?<!position )(?<!positional )\bembeddings?\b"),
-("ML & statistics","LLMs / generative AI",r"llm apis?|\bllms?\b|large language|generative ai|\bgenai\b|\bgpt\b|prompt engineering"),
+("ML & statistics","LLMs / generative AI",r"llm apis?|\bllms?\b|large language|generative.ai|\bgenai\b|\bgpt\b|prompt engineering"),
 # RAG is its own technique: other LLM work doesn't show it. RELATED links it to LLMs.
 ("ML & statistics","RAG (retrieval-augmented generation)",r"(?-i:\bRAG\b)|retrieval.augmented"),
 ("ML & statistics","computer vision",r"computer vision|image processing"),
+# Not "speech therapy" (benefits) or "Speech-Language Pathology". Bare "ASR" is left out: it's
+# also a team name ("ASR Labs", "Head of ASR Transformation").
+("ML & statistics","speech / audio ML (ASR, TTS)",r"speech (?:recognition|synthesis|models?|processing|technolog|tokeni[sz]ation|/nlu|(?:and|&) audio)"
+ r"|speech.to.text|text.to.speech|(?-i:\b(?:TTS|STT)\b)|voice ai\b|audio (?:processing|data processing|models?|ml|transcription)\b|diarization"
+ # OpenAI's speech recognition model ("faster-whisper").
+ r"|\bwhisper\b"),
+# Guardrails only next to AI wording: "security guardrails" in CI/CD, "pricing guardrails" and
+# experiment "guardrail metrics" aren't this.
+("ML & statistics","AI guardrails / hallucination mitigation",r"hallucinat|\b(?:ai|llms?|genai|agents?|agentic|prompts?)\b[^.\n]{0,60}\bguardrails?\b"
+ r"|\bguardrails?\b[^.\n]{0,60}\b(?:ai|llms?|genai|agents?|agentic|prompts?|human.in.the.loop)\b"),
 ("ML & statistics","time series",r"time.series"),
 ("ML & statistics","hypothesis testing / inference",r"hypothesis|statistical inference|significance test|causal|\bt-tests?\b|chi.squared?|\banova\b"
  r"|quasi.experiment|difference.in.differences|propensity score"),
 ("ML & statistics","feature engineering",r"feature engineering"),
 ("ML & statistics","model evaluation/validation",r"model (?:evaluation|validation|performance)|cross.validation"),
 # Query, performance and process optimisation are tuning work, not operations research.
-("ML & statistics","optimization / OR",r"(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
+# Direct preference optimization (DPO) is LLM post-training.
+("ML & statistics","optimization / OR",r"(?<!preference )(?<!preference-)(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
 ("ML & statistics","recommendation systems",r"recommend(?:er|ation) (?:system|engine|model)|recommenders?\b|next best action|ranking models?"),
 # Churn is a business metric; only survival wording is the method.
 ("ML & statistics","survival analysis",r"survival analysis|survival models?|time.to.event|hazard models?"),
@@ -304,7 +324,7 @@ T = [
 ("Data platforms","data lineage / catalog",r"data lineage|\blineage\b|data catalog(?:ue)?s?|data dictionar|metadata management"),
 ("Data platforms","semantic layer / metrics layer",r"semantic (?:layers?|models?|views)|governed metrics|metrics? (?:layer|store|registry)|metric (?:definitions|governance)"),
 ("Data platforms","data reconciliation",r"data reconciliation|reconcil(?:e|ing) (?:data|numbers|figures|across)"),
-("Data platforms","relational databases / database design",r"(?<!non-)(?<!non)relational (?:databases?|tables?)|primary (?:and|&|/) foreign keys?|foreign keys?|database design|database (?:management|development|administration)|\brdbms\b|schema design"),
+("Data platforms","relational databases / database design",r"(?<!non-)(?<!non)relational (?:databases?|tables?)|\boltp\b|primary (?:and|&|/) foreign keys?|foreign keys?|database design|database (?:management|development|administration)|\brdbms\b|schema design"),
 ("Data platforms","real-time / streaming data",r"real.time (?:data|analytics|processing|pipelines?|streaming|ingestion)|stream processing|streaming (?:data|pipelines?|analytics)"),
 ("Languages","SQL window functions / CTEs",r"window functions?|\bctes?\b|common table expressions?"),
 ("Languages","SQL stored procedures",r"stored procedures?|stored procs?\b"),
@@ -379,6 +399,13 @@ T = [
 ("Domain knowledge","epidemiology / biostatistics",r"epidemiolog|biostatistic"),
 # Uppercase IoT: "NYSE: IOT" is a ticker.
 ("Domain knowledge","IoT / sensor data",r"(?-i:\bIoT\b)|internet of things|sensor data"),
+("Domain knowledge","anti-money laundering (AML) / financial crime",r"anti.money laundering|(?-i:\bAML\b|\bKYC\b)|know your (?:customer|client)"
+ r"|transaction monitoring|financial crimes?|sanctions? screening"),
+# Supply chain as a skill, not a department ("Reporting to the Supply Chain Operations Manager",
+# "Supply Chain Management, Business Development, IT"), software supply chain security, or an
+# employer's pitch ("the largest supply chain knowledge asset").
+("Domain knowledge","supply chain",r"(?<!software )supply chain (?:analytics|planning|optimi[sz]ation|data|experience|knowledge(?! asset)|domain|analysis|modell?ing)"
+ r"|(?-i:supply chain management)|demand planning|(?:experience|background) (?:in|with|within) [^.\n]{0,40}(?<!software )supply chain"),
 # soft skills
 ("Soft skills","communication",r"communicat"),
 ("Soft skills","collaboration/teamwork",r"collaborat|team ?work|cross.functional|team player|(?:works?|interact) well with others"),
@@ -417,6 +444,9 @@ T = [
 # \b before "b.sc": "subscriptions" contains "bsc".
 ("Credentials","Bachelor's degree",r"bachelor|undergraduate degree|\bb\.?sc|\bbs\b|\bba\b"),
 ("Credentials","CFA / FRM / CIPM",r"(?-i)\bCFA\b|\bFRM\b|\bCIPM\b"),
+# Not the CPA "Common Final Examination (CFE)".
+("Credentials","fraud / AML certification (CFE, CFCI, CAMS)",r"(?-i)(?<!Examination \()\bCFE\b|\bCFCI\b|\bCAMS\b|[Cc]ertified [Ff]raud [Ee]xaminer"
+ r"|[Cc]ertified [Aa]nti-[Mm]oney [Ll]aundering"),
 ("Credentials","CBAP / IIBA",r"\bcbap\b|\bccba\b|\biiba\b|\bbabok\b"),
 ("Credentials","cloud certification",r"(?:aws|azure|google cloud|gcp|snowflake|databricks)[^.\n]{0,40}certifi|certifi\w* in google|snowpro|professional data engineer"
  r"|aws certified|azure [\w ]{0,30}associate\b"),
@@ -445,7 +475,8 @@ RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Ama
            "SQL stored procedures": "SQL", "Amazon SQS / SNS": "AWS", "Amazon ECS": "AWS",
            "Delta Lake": "Databricks", "Unity Catalog": "Databricks", "Snowflake Cortex": "Snowflake",
            "Dataform": "GCP", "Agentforce": "Salesforce/CRM", "ELK Stack": "Elasticsearch",
-           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)"}
+           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)", "Power Pivot": "Excel",
+           "Databricks Genie": "Databricks", "Databricks Lakeflow": "Databricks", "Azure Event Hubs": "Azure"}
 
 # The kind of tool each one is. An open list ("e.g. Tableau, QuickSight", "or similar tools")
 # takes its type from the tools it names, so any tool of that type can stand in. Excel isn't a
@@ -462,24 +493,27 @@ _TYPES = {
     "AI assistant": ["Claude / Claude Code", "ChatGPT", "GitHub Copilot", "Microsoft Copilot", "Cursor", "Codex",
                      "Gemini"],
     "BI / visualization tool": ["Power BI", "Tableau", "Looker", "Looker Studio", "Qlik", "Superset", "Metabase",
-                                "Sigma", "MicroStrategy", "Cognos", "Amazon QuickSight", "SSIS/SSRS", "Hex"],
+                                "Sigma", "MicroStrategy", "Cognos", "Amazon QuickSight", "SSIS/SSRS", "Hex",
+                                "Databricks Genie"],
     "product analytics": ["Google Analytics", "Amplitude / Mixpanel", "Statsig"],
-    "data warehouse": ["Snowflake", "Databricks", "BigQuery", "Redshift", "Microsoft Fabric / Azure Synapse / ADF"],
+    "data warehouse": ["Snowflake", "Databricks", "BigQuery", "Redshift", "Microsoft Fabric / Azure Synapse / ADF",
+                       "Palantir Foundry"],
     "table format": ["Delta Lake", "Apache Iceberg"],
     "data catalog": ["Unity Catalog"],
     "database": ["SQL", "NoSQL", "MongoDB", "DynamoDB", "Cassandra", "Cosmos DB", "Redis", "Elasticsearch",
                  "vector databases", "Supabase"],
     "big data / streaming": ["Spark/PySpark", "Kafka", "Flink", "Hadoop/Hive", "Amazon Kinesis", "Databricks",
-                             "Amazon EMR", "Confluent"],
+                             "Amazon EMR", "Confluent", "Azure Event Hubs"],
     "data warehouse / query engine": ["Amazon Athena", "Presto/Trino"],
     "orchestration / ETL tool": ["Airflow", "Prefect", "Dagster", "dbt", "Fivetran", "SSIS/SSRS", "Alteryx", "AWS Glue",
                                  "Google Cloud Composer",
-                                 "Microsoft Fabric / Azure Synapse / ADF", "Dataform", "SQLMesh", "VisualCron"],
+                                 "Microsoft Fabric / Azure Synapse / ADF", "Dataform", "SQLMesh", "VisualCron",
+                                 "Databricks Lakeflow"],
     "cloud platform": ["AWS", "Azure", "GCP", "AWS S3", "AWS Lambda", "Amazon SageMaker", "Amazon Bedrock",
                        "Amazon Kinesis", "Azure Machine Learning", "Vertex AI", "AWS Glue", "Amazon Athena",
                        "Amazon EMR", "Amazon EC2", "AWS CloudFormation", "Google Cloud Composer", "Google Cloud Storage",
                        "Google Cloud Dataflow / Apache Beam", "Google Cloud Pub/Sub", "Amazon SQS / SNS", "Amazon ECS",
-                       "AWS API Gateway", "Amazon CloudWatch", "Amazon RDS", "Azure OpenAI"],
+                       "AWS API Gateway", "Amazon CloudWatch", "Amazon RDS", "Azure OpenAI", "Azure Event Hubs"],
     "test tool": ["Playwright", "Selenium", "Cypress", "Postman", "JMeter / k6", "Jest / Vitest"],
     "ML / AI platform": ["Amazon SageMaker", "Azure Machine Learning", "Vertex AI", "MLflow", "Databricks",
                          "Amazon Bedrock", "Snowflake Cortex", "Dataiku", "Azure OpenAI"],
@@ -491,7 +525,7 @@ _TYPES = {
                           "ServiceNow", "Stripe", "test management (TestRail, qTest, Xray)",
                           "project controls (Primavera P6, EcoSys)",
                           "Microsoft Power Platform", "Power Apps", "Power Automate", "Power Query", "Dataverse",
-                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica"],
+                          "Anaplan", "Marketo", "Agentforce", "Bloomberg", "Acumatica", "Power Pivot"],
 }
 # Entries above that bundle several different tools. The bundle says a posting wants this kind of tool;
 # MEMBERS says which one. Having one member covers the entry only partly for a posting that names a
