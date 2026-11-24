@@ -275,6 +275,52 @@ def test_bare_ownership_is_the_soft_skill_but_home_ownership_isnt():
     assert tx.canonical("employee ownership plan") is None
 
 
+@pytest.mark.parametrize("text", [
+    "experience in configuring apt, and knowledge of deb packaging",
+    "Possess knowledge of Debian packaging, apt, and dependency management",
+    "Prior experience with Ubuntu/Debian/Snap packaging",
+    "a combination of Debian and Snap packaging to ship software in the distribution",
+    "Packaging and Linux distribution contributions - Debian, Fedora, Arch, Nix or another",
+])
+def test_linux_packaging_matches(text):
+    assert "Linux packaging (Debian / apt)" in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Collaborating with other teams in the Ubuntu and Debian communities",
+    "devops automation, open source projects, APIs, Linux systems administration, Python packaging",
+    "an apt description of the role",
+])
+def test_linux_packaging_false_matches(text):
+    assert "Linux packaging (Debian / apt)" not in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Design, build, and maintain large-scale multilingual datasets across high- and low-resource languages",
+    "Strong experience working with multilingual or non-English datasets",
+    "dataset curation for multilingual or domain-specific corpora",
+    "Knowledge of multilingual NLP and voice assistants",
+    "sufficient to evaluate multilingual agent behavior directly",
+])
+def test_multilingual_nlp_matches(text):
+    assert "multilingual NLP / data" in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Familiarity with multilingual websites, particularly French or Simplified Chinese, is an asset",
+    "Fluent, confident spoken and written English. Multi-lingual is a bonus.",
+    "as well as multilingual skills, are highly regarded",
+    "researchers who specialize in software engineering, logical reasoning, STEM, multilinguality, multimodality",
+])
+def test_multilingual_nlp_false_matches(text):
+    assert "multilingual NLP / data" not in taxonomy.find(text)
+
+
+def test_nov_24_review_concepts():
+    for name in ["Linux packaging (Debian / apt)", "multilingual NLP / data"]:
+        assert not _is_tool(name), name
+
+
 def test_owasp_is_its_own_skill_not_data_privacy():
     from src.tailor import taxonomy as tx
 

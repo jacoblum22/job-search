@@ -216,6 +216,10 @@ T = [
 ("ML & statistics","clustering/segmentation",r"clustering(?! (?:and|or) (?:high availability|replication|failover))|cluster analysis|k.means|segmentation"),
 ("ML & statistics","deep learning / neural nets",r"deep learning|neural net|\bcnns?\b|convolutional|autoencoders?|transformer(?: |-based )(?:models?|architectures?)|transformer-based|vision transformers?|\brnns?\b|\blstms?\b"),
 ("ML & statistics","NLP",r"\bnlp\b|natural language"),
+# Language data for models. Speaking several languages ("Multi-lingual is a bonus") or a
+# multilingual website isn't this.
+("ML & statistics","multilingual NLP / data",r"multilingual (?:nlp|data|datasets?|corpora|models?|benchmarks?|evaluation|agent)"
+ r"|multilingual or [\w-]+ (?:data|datasets?|corpora)\b|multi-lingual (?:nlp|data)|low.resource languages?|cross.lingual"),
 # Positional embeddings (RoPE) are a transformer part, not vector embeddings for search or RAG.
 ("ML & statistics","embeddings",r"(?<!position )(?<!positional )\bembeddings?\b"),
 ("ML & statistics","LLMs / generative AI",r"llm apis?|\bllms?\b|large language|generative ai|\bgenai\b|\bgpt\b|prompt engineering"),
@@ -335,6 +339,9 @@ T = [
 # The practice. "Azure DevOps" is the CI/CD product (above).
 ("Cloud & DevOps","DevOps",r"(?<!azure )\bdevops\b"),
 ("Cloud & DevOps","serverless",r"serverless"),
+# Building distro packages. "Python packaging" is a different skill; lowercase "apt" is the adjective.
+("Cloud & DevOps","Linux packaging (Debian / apt)",r"\b(?:debian|deb|snap|linux|rpm)(?:[/ ](?:and |or )?(?:debian|snap|rpm))* packag"
+ r"|\bpackaging and linux distribution|configur(?:e|ing) apt\b"),
 ("Cloud & DevOps","IAM (identity and access management)",r"(?-i:\bIAM\b)|identity and access management"),
 ("Cloud & DevOps","GPU computing / CUDA",r"\bcuda\b|\bgpus?\b|\btpus?\b"),
 # Google Cloud's data products, each its own skill (as with AWS).
