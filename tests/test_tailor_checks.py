@@ -639,6 +639,7 @@ def test_letter_flags_each_sentence_that_states_a_gap(tmp_path):
         "The report had not been built yet, so I wrote the query for it.",
         "I would like to talk about how your team evaluates its models in production.",
         "I used R to compare the churn models over six months of orders.",
+        "I want to build the reporting your team described with the people who will use it.",
     ]
     for sent in fine:
         assert gap_admissions(sent) == [], sent
@@ -1055,6 +1056,13 @@ def test_letter_plan_is_checked_before_the_letter_is_written(tmp_path):
     ranked = letterplan.emphasis(app)
     assert {r["id"] for r in ranked} == {"r1", "r2", "r3"} and ranked[-1]["id"] == "r2"  # tier 2 ranks last
     assert all(set(r) >= {"stress", "mentions", "in_title", "early", "has_story", "passages"} for r in ranked)
+    # a requirement naming two tools, one of them missing, is still a story when a bullet tells the other
+    write_json(app / "evidence.json", {"requirements": [
+        {"id": "r3", "status": "partial", "strength": 3, "passages": ["northwind.dashboards"]},
+        {"id": "r1", "status": "covered", "strength": 1, "passages": ["skill.excel"]},
+        {"id": "r2", "status": "missing", "strength": 0, "passages": []}]})
+    story = {r["id"]: r["has_story"] for r in letterplan.emphasis(app)}
+    assert story == {"r3": True, "r1": False, "r2": False}
 
     bad = copy.deepcopy(PLAN)
     bad["shape"] = "four_movements"

@@ -53,9 +53,18 @@ _GAP = re.compile(
 )
 
 
+# "Keen to grow into X" names X as a shortfall. Narrower than _KEEN: "I want to build this with your
+# team" is a plan, not a gap (the Nov 25 2026 letter-plan test flagged one).
+_GROW = re.compile(
+    r"\b(?:keen|eager|excited|looking|hoping|hope|want|wanting|ready)\s+to\s+(?:grow|learn|develop)\b"
+    r"|\bgrow(?:ing)?\s+into\b",
+    re.I,
+)
+
+
 def gap_admissions(text: str) -> list[str]:
     """The sentences of `text` that state a gap: a tool not used, something to "grow into", a shortfall."""
-    return [s.strip() for s in _SENTENCE.split(text) if s.strip() and (_GAP.search(s) or _KEEN.search(s))]
+    return [s.strip() for s in _SENTENCE.split(text) if s.strip() and (_GAP.search(s) or _GROW.search(s))]
 
 
 # A course grade used as evidence ("88% in STAT 301", "STAT 301 (A)"): the work is the evidence.

@@ -21,14 +21,19 @@ and the 104 letters sent by Nov 2026 shared their skeleton and their stock phras
   starting point, not the answer), `requirements.json` (`company_facts`), `evidence.json`
 - `materials/companies/<company-slug>/facts.json` (verified facts only)
 - `plan.json` (`summary_angle`, so the letter and the resume pull the same way)
-- The vault passages named (`uv run python -m src.tailor passages <id> ...`)
+- The vault passages named (`uv run python -m src.tailor passages <id> ...`; an id ending in `.*`
+  such as `algaecal.*` prints every claim passage of that vault file, which is how to find the
+  rest of a story the ranking lists only one passage of)
 
 ## Hard rules
 
 1. **Beats.** A beat is one thing the posting stresses, paired with the one vault story that
    answers it best. Pick from the top of the ranking. A stressed item with no story
-   (`has_story: false`) is not a beat: skip it and say nothing about it. Never more than three
-   beats; fewer told well beats more told thinly.
+   (`has_story: false`) is not a beat: skip it and say nothing about it. An item with
+   `status: "partial"` names several tools and the vault has only some of them: it is a beat when
+   `has_story` is true, told with the tools the passages show and silent on the rest. Don't talk
+   around the posting's main ask when the vault answers most of it. Never more than three beats;
+   fewer told well beats more told thinly.
 2. **A story is work or a project**, cited by passage id: something that was built, fixed, found
    or delivered, with its tools and scope. `motivation.*` and `voice.*` passages are not stories.
    Each passage belongs to one beat only.
@@ -61,7 +66,8 @@ and the 104 letters sent by Nov 2026 shared their skeleton and their stock phras
 ## Output
 
 Write `<app>/letter-plan.json`, then run `uv run python -m src.tailor letter-plan "<app>"` and fix
-anything it rejects:
+anything it rejects (it prints `"accepted": true` when the plan passes, and an error listing every
+problem when it doesn't):
 
 ```json
 {"shape": "two_proofs",
