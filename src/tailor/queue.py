@@ -306,7 +306,27 @@ def run_queue(cfg: dict[str, Any], limit: int | None = None, jev=None,
 # elsewhere, else closed". Hosts match by suffix ("jobleads.com" also catches "www.jobleads.com").
 AGGREGATOR_HOSTS = ("jobleads.com", "adzuna.ca", "adzuna.com", "jooble.org", "jobrapido.com", "talent.com",
                     "neuvoo.ca", "careerjet.ca", "careerjet.com", "jobtome.com", "whatjobs.com", "bebee.com",
-                    "learn4good.com", "jobsora.com", "recruit.net")
+                    "learn4good.com", "jobsora.com", "recruit.net", "himalayas.app", "jobicy.com", "linkedin.com",
+                    "indeed.com", "glassdoor.com", "glassdoor.ca", "ziprecruiter.com", "simplyhired.com",
+                    "monster.com", "jobright.ai", "wellfound.com", "jobbank.gc.ca", "workopolis.com")
+
+# Jobs scraped straight from one employer's own board are named "<kind>:<slug>" (greenhouse:acme,
+# workday:acme, ...), so their link is the employer's posting. A bare source name (adzuna, himalayas,
+# jobicy, jobbank, the alert-email readers, hn_hiring) is a job board listing postings it doesn't
+# control: it can keep showing one after the employer removed it (Adzuna HCL, Himalayas TELUS, Nov 19 2026),
+# so for those the browser must reach the employer's page, whatever the host is. bcps is the BC public
+# sector's own board.
+_FIRST_PARTY_BARE_SOURCES = {"bcps"}
+
+
+def is_board_source(source: str) -> bool:
+    source = (source or "").strip().lower()
+    return bool(source) and ":" not in source and source not in _FIRST_PARTY_BARE_SOURCES
+
+
+def needs_follow_through(url: str, source: str, cfg: dict[str, Any]) -> bool:
+    """True when the link is a job board's copy of the posting, so only the employer's page can show it's open."""
+    return is_aggregator(url, cfg) or is_board_source(source)
 
 
 def aggregator_hosts(cfg: dict[str, Any]) -> tuple[str, ...]:
@@ -349,6 +369,20 @@ def open_check_dir(cfg: dict[str, Any]) -> Path:
     return resolve(cfg, "materials") / "tailor" / "open-check"
 
 
+def _row_real(r: Any) -> str:
+    try:
+        return str(r["real_url"] or "")
+    except (KeyError, IndexError):
+        return ""
+
+
+def _row_source(r: Any) -> str:
+    try:
+        return str(r["source"] or "")
+    except (KeyError, IndexError):
+        return ""
+
+
 def write_plan(cfg: dict[str, Any], entries: list[tuple[Any, list, Any]], limit: int, checked: bool) -> Path:
     import json
 
@@ -359,22 +393,31 @@ def write_plan(cfg: dict[str, Any], entries: list[tuple[Any, list, Any]], limit:
     plan = {"date": date.today().isoformat(), "limit": limit, "checked": checked,
             "min_years": int((cfg.get("hard_stop") or {}).get("min_years", 7)), "entries": [
         {"job_id": r["id"], "company": r["company"], "title": r["title"], "url": posting_url(r),
+         "via_board": needs_follow_through(posting_url(r), _row_source(r) if not _row_real(r) else "", cfg),
          "flags": flags, "resume_base": base} for r, flags, base in entries]}
     path = d / "plan.json"
     path.write_text(json.dumps(plan, indent=2), encoding="utf-8")
     return path
 
 
-def _planned_urls(cfg: dict[str, Any]) -> dict[int, str]:
-    """The link each job had in today's plan, by job id (the verdict files don't repeat it)."""
+def _planned(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    """Today's plan entries by job id (the verdict files don't repeat the link or whether it is a board's)."""
     import json
 
     path = open_check_dir(cfg) / "plan.json"
     try:
         plan = json.loads(path.read_text(encoding="utf-8"))
-        return {int(e["job_id"]): str(e.get("url") or "") for e in plan.get("entries", [])}
+        return {int(e["job_id"]): e for e in plan.get("entries", [])}
     except (OSError, ValueError, KeyError, TypeError):
         return {}
+
+
+def _via_board(entry: dict[str, Any] | None, cfg: dict[str, Any]) -> bool:
+    if not entry:
+        return False
+    if "via_board" in entry:
+        return bool(entry["via_board"])
+    return is_aggregator(str(entry.get("url") or ""), cfg)  # a plan written before the flag existed
 
 
 def read_verdicts(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
@@ -383,7 +426,7 @@ def read_verdicts(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
     import json
 
     out: dict[int, dict[str, Any]] = {}
-    planned = _planned_urls(cfg)
+    planned = _planned(cfg)
     for f in open_check_dir(cfg).glob("*.json"):
         if f.name == "plan.json" or not f.stem.isdigit():
             continue
@@ -408,13 +451,13 @@ def read_verdicts(cfg: dict[str, Any]) -> dict[int, dict[str, Any]]:
             host = re.sub(r"^https?://", "", landed, flags=re.I).split("/")[0]
             state = "closed"
             evidence = f"The link ended on {host}, a job-search site, and the posting was not found elsewhere. {evidence}".strip()
-        elif state == "open" and not real_url and is_aggregator(planned.get(int(f.stem), ""), cfg):
-            # The link we were given is itself an aggregator page (an Adzuna details page keeps rendering,
-            # Apply button and all, after the employer's posting is gone: HCL job, Nov 19 2026). Seeing
-            # only that page proves nothing; "open" needs the employer/ATS page (real_url). Else closed.
-            host = re.sub(r"^https?://", "", planned[int(f.stem)], flags=re.I).split("/")[0]
+        elif state == "open" and not real_url and _via_board(planned.get(int(f.stem)), cfg):
+            # The link we were given is a job board's copy of the posting (an Adzuna details page keeps
+            # rendering Apply after the employer's posting is gone: HCL job, Nov 19 2026; Himalayas, TELUS,
+            # same day). Seeing only that page proves nothing; "open" needs the employer/ATS page (real_url).
+            host = re.sub(r"^https?://", "", str(planned[int(f.stem)].get("url") or "job board"), flags=re.I).split("/")[0]
             state = "closed"
-            evidence = (f"Only the {host} page was read (a job-search site that keeps showing a posting after the "
+            evidence = (f"Only the {host} job-board page was read (boards keep showing a posting after the "
                         f"employer has removed it); the employer's own page was not reached. {evidence}").strip()
         elif state != "miss" and landed and is_generic_landing(landed):
             # The link ended on a home page or general job list, not on the posting: the posting is gone.
