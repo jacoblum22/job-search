@@ -617,6 +617,41 @@ def test_letter_keen_sentence_may_name_any_skill_in_a_must_term(tmp_path):
     assert not any(c["code"] == "invented_skill" for c in res["criticals"]), res["criticals"]
 
 
+def test_letter_flags_each_sentence_that_states_a_gap(tmp_path):
+    from src.tailor.letter import gap_admissions
+
+    # real sentences from sent letters (Nov 20 2026 count: 67 of 104 letters had at least one)
+    bad = [
+        "I have not worked with healthcare data yet and would be keen to grow into it.",
+        "I haven't used dbt or Dataform yet, but the warehouse we planned used the same layering.",
+        "I haven't used Cloud Run or Vertex AI; my closest deployment work is that pipeline's daily scrape.",
+        "I'm keen to grow into the rest of AWS and into identity tools like Entra ID.",
+        "SQL Server would be new to me.",
+        "My SQL is BigQuery rather than T-SQL.",
+        "I bring four months of industry experience writing SQL daily.",
+        "I have no direct experience with Spark.",
+    ]
+    for sent in bad:
+        assert gap_admissions(sent) == [sent], sent
+    fine = [
+        "At AlgaeCal I wrote BigQuery SQL daily and scheduled the queries that fed our dashboards.",
+        "I automated the monthly load rather than repeating it by hand.",
+        "The report had not been built yet, so I wrote the query for it.",
+        "I would like to talk about how your team evaluates its models in production.",
+        "I used R to compare the churn models over six months of orders.",
+    ]
+    for sent in fine:
+        assert gap_admissions(sent) == [], sent
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "text": paras[1]["text"] + " I have not used Power BI yet and would be keen to grow into it."}
+    res, _ = letter_check(tmp_path, with_(paragraphs=paras))
+    hits = [w for w in res["warnings"] if w["code"] == "gap_admission"]
+    assert len(hits) == 1 and hits[0]["path"] == "paragraphs[1]" and "Power BI" in hits[0]["data"]["term"]
+    # the clean letter has none
+    res, _ = letter_check(tmp_path / "clean", LETTER)
+    assert "gap_admission" not in codes(res["warnings"])
+
+
 def test_letter_warnings(tmp_path):
     paras = [
         {"text": "I am passionate about data. I am keen to grow and eager to learn. Familiar with Looker.", "sources": [], "company_facts": []},

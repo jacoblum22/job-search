@@ -129,6 +129,7 @@ class ScoreResult:
     score: int | None  # None when skipped
     tier: str  # "A".."D" or "skip"
     reasons: list[str] = field(default_factory=list)
+    level: str = ""  # "entry" | "unstated" | "stretch" | "out" (job_level); "" when skipped
 
     @property
     def reasons_text(self) -> str:
@@ -177,6 +178,71 @@ _SENIORITY_LABEL_RE = re.compile(
     r"Seniority\s+level\W*(Internship|Entry\s+level|Associate|Mid-?\s*Senior\s+level|Director|Executive|Not\s+Applicable)",
     re.IGNORECASE,
 )
+
+
+_TIER_ORDER = ("A", "B", "C", "D")
+
+
+def job_level(
+    *,
+    title: str,
+    description: str,
+    years_experience: int | None,
+    cfg: dict[str, Any],
+    seniority_label: str | None = None,
+) -> tuple[str, str]:
+    """How far the job sits above a new graduate, kept apart from how well its skills fit.
+
+    Returns (level, why). `entry`: the posting gives a positive entry-level sign (0-1 years
+    required, an entry-level title word, or new-grad wording). `unstated`: no years and no level
+    word either way. `stretch`: 2 years required with no entry sign, or a "II"/"intermediate"
+    title. `out`: 3 or more years required, a "III" title, or LinkedIn's Mid-Senior label.
+    Years the posting only prefers never count here. (Jake, Nov 2026: 36 of 104 applications asked
+    for 2+ years and none got a callback; a strong skills match was outvoting the years.)
+    """
+    lv = cfg.get("level") or {}
+    out_years = lv.get("out_years", 3)
+    stretch_years = lv.get("stretch_years", 2)
+    level_title = _YEARS_IN_TITLE_RE.sub(" ", title or "")
+    entry_title = _first_match(title or "", (cfg.get("entry_level") or {}).get("title_keywords") or [])
+    open_cfg = cfg.get("new_grad_open") or {}
+    new_grad = _open_to_new_grads(description or "", open_cfg.get("patterns") or []) if open_cfg else None
+    low_years = years_experience is not None and years_experience < stretch_years
+    # As in the points: a posting that asks for 2 years or less means it, whatever the title's level says.
+    title_counts = years_experience is None or years_experience > 2
+
+    if seniority_label and seniority_label in (lv.get("out_labels") or []):
+        return "out", f"LinkedIn seniority level: {seniority_label}"
+    hit = _first_match(level_title, lv.get("out_title_keywords") or [])
+    if hit and title_counts:
+        return "out", f"title level ({hit})"
+    if years_experience is not None and years_experience >= out_years:
+        # A junior or new-grad title that still asks for 3+ years is a stretch, not out of reach.
+        if entry_title:
+            return "stretch", f"asks for {years_experience} years under an entry-level title ({entry_title})"
+        return "out", f"asks for {years_experience} years"
+    hit = _first_match(level_title, lv.get("stretch_title_keywords") or [])
+    if hit and title_counts:
+        return "stretch", f"title level ({hit})"
+    if years_experience is not None and years_experience >= stretch_years:
+        if entry_title or new_grad:
+            return "entry", f"asks for {years_experience} years, but {entry_title or new_grad!r} marks it entry-level"
+        return "stretch", f"asks for {years_experience} years"
+    if low_years:
+        return "entry", f"asks for {years_experience} years"
+    if entry_title:
+        return "entry", f"entry-level title ({entry_title})"
+    if new_grad:
+        return "entry", f"open to new grads ({new_grad!r})"
+    return "unstated", "no years or level stated"
+
+
+def cap_tier(tier: str, level: str, cfg: dict[str, Any]) -> str:
+    """The best tier a job at `level` may hold (score.level.tier_caps); unchanged when no cap applies."""
+    cap = ((cfg.get("level") or {}).get("tier_caps") or {}).get(level)
+    if cap in _TIER_ORDER and tier in _TIER_ORDER and _TIER_ORDER.index(tier) < _TIER_ORDER.index(cap):
+        return cap
+    return tier
 
 
 def split_linkedin_criteria(description: str) -> tuple[str, str | None]:
@@ -478,7 +544,17 @@ def score_job(
     if d_years is not None and years_experience is not None and years_experience >= d_years:
         tier = "D"
         reasons.append(f"tier D: asks for {years_experience} years")
-    return ScoreResult(score, tier, reasons)
+    # Level is judged apart from the score: a strong skills match can't lift a job that asks for
+    # more years than Jake has into the tiers the queue drafts from.
+    level, level_why = job_level(title=title, description=description, years_experience=years_experience,
+                                 cfg=cfg, seniority_label=seniority_label)
+    capped = cap_tier(tier, level, cfg)
+    if capped != tier:
+        reasons.append(f"tier {capped} at most: {level} level ({level_why})")
+        tier = capped
+    elif cfg.get("level"):
+        reasons.append(f"level: {level} ({level_why})")
+    return ScoreResult(score, tier, reasons, level)
 
 
 def rescore_all(

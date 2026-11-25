@@ -117,8 +117,12 @@ role. If the vault has no `motivation.*` passages, keep movement 3 to one senten
    already been verified). Otherwise exactly `"Dear Hiring Manager,"`. Use the name as the posting
    gives it. Never guess a name.
 3. **Missing skills:** never write "familiar with X" or "experience with X" for anything not in the
-   vault, and never imply a tool the vault doesn't show. How to handle a gap is a judgment call (see
-   the advice below); say "keen to grow into" style phrases at most once.
+   vault, and never imply a tool the vault doesn't show. **Never state a gap either** (Jake, Nov 20
+   2026: 67 of 104 sent letters did, and a screener reads it as the reason to stop). No "I haven't
+   used X", "X would be new to me", "my SQL is BigQuery rather than T-SQL", "the closest I have is",
+   "keen to grow into", and no months or years of experience. Say what the candidate did with the
+   nearest tool and stop; the resume simply doesn't list the missing one. The check
+   `gap_admission` flags these.
 4. **Grounding and metrics:** no invented or estimated numbers; no employer, project, tool or
    credential outside the vault.
 5. **Human voice:**
@@ -183,11 +187,13 @@ These aren't checks; they're what a good reviewer noticed on past letters (Point
 - **Don't undercut the candidate.** Lines that read as confessions ("I was open about what I didn't
   know") or blame ("found problems in SQL my teammates wrote") make the reader wonder. Say what the
   candidate did plainly ("reviewed teammates' SQL for errors"), or leave it out.
-- **Gaps.** When the posting leans on a tool the vault doesn't show (a must-have or a prominent
-  nice-to-have), one honest sentence can help, especially when the vault shows something similar:
-  "I haven't used Marketo, but at AlgaeCal I worked out what Braze's marketing fields meant once
-  they landed in BigQuery." Never claim the two are the same. Skip it when the gap is minor and the
-  sentence would only draw attention to it.
+- **Gaps.** When the posting leans on a tool the vault doesn't show, write only the positive half:
+  what the candidate did with the nearest thing. Not "I haven't used Marketo, but at AlgaeCal I
+  worked out what Braze's marketing fields meant once they landed in BigQuery" but "At AlgaeCal I
+  worked out what Braze's marketing fields meant once they landed in BigQuery." The reader sees
+  the nearness without being handed the gap. Never claim the two tools are the same, and never
+  name the missing one as if it were known. Gaps still go to the candidate, on the review page;
+  they don't go to the employer.
 - **Tense and hedges.** A job that has ended is past tense ("work I did at AlgaeCal", not "work I
   have already started on"). Cut softeners like "really".
 - **Write for an outsider.** Internal team names ("Loyalty") mean nothing to another employer; use
@@ -222,7 +228,7 @@ Power BI are ABSENT.
 {"greeting": "Dear Hiring Manager,",
  "paragraphs": [
   {"text": "The marketing team at Contoso will mostly need answers fast and in plain language. That is the job I did at Northwind Analytics: writing SQL every day so the operations and sales teams could stop waiting on a report.", "sources": ["northwind.sql-daily"], "company_facts": []},
-  {"text": "I also kept the Tableau dashboards those teams relied on and traced every metric back to its source tables, so people could trust what they saw. I have not used Power BI yet and would be keen to grow into it.", "sources": ["northwind.dashboards"], "company_facts": []},
+  {"text": "I also kept the Tableau dashboards those teams relied on and traced every metric back to its source tables, so people could trust what they saw.", "sources": ["northwind.dashboards"], "company_facts": []},
   {"text": "I do my best work when other people depend on it. Your posting says the KPIs this team defines will guide Contoso's AI-first work, so the numbers behind them need to be ones people can trust.", "sources": ["motivation.relied-on"], "company_facts": ["posting:1"]},
   {"text": "I would like to talk about the KPIs your team is defining this year.", "sources": [], "company_facts": []}
  ],
@@ -239,7 +245,8 @@ Power BI are ABSENT.
 - [ ] Every achievement has `sources`; every company fact has a real id; no invented number.
 - [ ] Movement 3 links a `motivation.*` passage to the employer instead of restating their facts.
 - [ ] At least one cited fact is specific to this employer (a number or a named thing), not generic.
-- [ ] No ABSENT term claimed or implied; at most one "keen to grow into"; no "familiar with".
+- [ ] No ABSENT term claimed or implied; no "familiar with"; no sentence that states a gap ("I
+      haven't used", "new to me", "keen to grow into", "rather than", months of experience).
 - [ ] Every project name is explained on first mention; no sentence carries more than 3-4 technical
       ideas; no course grades; no claim repeated from the resume or earlier in the letter.
 - [ ] No banned phrase, em dash, "not just X but Y", "-ing" tail, banned opener or closer.

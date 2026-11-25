@@ -27,13 +27,36 @@ _KEEN = re.compile(
     r"|\bgrow(?:ing)?\s+(?:my|as)\b",
     re.I,
 )
-# The gap-with-a-bridge sentence cover-letter.md recommends ("I haven't used Marketo, but at ...")
-# denies the tools it names; group 1 is the denied part, up to the clause where the bridge starts.
+# A gap-with-a-bridge sentence ("I haven't used Marketo, but at ...") denies the tools it names;
+# group 1 is the denied part, up to the clause where the bridge starts. The denied tool is not a
+# claim (no invented_skill), but the sentence itself is a gap admission (see _GAP below).
 _DENIED = re.compile(
     r"\b(?:ha(?:ve|s)n['’]t|ha(?:ve|s)\s+not|(?:ha(?:ve|s)\s+)?never)\s+(?:yet\s+)?(?:used|worked\s+with|touched)\s+"
     r"([^.;:,\n]+?)(?=\s+(?:yet|but)\b|[.;:,\n]|$)",
     re.I,
 )
+
+# Sentences that hand the screener a reason to stop (Jake, Nov 20 2026: 67 of 104 sent letters had
+# one, 46 had two or more; cover-letter.md used to recommend them). Each is narrow on purpose: "rather
+# than" and "yet" alone are ordinary words, so only the shapes that state a shortfall are matched.
+_GAP = re.compile(
+    r"\b(?:ha(?:ve|s)n['’]t|ha(?:ve|s)\s+not|(?:ha(?:ve|s)\s+)?never)\s+(?:yet\s+)?"
+    r"(?:used|worked\s+(?:with|in|on)|touched|built|written|shipped|deployed|run|done)\b"
+    r"|\bno\s+(?:direct\s+|hands-on\s+|professional\s+|formal\s+|prior\s+)?(?:experience|exposure)\s+(?:with|in|using)\b"
+    r"|\bI\s+(?:lack|don['’]t\s+have|do\s+not\s+have)\b"
+    r"|\b(?:would\s+be|is|are|was)\s+new\s+to\s+me\b|\bI(?:\s+a|['’])m\s+new\s+to\b"
+    r"|\bmy\s+(?:[\w/+#.-]+\s+){1,4}(?:is|are|was|were|has\s+been|lived)\b[^.;!?\n]{0,80}\brather\s+than\b"
+    r"|\b(?:the\s+)?closest\s+(?:I(?:['’]ve|\s+have)|(?:tool|thing|work|experience)\s+I)\b|\bmy\s+closest\b"
+    r"|\blimited\s+(?:experience|exposure)\b"
+    r"|\b(?:\d+|one|two|three|four|five|six|few|several)\s+months\s+of\s+(?:\w+\s+){0,2}experience\b",
+    re.I,
+)
+
+
+def gap_admissions(text: str) -> list[str]:
+    """The sentences of `text` that state a gap: a tool not used, something to "grow into", a shortfall."""
+    return [s.strip() for s in _SENTENCE.split(text) if s.strip() and (_GAP.search(s) or _KEEN.search(s))]
+
 
 # A course grade used as evidence ("88% in STAT 301", "STAT 301 (A)"): the work is the evidence.
 _GRADE = re.compile(
@@ -239,6 +262,10 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
                  skills=named)
     if len(_KEEN.findall(full)) > 1:
         warn("keen_to_grow", "more than one 'keen to grow' style phrase")
+    for i, p in enumerate(paras):
+        for sent in gap_admissions(str(p.get("text", ""))):
+            warn("gap_admission", f"paragraphs[{i}] states a gap: {sent!r}; say what you did with the nearest "
+                 "tool and leave the negative half out, or cut the sentence", f"paragraphs[{i}]", term=sent)
     for m in _GRADE.finditer(full):
         warn("course_grade", f"course grade used as evidence: {m.group(0)!r}", term=m.group(0))
     from src.tailor.checks import _TEST_COUNT, line_issues  # lazy, as above

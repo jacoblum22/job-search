@@ -379,6 +379,8 @@ _ISSUES: dict[str, tuple[str, str]] = {
                          "A recruiter should see which job this is for in the first sentence."),
     "keen_to_grow": ("The letter says it's keen to learn or grow more than once.",
                      "Once reads as eager; more reads as inexperienced."),
+    "gap_admission": ("The letter points at something you haven't done: \"{term}\"",
+                      "A screener reads this as a reason to stop. Say what you did with the nearest tool instead."),
     "course_grade": ("The letter uses a course grade as evidence ({term}).",
                      "The work is the evidence; name what you built or did instead."),
     "no_company_fact": ("The letter doesn't mention a checked fact about the company.",

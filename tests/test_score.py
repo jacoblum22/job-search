@@ -461,3 +461,36 @@ def test_posting_text_naming_excluded_company_is_skipped():
     assert r.tier == "skip" and r.score is None
     assert "AlgaeCal" in r.reasons[0]
     assert _score("Junior Data Analyst", "SQL and Python daily. " * 5, years=1).tier != "skip"
+
+
+def test_level_is_judged_apart_from_the_score():
+    from src.score import cap_tier, job_level
+
+    cfg = CFG
+
+    def level(title, desc="python sql", years=None, label=None):
+        return job_level(title=title, description=desc, years_experience=years, cfg=cfg, seniority_label=label)[0]
+
+    assert level("Junior Data Analyst") == "entry"
+    assert level("Data Analyst", years=1) == "entry"
+    assert level("Data Analyst", "We welcome new grads.") == "entry"
+    assert level("Data Analyst") == "unstated"
+    assert level("Data Analyst", years=2) == "stretch"
+    assert level("Junior Data Analyst", years=2) == "entry"
+    assert level("Data Analyst II") == "stretch"
+    assert level("Intermediate Software Engineer", years=2) == "stretch"
+    assert level("Data Analyst", years=3) == "out"
+    assert level("Junior Data Analyst", years=3) == "stretch"
+    assert level("Data Engineer III") == "out"
+    assert level("Data Analyst", label="mid-senior level") == "out"
+    # the cap only lowers a tier, never raises one
+    assert cap_tier("A", "out", cfg) == "C" and cap_tier("D", "out", cfg) == "D"
+    assert cap_tier("A", "stretch", cfg) == "B" and cap_tier("A", "entry", cfg) == "A"
+
+
+def test_three_years_required_can_no_longer_be_tier_a():
+    strong = "python sql bigquery pandas dashboards machine learning " * 30
+    a = _score("Data Analyst", strong, years=1)
+    b = _score("Data Analyst", strong, years=3)
+    assert a.level == "entry" and b.level == "out"
+    assert b.tier in ("C", "D") and any("tier C at most" in x or b.tier == "D" for x in b.reasons)

@@ -158,8 +158,11 @@ Read every numbered fix and decide, one by one:
 rules, so use judgment):
 
 - Don't name a missing minimum in the letter (years asked vs. his four months). The resume dates
-  already show it, and pointing at it hands the screener a reason to stop. Name only a gap the
-  letter can bridge in the same sentence (a tool he hasn't used, with the closest one he has).
+  already show it, and pointing at it hands the screener a reason to stop. Don't name a missing
+  tool either (Jake, Nov 20 2026): write what he did with the closest one he has and leave the
+  negative half out. A `gap_admission` warning means a sentence does this; rewrite it to the
+  positive half or cut it. When the reviewer asks "have you used X?" and the answer is no, the
+  answer goes in `response.json` for Jake's interview prep and changes nothing in the documents.
 - Fill a "[number]" or "[N]" from the vault or cut the phrase; never estimate. Use the vault's
   wording ("9+", "about 20", "10+ tables", "several business units"). Keep a "+" when the vault
   says there were more he can't name.
@@ -170,8 +173,8 @@ rules, so use judgment):
 - No test counts ("a pytest suite"): they go stale and read as padding.
 - Ownership verbs only for what he did: "fixed both" when he made the fix, "traced the cause" when
   someone else changed it. "Across teams", not "every team".
-- A tool he never touched (Spark, dbt, Airflow) never goes in skills or a claim; the letter may
-  name it as a gap with a bridge. Docker is coursework only. C is coursework only.
+- A tool he never touched (Spark, dbt, Airflow) never goes in skills or a claim, and the letter
+  doesn't name it as a gap. Docker is coursework only. C is coursework only.
 - Unfamiliar product or internal names get a short gloss ("the company's online community on
   Circle") rather than being cut, when the story needs them.
 - A letter opener names what the job needs and how his work lines up with it as a whole; a single
