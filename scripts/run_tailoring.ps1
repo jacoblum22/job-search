@@ -291,6 +291,9 @@ function Invoke-OpenCheck([int]$Cap = 0) {
         return $false
     }
     $plan = Get-Content $planFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    # Nothing eligible (every A/B job already has a folder): there is no link to open, and zero verdicts
+    # would read as "Chrome not reachable" and cancel the rest of the run (found Nov 17 2026).
+    if (@($plan.entries).Count -eq 0) { Log "Open check: nothing left in the queue to check"; return $false }
     $cap = if ($cap -gt 0) { $cap } else { $plan.limit }
     $minYears = if ($plan.min_years) { $plan.min_years } else { 7 }   # tailor.hard_stop.min_years
     $prompt = (Get-Content (Join-Path $projectRoot "prompts\tailor\open-check.md") -Raw -Encoding UTF8).Replace("{DATE}", $date).Replace("{LIMIT}", "$cap").Replace("{MIN_YEARS}", "$minYears")
