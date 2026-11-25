@@ -1,4 +1,4 @@
-# Step 4b: draft the cover letter
+# Step 4b: draft the cover letter from its plan
 
 **Who runs this:** the scheduled Claude session, one call, in the same pass as the resume edits
 (`resume-edits.md`). Letter recipe and voice rules adapted from AI Job Hunter (Apache-2.0); the
@@ -6,11 +6,15 @@ wording here is our own. See `THIRD_PARTY_NOTICES.md`.
 
 ## Purpose
 
-Write a short, specific letter for this role at this company, using only facts the vault, the posting
-or the verified company notes can back. Code checks every claim, company fact and the greeting.
+Write the letter that `letter-plan.json` planned: a short, specific letter for this role at this
+company, using only facts the vault, the posting or the verified company notes can back. Code
+checks every claim, company fact and the greeting, and checks the letter against its plan.
 
 ## Inputs to read
 
+- `letter-plan.json` (the checked plan from `letter-plan.md`: shape, beats, company fact, opener,
+  close). **The letter is drafted from this file.** If it is missing or `letter-plan` has not
+  accepted it, do that step first.
 - `requirements.json` (including `company_facts` and `hiring_contact`) and `posting.md`
 - `evidence.json` (PRESENT / ABSENT) and `plan.json` (`summary_angle`)
 - `materials/profile/vault-index.json` (passage ids and texts), including the `motivation.*`
@@ -19,100 +23,66 @@ or the verified company notes can back. Code checks every claim, company fact an
   `company-verify` step dropped)
 - The rules file (`materials/docs/tailoring-rules.md`)
 
-## Step 1: hidden diagnosis (do this first, do not put it in the letter)
+## Step 1: write what the plan says, in the plan's shape
 
-Write three short notes for yourself, resting only on the posting and the verified company facts, and
-phrased as a hedged reading, never as inside knowledge:
+There is no fixed recipe and there are no sentence stems to fill in. The plan says what the letter
+is about; how each sentence is worded is yours to decide fresh for this letter. (The old recipe
+supplied its own stems, and "I'm applying for", "One thing I value", "Researching your company" and
+"I would like to talk about" each went out in 71 to 90 of 104 letters.)
 
-1. Why is this role probably open? (growth, a new team, a gap the duties point at)
-2. What three outcomes will the hire be judged on in the first 6-12 months?
-3. What is the through-line in the candidate's vault that answers those outcomes?
-
-Then list, for yourself, **what the resume you just wrote couldn't show**: posting terms the vault
-backs (PRESENT, or a `plan.json` `evidence_adds` term) that appear only in the skills list with no
-bullet behind them, or not at all (cut for room, or no line to put them on), must-haves first. The
-letter is where these go: the proof paragraph(s) should show as many of them as fit naturally,
-each through a real story from its cited passage, not as a list of names.
-
-## Step 2: four movements
-
-1. **Value for this role.** What the candidate offers *this* job, led by the through-line. First
-   sentence is about the work, not about the candidate's feelings.
-2. **Proof.** 1-2 real achievements from the vault, told with concrete tools and scope, each citing
-   its passage ids in `sources`. Pick them to cover the list from the end of step 1: a skill the
-   resume only lists (AWS S3, R) is shown here by what was done with it. Do it naturally: weave
-   each skill into a sentence the story already needs ("I used R to compare the churn models",
-   "I practised explaining results by walking the Loyalty team through each number"), never a
-   sentence added only to name a skill, and never a list of skill names. Use a number only if the cited passage has it. Choose them so they
-   also show one or two of the posting's main soft-skill asks that the resume doesn't already show
-   (working across teams, juggling several projects, explaining results to non-technical people),
-   taken from requirements whose evidence is a work or project story, not a self-description line.
-   Let what happened show the skill; never name it as a trait ("I am a strong communicator").
-3. **Why this company.** Link one of the candidate's real motivations (a `motivation.*` passage,
-   cited in `sources`) to one specific thing about this employer or this role (cited by id: a fact id
-   from `facts.json` (`f2`) or `posting:<n>` for the n-th item of `requirements.json.company_facts`,
-   n counting from 1). The employer already knows its own facts, so never just restate them, list
-   their stats, or praise their mission: say why that thing matters to the candidate and the work.
-   Use at most one or two facts. Do not say where a motivation came from or quote the file, except for the people motivation: when you state it, prefer the `motivation.preferred-people-phrasing` wording ("One thing I value is work that stays people-related, whether customers feel it or colleagues rely on it.") as written, since the candidate chose it.
-   **At least one fact must show real research:** a number, a named product, project, launch or
-   event, or anything else that could only be true of this employer. "Values high-quality care" or
-   "a leader in innovation" could be said of anyone and does not count (a named list of the
-   employer's core values is the exception: see "Named core values" below). Prefer a verified
-   `facts.json` fact over the posting's own boilerplate. Take the fact's details from its `quote`
-   (the only part checked against the source); a number or name only in its `fact` sentence fails.
-   **Introduce the researched fact as research** ("Researching your company, I found...", "One thing
-   I noticed...") instead of dropping it in unannounced. Keep it short: name the thing and what it
-   does, without dates or detail the point doesn't need. **Choose the fact the closing ask can follow
-   from:** of the facts available, use the one that relates to what the candidate would want to talk
-   about at the end (a fact about Quora's 100+ models in production leads naturally to "how your team
-   evaluates its models in production"; a fact about a payments launch does not lead to a question
-   about a data warehouse). If no available fact relates to anything the candidate would discuss, use
-   no researched fact at all and tie the close to the posting's own work instead.
-   **Name the value, then show it with the fact.** State one of the candidate's real motivations
-   plainly as something they value ("One thing I really value is...", "Something I enjoy seeing
-   is..."), using only what the `motivation.*` passages say, then give the researched fact as an
-   example of the employer doing that. Never invent a value the passages don't state, and never
-   dress the fact up with a word that sounds meaningful but isn't ("as direct as data gets").
-   Only tie the fact to the candidate's own past work when the link is literal and obvious; a
-   stretched link ("I did the same thing, just for other teams") is worse than none.
-   Never write "I want to contribute to this", "this is the kind of work I want" or similar before
-   the letter's last sentence; the final sentence is the only place for "I would like to...".
-   **Named core values (the candidate's ruling, Nov 7 2026).** When `facts.json` or the posting
-   lists the employer's core values by name (a careers, about or values page; a list such as
-   "Intelligence, Passion, Integrity, Humility"), movement 3 names one of those values instead of
-   a number or product fact. Pick the value that honestly fits a `motivation.*` passage (or a real
-   behavior in the vault), and write it as "That's why <Company>'s value of <value> resonated with
-   me" right after the motivation sentence, followed by one short clause saying what the value
-   means to the candidate in practice ("; I'd rather listen to the people relying on my work and
-   fix what they need than defend my own approach"). Use the value's exact name from the page. A
-   named value counts as the company-specific detail, so no researched number is needed, and the
-   close then follows from the value or the posting's own work. Keep the clause a statement of
-   attitude, not a new story or claim about past work; never offer the candidate's own technique
-   as the answer to the employer's problem. If the page only says vague things ("we value
-   excellence") with no named list, this rule does not apply.
-4. **Short confident close.** One or two sentences: what the candidate would like to do next,
-   ideally an invitation to talk about something specific in the role ("I would like to talk about
-   how your team reports marketing-sourced pipeline").
-   Say it once: no "I would like..." sentence at the end of movement 3 that the close then repeats.
-   The close must follow on from movement 3 (for example "I would like to be part of that kind of
-   work, ..."), so it reads as one thought, not a separate sign-off. **It must pick up the researched
-   fact itself:** "I would like to talk about how I could help ..." or a question about the very thing
-   the fact named ("... measures what players do with changes like these"), never "I would like to
-   talk about the role" in general and never a new subject the fact did not raise. Read the fact
-   and the close together: a reader should not wonder why the fact was brought up. No
-   "thank you for your consideration", no "I look forward to hearing from you".
-   Don't point to the candidate's GitHub, LinkedIn, email or phone anywhere in the letter, even
-   when the posting asks for examples of past work: the heading above the letter already carries
-   those links, so the line repeats it and spends words the letter needs for evidence.
-
-If no verified company fact exists, link the motivation to the posting's own description of the
-role. If the vault has no `motivation.*` passages, keep movement 3 to one sentence from the posting.
+- **Opener.** Write what `opener` says: what this job needs, and that the candidate's work lines up
+  with it across more than one area. The first sentence is about the work, not about the
+  candidate's feelings. Paragraph 1 names the role, in whatever sentence suits this letter.
+- **Beats.** Tell each beat's story from its passages, with concrete tools and scope, citing the
+  passage ids in `sources`. Every beat in the plan appears; no story appears that the plan lacks
+  (the checks `beat_missing` and `unplanned_story` flag both). Let what happened show a soft
+  skill; never name it as a trait ("I am a strong communicator"). Use a number only if the cited
+  passage has it. How much room a beat gets follows from the shape:
+  - `one_story`: the main beat gets most of the letter (why it was needed, what was done, what
+    changed, who used it); a second beat gets a sentence or two.
+  - `two_proofs`: one short paragraph per beat, each a complete small story.
+  - `problem_first`: open on the employer's problem in the posting's own terms, then the story
+    of solving the same problem.
+  - `short_note`: 110-170 words in 2-3 paragraphs; one story, told tight.
+- **Skills the resume only lists.** A posting term the vault backs that the resume shows only in
+  its skills list belongs in the letter **when a planned beat's story really used it** ("I used R
+  to compare the churn models"). Never add a sentence, or a beat, only to name a skill.
+- **Company fact.** Only when the plan's `company` is not `null`. Use that fact, tied to the beat
+  the plan names, by the plan's `link`, and cite its id in `company_facts` (a fact id from
+  `facts.json` such as `f2`, or `posting:<n>` for the n-th item of
+  `requirements.json.company_facts`, n counting from 1). Take its details from the fact's `quote`
+  (the only part checked against the source). The employer already knows its own facts, so never
+  just restate one, list their stats or praise their mission: say what it means for the work in
+  that beat. Make it plain that this is something the candidate read about them, in words written
+  for this letter. Keep it short: the thing and what it does, without dates or detail the point
+  doesn't need. When the plan's `company` is `null`, the letter has no company paragraph at all.
+- **Motivation.** Optional, and at most one sentence. Use a `motivation.*` passage (cited in
+  `sources`) only where it honestly explains why this work or this employer suits the candidate,
+  and say it in a sentence written for this letter. `motivation.preferred-people-phrasing` holds
+  wording the candidate likes for the people motivation: keep its meaning, and don't paste the
+  same sentence into every letter. Never invent a value the passages don't state, and never dress
+  a fact up with a word that sounds meaningful but isn't ("as direct as data gets").
+- **Named core values (the candidate's ruling, Nov 7 2026).** When the plan's company fact is one
+  of the employer's named core values, name that value with its exact name from the page, right
+  after the motivation it fits, and add one short clause on what it means to the candidate in
+  practice ("I'd rather listen to the people relying on my work and fix what they need than defend
+  my own approach"). Keep the clause a statement of attitude, not a new story or claim about past
+  work, and never offer the candidate's own technique as the answer to the employer's problem.
+- **Close.** One or two sentences that pick up what the plan's `close` names: a specific thing in
+  this role the candidate would want to talk about or work on. It follows from the paragraph
+  before it, so the letter reads as one thought and a reader never wonders why a fact was brought
+  up. Never a general "talk about the role", never a new subject. No "thank you for your
+  consideration", no "I look forward to hearing from you". Phrases like "I want to contribute to
+  this" belong only here, once.
+  Don't point to the candidate's GitHub, LinkedIn, email or phone anywhere in the letter, even
+  when the posting asks for examples of past work: the heading above the letter already carries
+  those links.
 
 ## Hard rules
 
-1. **Length:** 3-5 short paragraphs (one per movement, movements 1 and 2 may share), roughly 200-300
-   words in all. Use the room: while something on the step-1 list is still unshown, aim for 250-300
-   words. Under 200 is only right when nothing backed is left to show.
+1. **Length:** 3-5 short paragraphs, roughly 200-300 words in all (a `short_note` plan: 2-3
+   paragraphs, 110-170 words). While a backed term the resume only lists could still be shown
+   inside a planned beat's story, aim for 250-300 words. Never pad to reach a count.
 2. **Greeting:** `"Dear <name>,"` only when `requirements.json.hiring_contact` is non-null (it has
    already been verified). Otherwise exactly `"Dear Hiring Manager,"`. Use the name as the posting
    gives it. Never guess a name.
@@ -137,8 +107,9 @@ role. If the vault has no `motivation.*` passages, keep movement 3 to one senten
    - Mix sentence lengths: some of 3-7 words, some of 20-30.
    - Banned openers: "I am writing to apply", "I am excited to apply", "As a passionate", "Please
      accept this letter".
-   - Paragraph 1 must name the role. "I'm applying for the X role at Y" is fine; only the four
-     phrases above are banned. Name the company somewhere in the letter.
+   - Paragraph 1 must name the role, in a sentence written for this letter. "I'm applying for the
+     X role at Y" is allowed (only the four phrases above are banned) but is not the default: it
+     opened 90 of 104 letters. Name the company somewhere in the letter.
    - Bold nothing (the letter is rendered plain).
    - The candidate's guardrails come from the rules file. Spell a posting term the way the posting
      does (US or Canadian).
@@ -216,35 +187,52 @@ Write `drafts/r1/cover-letter.json`:
 ids of facts used (empty list if none). Use the sign-off name from the rules file / contact config,
 not from memory.
 
-## Worked example (invented)
+## Worked examples (invented)
 
-Posting: Junior Data Analyst at Contoso Retail; "Partner with stakeholders to define KPIs"; the
-company says it is "an AI-first company that values curiosity" (`posting:1`). Hiring contact
-`null`. Vault: `northwind.sql-daily` (daily SQL for operations and sales teams),
-`northwind.dashboards`, `motivation.relied-on` (wants work that other people rely on). Dashboards in
-Power BI are ABSENT.
+Two letters for the same candidate, to show a range. Neither is a template: do not reuse their
+sentences, their order or their openings.
+
+**A. `problem_first`, with a company fact.** The plan from `letter-plan.md`'s example: Junior Data
+Analyst at Contoso Retail; beats `r1` (campaign reporting; `northwind.sql-daily`,
+`northwind.dashboards`) and `r4` (explaining findings; `northwind.stakeholders`); company fact `f1`
+(campaign reporting moved in-house this year) tied to beat 1. Hiring contact `null`.
 
 ```json
 {"greeting": "Dear Hiring Manager,",
  "paragraphs": [
-  {"text": "The marketing team at Contoso will mostly need answers fast and in plain language. That is the job I did at Northwind Analytics: writing SQL every day so the operations and sales teams could stop waiting on a report.", "sources": ["northwind.sql-daily"], "company_facts": []},
-  {"text": "I also kept the Tableau dashboards those teams relied on and traced every metric back to its source tables, so people could trust what they saw.", "sources": ["northwind.dashboards"], "company_facts": []},
-  {"text": "I do my best work when other people depend on it. Your posting says the KPIs this team defines will guide Contoso's AI-first work, so the numbers behind them need to be ones people can trust.", "sources": ["motivation.relied-on"], "company_facts": ["posting:1"]},
-  {"text": "I would like to talk about the KPIs your team is defining this year.", "sources": [], "company_facts": []}
+  {"text": "A marketing team that gets its campaign numbers a week late ends up planning the next campaign without them. The Junior Data Analyst role at Contoso Retail exists to close that gap, and closing it is most of what I did at Northwind Analytics, across SQL, dashboards and the weekly reviews where the numbers got used.", "sources": ["northwind.sql-daily"], "company_facts": []},
+  {"text": "The operations and sales teams there used to ask for the same report every Monday. I wrote the SQL behind it, scheduled it, and moved it into a Tableau dashboard they could open themselves, so the request stopped coming. Contoso brought its campaign reporting in-house this year, which means someone now has to build the reports the agency used to send. That is the same job from the other side.", "sources": ["northwind.sql-daily", "northwind.dashboards"], "company_facts": ["f1"]},
+  {"text": "Building a report was half of it. Each week I walked the sales leads through what had changed and why, and reworked any chart they couldn't read at a glance.", "sources": ["northwind.stakeholders"], "company_facts": []},
+  {"text": "I'd be glad to hear which campaign reports your team wants first now that the work is in-house.", "sources": [], "company_facts": []}
+ ],
+ "sign_off": "Sincerely,\n<name>"}
+```
+
+**B. `one_story`, no company fact.** Data Engineer I at Fabrikam Logistics; the posting is almost
+all about one thing, moving a manual monthly load into a scheduled pipeline. Plan: one beat
+(`lab.pipeline`), a second small beat on checking the data (`lab.stats`), `company: null` because
+the only verified facts are about Fabrikam's fleet size, which no beat touches.
+
+```json
+{"greeting": "Dear Hiring Manager,",
+ "paragraphs": [
+  {"text": "Fabrikam's Data Engineer I posting describes a monthly load that someone still runs by hand. I have replaced one of those, and the work around it, from the first script to the checks that made people trust the result, is what I would bring to this role.", "sources": ["lab.pipeline"], "company_facts": []},
+  {"text": "In my research lab the survey data arrived as a folder of exports that a student merged every month. I wrote a Python pipeline that picked up each export, cleaned it and loaded it on a schedule. The first version broke whenever a column was renamed, so I added a check that stopped the load and said which file was wrong. After that the monthly merge took no one's time.", "sources": ["lab.pipeline"], "company_facts": []},
+  {"text": "Before anyone used the loaded data I compared its summary statistics with the hand-merged files for three earlier months. They matched, and that comparison was what convinced the lab to switch.", "sources": ["lab.stats"], "company_facts": []},
+  {"text": "I would like to walk through how your monthly load runs today and where a schedule would fit.", "sources": [], "company_facts": []}
  ],
  "sign_off": "Sincerely,\n<name>"}
 ```
 
 ## Self-check before saving
 
-- [ ] Hidden diagnosis done first and not in the letter.
-- [ ] Four movements in order; 3-5 short paragraphs.
-- [ ] Every backed term the resume only lists (or left out) is shown in the letter where it fits;
-      if the letter is under 250 words, nothing on that list is left that could fit.
+- [ ] The letter follows `letter-plan.json`: every beat is told and cited, no other story is in
+      it, and it is in the plan's shape.
+- [ ] A company fact appears only if the plan has one, and it is tied to the planned beat.
+- [ ] No sentence is a stem carried over from another letter or from the examples above.
 - [ ] Greeting is "Dear Hiring Manager," unless `hiring_contact` is non-null.
 - [ ] Every achievement has `sources`; every company fact has a real id; no invented number.
-- [ ] Movement 3 links a `motivation.*` passage to the employer instead of restating their facts.
-- [ ] At least one cited fact is specific to this employer (a number or a named thing), not generic.
+- [ ] Paragraph 1 names the role; the close picks up what the plan's `close` names.
 - [ ] No ABSENT term claimed or implied; no "familiar with"; no sentence that states a gap ("I
       haven't used", "new to me", "keen to grow into", "rather than", months of experience).
 - [ ] Every project name is explained on first mention; no sentence carries more than 3-4 technical

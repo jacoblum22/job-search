@@ -40,6 +40,14 @@ def letter_in(app_dir: Path) -> bool:
     return final.is_dir() and any("cover letter" in p.name.lower() for p in final.iterdir())
 
 
+def _letter_style(app_dir: Path) -> str | None:
+    """How the letter was made ('planned-v1' once a letter plan was used; None for older letters)."""
+    try:
+        return appdir.load_app(app_dir).get("letter_style")
+    except (OSError, ValueError):
+        return None
+
+
 def snapshot(conn: Any, job_id: int, app_dir: Path, *, drafted: dict[str, Any] | None = None) -> dict[str, Any]:
     """The job as it stands now. `drafted` (tier and score saved when the packet was drafted)
     replaces today's tier and score when filling in an application sent before this existed."""
@@ -53,7 +61,7 @@ def snapshot(conn: Any, job_id: int, app_dir: Path, *, drafted: dict[str, Any] |
         "source": source, "tier": tier, "score": score, "level": _level(reasons),
         "required_years": years, "location": where,
         "posting_host": host(url), "employer_host": host(real_url),
-        "letter_sent": letter_in(app_dir),
+        "letter_sent": letter_in(app_dir), "letter_style": _letter_style(app_dir),
     }
 
 

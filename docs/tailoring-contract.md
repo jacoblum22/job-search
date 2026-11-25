@@ -51,6 +51,7 @@ max 120 chars). Contents, in the order steps create them:
 | `requirements.json` | Claude, normalized by code | 1 |
 | `evidence.json` | code | 2 |
 | `plan.json` | code (base pick, relevance), then Claude adds the plan fields | 3 |
+| `letter-plan.json` | Claude, checked by code (`letter-plan`) | 3b |
 | `drafts/r<N>/edits.json` | Claude | 4 / 7 |
 | `drafts/r<N>/cover-letter.json` | Claude | 4b / 7 |
 | `drafts/r<N>/resume.yaml` | code (edits applied to the base) | 4 |
@@ -91,6 +92,13 @@ which the facts quote from).
 `jobs.db` (`src/tailor/store.py`): `job_id INTEGER PRIMARY KEY, folder, status, tier, score,
 gate_flags TEXT (json), flagged INTEGER, queue_rank, base_id, created_at, updated_at, outcome,
 outcome_at`.
+
+The first "I applied" adds `applied_at` and `applied` to `app.json` (`src/tailor/applied.py`): the
+job as it stood then (`source`, `tier`, `score`, `level`, `required_years`, `location`,
+`posting_host`, `employer_host`, `letter_sent`, `letter_style`), plus how it was sent once the
+details page or the `how` command records it (`channel`, `url`, `host`). The table mirrors these as
+`applied_source, applied_tier, applied_score, applied_level, apply_channel, apply_host,
+letter_sent`. Later rescoring never changes them.
 
 ### `requirements.json` (Claude writes, `normalize` validates)
 
@@ -267,6 +275,26 @@ exactly the same items, every `sources` id exists in the vault index and is a `c
 
 `company_facts` cite ids from the company's `facts.json` or `posting:<n>` for the n-th item of
 `requirements.json.company_facts`, counting from 1.
+
+### `letter-plan.json` (Claude writes, `letter-plan` checks)
+
+```json
+{"shape": "one_story|two_proofs|problem_first|short_note",
+ "opener": "what paragraph 1 is about",
+ "beats": [{"requirement": "r2", "stress": "why the posting stresses it", "story": "one line",
+            "passages": ["algaecal.sql-daily"]}],
+ "company": {"fact": "f2", "beat": 1, "link": "how the fact connects to that beat"},
+ "close": "what the last sentence picks up", "gap_mention": false, "_checked": true}
+```
+
+`src/tailor/letterplan.py`: `emphasis` ranks the role's requirements (tier, in the title, how often,
+how early) for the planner; `validate` checks the plan (shape and its beat count, each beat's
+requirement and claim passages, the company fact id, `gap_mention` false), marks it `_checked` and
+sets `app.json` `letter_style`. `company` is `null` when no fact connects. The letter check then
+warns `beat_missing` (a beat or the planned fact no paragraph cites) and `unplanned_story` (a
+story from a vault file no beat names), skips `no_company_fact` when `company` is `null`, and
+uses the `short_note` shape's own paragraph and word ranges. An application with no checked plan
+is checked as before.
 
 ### `check.json`
 

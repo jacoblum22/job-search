@@ -128,6 +128,27 @@ def evidence(app_dir):
           "jev_said_no": len(ev.get("jev_said_no") or [])})
 
 
+@main.command("letter-emphasis")
+@APP
+def letter_emphasis(app_dir):
+    """Step 3b input: what the posting stresses most, with the vault passages that answer each item."""
+    from src.tailor.letterplan import SHAPES, emphasis
+
+    _out({"stressed": emphasis(app_dir), "shapes": {k: v["what"] for k, v in SHAPES.items()}})
+
+
+@main.command("letter-plan")
+@APP
+def letter_plan(app_dir):
+    """Step 3b: check the letter-plan.json Claude wrote (beats, shape, company fact)."""
+    from src.tailor.letterplan import validate
+
+    _not_applied(app_dir)
+    plan = validate(app_dir, load_config())
+    _out({"file": str(app_dir / "letter-plan.json"), "shape": plan["shape"],
+          "beats": [b.get("story") for b in plan["beats"]], "company": (plan.get("company") or {}).get("fact")})
+
+
 @main.command()
 @click.argument("ids", nargs=-1, required=True)
 def passages(ids):

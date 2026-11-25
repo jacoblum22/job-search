@@ -93,6 +93,16 @@ already passed.
     `sources` cite a passage for every claim in it; if one is missing, add that passage and keep the
     wording. Change the wording only when no passage backs the claim.
 
+## The letter keeps to its plan
+
+When the application has a `letter-plan.json`, every letter change in a repair or review round
+stays inside it: the same beats, the same shape, the same company fact or none. For
+`beat_missing`, tell the beat the warning names, from the passages the plan lists for it. For
+`unplanned_story`, cut the extra story or fold what matters into a planned beat. Don't add a
+company paragraph the plan doesn't have. Change the plan itself only when a reviewer's fix can't
+be done inside it: edit `letter-plan.json`, rerun `uv run python -m src.tailor letter-plan "<app>"`,
+then write the letter from the new plan.
+
 ## Letter-only rounds
 
 When `feedback.json` has `"letter_only": true`, `sections` is `["letter"]`: the resume is already
@@ -179,8 +189,9 @@ rules, so use judgment):
   Circle") rather than being cut, when the story needs them.
 - A letter opener names what the job needs and how his work lines up with it as a whole; a single
   narrow example goes in paragraph 2, not the opener.
-- Paragraph 1 names the role, and "I'm applying for the X role at Y" is allowed (only the banned
-  openers in the cover-letter rules are not). If the reviewer asks you to state the role, do it.
+- Paragraph 1 names the role, in whatever sentence suits the letter ("I'm applying for the X role
+  at Y" is allowed, not required; only the banned openers in the cover-letter rules are out). If
+  the reviewer asks you to state the role, do it.
 - A company figure the reviewer questions: use the wording in `facts.json` or the posting exactly,
   or drop it.
 
