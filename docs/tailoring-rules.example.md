@@ -9,7 +9,8 @@ details (names, employers, contact details) in your copy only, never in this tem
 - Every claim in a resume or letter must be traceable to a passage in the experience vault. If it is
   not in the vault, it does not go in the document, even when the posting asks for it.
 - Never claim a skill, tool, employer, project, credential or responsibility from a job posting
-  alone. A missing skill may at most be named once in a letter as something I am "keen to grow into".
+  alone. A letter never states a gap ("I haven't used X", "keen to grow into"): it says what I did
+  with the nearest tool and stops.
 - Never write "familiar with X" for something the vault does not show.
 - Company facts in a letter come only from the posting or from verified company notes.
 
