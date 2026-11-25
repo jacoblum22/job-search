@@ -61,7 +61,10 @@ plan cannot change them.
    bucket that you plan around, and every `swap_in` passage. If a passage does not actually show
    the skill or work the posting means, treat the term as absent and record it in
    `evidence_drops`. Record a drop for a term the base resume itself matches by accident too, and
-   do not plan anything that leans on it.
+   do not plan anything that leans on it. A drop is for one passage, so when the reason holds for the
+   term's other passages too (Wesgar: "baselines" was dropped for one game passage while five more
+   of the same kind still backed it), read every passage `evidence.json` lists for that term and
+   record a drop for each one that fails the same way.
 9. **Add evidence the matching missed.** The reverse also happens: a `claim` passage you read
    clearly shows a skill the posting asks for, but `evidence.json` has the term in `absent` or the
    requirement as `missing` or `partial` (the passage says it in other words: "explained results to
