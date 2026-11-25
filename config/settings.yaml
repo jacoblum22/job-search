@@ -527,6 +527,24 @@ score:
   # Asking for this many years puts a job in tier D whatever its score
   tier_d_years: 5
 
+  # Level, judged apart from the score (Jake, Nov 2026; src/score.py job_level). The score says how
+  # well the skills fit; the level says how far the job sits above a new grad. A cap is the best
+  # tier a level may hold, so the points above stay as tuned. The queue drafts tier A first and
+  # tier B only to fill what A can't (tailor.tiers), so "stretch" jobs wait behind every entry-level
+  # and unstated one, and "out" jobs are never drafted (they stay on the dashboard to pick by hand).
+  #   entry    0-1 years required, an entry-level title word, or new-grad wording
+  #   unstated no years and no level word either way
+  #   stretch  2 years required with no entry sign, or a "II"/"intermediate" title
+  #   out      3+ years required, a "III" title, or LinkedIn's Mid-Senior label
+  # Years a posting only prefers never count. Remove the section to turn levels off.
+  level:
+    stretch_years: 2
+    out_years: 3
+    stretch_title_keywords: ["ii", "2", "level 2", "level ii", "intermediate"]
+    out_title_keywords: ["iii", "iv", "3", "level 3", "level iii"]
+    out_labels: ["mid-senior level"]
+    tier_caps: {stretch: "B", out: "C"}
+
   # Skills in title + description, weighted by how strong Jake's evidence is
   # (experience-vault/skills-map.md). Sum is capped.
   skills:
