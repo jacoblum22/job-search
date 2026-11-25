@@ -281,3 +281,48 @@ def test_owasp_is_its_own_skill_not_data_privacy():
     assert tx.canonical("OWASP Top 10") == "secure coding / OWASP"
     assert tx.canonical("secure coding practices") == "secure coding / OWASP"
     assert tx.canonical("data security") == "data privacy / security"
+
+
+@pytest.mark.parametrize("text, right", [
+    # Daily review, Nov 25 2026.
+    ("Experience working within a quality management system or an ISO- or CMMI-certified workplace",
+     "quality management systems (ISO 9001 / CMMI)"),
+    ("experience working in an ISO 9001 compliant software engineering environment",
+     "quality management systems (ISO 9001 / CMMI)"),
+    ("Working knowledge of import/export processes, tariff classification, and global trade regulations",
+     "international trade / customs"),
+    ("Customs Brokerage, Customs Regulations, Customs Tariffs", "international trade / customs"),
+    ("Microsoft SharePoint site-level administrator experience including HTML and Java scripting capabilities",
+     "JavaScript"),
+    ("Validate data and help ensure accuracy, consistency, and reliability across reports",
+     "data quality / validation"),
+    ("Experience with Enterprise Resource Planning (ERP) systems (e.g. Infor LN)", "ERP (SAP/Oracle/Workday)"),
+    ("experience in Infor LN and a strong background in full-stack web development", "ERP (SAP/Oracle/Workday)"),
+    ("Excellent organizational and time management skills in a fast-paced environment", "organization"),
+    ("Provide user training and guidance on trade reporting tools", "teaching / knowledge sharing"),
+])
+def test_nov_25_review_matches(text, right):
+    assert right in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text, wrong", [
+    ("Understand and adhere to all requirements of the Quality Management System",
+     "quality management systems (ISO 9001 / CMMI)"),
+    ("subject to the U.S. Arms Export Control Act", "international trade / customs"),
+    ("technologies subject to U.S. export control and trade compliance regulations", "international trade / customs"),
+    ("a global trade operations environment, support our Portfolio Managers", "international trade / customs"),
+    ("HTML and Java scripting capabilities", "Java"),
+    ("tariff classifications, export control classifications (ECCNs)", "classification"),
+    ("persons in all job classifications without regard to race", "classification"),
+    ("data classification, access control, oversharing risk", "classification"),
+    ("Infor HMS, Opera PMS, IDeaS G3 RMS", "ERP (SAP/Oracle/Workday)"),
+    ("including guest and full user trainings", "teaching / knowledge sharing"),
+])
+def test_nov_25_review_false_matches(text, wrong):
+    assert wrong not in taxonomy.find(text)
+
+
+def test_nov_25_review_concepts():
+    assert not _is_tool("quality management systems (ISO 9001 / CMMI)")
+    assert not _is_tool("international trade / customs")
+    assert "classification" in taxonomy.find("built a text classification model")
