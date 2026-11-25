@@ -89,10 +89,10 @@ def pending(conn: sqlite3.Connection, *, days: int | None = None, limit: int | N
     marks = ",".join("?" * len(BROWSER_SOURCES))
     rows = conn.execute(
         f"""
-        SELECT id, source, title, company, location, url, chars, first_seen FROM (
+        SELECT id, source, title, company, location, url, chars, first_seen, score FROM (
             SELECT j.id, j.source, j.title, j.company, j.location, j.url,
-                   length(j.description) AS chars, j.first_seen,
-                   ROW_NUMBER() OVER (PARTITION BY j.source ORDER BY j.first_seen DESC) AS rank
+                   length(j.description) AS chars, j.first_seen, j.score,
+                   ROW_NUMBER() OVER (PARTITION BY j.source ORDER BY COALESCE(j.score, -1000) DESC, j.first_seen DESC) AS rank
             FROM jobs j
             LEFT JOIN enrich_attempts e
               ON e.source = j.source AND e.external_id = j.external_id
@@ -106,7 +106,7 @@ def pending(conn: sqlite3.Connection, *, days: int | None = None, limit: int | N
               )
         ) ranked
         WHERE rank <= ?
-        ORDER BY source, first_seen DESC
+        ORDER BY source, COALESCE(score, -1000) DESC, first_seen DESC
         """,
         (
             SNIPPET_MAX_CHARS, since,
@@ -115,9 +115,11 @@ def pending(conn: sqlite3.Connection, *, days: int | None = None, limit: int | N
             limit or 1_000_000,
         ),
     ).fetchall()
-    cols = ("id", "source", "title", "company", "location", "url", "chars", "first_seen")
+    cols = ("id", "source", "title", "company", "location", "url", "chars", "first_seen", "score")
     listings = [dict(zip(cols, r)) for r in rows]
-    # Stable: newest first within each source, as the query returned them.
+    # Stable: best score first (then newest) within each source, as the query returned them.
+    # A snippet-only job that already scores A/B is the one the queue is waiting on (Nov 17 2026:
+    # a B job sat at rank 16 of 149 Glassdoor listings while the Chrome task does 15 per run).
     listings.sort(key=lambda r: _source_rank(r["source"]))
     return listings
 
