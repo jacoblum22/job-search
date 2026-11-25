@@ -149,6 +149,71 @@ def find_job(conn, text: str, *, days: int = 21) -> dict[str, Any] | None:
     return best[2] if best else None
 
 
+# --- finding a job that is not in jobs.db yet ---------------------------
+
+_AT_RE = re.compile(r"^\s*(?P<title>.+?)\s+at\s+(?P<company>.+?)(?:\s+and\s+\d+\s+more\b|\s+is\s+hiring\b|[.!?]|$)", re.I)
+
+
+def parse_notification(text: str) -> tuple[str, str] | None:
+    """(title, company) from "<title> at <company> ..." wording, else None. Only the first
+    sentence-like chunk is read; a notification that does not name a job returns None."""
+    for chunk in re.split(r"\n+", text.strip()):
+        m = _AT_RE.match(chunk)
+        if m and 4 <= len(m.group("title")) <= 120 and 2 <= len(m.group("company")) <= 80:
+            return m.group("title").strip(), m.group("company").strip()
+    return None
+
+
+def search_linkedin(title: str, company: str, *, timeout: int = 15) -> dict[str, str] | None:
+    """LinkedIn's public job search, one plain request: the card whose title and company both match
+    exactly. Returns {external_id, title, company, location, url} or None; never retries or works
+    around a block (a login wall or error just means None)."""
+    import urllib.parse
+
+    qs = urllib.parse.urlencode({"keywords": f"{title} {company}", "start": 0})
+    url = f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobsFetch/search?{qs}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 (fixed https host)
+            html = resp.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+    from bs4 import BeautifulSoup
+
+    want_t, want_c = norm(title), _company_key(company)
+    for card in BeautifulSoup(html, "html.parser").select("li, div.base-card"):
+        t_el = card.select_one(".base-search-card__title")
+        c_el = card.select_one(".base-search-card__subtitle")
+        if t_el is None or c_el is None:
+            continue
+        if norm(t_el.get_text(" ")) != want_t or _company_key(c_el.get_text(" ")) != want_c:
+            continue
+        urn = card.get("data-entity-urn") or (card.select_one("[data-entity-urn]") or {}).get("data-entity-urn", "")
+        link = card.select_one("a.base-card__full-link, a[href*='/jobs/view/']")
+        href = link.get("href", "") if link else ""
+        m = re.search(r"jobPosting:(\d+)", urn or "") or re.search(r"/jobs/view/(?:[^?/]*-)?(\d+)", href)
+        if not m:
+            continue
+        loc = card.select_one(".job-search-card__location")
+        return {"external_id": m.group(1), "title": t_el.get_text(" ", strip=True),
+                "company": c_el.get_text(" ", strip=True),
+                "location": loc.get_text(" ", strip=True) if loc else "",
+                "url": f"https://www.linkedin.com/jobs/view/{m.group(1)}/"}
+    return None
+
+
+def add_found_job(conn, found: dict[str, str], description: str = "") -> int:
+    """Store a job found by search_linkedin the way any scraped job is stored."""
+    from src.db import Job, upsert_job
+
+    row_id, _ = upsert_job(conn, Job(source="linkedin", external_id=found["external_id"], title=found["title"],
+                                     company=found["company"], location=found["location"],
+                                     description=description, url=found["url"],
+                                     raw={"via": "phone-notification"}))
+    conn.commit()
+    return row_id
+
+
 # --- description -------------------------------------------------------
 
 def fetch_linkedin_description(external_id: str, *, timeout: int = 15) -> str:
@@ -227,6 +292,7 @@ def gate(conn, job_id: int, opts: dict[str, Any]) -> str:
 
 def process(conn, cfg: dict[str, Any], *, inbox: Path | None = None, now: datetime | None = None,
             fetch: Callable[[str], str] = fetch_linkedin_description,
+            search: Callable[[str, str], dict[str, str] | None] = search_linkedin,
             save: Callable[[Any, int, str], bool] | None = None,
             start_tailoring: Callable[[int], Any] | None = None,
             busy: Callable[[], bool] = lambda: False,
@@ -254,6 +320,19 @@ def process(conn, cfg: dict[str, Any], *, inbox: Path | None = None, now: dateti
 
         if not st.get("job_id"):
             job = find_job(conn, text, days=int(opts["match_days"]))
+            if job is None and not st.get("searched"):
+                st["searched"] = True  # one LinkedIn search per notification, never a retry loop
+                named = parse_notification(n.get("text", "")) or parse_notification(n.get("title", ""))
+                found = search(*named) if named else None
+                if found:
+                    add_found_job(conn, found, fetch(found["external_id"]))
+                    from src.score import rescore_all
+                    from src.tailor.paths import _settings
+                    rescore_all(conn, score_cfg if score_cfg is not None else _settings().get("score", {}))
+                    conn.commit()
+                    job = find_job(conn, text, days=int(opts["match_days"]))
+                    if job:
+                        st["found_by"] = "linkedin search"
             if job is None:
                 if now - received > timedelta(hours=float(opts["retry_hours"])):
                     st.update(status="dropped", why="no matching job showed up in jobs.db")
