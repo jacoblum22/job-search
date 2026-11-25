@@ -488,6 +488,32 @@ def outcome(app_dir, status):
     _refresh_dashboard(cfg)
 
 
+@main.command()
+@APP
+@click.option("--channel", type=click.Choice(["company_site", "linkedin_easy_apply", "job_board", "email", "other"]))
+@click.option("--url", help="The page the application went through")
+@click.option("--letter/--no-letter", "letter", default=None, help="Whether a cover letter went with it")
+def how(app_dir, channel, url, letter):
+    """Record how an application was sent (after `outcome ... applied`)."""
+    from src.tailor.applied import record_how
+
+    _out(record_how(app_dir, load_config(), channel=channel, url=url, letter_sent=letter))
+
+
+@main.command("applied-backfill")
+def applied_backfill():
+    """Fill the as-sent record (source, tier, score, level, letter) for applications sent before it existed."""
+    from src.tailor import store
+    from src.tailor.applied import backfill
+
+    cfg = load_config()
+    conn = store.connect(resolve(cfg, "db"))
+    try:
+        _out(backfill(conn))
+    finally:
+        conn.close()
+
+
 def _refresh_dashboard(cfg) -> None:
     """Rebuild dashboard.html so a new application status shows without waiting for a scrape."""
     from src.dashboard import generate_dashboard

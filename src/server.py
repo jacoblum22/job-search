@@ -41,6 +41,7 @@ from src.retention import posted_on
 from src.tailor import TailorError, fitverdict, rejects, review, store
 from src.tailor import paths as tailor_paths
 from src.tailor.paths import resolve
+from src.tailor.applied import CHANNELS, record_how
 from src.tailor.packet import OUTCOMES, approve, record_outcome
 from src.tailor_runner import TailoringRunner
 
@@ -348,6 +349,7 @@ class DashboardApp:
             "posted": posted.isoformat() if posted else None,
             "job_statuses": list(JOB_STATUSES),
             "outcomes": list(OUTCOMES),
+            "channels": list(CHANNELS),
             "app": None,
         }
         if app:
@@ -359,6 +361,8 @@ class DashboardApp:
                 **app_summary(app),
                 "job_id": app["job_id"],
                 "outcome": app.get("outcome"),
+                "how": {"channel": app.get("apply_channel"), "host": app.get("apply_host"),
+                        "letter_sent": None if app.get("letter_sent") is None else bool(app["letter_sent"])},
                 "folder": str(folder),
                 "check": review.parse(text) if text is not None else None,
                 "open_items": review.open_items(text) if text is not None else None,
@@ -556,6 +560,7 @@ class DashboardApp:
         job_id, action = int(m[1]), (m[2] or "").strip("/")
         actions: dict[str, Callable[[sqlite3.Connection, int, dict | None, dict], Any]] = {
             "check": self._tick, "approve": self._approve, "outcome": self._outcome, "status": self._status,
+            "how": self._how,
         }
         if action not in actions:
             return self._error("not found", 404)
@@ -601,6 +606,13 @@ class DashboardApp:
             raise TailorError(f"outcome must be one of {', '.join(OUTCOMES)}")
         result = record_outcome(self._folder(app), self.cfg, outcome)
         return {**result, "goal": goal.applied_today(conn, self.cfg)} if outcome == "applied" else result
+
+    def _how(self, conn, job_id, app, data) -> Any:
+        """How an application was sent: channel, the page it went through, letter or not."""
+        app = self._need_app(app)
+        letter = data.get("letter_sent")
+        return record_how(self._folder(app), self.cfg, channel=data.get("channel") or None,
+                          url=data.get("url") or None, letter_sent=None if letter is None else bool(letter))
 
     def _status(self, conn, job_id, app, data) -> Any:
         status = str(data.get("status", ""))
@@ -930,7 +942,21 @@ function render() {
       h += `<span class="meta">Record what happened:</span>` + data.outcomes.filter(o => o !== 'applied')
         .map(o => `<button data-act="outcome" data-val="${o}" ${app.outcome === o ? 'disabled' : ''}>${esc(o.replace('_', ' '))}</button>`).join('');
     }
-    h += `</div></div>`;
+    h += `</div>`;
+    if (app.status === 'applied') {
+      // Where and how it went out, so callbacks can be compared by channel later.
+      const how = app.how || {};
+      const names = {company_site: 'Company site', linkedin_easy_apply: 'LinkedIn Easy Apply', job_board: 'Job board form', email: 'Email', other: 'Other'};
+      h += `<div class="row" style="margin-top:12px"><span class="meta">Sent through:</span>` + data.channels
+        .map(c => `<button data-act="how" data-key="channel" data-val="${c}" ${how.channel === c ? 'disabled' : ''}>${esc(names[c] || c)}</button>`).join('') + `</div>
+        <div class="row" style="margin-top:8px"><span class="meta">Cover letter:</span>
+          <button data-act="how" data-key="letter_sent" data-val="1" ${how.letter_sent === true ? 'disabled' : ''}>Sent</button>
+          <button data-act="how" data-key="letter_sent" data-val="" ${how.letter_sent === false ? 'disabled' : ''}>Not sent</button></div>
+        <div class="row" style="margin-top:8px"><span class="meta">Page you applied on${how.host ? ` (saved: ${esc(how.host)})` : ''}:</span>
+          <input id="howUrl" type="url" placeholder="Paste the link (optional)" style="flex:1;min-width:220px;background:transparent;color:inherit;border:1px solid #2a2f3a;border-radius:6px;padding:6px 8px">
+          <button data-act="how" data-key="url">Save link</button></div>`;
+    }
+    h += `</div>`;
   }
   // Dismissing works with or without an application: a draft you won't send leaves the pinned list.
   h += `<h2>Status</h2><div class="panel"><div class="row"><span class="badge">${esc(job.status)}</span>`
@@ -1014,6 +1040,11 @@ root.addEventListener('click', async e => {
   try {
     if (act === 'approve') { await post('approve'); say('Approved. Apply with the files above, then press "I applied".', true); }
     if (act === 'outcome') { await post('outcome', {outcome: el.dataset.val}); say('Saved.', true); }
+    if (act === 'how') {
+      const key = el.dataset.key;
+      const val = key === 'url' ? document.getElementById('howUrl').value.trim() : key === 'letter_sent' ? !!el.dataset.val : el.dataset.val;
+      if (key !== 'url' || val) { await post('how', {[key]: val}); say('Saved.', true); }
+    }
     if (act === 'status') { await post('status', {status: el.dataset.val}); say('Saved.', true); }
   } catch (err) { if (shown) setPending(null); say(`Not saved: ${err.message}`); }
   const y = window.scrollY;
