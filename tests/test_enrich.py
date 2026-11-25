@@ -227,3 +227,35 @@ def test_linkedin_uses_guest_endpoint():
     assert _fetch_url("https://www.linkedin.com/jobs/view/4488858390/") == (
         "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4488858390")
     assert _fetch_url("https://example.com/a") == "https://example.com/a"
+
+
+def test_adzuna_expired_redirect_counts_as_gone_and_sweep_deletes_it(tmp_path):
+    from src.enrich import sweep_expired
+    from src.retention import pruned_keys
+
+    conn = connect(tmp_path / "jobs.db")
+    for ext_id in ("live", "gone", "blocked", "applied", "lowtier"):
+        upsert_job(conn, _job(ext_id, url=f"https://www.adzuna.ca/details/{ext_id}?utm_medium=api", desc=FULL))
+    conn.execute("UPDATE jobs SET tier = 'A'")
+    conn.execute("UPDATE jobs SET tier = 'D' WHERE external_id = 'lowtier'")
+    conn.execute("UPDATE jobs SET status = 'applied' WHERE external_id = 'applied'")
+
+    def handler(r):
+        if r.url.path == "/search":
+            return httpx.Response(200, text="<html>Jobs in Vancouver</html>")
+        if r.url.path.endswith(("/gone", "/applied", "/lowtier")):
+            return httpx.Response(302, headers={"Location": "https://www.adzuna.ca/search?adv=1&expired_ad_id=5970621289"})
+        if r.url.path.endswith("/blocked"):
+            return httpx.Response(403)
+        return httpx.Response(200, text=_page(FULL))
+
+    stats = sweep_expired(conn, client=_client(handler), host_pause=0)
+    # only new tier A/B jobs are checked; a 403 proves nothing
+    assert stats["checked"] == 3 and stats["expired"] == 1 and stats["failed"] == 1
+    assert {r[0] for r in conn.execute("SELECT external_id FROM jobs")} == {"live", "blocked", "applied", "lowtier"}
+    assert pruned_keys(conn) == {("adzuna", "gone")}
+
+    # the same redirect at enrichment time drops a snippet listing too
+    snippet = _job("snip", url="https://www.adzuna.ca/details/gone?utm_medium=api")
+    jobs = [snippet]
+    assert enrich_descriptions(jobs, client=_client(handler), host_pause=0)["expired"] == 1 and jobs == []

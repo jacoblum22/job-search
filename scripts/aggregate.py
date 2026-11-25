@@ -31,6 +31,7 @@ from src.enrich import (
     SNIPPET_MAX_CHARS,
     backfill_stored,
     enrich_descriptions,
+    sweep_expired,
     worth_keeping,
 )
 from src.export_xlsx import generate_xlsx
@@ -462,6 +463,18 @@ def run(
 
     tiers = rescore_all(conn, cfg.get("score", {}), cache=score_cache)
     log.info("Scored jobs by tier: %s", dict(sorted(tiers.items())))
+
+    # Ads the aggregator has taken down since we stored them (Adzuna redirects to an "expired ad"
+    # search page): drop them before they reach the queue.
+    if enrich_cfg.get("enabled", True) and enrich_cfg.get("expired_sweep", True):
+        try:
+            swept = sweep_expired(conn, host_pause=enrich_cfg.get("host_pause_seconds", 1.0),
+                                  max_checks=enrich_cfg.get("expired_sweep_checks", 150))
+            conn.commit()
+            if swept:
+                log.info("Expired sweep: %s", dict(swept))
+        except Exception:
+            log.exception("Expired sweep failed - continuing")
 
     try:
         closed = dismiss_closed(conn)
