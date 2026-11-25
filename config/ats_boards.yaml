@@ -322,6 +322,9 @@ greenhouse:
   - {name: "League", slug: "leagueinc"}
   - {name: "Roofr", slug: "roofr"}
   - {name: "Lightspeed Commerce", slug: "lightspeedhq"}
+  # Added Nov 2026 via scripts/find_boards.py: companies seen 2+ times in aggregator results.
+  - {name: "Cardata", slug: "cardata"}
+  - {name: "Tailscale", slug: "tailscale"}
 
 lever:
   - {name: "Quartech", slug: "quartech-systems"}
@@ -341,6 +344,8 @@ lever:
   - {name: "Sandbox VR", slug: "sandboxvr"}
   - {name: "Skybox Labs", slug: "skyboxlabs"}
   - {name: "PointClickCare", slug: "pointclickcare"}
+  - {name: "Toptal", slug: "toptal"}
+  - {name: "CSC Generation", slug: "cscgeneration-2"}
 
 ashby:
   - {name: "Visier", slug: "visier"}
@@ -376,6 +381,7 @@ ashby:
   - {name: "Zapier", slug: "zapier"}
   - {name: "Docker", slug: "docker"}
   - {name: "Kraken", slug: "kraken.com"}
+  - {name: "Quora", slug: "quora"}
 
 smartrecruiters:
   - {name: "Leger", slug: "Leger2"}
@@ -508,6 +514,7 @@ peoplesoft:
 
 bamboohr:
   - {name: "ScalePad", slug: "scalepad"}
+  - {name: "Optimus Information", slug: "optimusinformation"}
   - {name: "Rethink Canada", slug: "rethinkcanada"}
   - {name: "Native Shoes", slug: "nativeshoes"}
   - {name: "Vancouver Whitecaps FC", slug: "whitecapsfc"}
