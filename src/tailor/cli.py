@@ -145,7 +145,7 @@ def letter_plan(app_dir):
 
     _not_applied(app_dir)
     plan = validate(app_dir, load_config())
-    _out({"file": str(app_dir / "letter-plan.json"), "shape": plan["shape"],
+    _out({"accepted": True, "file": str(app_dir / "letter-plan.json"), "shape": plan["shape"],
           "beats": [b.get("story") for b in plan["beats"]], "company": (plan.get("company") or {}).get("fact")})
 
 

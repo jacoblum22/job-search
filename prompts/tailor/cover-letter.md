@@ -119,6 +119,11 @@ supplied its own stems, and "I'm applying for", "One thing I value", "Researchin
      and directed as an AI-assisted build". AlgaeCal gets a few words too ("a Vancouver e-commerce
      company").
    - **At most 3-4 technical ideas per sentence.** Split a sentence that carries five or more.
+   - **No test counts and no account of who typed the code.** "808 pytest tests" reads as padding
+     (the check `test_count` flags it): name the specific verification instead ("a 57-case eval
+     set"). An AI-assisted project is labelled once, the way the resume labels it ("designed and
+     directed as an AI-assisted build"), and then the letter tells the decisions the candidate
+     made: what to build, what to check, what to change. Never "Claude Code wrote most of the code".
    - **No course grades as evidence.** The work is the evidence, not the transcript: name what was
      built or done, not "88% in STAT 301".
    - **Never repeat a claim.** Each sentence adds something new, both within the letter and against

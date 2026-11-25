@@ -73,7 +73,12 @@ def emphasis(app_dir: Path) -> list[dict[str, Any]]:
         out.append({
             "id": r.get("id"), "text": r.get("text"), "kind": r.get("kind"), "tier": tier,
             "in_title": in_title, "mentions": mentions, "early": round(early, 2), "stress": round(stress, 1),
-            "has_story": bool(passages) and e.get("status") == "covered", "passages": passages[:6],
+            # A requirement that names several tools is "partial" when the vault lacks one of them
+            # (SQL and Power BI, no Power BI); the tools it does have are still a story. Strength 2
+            # and up means a bullet tells it, not just a skills list. (Nov 25 2026 test: the top
+            # items for Cardata and PolicyMe were partial, read as "no story", and were skipped.)
+            "status": e.get("status") or "missing",
+            "has_story": bool(passages) and (e.get("strength") or 0) >= 2, "passages": passages[:6],
         })
     return sorted(out, key=lambda x: -x["stress"])
 
