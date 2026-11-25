@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from src.tailor import phrases, rejects, taxonomy
+from src.tailor import letterplan, phrases, rejects, taxonomy
 from src.tailor.appdir import read_json, write_json
 from src.tailor.paths import resolve
 
@@ -231,18 +231,31 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
             for skill in sorted(taxonomy.find(m.group(1)) - vault_skills):
                 warn("familiar_absent_term", f"{where}: 'familiar with' {skill}, which the vault does not show", where, term=skill)
 
-    if paras and not cited_fact:
+    # A letter drafted from a saved plan (src/tailor/letterplan.py) is held to it: every planned
+    # beat told, no story the plan lacks. The plan decides whether a company fact belongs at all
+    # (requiring one in every letter produced filler when no fact fitted), and a short-note shape
+    # sets its own length.
+    plan = letterplan.load(app_dir)
+    if plan and paras:
+        for code, msg, data in letterplan.plan_warnings(plan, paras):
+            warn(code, msg, **data)
+    shape = letterplan.limits(plan)
+    if paras and not cited_fact and not (plan and plan.get("company") is None):
         warn("no_company_fact", "no paragraph cites a verified company-specific fact")
-    if not 3 <= len(paras) <= 5:
-        warn("paragraph_count", f"{len(paras)} paragraphs; aim for 3-5")
+    p_lo, p_hi = shape.get("paragraphs") or (3, 5)
+    if not p_lo <= len(paras) <= p_hi:
+        warn("paragraph_count", f"{len(paras)} paragraphs; aim for {p_lo}-{p_hi}")
     full = "\n".join(str(p.get("text", "")) for p in paras)
-    lo, hi = cfg.get("letter_words") or (190, 320)
+    lo, hi = shape.get("words") or cfg.get("letter_words") or (190, 320)
     n_words = len(re.findall(r"[\w'’-]+", full))
     # While the resume lists skills it can't show and the letter doesn't either, the letter uses
     # 250-300 words to show them (Jake, Oct 22 2026), not just the 190 minimum.
     room = cfg.get("letter_words_with_gaps", 250)
-    listed = list(ctx.get("listed_only") or [])
-    if paras and (not lo <= n_words <= hi or (listed and n_words < room)):
+    listed = [] if "words" in shape else list(ctx.get("listed_only") or [])
+    if paras and "words" in shape and not lo <= n_words <= hi:
+        warn("letter_length", f"{n_words} words; the plan's short note runs {lo}-{hi} "
+             f"({'add' if n_words < lo else 'cut'} a little)", words=n_words)
+    elif paras and (not lo <= n_words <= hi or (listed and n_words < room)):
         short = n_words < max(lo, room if listed else lo)
         show = listed if short else []
         msg = f"{n_words} words; aim for about {'250' if show else '200'}-300 ({'add' if short else 'cut'} a little)"

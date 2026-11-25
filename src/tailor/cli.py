@@ -128,6 +128,27 @@ def evidence(app_dir):
           "jev_said_no": len(ev.get("jev_said_no") or [])})
 
 
+@main.command("letter-emphasis")
+@APP
+def letter_emphasis(app_dir):
+    """Step 3b input: what the posting stresses most, with the vault passages that answer each item."""
+    from src.tailor.letterplan import SHAPES, emphasis
+
+    _out({"stressed": emphasis(app_dir), "shapes": {k: v["what"] for k, v in SHAPES.items()}})
+
+
+@main.command("letter-plan")
+@APP
+def letter_plan(app_dir):
+    """Step 3b: check the letter-plan.json Claude wrote (beats, shape, company fact)."""
+    from src.tailor.letterplan import validate
+
+    _not_applied(app_dir)
+    plan = validate(app_dir, load_config())
+    _out({"file": str(app_dir / "letter-plan.json"), "shape": plan["shape"],
+          "beats": [b.get("story") for b in plan["beats"]], "company": (plan.get("company") or {}).get("fact")})
+
+
 @main.command()
 @click.argument("ids", nargs=-1, required=True)
 def passages(ids):
@@ -486,6 +507,32 @@ def outcome(app_dir, status):
     cfg = load_config()
     _out(record_outcome(app_dir, cfg, status))
     _refresh_dashboard(cfg)
+
+
+@main.command()
+@APP
+@click.option("--channel", type=click.Choice(["company_site", "linkedin_easy_apply", "job_board", "email", "other"]))
+@click.option("--url", help="The page the application went through")
+@click.option("--letter/--no-letter", "letter", default=None, help="Whether a cover letter went with it")
+def how(app_dir, channel, url, letter):
+    """Record how an application was sent (after `outcome ... applied`)."""
+    from src.tailor.applied import record_how
+
+    _out(record_how(app_dir, load_config(), channel=channel, url=url, letter_sent=letter))
+
+
+@main.command("applied-backfill")
+def applied_backfill():
+    """Fill the as-sent record (source, tier, score, level, letter) for applications sent before it existed."""
+    from src.tailor import store
+    from src.tailor.applied import backfill
+
+    cfg = load_config()
+    conn = store.connect(resolve(cfg, "db"))
+    try:
+        _out(backfill(conn))
+    finally:
+        conn.close()
 
 
 def _refresh_dashboard(cfg) -> None:

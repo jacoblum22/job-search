@@ -177,8 +177,11 @@ folder before starting the next. Keep a running note of the outcome for the dige
 4. `uv run python -m src.tailor evidence "<app>"`.
 5. `uv run python -m src.tailor base "<app>"`.
 6. **Plan (Claude).** Follow `prompts/tailor/plan.md`; merge the plan fields into `<app>/plan.json`.
+   Then plan the letter: run `uv run python -m src.tailor letter-emphasis "<app>"`, follow
+   `prompts/tailor/letter-plan.md` to write `<app>/letter-plan.json`, and run
+   `uv run python -m src.tailor letter-plan "<app>"` until it accepts the file.
 7. **Edits and letter (Claude).** Follow `prompts/tailor/resume-edits.md` and
-   `prompts/tailor/cover-letter.md`; write `<app>/drafts/r1/edits.json` and `<app>/drafts/r1/cover-letter.json`.
+   `prompts/tailor/cover-letter.md` (the letter is drafted from `letter-plan.json`); write `<app>/drafts/r1/edits.json` and `<app>/drafts/r1/cover-letter.json`.
    Use strategy `full` only if `app.json` tier is "A".
 8. `uv run python -m src.tailor apply-edits "<app>" --round 1`, then `check --round 1`, then `grade --round 1`.
    If `apply-edits` rejected an edit with "shorten it" (a bullet over 200 characters), shorten that
@@ -329,7 +332,9 @@ summary; read it before continuing.
    `uv run python -m src.tailor company-verify materials/companies/<company-slug>`.
 4. **Evidence and base:** `... evidence "$APP"`, then `... base "$APP"`. Look at
    `evidence.json` (`present` and `absent`) and `plan.json` (`base_id`).
-5. **Plan:** run `prompts/tailor/plan.md`; merge the four plan fields into `plan.json`.
+5. **Plan:** run `prompts/tailor/plan.md`; merge the four plan fields into `plan.json`. Then
+   `... letter-emphasis "$APP"`, run `prompts/tailor/letter-plan.md` to write `letter-plan.json`,
+   and `... letter-plan "$APP"` to check it.
 6. **Draft:** run `prompts/tailor/resume-edits.md` and `prompts/tailor/cover-letter.md` to write
    `drafts/r1/edits.json` and `drafts/r1/cover-letter.json`.
 7. **Check it:** `... apply-edits "$APP" --round 1`, `... check "$APP" --round 1`,

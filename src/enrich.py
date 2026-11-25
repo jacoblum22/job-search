@@ -55,6 +55,17 @@ RETRY_FAILED_AFTER = timedelta(days=3)
 # Responses that mean the posting itself is gone, not that the fetch failed.
 EXPIRED_STATUSES = frozenset({404, 410})
 
+# Adzuna doesn't answer 404 for an ad it has taken down: it redirects to a search page whose address
+# carries the dead ad's id ("adzuna.ca/search?...expired_ad_id=5970621289"). Seen on 19 of the 27
+# Adzuna jobs waiting in the queue on Nov 20 2026.
+_EXPIRED_REDIRECT = re.compile(r"[?&]expired_ad_id=\d", re.I)
+
+
+def is_gone(resp: httpx.Response) -> bool:
+    """True when the response says the posting itself is gone (not that the fetch failed)."""
+    return resp.status_code in EXPIRED_STATUSES or bool(_EXPIRED_REDIRECT.search(str(resp.url)))
+
+
 # Pages where a plain fetch never yields the posting: login-walled boards, and
 # CareerJet, whose jobviewtrack links mostly 404 and otherwise land on a
 # careerjet.ca shell with no description (0/25 in testing, 2026-10-15).
@@ -232,14 +243,14 @@ def _interleave_hosts(jobs: list[Job]) -> list[Job]:
 
 def _fetch_description(client: httpx.Client, job: Job) -> tuple[str, bool]:
     """Return (description, expired). Description is "" when the fetch failed;
-    expired is True only when the link answered 404/410."""
+    expired is True only when the link answered 404/410 or redirected to an "expired ad" page."""
     url = _fetch_url(job.url)
     try:
         resp = request_with_retry(client, "GET", url, retries=3, backoff=2.0)
     except httpx.HTTPError as exc:
         logger.warning("Enrich %s %s: network error %s", job.source, job.external_id, type(exc).__name__)
         return "", False
-    if resp.status_code in EXPIRED_STATUSES:
+    if is_gone(resp):
         logger.info(
             "Enrich %s %s: posting expired (HTTP %s from %s)",
             job.source,
@@ -405,4 +416,67 @@ def backfill_stored(
                 (job.description, job.years_experience, job.source, job.external_id, job.description),
             )
     conn.commit()
+    return stats
+
+
+def sweep_expired(
+    conn: sqlite3.Connection,
+    *,
+    sources: tuple[str, ...] = ("adzuna",),
+    tiers: tuple[str, ...] = ("A", "B"),
+    client: httpx.Client | None = None,
+    host_pause: float = DEFAULT_HOST_PAUSE,
+    max_checks: int = 150,
+) -> Counter:
+    """Re-open the link of each stored aggregator job the queue could still draft, and delete the
+    ones whose ad is gone (`is_gone`), tombstoned like any other expired posting.
+
+    Enrichment only ever fetches a job while its description is a snippet, so an ad taken down
+    after that stayed in jobs.db as a live tier-A job until the open check reached it. One plain
+    request per job, rate-limited per host; a blocked or failed fetch proves nothing and changes
+    nothing. Applied jobs and jobs with an application are kept (delete_expired).
+    Returns counts: checked / expired / failed.
+    """
+    stats: Counter = Counter()
+    marks_s, marks_t = ",".join("?" * len(sources)), ",".join("?" * len(tiers))
+    rows = conn.execute(
+        f"""
+        SELECT source, external_id, title, company, location, description, url
+        FROM jobs WHERE source IN ({marks_s}) AND tier IN ({marks_t}) AND status = 'new' AND url != ''
+        ORDER BY last_seen DESC
+        """,
+        [*sources, *tiers],
+    ).fetchall()
+    jobs = [Job(*row) for row in rows][:max_checks]
+    if not jobs:
+        return stats
+    owns_client = client is None
+    client = client or httpx.Client(
+        timeout=httpx.Timeout(20.0, connect=10.0),
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml",
+                 "Accept-Language": "en-CA,en;q=0.9"},
+    )
+    limiter = RateLimiter(host_pause)
+    gone: set[tuple[str, str]] = set()
+    try:
+        for job in jobs:
+            limiter.wait(host_of(job.url))
+            stats["checked"] += 1
+            try:
+                resp = request_with_retry(client, "GET", job.url, retries=2, backoff=2.0)
+            except httpx.HTTPError:
+                stats["failed"] += 1
+                continue
+            if is_gone(resp):
+                gone.add((job.source, job.external_id))
+            elif resp.status_code != 200:
+                stats["failed"] += 1
+    finally:
+        if owns_client:
+            client.close()
+    if gone:
+        stats["expired"] = len(gone)
+        deleted = delete_expired(conn, gone)
+        logger.info("Expired sweep: %d of %d checked ad(s) are gone; deleted %d", len(gone), stats["checked"], deleted)
     return stats

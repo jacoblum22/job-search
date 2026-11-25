@@ -30,7 +30,14 @@ CREATE TABLE IF NOT EXISTS applications (
     outcome TEXT,
     outcome_at TEXT,
     review_flags TEXT,
-    applied_at TEXT
+    applied_at TEXT,
+    applied_source TEXT,
+    applied_tier TEXT,
+    applied_score REAL,
+    applied_level TEXT,
+    apply_channel TEXT,
+    apply_host TEXT,
+    letter_sent INTEGER
 );
 CREATE TABLE IF NOT EXISTS jev_gate (
     job_id INTEGER PRIMARY KEY,
@@ -41,11 +48,17 @@ CREATE TABLE IF NOT EXISTS jev_gate (
 """
 
 # Columns added after the first release; ensure_table adds them to older databases.
-_ADDED_COLUMNS = {"review_flags": "TEXT", "applied_at": "TEXT"}
+# The applied_* / apply_* / letter_sent columns are src/tailor/applied.py's record of an application
+# as it was sent (the job's tier and score move afterwards; these don't).
+_APPLIED_COLUMNS = {
+    "applied_source": "TEXT", "applied_tier": "TEXT", "applied_score": "REAL", "applied_level": "TEXT",
+    "apply_channel": "TEXT", "apply_host": "TEXT", "letter_sent": "INTEGER",
+}
+_ADDED_COLUMNS = {"review_flags": "TEXT", "applied_at": "TEXT", **_APPLIED_COLUMNS}
 
 _SETTABLE = {
     "folder", "status", "tier", "score", "gate_flags", "flagged", "queue_rank",
-    "base_id", "created_at", "outcome", "outcome_at", "review_flags", "applied_at",
+    "base_id", "created_at", "outcome", "outcome_at", "review_flags", "applied_at", *_APPLIED_COLUMNS,
 }
 
 
@@ -190,6 +203,18 @@ def get_app(conn: sqlite3.Connection, job_id: int) -> dict[str, Any] | None:
 
 
 _NOT_APPLIED = ("shortlisted", "drafting", "needs_fixes", "ready_for_review", "approved")
+
+
+def set_fields(conn: sqlite3.Connection, job_id: int, **fields: Any) -> None:
+    """Update known columns for one application without touching its status or updated_at."""
+    bad = set(fields) - _SETTABLE
+    if bad:
+        raise ValueError(f"unknown applications columns: {sorted(bad)}")
+    if not fields:
+        return
+    sets = ", ".join(f"{c} = :{c}" for c in fields)
+    conn.execute(f"UPDATE applications SET {sets} WHERE job_id = :job_id", {**fields, "job_id": job_id})
+    conn.commit()
 
 
 def set_status(conn: sqlite3.Connection, job_id: int, status: str, **fields: Any) -> None:

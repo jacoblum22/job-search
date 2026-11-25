@@ -1025,3 +1025,97 @@ def test_letter_opener_must_name_company_and_role():
     assert _name_missing("I'm applying for the Data Analyst role at Acme.", "Acme Corp", "Data Analyst") == []
     assert _name_missing("I write SQL daily.", "Acme Corp", "Data Analyst") == ["the company", "the role"]
     assert _name_missing("I'm applying to Acme.", "Acme Corp", "Data Analyst (Contract)") == ["the role"]
+
+
+# --- letter plan (callback plan step 3a, Nov 2026) --------------------------
+
+PLAN = {
+    "shape": "two_proofs", "opener": "daily SQL for the teams that wait on reports",
+    "beats": [
+        {"requirement": "r1", "stress": "SQL is in the first duty", "story": "daily SQL at Northwind",
+         "passages": ["northwind.sql-daily"]},
+        {"requirement": "r3", "stress": "dashboards named twice", "story": "explaining results in weekly reviews",
+         "passages": ["northwind.stakeholders"]},
+    ],
+    "company": {"fact": "posting:1", "beat": 1, "link": "an online retailer runs on those reports"},
+    "close": "the reports the team owns", "gap_mention": False,
+}
+
+
+def write_plan(app: Path, plan: dict) -> None:
+    (app / "letter-plan.json").write_text(json.dumps(plan), encoding="utf-8")
+
+
+def test_letter_plan_is_checked_before_the_letter_is_written(tmp_path):
+    from src.tailor import letterplan
+    from src.tailor.appdir import load_app
+
+    app, cfg = make_app(tmp_path)
+    assert letterplan.load(app) is None
+    ranked = letterplan.emphasis(app)
+    assert {r["id"] for r in ranked} == {"r1", "r2", "r3"} and ranked[-1]["id"] == "r2"  # tier 2 ranks last
+    assert all(set(r) >= {"stress", "mentions", "in_title", "early", "has_story", "passages"} for r in ranked)
+
+    bad = copy.deepcopy(PLAN)
+    bad["shape"] = "four_movements"
+    bad["beats"][0]["passages"] = ["northwind.departure"]       # interview-only
+    bad["beats"][1].update(requirement="r9", passages=[])       # unknown requirement, no story
+    bad["beats"].append({"requirement": "r2", "story": "x", "passages": ["guide.nope"]})
+    bad["company"] = {"fact": "f99", "beat": 7, "link": ""}
+    bad["gap_mention"] = True
+    write_plan(app, bad)
+    with pytest.raises(TailorError) as e:
+        letterplan.validate(app, cfg)
+    msg = str(e.value)
+    for part in ("'shape' must be one of", "not a claim passage", "'r9' is not in requirements.json",
+                 "no story is not a beat", "'guide.nope' is not in the vault index", "'f99' is not a verified fact",
+                 "company 'beat'", "never states a gap"):
+        assert part in msg, part
+    assert letterplan.load(app) is None  # an unchecked plan binds nothing
+
+    write_plan(app, {**PLAN, "beats": PLAN["beats"] * 2})
+    with pytest.raises(TailorError, match="takes 2 to 3 beats"):
+        letterplan.validate(app, cfg)
+
+    write_plan(app, PLAN)
+    assert letterplan.validate(app, cfg)["_checked"] is True
+    assert letterplan.load(app)["shape"] == "two_proofs"
+    assert load_app(app)["letter_style"] == letterplan.STYLE
+
+
+def _letter_codes(tmp_path, plan, letter):
+    from src.tailor import letterplan
+
+    app, cfg = make_app(tmp_path)
+    put_draft(app, base_data(cfg))
+    write_letter(app, letter)
+    write_plan(app, plan)
+    letterplan.validate(app, cfg)
+    res = run_check(app, 1, cfg, None)
+    return {w["code"]: w for w in res["warnings"] if w["doc"] == "letter"}
+
+
+def test_letter_is_held_to_its_plan(tmp_path):
+    assert not {"beat_missing", "unplanned_story", "no_company_fact"} & set(_letter_codes(tmp_path / "ok", PLAN, LETTER))
+
+    paras = [dict(p) for p in LETTER["paragraphs"]]
+    paras[1] = {**paras[1], "sources": ["lab.pipeline"]}   # dropped beat 2, told a lab story instead
+    got = _letter_codes(tmp_path / "off", PLAN, with_(paragraphs=paras))
+    assert "weekly reviews" in got["beat_missing"]["message"]
+    assert got["unplanned_story"]["data"]["term"] == "lab"
+    paras = [{**p, "company_facts": []} for p in LETTER["paragraphs"]]  # the planned fact left out
+    assert "posting:1" in _letter_codes(tmp_path / "fact", PLAN, with_(paragraphs=paras))["beat_missing"]["message"]
+
+
+def test_plan_without_a_company_beat_needs_no_company_fact(tmp_path):
+    paras = [{**p, "company_facts": []} for p in LETTER["paragraphs"]]
+    got = _letter_codes(tmp_path / "new", {**PLAN, "company": None}, with_(paragraphs=paras))
+    assert "no_company_fact" not in got and "beat_missing" not in got
+
+
+def test_short_note_shape_sets_its_own_length(tmp_path):
+    note = {**PLAN, "shape": "short_note", "company": None}
+    paras = [{**p, "company_facts": []} for p in LETTER["paragraphs"][:2]]
+    got = _letter_codes(tmp_path, note, with_(paragraphs=paras))
+    assert "paragraph_count" not in got                     # two paragraphs is what a short note is
+    assert "short note runs 110-170" in got["letter_length"]["message"]

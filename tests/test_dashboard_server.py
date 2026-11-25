@@ -815,3 +815,61 @@ def test_details_and_rows_carry_the_fit_verdict(env):
     assert get(env, f"/api/job/{env['jid']}")[1]["app"]["fit_verdict"]["outlook"] == "poor"
     row = next(r for r in get(env, f"/api/rows?ids={env['jid']}")[1]["rows"] if r["id"] == env["jid"])
     assert row["app"]["verdict"]["stretch"] == "big stretch"
+
+
+# --- as-sent record (callback plan, Nov 2026) -----------------------------
+
+
+def test_first_i_applied_freezes_the_job_and_later_rescoring_does_not_move_it(env):
+    conn = connect(env["cfg"]["paths"]["db"])
+    conn.execute("UPDATE jobs SET tier = 'A', score = 71, real_url = 'https://www.boards.greenhouse.io/vch/1?t=abc',"
+                 " score_reasons = ? WHERE id = ?", (json.dumps(["+15 SQL", "level: entry (0-1 years)"]), env["jid"]))
+    conn.commit()
+    (env["dir"] / "final" / "Jake Cover Letter - VCH.pdf").write_bytes(b"%PDF-1.4")
+    assert post(env, f"/api/job/{env['jid']}/outcome", {"outcome": "applied"})[0] == 200
+    conn.execute("UPDATE jobs SET tier = 'C', score = 30 WHERE id = ?", (env["jid"],))
+    conn.commit()
+    assert post(env, f"/api/job/{env['jid']}/outcome", {"outcome": "rejected"})[0] == 200
+    row = store.get_app(conn, env["jid"])
+    assert (row["applied_source"], row["applied_tier"], row["applied_score"], row["applied_level"]) == ("test", "A", 71, "entry")
+    assert row["letter_sent"] == 1 and row["apply_channel"] is None
+    snap = appdir.load_app(env["dir"])["applied"]
+    assert snap["employer_host"] == "boards.greenhouse.io" and snap["posting_host"] == "x" and snap["at"]
+    conn.close()
+
+
+def test_how_it_was_sent_is_saved_from_the_details_page(env):
+    jid = env["jid"]
+    assert post(env, f"/api/job/{jid}/how", {"channel": "company_site"})[0] == 409  # not applied yet
+    post(env, f"/api/job/{jid}/outcome", {"outcome": "applied"})
+    assert post(env, f"/api/job/{jid}/how", {"channel": "fax"})[0] == 409
+    assert post(env, f"/api/job/{jid}/how", {"url": "jobs.lever.co/acme"})[0] == 409
+    assert post(env, f"/api/job/{jid}/how", {"channel": "company_site"})[0] == 200
+    assert post(env, f"/api/job/{jid}/how", {"url": "https://jobs.lever.co/acme/123/apply?token=secret#top"})[0] == 200
+    assert post(env, f"/api/job/{jid}/how", {"letter_sent": True})[0] == 200
+    _, data = get(env, f"/api/job/{jid}")
+    assert data["app"]["how"] == {"channel": "company_site", "host": "jobs.lever.co", "letter_sent": True}
+    assert "company_site" in data["channels"]
+    assert appdir.load_app(env["dir"])["applied"]["url"] == "https://jobs.lever.co/acme/123/apply"
+    assert appdir.load_app(env["dir"])["status"] == "applied"
+
+
+def test_backfill_fills_older_applications_from_what_is_still_known(env):
+    from src.tailor.applied import backfill
+    from src.tailor.packet import record_outcome
+
+    record_outcome(env["dir"], env["cfg"], "applied")
+    conn = connect(env["cfg"]["paths"]["db"])
+    cols = "applied_source = NULL, applied_tier = NULL, applied_score = NULL, applied_level = NULL, letter_sent = NULL"
+    conn.execute(f"UPDATE applications SET {cols}, tier = 'B', score = 55")  # as if sent before the record existed
+    conn.execute("UPDATE jobs SET tier = 'C', score = 20, score_reasons = 'tier B at most: stretch level (2 years)'")
+    conn.commit()
+    app = appdir.load_app(env["dir"])
+    app.pop("applied")
+    appdir.save_app(env["dir"], app)
+    assert backfill(conn) == {"filled": 1, "folder_missing": 0}
+    row = store.get_app(conn, env["jid"])
+    assert (row["applied_tier"], row["applied_score"], row["applied_level"], row["letter_sent"]) == ("B", 55, "stretch", 0)
+    assert appdir.load_app(env["dir"])["applied"]["backfilled"] is True
+    assert backfill(conn) == {"filled": 0, "folder_missing": 0}
+    conn.close()

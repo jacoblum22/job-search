@@ -486,8 +486,19 @@ def record_outcome(app_dir: Path, cfg: dict[str, Any], outcome: str) -> dict[str
         fields["status"] = "applied"
     if outcome == "applied" and not app_dir_applied_at(app_dir):
         fields["applied_at"] = at  # the first "I applied"; the daily goal counts this, later outcomes don't move it
+    extra: dict[str, Any] = {}
+    if "applied_at" in fields:
+        # Freeze the job as it stands at the first "I applied": its tier and score move afterwards.
+        from src.tailor import applied
+
+        conn = store.connect(resolve(cfg, "db"))
+        try:
+            job_id = appdir.load_app(app_dir)["job_id"]
+            fields["applied"] = {"at": at, **applied.snapshot(conn, job_id, app_dir)}
+        finally:
+            conn.close()
+        extra = {"applied_at": at, **applied.columns(fields["applied"])}
     app = appdir.log(app_dir, "outcome", outcome, **fields)
-    extra = {"applied_at": fields["applied_at"]} if "applied_at" in fields else {}
     _sync(app_dir, cfg, app, app["status"], outcome=outcome, outcome_at=at, **extra)
     return {"status": app["status"], "outcome": outcome, "outcome_at": at}
 
