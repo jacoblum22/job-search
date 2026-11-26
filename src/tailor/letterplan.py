@@ -86,13 +86,17 @@ def emphasis(app_dir: Path) -> list[dict[str, Any]]:
             # (SQL and Power BI, no Power BI); the tools it does have are still a story. Strength 2
             # and up means a bullet tells it, not just a skills list. (Nov 25 2026 test: the top
             # items for Cardata and PolicyMe were partial, read as "no story", and were skipped.)
-            "status": e.get("status") or "missing",
+            "status": e.get("status") or "missing", "terms": len(terms),
             "has_story": bool(passages) and (e.get("strength") or 0) >= 2, "passages": passages[:6],
         })
     out.sort(key=lambda x: -x["stress"])
     for rank, item in enumerate(out):
         # The one gap a letter may name (see gap_rule): the job's main duty, not a tool on a list.
-        item["gap_candidate"] = rank < GAP_TOP and item["tier"] == 1 and item["status"] != "covered"
+        # "Partial" on a requirement that names several tools means one tool of a list is missing
+        # (SQL and Power BI, no Power BI; a stack with Redux in it): that is a tool on a list, which
+        # the rule never names. A duty is missing outright, or is a single thing only partly shown.
+        duty = item["status"] == "missing" or (item["status"] == "partial" and item["terms"] <= 1)
+        item["gap_candidate"] = rank < GAP_TOP and item["tier"] == 1 and duty
     return out
 
 

@@ -630,6 +630,7 @@ def test_letter_flags_each_sentence_that_states_a_gap(tmp_path):
         "My SQL is BigQuery rather than T-SQL.",
         "I bring four months of industry experience writing SQL daily.",
         "I have no direct experience with Spark.",
+        "I haven't put a model into production yet.",
     ]
     for sent in bad:
         assert gap_admissions(sent) == [sent], sent
@@ -1133,13 +1134,17 @@ def test_gap_pick_rule_allows_one_plain_gap_for_the_main_duty(tmp_path):
     from src.tailor import letterplan
 
     app, cfg = make_app(tmp_path / "plan")
-    # r3 (Tableau, Power BI) is tier 1 and only partly covered; r1 is covered; r2 is tier 2
-    write_json(app / "evidence.json", {"requirements": [
-        {"id": "r1", "status": "covered", "strength": 3, "passages": ["northwind.sql-daily"]},
-        {"id": "r3", "status": "partial", "strength": 3, "passages": ["northwind.dashboards"]},
-        {"id": "r2", "status": "missing", "strength": 0, "passages": []}]})
-    cand = {e["id"]: e["gap_candidate"] for e in letterplan.emphasis(app)}
-    assert cand == {"r1": False, "r3": True, "r2": False}
+    # r3 (Tableau, Power BI) is tier 1; r1 is covered; r2 is tier 2
+    def evidence(r3_status):
+        write_json(app / "evidence.json", {"requirements": [
+            {"id": "r1", "status": "covered", "strength": 3, "passages": ["northwind.sql-daily"]},
+            {"id": "r3", "status": r3_status, "strength": 3, "passages": ["northwind.dashboards"]},
+            {"id": "r2", "status": "missing", "strength": 0, "passages": []}]})
+        return {e["id"]: e["gap_candidate"] for e in letterplan.emphasis(app)}
+
+    # one tool of a two-tool list missing is a tool on a list, never a gap the letter names
+    assert evidence("partial") == {"r1": False, "r3": False, "r2": False}
+    assert evidence("missing") == {"r1": False, "r3": True, "r2": False}
     gap = {"requirement": "r3", "beat": 2, "about": "Power BI"}
     for wrong, msg in (({**gap, "requirement": "r2"}, "not a gap the letter may name"),
                        ({**gap, "beat": 5}, "gap_mention 'beat'"), ({**gap, "about": ""}, "'about'"),

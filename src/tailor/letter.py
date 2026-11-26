@@ -41,7 +41,7 @@ _DENIED = re.compile(
 # than" and "yet" alone are ordinary words, so only the shapes that state a shortfall are matched.
 _GAP = re.compile(
     r"\b(?:ha(?:ve|s)n['’]t|ha(?:ve|s)\s+not|(?:ha(?:ve|s)\s+)?never)\s+(?:yet\s+)?"
-    r"(?:used|worked\s+(?:with|in|on)|touched|built|written|shipped|deployed|run|done)\b"
+    r"(?:used|worked\s+(?:with|in|on)|touched|built|written|shipped|deployed|run|done|put|taken|had|managed|led|owned)\b"
     r"|\bno\s+(?:direct\s+|hands-on\s+|professional\s+|formal\s+|prior\s+)?(?:experience|exposure)\s+(?:with|in|using)\b"
     r"|\bI\s+(?:lack|don['’]t\s+have|do\s+not\s+have)\b"
     r"|\b(?:would\s+be|is|are|was)\s+new\s+to\s+me\b|\bI(?:\s+a|['’])m\s+new\s+to\b"
