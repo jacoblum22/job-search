@@ -557,6 +557,18 @@ def test_gap_round_builds_on_a_letter_round(tmp_path, monkeypatch):
     assert fb and fb["round"] == 3 and fb["build_on"] == 2
 
 
+def test_round_on_a_letter_round_never_brings_back_the_old_letter(tmp_path):
+    # Appcom, Nov 26 2026: letter round 5 replaced round 2; gap round 6 built on 5 scored lower, and
+    # the best went back to round 2, the draft before the new letter.
+    app = new_app(tmp_path)
+    add_round(app, 1, 70, items=[item("a", True)], ats=70)
+    add_round(app, 2, 68, items=[item("a", True)], ats=70)
+    write_json(app / "drafts" / "r2" / "feedback.json", {"round": 2, "build_on": 1, "letter_only": True})
+    add_round(app, 3, 66, items=[item("a", True)], ats=69)
+    write_json(app / "drafts" / "r3" / "feedback.json", {"round": 3, "build_on": 2, "revisit": True})
+    assert next_round(app, CFG)["best_round"] == 2
+
+
 def test_gap_round_asked_for_when_the_best_round_is_far_under_reach(tmp_path, monkeypatch):
     import src.tailor.grade as grade
     from src.tailor.loop import gap_round, pending_round

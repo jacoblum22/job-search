@@ -98,6 +98,28 @@ def _language_ask(description: str, known: set[str]) -> str | None:
         langs = {m.lower() for m in _LANGUAGE_RE.findall(line)} - known
         if langs and _LANGUAGE_ASK_RE.search(line) and not _LANGUAGE_OPTIONAL_RE.search(line):
             return line.strip(" *-•+#\t")
+    lang = _written_in(description)
+    return f"the posting is written in {lang.title()}" if lang and lang not in known else None
+
+
+# Common words of a language the posting itself may be written in. Appcom, Nov 26 2026: a posting
+# all in French asked for "Bon français", which names no language the lines above know, and six
+# review passes followed. ponytail: French only (the one Canadian postings use); add a language here
+# when one shows up.
+_WRITTEN_WORDS = {"french": {"le", "la", "les", "des", "du", "une", "et", "pour", "avec", "dans", "sur", "aux",
+                             "est", "vous", "nous", "tu", "ou", "à"}}
+_ENGLISH_WORDS = {"the", "and", "of", "to", "with", "for", "in", "on", "is", "you", "we", "our", "or"}
+
+
+def _written_in(description: str) -> str | None:
+    """The language the posting is written in when it isn't English, else None. A bilingual posting
+    (an English and a French version) is English."""
+    words = re.findall(r"[^\W\d_]+", description.lower())
+    english = sum(w in _ENGLISH_WORDS for w in words)
+    for lang, common in _WRITTEN_WORDS.items():
+        n = sum(w in common for w in words)
+        if n >= 20 and n > 2 * english:
+            return lang
     return None
 
 

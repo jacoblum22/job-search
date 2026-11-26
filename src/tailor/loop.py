@@ -357,6 +357,22 @@ def _best(rounds: list[dict[str, Any]]) -> dict[str, Any]:
     return min(rounds, key=lambda r: (r["criticals"], -pick(r), -r["score"], r["round"]))
 
 
+def _replaced(app_dir: Path, rounds: list[dict[str, Any]]) -> set[int]:
+    """Rounds a later letter or review round replaced: `_finish_letter_round` kept that round over
+    the one it built on, so picking among every round again must not bring the old one back
+    (Appcom, Nov 26 2026: a gap round on the letter round lost, and the best fell back to the round
+    before the new letter)."""
+    crit = {r["round"]: r["criticals"] for r in rounds}
+    out = set()
+    for r in rounds:
+        fb = _feedback(app_dir, r["round"])
+        base = fb.get("compare_to", fb.get("build_on"))
+        if (fb.get("letter_only") or fb.get("review") or fb.get("review_fix")) and base in crit \
+                and r["criticals"] <= crit[base]:
+            out.add(int(base))
+    return out
+
+
 def _section_of(path: str, doc: str) -> str | None:
     if doc == "letter" or path.startswith("letter"):
         return "letter"
@@ -460,7 +476,9 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     today = _todays_ats(app_dir, cfg)
     rounds = [_load(app_dir, n, today) for n in nums]
     cur, prev = rounds[-1], rounds[:-1]
-    best = _best(rounds)
+    gone = _replaced(app_dir, rounds)
+    best = _best([r for r in rounds if r["round"] not in gone])
+    prev_live = [r for r in prev if r["round"] not in gone] or prev
 
     side = _feedback(app_dir, cur["round"])
     if (side.get("letter_only") or side.get("review") or side.get("review_fix")) and prev:
@@ -471,7 +489,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     # up to `max_rounds_wide_gap` drafts. Jake, Oct 28 2026: 8 points, not 10 (Nexthop new grad
     # stopped at the 3-draft limit 8.5 under, after a round that gained 3.2).
     max_rounds = loop_cfg.get("max_rounds", 3)
-    if _wide_gap(best, loop_cfg) and (not prev or (best["ats"] or 0) > (_best(prev)["ats"] or 0)):
+    if _wide_gap(best, loop_cfg) and (not prev or (best["ats"] or 0) > (_best(prev_live)["ats"] or 0)):
         max_rounds = max(max_rounds, loop_cfg.get("max_rounds_wide_gap", 5))
     min_gain = loop_cfg.get("min_gain", 2.0)
     target = cfg.get("target_score", 80)
@@ -492,7 +510,7 @@ def next_round(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     elif cur["criticals"] == 0 and cur["failed_items"] == 0 and (cur["ats"] or 0) >= target:
         reason = "all checks pass and the ATS score meets the target"
     elif prev:
-        ref = _best(prev)
+        ref = _best(prev_live)
         newly_failed = {i for i in cur["failed_ids"] & ref["passed_ids"]
                         if not _is_letter(i) and not _unsure(cur["items"][i], sure)}
         if cur["criticals"] > ref["criticals"]:

@@ -495,7 +495,14 @@ def docx_to_pdf(docx_path: Path, pdf_path: Path) -> Path:
     """Convert with Word when it is installed (Windows), else LibreOffice."""
     docx_path, pdf_path = Path(docx_path).resolve(), Path(pdf_path).resolve()
     if _word_available():
-        _word_to_pdf(docx_path, pdf_path)
+        # Word can't open a path of 260 characters or more ("couldn't find your file"), which a long
+        # job title in the folder and file names reaches (Xperteez, Nov 26 2026: review/ failed, final/
+        # was one character shorter). So Word converts a copy in a short temp folder.
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / docx_path.name
+            shutil.copyfile(docx_path, src)
+            _word_to_pdf(src, src.with_suffix(".pdf"))
+            shutil.move(str(src.with_suffix(".pdf")), pdf_path)
         return pdf_path
     soffice = _find_soffice()
     if not soffice:

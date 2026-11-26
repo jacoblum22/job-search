@@ -246,6 +246,15 @@ def test_runbook_says_to_shorten_a_long_bullet_and_reapply():
     assert "sent back for repair" not in edits and "rerun\n   `apply-edits` for the same round" in edits
 
 
+def test_runbook_attempt_cap_is_for_failures_only():
+    # Appcom, Nov 26 2026: "no more than 3 attempts at any one command" made the run stop calling
+    # extra-round after its third (successful) run, though step 9 says to call it until it stops.
+    root = Path(__file__).parent.parent
+    runbook = (root / "docs" / "tailoring-runbook.md").read_text(encoding="utf-8")
+    assert "attempts at any one command" not in runbook
+    assert "This cap is\nfor failures only" in runbook and "`extra-round`" in runbook
+
+
 def test_fetch_page_saves_next_page(tmp_path, monkeypatch):
     import httpx
 
