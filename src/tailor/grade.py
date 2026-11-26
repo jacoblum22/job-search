@@ -217,16 +217,18 @@ def _title_score(title: str, data: dict[str, Any], plan_title: str = "") -> floa
     phrases = [p for p in (title.strip(), core) if p]
     # The plan's true title counts when it is the posting's title with words left out ("Product
     # analyst" for "Provincial Product Analyst", Allstate, Oct 23 2026): the role words still match.
+    # Words compare through wording.ats, so a plural title still matches ("Applied scientist" for
+    # "Applied Scientists — Machine Learning", Xperteez, Nov 26 2026).
     plan_title = str(plan_title or "").strip()
-    if plan_title and {w.lower() for w in re.findall(r"\w+", plan_title)} <= {w.lower() for w in re.findall(r"\w+", title)}:
+    if plan_title and all(wording.ats(w, title) for w in re.findall(r"\w+", plan_title)):
         phrases.append(plan_title)
     if any(taxonomy.exact(p, first) for p in phrases):
         return 100.0
     if any(taxonomy.exact(p, summary) for p in phrases):
         return 75.0
     words = {w.lower() for w in re.findall(r"\w+", core or title)}
-    have = {w.lower() for w in re.findall(r"\w+", summary + " " + first)}
-    return 50.0 * len(words & have) / len(words) if words else 0.0
+    have = summary + " " + first
+    return 50.0 * sum(wording.ats(w, have) for w in words) / len(words) if words else 0.0
 
 
 def _sections_score(data: dict[str, Any]) -> float:

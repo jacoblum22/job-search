@@ -130,6 +130,16 @@ def test_plan_title_with_words_left_out_still_counts():
     assert ats_score(data, r, ev(["SQL"]), CFG, "Data analyst")["components"]["title"] < 100
 
 
+def test_plan_title_counts_against_a_plural_posting_title():
+    # Xperteez, Nov 26 2026: "Applied scientist" opened the summary for "Applied Scientists — Machine
+    # Learning ,Remote- Contract", but the plural kept the title at 25 and the note came back every round.
+    from src.tailor.grade import ats_gap
+    r = {**req(terms=["SQL"]), "title": "Product Analysts — Payments ,Remote- Contract"}
+    data = {"summary": {"text": "Product analyst writing SQL daily."}, "skills": [{"items": ["SQL"]}]}
+    assert ats_score(data, r, ev(["SQL"]), CFG, "Product analyst")["components"]["title"] == 100
+    assert ats_gap(data, r, ev(["SQL"]), CFG, title_ok="Product analyst")["title_missing"] == ""
+
+
 def test_title_ok_reads_the_plan_headline(tmp_path):
     from src.tailor.grade import title_ok
     assert title_ok(tmp_path) == ""

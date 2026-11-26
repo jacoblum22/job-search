@@ -264,7 +264,9 @@ the candidate can't apply to only if `packet` didn't run. If `packet` ran, it ge
   itself fails.
 - Anything would require claiming something the vault cannot back. Leave it out; do not force a pass.
 
-Never loop endlessly: no more than 3 attempts at any one command per folder.
+Never loop endlessly: no more than 3 attempts at a command that failed, per folder. This cap is
+for failures only: `next-round`, `extra-round`, `review-input` and `review-round` run as often as
+their output asks, and each stops on its own.
 
 **On a `TailorError`**
 

@@ -320,6 +320,19 @@ def test_required_language_skipped():
         assert "language required" in r.reasons[0]
 
 
+def test_posting_written_in_another_language_skipped():
+    # Appcom, Nov 26 2026: a posting all in French asked for "Bon français", which no English
+    # language line matched.
+    fr = ("Tu développeras des APIs en Python pour les clients et tu travailleras avec une équipe "
+          "dans un environnement agile, sur des projets web et mobiles.\n") * 3 + "* Bon français et anglais un atout.\n"
+    r = _score("Data Analyst", fr + "python sql " * 40)
+    assert r.tier == "skip" and "written in French" in r.reasons[0]
+    # The same posting with an English version beside it is not skipped.
+    en = ("You will build APIs in Python for the clients and work with a team in an agile "
+          "environment, on the web and mobile projects of our company.\n") * 3
+    assert _score("Data Analyst", en + fr + "python sql " * 40).tier != "skip"
+
+
 def test_optional_language_not_skipped():
     desc = "python sql " * 40
     for line in [
