@@ -74,6 +74,8 @@ T = [
 ("Libraries","Vue",r"(?-i)\bVue(?:\.js)?\b"),
 ("Libraries","Spring",r"(?-i)\bSpring(?: Boot)?\b(?! (?:term|semester|break|20\d\d))"),
 ("Libraries","FastAPI/Flask/Django",r"fastapi|\bflask\b|django"),
+# The .NET ORM. RELATED links it to C#/.NET.
+("Libraries","Entity Framework",r"entity framework"),
 # BI / analytics
 # Capitalised "Excel" is the tool; lowercase "excel" is usually the verb ("our people can excel").
 # A sentence that opens "Excel at" / "Excel in" is the verb too.
@@ -118,6 +120,10 @@ T = [
 ("Data platforms","dbt",r"\bdbt\b"),
 ("Data platforms","Airflow",r"airflow"),
 ("Data platforms","Dagster",r"dagster"),
+# The durable workflow engine. Capitalised and next to "workflow"/"orchestration": "temporal data"
+# and "spatio-temporal" are the adjective.
+("Data platforms","Temporal",r"(?-i)(?<!-)\bTemporal\b(?! (?:data|patterns?|trends?|analysis|dynamics|features|resolution|models?)\b)"
+ r"(?=[^.\n]{0,40}(?:workflow|orchestrat))|\bTemporal (?:Cloud|\.io)\b"),
 ("Data platforms","Alteryx",r"alteryx"),
 ("Data platforms","Prefect",r"(?-i)\bPrefect\b"),
 ("Data platforms","Fivetran",r"fivetran"),
@@ -129,7 +135,8 @@ T = [
 ("Data platforms","Hadoop/Hive",r"hadoop|\bhive\b|\bhbase\b|mapreduce"),
 ("Data platforms","ETL/ELT",r"\betl\b|\belt\b|extract, transform"),
 ("Data platforms","data pipelines",r"data pipelines?|etl pipelines?|ml pipelines?|pipelines? (?:for|that) data"),
-("Data platforms","data warehouse",r"data warehous|warehouse|data lake|lakehouse"),
+# A physical warehouse ("warehouse automation systems", "warehouse operations") isn't a data warehouse.
+("Data platforms","data warehouse",r"data warehous|warehouse(?! (?:automation|operations|processes|floor|associates?|workers?|management systems?)\b)|data lake|lakehouse"),
 ("Data platforms","data modeling",r"data model|dimensional model|star schema|fact (?:and|&) dimension|(?:fact|dimension) tables?|slowly changing dimension"),
 ("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"
  r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b"),
@@ -289,6 +296,8 @@ T = [
 ("Business tools","SharePoint",r"sharepoint"),
 ("Data platforms","GraphQL",r"graphql"),
 ("Data platforms","JSON",r"\bjson\b"),
+# The REST API spec and its tooling. Lowercase "swagger" is the word ("walks with swagger").
+("Data platforms","OpenAPI / Swagger",r"\bopenapi\b|(?-i:\bSwagger\b)"),
 ("ML & statistics","AI agents / agentic AI / MCP",r"agentic|ai agents?|\bmcp\b|model context protocol|langgraph|tool.calling|function.calling|\btool.use\b"),
 ("Cloud & DevOps","SDLC",r"\bsdlc\b|software development life ?cycle"),
 ("Cloud & DevOps","networking (TCP/IP)",r"tcp/ip|\btcp\b|\budp\b|networking protocols"),
@@ -445,7 +454,8 @@ RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Ama
            "SQL stored procedures": "SQL", "Amazon SQS / SNS": "AWS", "Amazon ECS": "AWS",
            "Delta Lake": "Databricks", "Unity Catalog": "Databricks", "Snowflake Cortex": "Snowflake",
            "Dataform": "GCP", "Agentforce": "Salesforce/CRM", "ELK Stack": "Elasticsearch",
-           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)"}
+           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)",
+           "Entity Framework": "C#/.NET", "OpenAPI / Swagger": "APIs / REST"}
 
 # The kind of tool each one is. An open list ("e.g. Tableau, QuickSight", "or similar tools")
 # takes its type from the tools it names, so any tool of that type can stand in. Excel isn't a
@@ -458,7 +468,7 @@ _TYPES = {
     "ML framework": ["PyTorch", "TensorFlow/Keras", "JAX", "scikit-learn", "XGBoost/LightGBM", "Hugging Face",
                      "LangChain/LlamaIndex", "spaCy / NLTK", "vLLM"],
     "data library": ["pandas", "NumPy", "scikit-learn", "matplotlib/seaborn/plotly", "Jupyter"],
-    "web framework": ["React", "FastAPI/Flask/Django", "Angular", "Vue", "Spring", "Node.js"],
+    "web framework": ["React", "FastAPI/Flask/Django", "Angular", "Vue", "Spring", "Node.js", "Entity Framework"],
     "AI assistant": ["Claude / Claude Code", "ChatGPT", "GitHub Copilot", "Microsoft Copilot", "Cursor", "Codex",
                      "Gemini"],
     "BI / visualization tool": ["Power BI", "Tableau", "Looker", "Looker Studio", "Qlik", "Superset", "Metabase",
@@ -474,7 +484,8 @@ _TYPES = {
     "data warehouse / query engine": ["Amazon Athena", "Presto/Trino"],
     "orchestration / ETL tool": ["Airflow", "Prefect", "Dagster", "dbt", "Fivetran", "SSIS/SSRS", "Alteryx", "AWS Glue",
                                  "Google Cloud Composer",
-                                 "Microsoft Fabric / Azure Synapse / ADF", "Dataform", "SQLMesh", "VisualCron"],
+                                 "Microsoft Fabric / Azure Synapse / ADF", "Dataform", "SQLMesh", "VisualCron",
+                                 "Temporal"],
     "cloud platform": ["AWS", "Azure", "GCP", "AWS S3", "AWS Lambda", "Amazon SageMaker", "Amazon Bedrock",
                        "Amazon Kinesis", "Azure Machine Learning", "Vertex AI", "AWS Glue", "Amazon Athena",
                        "Amazon EMR", "Amazon EC2", "AWS CloudFormation", "Google Cloud Composer", "Google Cloud Storage",
