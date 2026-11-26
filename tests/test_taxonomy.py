@@ -266,6 +266,45 @@ def test_exact_matches_singular_and_plural_wording():
     assert "relational databases / database design" in tx.find("joined tables on primary and foreign keys")
 
 
+@pytest.mark.parametrize("text, skill", [
+    # Daily review, Nov 26 2026: real posting wording.
+    ("Exposure to SQL Server, AWS or Azure, ASP.NET WebForms, or Entity Framework is an asset", "Entity Framework"),
+    ("PostgreSQL - Entity Framework Core - GraphQL / Hot Chocolate", "Entity Framework"),
+    ("Experience with Temporal or another durable workflow orchestration platform", "Temporal"),
+    ("Knowledge of Temporal or other workflow orchestration tools", "Temporal"),
+    ("Temporal for workflow orchestration, and Kafka for event streaming", "Temporal"),
+    ("Contribute to OpenAPI-based connector generation and integration workflows", "OpenAPI / Swagger"),
+    ("Test APIs manually using tools such as Postman or Swagger.", "OpenAPI / Swagger"),
+    ("maintain clear OpenAPI/Swagger contracts and error handling", "OpenAPI / Swagger"),
+    ("Data warehousing experience working with Databricks or similar", "data warehouse"),
+    ("a warehouse, database, schemas and a role in Snowsight", "data warehouse"),
+])
+def test_nov_26_review_matches(text, skill):
+    assert skill in taxonomy.find(text)
+
+
+@pytest.mark.parametrize("text, wrong", [
+    ("Spatio-Temporal workflow analysis of sensor data", "Temporal"),
+    ("Temporal patterns in workflow logs", "Temporal"),
+    ("time series and temporal data in our orchestration layer", "Temporal"),
+    ("She walks into a room with swagger", "OpenAPI / Swagger"),
+    ("Proven domain expertise in intralogistics and warehouse automation systems is mandatory.", "data warehouse"),
+    ("from warehouse floor to warehouse operations", "data warehouse"),
+])
+def test_nov_26_review_false_matches(text, wrong):
+    assert wrong not in taxonomy.find(text)
+
+
+def test_nov_26_review_products():
+    for product, platform in [("Entity Framework", "C#/.NET"), ("OpenAPI / Swagger", "APIs / REST")]:
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+    for name in ["Entity Framework", "Temporal", "OpenAPI / Swagger"]:
+        assert _is_tool(name), name
+    assert "orchestration / ETL tool" in taxonomy.TOOL_TYPES["Temporal"]
+    assert "web framework" in taxonomy.TOOL_TYPES["Entity Framework"]
+
+
 def test_bare_ownership_is_the_soft_skill_but_home_ownership_isnt():
     from src.tailor import taxonomy as tx
 
