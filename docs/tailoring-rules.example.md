@@ -10,7 +10,8 @@ details (names, employers, contact details) in your copy only, never in this tem
   not in the vault, it does not go in the document, even when the posting asks for it.
 - Never claim a skill, tool, employer, project, credential or responsibility from a job posting
   alone. A letter never states a gap ("I haven't used X", "keen to grow into"): it says what I did
-  with the nearest tool and stops.
+  with the nearest tool and stops. The one exception: when the letter plan allows it, one short plain
+  sentence may name a gap in the job's main duty, next to the story that leads up to it.
 - Never write "familiar with X" for something the vault does not show.
 - Company facts in a letter come only from the posting or from verified company notes.
 

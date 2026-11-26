@@ -284,10 +284,19 @@ def run_letter_checks(app_dir: Path, rnd: int, cfg: dict[str, Any], ctx: dict[st
                  skills=named)
     if len(_KEEN.findall(full)) > 1:
         warn("keen_to_grow", "more than one 'keen to grow' style phrase")
-    for i, p in enumerate(paras):
-        for sent in gap_admissions(str(p.get("text", ""))):
-            warn("gap_admission", f"paragraphs[{i}] states a gap: {sent!r}; say what you did with the nearest "
-                 "tool and leave the negative half out, or cut the sentence", f"paragraphs[{i}]", term=sent)
+    gaps = [(i, sent) for i, p in enumerate(paras) for sent in gap_admissions(str(p.get("text", "")))]
+    # The plan may allow one gap sentence, for the job's main duty (letterplan's gap pick rule).
+    ok_gap = letterplan.allowed_gap(plan, paras, gaps, _GROW)
+    may = (plan or {}).get("gap_mention")
+    for i, sent in gaps:
+        if (i, sent) == ok_gap:
+            continue
+        fix = "say what you did with the nearest tool and leave the negative half out, or cut the sentence"
+        if isinstance(may, dict) and ok_gap is None:
+            fix = (f"the plan allows one gap sentence, about {may.get('about')}, in the paragraph that tells beat "
+                   f"{may.get('beat')}, at most {letterplan.GAP_WORDS} words and with no 'keen to learn'; "
+                   "rewrite this one to fit or cut it")
+        warn("gap_admission", f"paragraphs[{i}] states a gap: {sent!r}; {fix}", f"paragraphs[{i}]", term=sent)
     for m in _GRADE.finditer(full):
         warn("course_grade", f"course grade used as evidence: {m.group(0)!r}", term=m.group(0))
     from src.tailor.checks import _TEST_COUNT, line_issues  # lazy, as above

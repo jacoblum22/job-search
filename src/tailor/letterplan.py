@@ -32,6 +32,15 @@ SHAPES: dict[str, dict[str, Any]] = {
     "short_note": {"beats": (1, 2), "paragraphs": (2, 3), "words": (110, 170),
                    "what": "a short note, for a posting that says the letter is optional or asks for a few lines"},
 }
+# The gap pick rule (Jake, Nov 26 2026). Blind judges on Nov 25 marked a letter down for naming a
+# preferred tool it lacked ("I haven't used ThoughtSpot yet", 0-3) and up for naming the job's
+# central duty ("I haven't deployed a model to production yet", 3-0) where a story led up to it.
+# So a plan may allow ONE gap sentence, only for a tier-1 requirement among the GAP_TOP most
+# stressed that the vault doesn't fully cover, tied to the beat whose story comes nearest, and the
+# sentence must be short and plain (GAP_WORDS words at most, no "keen to learn").
+GAP_TOP = 3
+GAP_WORDS = 16
+
 # Passages that are not stories: what the candidate wants from work, and their banked sentences.
 _NOT_STORY = ("motivation.", "voice.")
 
@@ -80,7 +89,11 @@ def emphasis(app_dir: Path) -> list[dict[str, Any]]:
             "status": e.get("status") or "missing",
             "has_story": bool(passages) and (e.get("strength") or 0) >= 2, "passages": passages[:6],
         })
-    return sorted(out, key=lambda x: -x["stress"])
+    out.sort(key=lambda x: -x["stress"])
+    for rank, item in enumerate(out):
+        # The one gap a letter may name (see gap_rule): the job's main duty, not a tool on a list.
+        item["gap_candidate"] = rank < GAP_TOP and item["tier"] == 1 and item["status"] != "covered"
+    return out
 
 
 def load(app_dir: Path) -> dict[str, Any] | None:
@@ -146,8 +159,20 @@ def validate(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     for key in ("opener", "close"):
         if not str(plan.get(key) or "").strip():
             bad.append(f"'{key}' (what that part of the letter is about) is empty")
-    if plan.get("gap_mention"):
-        bad.append("'gap_mention' must be false: a letter never states a gap")
+    gap = plan.get("gap_mention") or False
+    if gap:
+        if not isinstance(gap, dict):
+            bad.append("'gap_mention' must be false or an object {requirement, beat, about}")
+        else:
+            allowed = {e["id"] for e in emphasis(app_dir) if e["gap_candidate"]}
+            if gap.get("requirement") not in allowed:
+                bad.append(f"gap_mention: {gap.get('requirement')!r} is not a gap the letter may name; only a tier-1 "
+                           f"requirement among the {GAP_TOP} most stressed that the vault doesn't fully cover "
+                           f"({', '.join(sorted(allowed)) or 'none for this posting'}). Set 'gap_mention' to false")
+            if gap.get("beat") not in range(1, len(beats) + 1):
+                bad.append("gap_mention 'beat' must be the number of the beat whose story leads up to the gap")
+            if not str(gap.get("about") or "").strip():
+                bad.append("gap_mention 'about' (the one thing not yet done, in a few words) is empty")
 
     company = plan.get("company")
     if company is not None:
@@ -168,7 +193,7 @@ def validate(app_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
     if bad:
         raise TailorError(f"{PLAN_FILE} needs fixing:\n- " + "\n- ".join(bad))
 
-    plan["gap_mention"] = False
+    plan["gap_mention"] = gap
     plan["_checked"] = True
     appdir.write_json(path, plan)
     appdir.log(app_dir, "letter-plan", f"{shape}, {len(beats)} beat(s)", letter_style=STYLE)
@@ -202,3 +227,23 @@ def plan_warnings(plan: dict[str, Any], paras: list[dict[str, Any]]) -> list[tup
         out.append(("unplanned_story", "the letter tells a story from " + ", ".join(extra) + ", which the letter plan "
                     "doesn't have; keep to the planned beats or cut it", {"term": ", ".join(extra)}))
     return out
+
+
+def allowed_gap(plan: dict[str, Any] | None, paras: list[dict[str, Any]], gaps: list[tuple[int, str]],
+                keen: Any) -> tuple[int, str] | None:
+    """Of the letter's gap sentences (paragraph number, sentence), the one the plan allows: the
+    first that sits in a paragraph telling the gap's beat and is short and plain. None when the
+    plan allows no gap or no sentence qualifies."""
+    gap = (plan or {}).get("gap_mention")
+    if not isinstance(gap, dict):
+        return None
+    beats = [b for b in plan.get("beats") or [] if isinstance(b, dict)]
+    n = gap.get("beat")
+    if not isinstance(n, int) or not 1 <= n <= len(beats):
+        return None
+    want = {str(p) for p in beats[n - 1].get("passages") or []}
+    for i, sent in gaps:
+        cited = {str(s) for s in paras[i].get("sources") or []}
+        if cited & want and len(sent.split()) <= GAP_WORDS and not keen.search(sent):
+            return i, sent
+    return None

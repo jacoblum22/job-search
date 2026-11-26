@@ -1077,7 +1077,7 @@ def test_letter_plan_is_checked_before_the_letter_is_written(tmp_path):
     msg = str(e.value)
     for part in ("'shape' must be one of", "not a claim passage", "'r9' is not in requirements.json",
                  "no story is not a beat", "'guide.nope' is not in the vault index", "'f99' is not a verified fact",
-                 "company 'beat'", "never states a gap"):
+                 "company 'beat'", "must be false or an object"):
         assert part in msg, part
     assert letterplan.load(app) is None  # an unchecked plan binds nothing
 
@@ -1127,3 +1127,50 @@ def test_short_note_shape_sets_its_own_length(tmp_path):
     got = _letter_codes(tmp_path, note, with_(paragraphs=paras))
     assert "paragraph_count" not in got                     # two paragraphs is what a short note is
     assert "short note runs 110-170" in got["letter_length"]["message"]
+
+
+def test_gap_pick_rule_allows_one_plain_gap_for_the_main_duty(tmp_path):
+    from src.tailor import letterplan
+
+    app, cfg = make_app(tmp_path / "plan")
+    # r3 (Tableau, Power BI) is tier 1 and only partly covered; r1 is covered; r2 is tier 2
+    write_json(app / "evidence.json", {"requirements": [
+        {"id": "r1", "status": "covered", "strength": 3, "passages": ["northwind.sql-daily"]},
+        {"id": "r3", "status": "partial", "strength": 3, "passages": ["northwind.dashboards"]},
+        {"id": "r2", "status": "missing", "strength": 0, "passages": []}]})
+    cand = {e["id"]: e["gap_candidate"] for e in letterplan.emphasis(app)}
+    assert cand == {"r1": False, "r3": True, "r2": False}
+    gap = {"requirement": "r3", "beat": 2, "about": "Power BI"}
+    for wrong, msg in (({**gap, "requirement": "r2"}, "not a gap the letter may name"),
+                       ({**gap, "beat": 5}, "gap_mention 'beat'"), ({**gap, "about": ""}, "'about'"),
+                       ("yes", "false or an object")):
+        write_plan(app, {**PLAN, "gap_mention": wrong})
+        with pytest.raises(TailorError, match=msg):
+            letterplan.validate(app, cfg)
+    write_plan(app, {**PLAN, "gap_mention": gap})
+    assert letterplan.validate(app, cfg)["gap_mention"] == gap
+
+    def gaps(tmp, plan, paras):
+        app, cfg = make_app(tmp)
+        write_json(app / "evidence.json", read_json(tmp_path / "plan/app/evidence.json"))
+        put_draft(app, base_data(cfg))
+        write_letter(app, with_(paragraphs=paras))
+        write_plan(app, plan)
+        letterplan.validate(app, cfg)
+        res = run_check(app, 1, cfg, None)
+        return [w["data"]["term"] for w in res["warnings"] if w["code"] == "gap_admission"]
+
+    def letter(extra, at=1):
+        paras = [dict(p) for p in LETTER["paragraphs"]]
+        paras[at] = {**paras[at], "text": paras[at]["text"] + " " + extra}
+        return paras
+
+    plain = "I haven't used Power BI yet."
+    allowed = {**PLAN, "gap_mention": gap}
+    assert gaps(tmp_path / "a", allowed, letter(plain)) == []                      # beat 2's paragraph
+    assert gaps(tmp_path / "b", PLAN, letter(plain)) == [plain]                    # plan allows none
+    assert gaps(tmp_path / "c", allowed, letter(plain, at=0)) == [plain]           # wrong paragraph
+    keen = "I haven't used Power BI yet and am keen to learn it."
+    assert gaps(tmp_path / "d", allowed, letter(keen)) == [keen]                   # not plain
+    two = gaps(tmp_path / "e", allowed, letter(plain + " SQL Server would be new to me."))
+    assert two == ["SQL Server would be new to me."]                              # only one gets through

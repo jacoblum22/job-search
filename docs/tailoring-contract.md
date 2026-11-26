@@ -284,17 +284,25 @@ exactly the same items, every `sources` id exists in the vault index and is a `c
  "beats": [{"requirement": "r2", "stress": "why the posting stresses it", "story": "one line",
             "passages": ["algaecal.sql-daily"]}],
  "company": {"fact": "f2", "beat": 1, "link": "how the fact connects to that beat"},
- "close": "what the last sentence picks up", "gap_mention": false, "_checked": true}
+ "close": "what the last sentence picks up",
+ "gap_mention": false, "_checked": true}
 ```
 
 `src/tailor/letterplan.py`: `emphasis` ranks the role's requirements (tier, in the title, how often,
 how early) for the planner; `validate` checks the plan (shape and its beat count, each beat's
-requirement and claim passages, the company fact id, `gap_mention` false), marks it `_checked` and
+requirement and claim passages, the company fact id, `gap_mention`), marks it `_checked` and
 sets `app.json` `letter_style`. `company` is `null` when no fact connects. The letter check then
 warns `beat_missing` (a beat or the planned fact no paragraph cites) and `unplanned_story` (a
 story from a vault file no beat names), skips `no_company_fact` when `company` is `null`, and
 uses the `short_note` shape's own paragraph and word ranges. An application with no checked plan
 is checked as before.
+
+`gap_mention` is `false`, or `{"requirement": "r2", "beat": 1, "about": "deploying a model to
+production"}`: the one gap the letter may name. `validate` accepts it only for an item `emphasis`
+marks `gap_candidate` (tier 1, among the three most stressed, evidence not `covered`). The letter
+check then lets one gap sentence through when it sits in a paragraph citing that beat's passages,
+has at most 16 words and no "keen to learn" wording; every other gap sentence still warns
+`gap_admission`.
 
 ### `check.json`
 

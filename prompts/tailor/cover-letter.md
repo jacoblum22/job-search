@@ -93,6 +93,12 @@ supplied its own stems, and "I'm applying for", "One thing I value", "Researchin
    "keen to grow into", and no months or years of experience. Say what the candidate did with the
    nearest tool and stop; the resume simply doesn't list the missing one. The check
    `gap_admission` flags these.
+   **The one exception is the plan's `gap_mention`.** When it is not `false`, the letter may carry
+   exactly one gap sentence, about what `about` names, inside the paragraph that tells the beat it
+   points to, right after the story that leads up to it. Keep it plain and short (16 words at
+   most): "I haven't deployed a model to production yet." No bridge clause, no "but I'm keen to
+   learn", no apology, and never a second gap. It is allowed, not required: leave it out if the
+   paragraph reads better without it.
 4. **Grounding and metrics:** no invented or estimated numbers; no employer, project, tool or
    credential outside the vault.
 5. **Human voice:**
@@ -238,7 +244,8 @@ the only verified facts are about Fabrikam's fleet size, which no beat touches.
 - [ ] Greeting is "Dear Hiring Manager," unless `hiring_contact` is non-null.
 - [ ] Every achievement has `sources`; every company fact has a real id; no invented number.
 - [ ] Paragraph 1 names the role; the close picks up what the plan's `close` names.
-- [ ] No ABSENT term claimed or implied; no "familiar with"; no sentence that states a gap ("I
+- [ ] At most the one gap sentence the plan's `gap_mention` allows, in that beat's paragraph.
+- [ ] No ABSENT term claimed or implied; no "familiar with"; no other sentence that states a gap ("I
       haven't used", "new to me", "keen to grow into", "rather than", months of experience).
 - [ ] Every project name is explained on first mention; no sentence carries more than 3-4 technical
       ideas; no course grades; no claim repeated from the resume or earlier in the letter.

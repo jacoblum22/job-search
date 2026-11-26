@@ -171,7 +171,8 @@ rules, so use judgment):
   already show it, and pointing at it hands the screener a reason to stop. Don't name a missing
   tool either (Jake, Nov 20 2026): write what he did with the closest one he has and leave the
   negative half out. A `gap_admission` warning means a sentence does this; rewrite it to the
-  positive half or cut it. When the reviewer asks "have you used X?" and the answer is no, the
+  positive half or cut it. The one exception is the gap sentence the letter plan's `gap_mention`
+  allows (one, short, in that beat's paragraph): keep it as it is. When the reviewer asks "have you used X?" and the answer is no, the
   answer goes in `response.json` for Jake's interview prep and changes nothing in the documents.
 - Fill a "[number]" or "[N]" from the vault or cut the phrase; never estimate. Use the vault's
   wording ("9+", "about 20", "10+ tables", "several business units"). Keep a "+" when the vault
