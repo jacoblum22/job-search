@@ -49,6 +49,26 @@ from src.tailor import taxonomy
      "product analytics (funnels / cohorts / LTV)"),
     ("Strong SQLs and Python", "demand generation / lead funnel (MQLs)"),
     ("generate demand for our products", "demand generation / lead funnel (MQLs)"),
+    # Skills review, Nov 27 2026.
+    ("Working knowledge of import/export processes, tariff classification, and global trade regulations",
+     "classification"),
+    ("turns trade, product classification, and transactional data into reliable insight", "classification"),
+    ("bring informed opinions on context caching, inference costs, and prompt optimization", "optimization / OR"),
+    ("meet 70% of the qualifications, we encourage you to apply. Express your interest here.", "Express.js"),
+    ("Private Client Services, Benefits, MyGroup, Westland Express, Agile UW", "Express.js"),
+    ("routing across payment rails", "Ruby on Rails"),
+    ("a proud founding member of the Rails Foundation", "Ruby on Rails"),
+    ("Work closely with Product, Engineering, DevOps, and AI/Data Science teams", "data science"),
+    ("Competition: Women in Data Science SAP Case Competition, March 2024", "data science"),
+    ("our evolution from a small French enterprise to one of the world's leading biopharma companies", "French"),
+    ("Bilingual English proficiency, written and spoken", "French"),
+    ("compliance with U.S. export control laws, including EAR and ITAR", "international trade / customs"),
+    ("CSV import/export", "international trade / customs"),
+    ("technologies subject to U.S. export control and trade compliance regulations", "international trade / customs"),
+    ("work in a global trade operations environment, support our Portfolio Managers", "international trade / customs"),
+    ("Red Hat is an equal opportunity employer", "Linux/Unix"),
+    ("follow UX design patterns and accessibility guidelines", "software design patterns"),
+    ("your primary POC for onboarding questions", "prototyping / proof of concept"),
 ])
 def test_false_matches_are_gone(text, wrong):
     assert wrong not in taxonomy.find(text)
@@ -203,6 +223,53 @@ def test_real_matches_still_work(text, right):
     ("Identify opportunities to automate repetitive reporting", "report / process automation"),
     ("automate manual processes where possible", "report / process automation"),
     ("conversion funnels and cohort retention", "product analytics (funnels / cohorts / LTV)"),
+    # Skills review, Nov 27 2026 (wording from the postings).
+    ("Experience with at least one BI or reporting tool, such as Looker, ThoughtSpot, Power BI, Hex, or similar",
+     "ThoughtSpot"),
+    ("Experience with React and Redux", "Redux"),
+    ("Exposure to SQL Server, AWS or Azure, ASP.NET WebForms, or Entity Framework is an asset", "Entity Framework"),
+    ("Experience with Spring Boot and/or Node.js/Express", "Express.js"),
+    ("Employs the PERN (Postgres, Express, REACT + Redux, Node.js) stack", "Express.js"),
+    ("Experience with a web framework such as Express, Next.js, or similar", "Express.js"),
+    ("Experience with Express.js and the Serverless Framework", "Express.js"),
+    ("React, Next.js or React Native is a plus, and Ruby/Rails exposure is a plus for Lending", "Next.js"),
+    ("React, Next.js or React Native is a plus, and Ruby/Rails exposure is a plus for Lending", "React Native"),
+    ("React, Next.js or React Native is a plus, and Ruby/Rails exposure is a plus for Lending", "Ruby on Rails"),
+    ("Experience building production applications in Ruby on Rails", "Ruby on Rails"),
+    ("event-driven microservices on RabbitMQ and AWS (SQS, SNS, Lambda)", "RabbitMQ"),
+    ("event-driven microservices on RabbitMQ and AWS (SQS, SNS, Lambda)", "event-driven architecture"),
+    ("deployed to Kubernetes through ArgoCD and monitored in Datadog", "CI/CD"),
+    ("CI tools such as CircleCI", "CI/CD"),
+    ("building agentic workflows using frameworks such as LangGraph or CrewAI", "CrewAI"),
+    ("Familiarity with Docker, GCP, and OpenTelemetry", "OpenTelemetry"),
+    ("Strong understanding of context engineering - curating schemas, interfaces, and specs", "context engineering"),
+    ("Work with AI coding tools, write clear specs, and critically review AI-generated code", "AI-assisted coding"),
+    ("practical experience using AI-assisted coding tools, such as Claude Code, GitHub Copilot",
+     "AI-assisted coding"),
+    ("Candidates must have experience using coding agents with python in their workflow", "AI-assisted coding"),
+    ("Familiarity with protocols like gRPC and REST", "gRPC"),
+    ("Learn and apply the team's engineering practices and architecture patterns", "software design patterns"),
+    ("object-oriented programming, and design patterns", "software design patterns"),
+    ("Implement data ingestion (real time and batch) using best practices in data modeling", "data ingestion"),
+    ("Implement data ingestion (real time and batch) using best practices in data modeling", "batch processing"),
+    ("Experience with streaming and batch data tools: Spark, Kafka, Airflow", "batch processing"),
+    ("Develop prototype or \"proof of concept\" implementations of projects", "prototyping / proof of concept"),
+    ("Build reproducible programmatic workflows using Python and command-line tools", "command line / CLI"),
+    ("probability, linear systems, and numerical methods", "mathematics (linear algebra, calculus)"),
+    ("Experience with test frameworks: JTest, TestNG, JUnit", "testing (unit/automated)"),
+    ("maintain test coverage across releases", "testing (unit/automated)"),
+    ("Linux experience (Ubuntu, RedHat)", "Linux/Unix"),
+    ("Comfortable in ArcGIS Pro (QGIS experience is a plus)", "GIS"),
+    ("QGIS experience is a plus", "GIS"),
+    ("developing skills in machine learning engineering, including model training, evaluation", "machine learning"),
+    ("Strong foundation in data-focused skills, including Data Science and Data Analysis", "data science"),
+    ("bilingual skills in French are an asset", "French"),
+    ("Bilingual French/English is an Asset", "French"),
+    ("Excellent français et anglais avancé", "French"),
+    ("Working knowledge of import/export processes, tariff classification, and global trade regulations",
+     "international trade / customs"),
+    ("research security and trade compliance (including export controls, controlled goods and sanctions)",
+     "international trade / customs"),
 ])
 def test_new_skills(text, skill):
     assert skill in taxonomy.find(text)
@@ -236,6 +303,23 @@ def test_oct_20_review_products_and_concepts():
     for product, platform in [("SOQL", "Salesforce/CRM"), ("Acumatica", "ERP (SAP/Oracle/Workday)")]:
         assert _is_tool(product), product
         assert product in taxonomy.TOOL_TYPES, product
+        assert taxonomy.RELATED[product] == platform
+        assert taxonomy.category(platform), platform
+
+
+def test_nov_27_review_products_and_concepts():
+    for name in ["gRPC", "software design patterns", "data ingestion", "batch processing",
+                 "prototyping / proof of concept", "command line / CLI", "AI-assisted coding",
+                 "event-driven architecture", "context engineering", "data science", "international trade / customs"]:
+        assert not _is_tool(name), name
+    for name in ["ThoughtSpot", "RabbitMQ", "OpenTelemetry", "CrewAI", "Redux", "Next.js", "React Native",
+                 "Express.js", "Ruby on Rails", "Entity Framework"]:
+        assert _is_tool(name), name
+        assert name in taxonomy.TOOL_TYPES, name
+    for product, platform in [("Redux", "React"), ("Next.js", "React"), ("React Native", "React"),
+                              ("Express.js", "Node.js"), ("Ruby on Rails", "Ruby"),
+                              ("CrewAI", "AI agents / agentic AI / MCP"), ("gRPC", "APIs / REST"),
+                              ("context engineering", "LLMs / generative AI"), ("Entity Framework", "C#/.NET")]:
         assert taxonomy.RELATED[product] == platform
         assert taxonomy.category(platform), platform
 

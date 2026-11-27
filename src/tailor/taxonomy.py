@@ -47,7 +47,8 @@ T = [
 ("Languages","PowerShell",r"powershell"),
 ("Languages","VBA",r"\bvba\b|\bmacros?\b"),
 ("Languages","Bash/Shell",r"\bbash\b|shell script"),
-("Cloud & DevOps","Linux/Unix",r"\blinux\b|\bunix\b"),
+# Distros count as Linux. A bare "Red Hat" is the company, unless it follows Ubuntu in a list.
+("Cloud & DevOps","Linux/Unix",r"\blinux\b|\bunix\b|\bubuntu\b|\brhel\b|\bcentos\b|(?<=ubuntu, )red ?hat"),
 ("Languages","Kotlin/Swift",r"\bkotlin\b|\bswift\b"),
 ("Languages","Rust",r"\brust\b"),
 ("Languages","HTML/CSS",r"(?<![./-])\bhtml\b|(?<![./-])\bcss\b"),  # not a file name ("about-cibc.html")
@@ -70,6 +71,18 @@ T = [
 ("Libraries","Jupyter",r"jupyter|notebooks?\b"),
 ("Libraries","matplotlib/seaborn/plotly",r"matplotlib|seaborn|plotly|ggplot"),
 ("Libraries","React",r"\breact\b"),
+# React Native also matches React: it is React. RELATED links these to React.
+("Libraries","React Native",r"react native"),
+("Libraries","Redux",r"\bredux\b"),
+("Libraries","Next.js",r"\bnext\.?js\b"),
+# Capitalised "Express" only, and not "Express your interest", "Express Entry" or "Westland Express"
+# (a capitalised or lowercase word right before it, other than "such as").
+("Libraries","Express.js",r"express\.?js|(?-i:(?<![A-Za-z] )\bExpress\b(?! [a-z])|(?<=such as )Express\b)"),
+# Lowercase "payment rails" and "guard rails" aren't the framework, nor is the Rails Foundation.
+("Libraries","Ruby on Rails",r"ruby on rails|(?-i:(?<!Guard )\bRails\b(?! Foundation))"),
+("Libraries","CrewAI",r"crewai"),
+# .NET's ORM. RELATED links it to C#/.NET.
+("Libraries","Entity Framework",r"entity framework|\bef core\b"),
 ("Libraries","Angular",r"(?-i)\bAngular(?:JS)?\b"),
 ("Libraries","Vue",r"(?-i)\bVue(?:\.js)?\b"),
 ("Libraries","Spring",r"(?-i)\bSpring(?: Boot)?\b(?! (?:term|semester|break|20\d\d))"),
@@ -105,6 +118,7 @@ T = [
 ("BI & analytics","Amplitude / Mixpanel",r"(?-i)\bAmplitude\b|\b[Mm]ixpanel\b"),
 ("BI & analytics","Hex",r"(?-i)\bHex\b(?! (?:code|codes|colou?rs?|values?|keys?))"),
 ("BI & analytics","Statsig",r"statsig"),
+("BI & analytics","ThoughtSpot",r"thoughtspot"),
 # The discipline, not a tool. Bare "BI" counts only when it isn't part of "Power BI" or Databricks' "AI/BI".
 ("BI & analytics","business intelligence",r"business intelligence|(?-i:(?<!Power )(?<!AI/)\bBI\b)"),
 ("BI & analytics","data analysis",r"\bdata analysis\b|exploratory data analys"),
@@ -125,6 +139,7 @@ T = [
 ("Data platforms","Elasticsearch",r"elasticsearch|opensearch"),
 ("Data platforms","vector databases",r"vector (?:database|db|store)s?|pinecone|weaviate|pgvector"),
 ("Data platforms","Kafka",r"\bkafka\b"),
+("Data platforms","RabbitMQ",r"rabbitmq"),
 ("Data platforms","Confluent",r"\bconfluent\b"),
 ("Data platforms","Hadoop/Hive",r"hadoop|\bhive\b|\bhbase\b|mapreduce"),
 ("Data platforms","ETL/ELT",r"\betl\b|\belt\b|extract, transform"),
@@ -156,6 +171,7 @@ T = [
 # Lowercase "rest" is the word ("the rest of", "rest and recharge"); the API style is written REST.
 # Named API products (LLM APIs, API Gateway, Graph API) go to their own entries.
 ("Data platforms","APIs / REST",r"(?<!llm )(?<!graph )\bapis?\b(?! gateway)|\brestful\b|(?-i:\bREST\b)"),
+("Data platforms","gRPC",r"\bgrpc\b"),
 ("Data platforms","Microsoft Fabric / Azure Synapse / ADF",r"microsoft fabric|\bfabric\b(?= data| lakehouse)|synapse|data factory"),
 ("Data platforms","SSIS/SSRS",r"\bssis\b|\bssrs\b|\bssas\b"),
 # Cloud & devops
@@ -181,6 +197,7 @@ T = [
 ("Cloud & DevOps","Google Cloud Composer",r"cloud composer"),
 ("Cloud & DevOps","Datadog",r"datadog"),
 ("Cloud & DevOps","Grafana",r"grafana"),
+("Cloud & DevOps","OpenTelemetry",r"opentelemetry|(?-i:\bOTel\b)"),
 ("Cloud & DevOps","Prometheus",r"(?-i)\bPrometheus\b"),
 ("Cloud & DevOps","ELK Stack",r"elk stack|(?-i:\bELK\b)"),
 ("Cloud & DevOps","Ansible / Puppet",r"\bansible\b|(?-i:\bPuppet\b)"),
@@ -192,7 +209,7 @@ T = [
 ("Cloud & DevOps","Vertex AI",r"vertex ai"),
 ("Cloud & DevOps","Docker",r"docker|containeri[sz]"),
 ("Cloud & DevOps","Kubernetes",r"kubernetes|\bk8s\b"),
-("Cloud & DevOps","CI/CD",r"ci/cd|continuous integration|continuous deliver|github actions|jenkins|azure devops|azure pipelines"),
+("Cloud & DevOps","CI/CD",r"ci/cd|continuous integration|continuous deliver|github actions|jenkins|azure devops|azure pipelines|circleci|argo ?cd"),
 ("Cloud & DevOps","Git",r"\bgit\b|github(?! copilot)|gitlab|bitbucket|version control"),
 ("Cloud & DevOps","Terraform/IaC",r"terraform|infrastructure as code"),
 ("Cloud & DevOps","MLOps",r"mlops|llmops|model deployment|deploy(?:ing)? models|model monitoring|(?:model|data|concept) drift|retrain(?:ing)? models?|model retraining"
@@ -200,18 +217,22 @@ T = [
 ("Cloud & DevOps","MLflow",r"mlflow"),
 # Regression testing is re-running tests after a change, not statistical regression.
 ("Cloud & DevOps","testing (unit/automated)",r"unit test|automated test|test automation|pytest|\btdd\b|(?-i:\bBDD\b)|behaviou?r.driven"
- r"|regression test|integration test|end.to.end test"),
+ r"|regression test|integration test|end.to.end test|\bjunit\b|testng|\bjtest\b|(?:test|code) coverage"),
 ("Cloud & DevOps","microservices",r"microservice"),
+("Cloud & DevOps","event-driven architecture",r"event.driven|event sourcing"),
 ("Cloud & DevOps","distributed systems",r"distributed system"),
 # ML / stats methods
-("ML & statistics","machine learning",r"machine learning|\bml\b|(?:un)?supervised learning|tree.based models?|random forests?|decision trees?"),
+("ML & statistics","machine learning",r"machine learning|\bml\b|(?:un)?supervised learning|tree.based models?|random forests?|decision trees?|model training"),
+# The discipline, not the team that does it ("AI/Data Science teams") or the WiDS event name.
+("ML & statistics","data science",r"(?<!women in )\bdata science\b(?! (?:team|teams|department|group|org))"),
 ("ML & statistics","AI (any mention)",r"\bai\b|artificial intelligence"),
 ("ML & statistics","statistics",r"statistic|probability (?:theory|distributions)"),
 ("ML & statistics","descriptive statistics / correlation",r"descriptive statistic|standard deviation|\bmedian\b(?! (?:salary|pay|base|compensation|income))"
  r"|\bcorrelations?\b(?! rules)|\bquartiles?\b|trendline"),
 ("ML & statistics","predictive modeling",r"predictive|forecast"),
 ("ML & statistics","regression",r"regression(?! test| suites?)(?!,? (?:acceptance|integration|system|unit|smoke)\b)"),
-("ML & statistics","classification",r"classification|classifier"),
+# Tariff, product and export-control classification is trade compliance work, not the ML method.
+("ML & statistics","classification",r"(?<!tariff )(?<!product )(?<!control )(?<!customs )classification|classifier"),
 # Kubernetes, Hadoop and "clustered data processing" clusters are compute, not the method.
 ("ML & statistics","clustering/segmentation",r"clustering(?! (?:and|or) (?:high availability|replication|failover))|cluster analysis|k.means|segmentation"),
 ("ML & statistics","deep learning / neural nets",r"deep learning|neural net|\bcnns?\b|convolutional|autoencoders?|transformer(?: |-based )(?:models?|architectures?)|transformer-based|vision transformers?|\brnns?\b|\blstms?\b"),
@@ -227,13 +248,13 @@ T = [
  r"|quasi.experiment|difference.in.differences|propensity score"),
 ("ML & statistics","feature engineering",r"feature engineering"),
 ("ML & statistics","model evaluation/validation",r"model (?:evaluation|validation|performance)|cross.validation"),
-# Query, performance and process optimisation are tuning work, not operations research.
-("ML & statistics","optimization / OR",r"(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
+# Query, performance, process and prompt optimisation are tuning work, not operations research.
+("ML & statistics","optimization / OR",r"(?<!prompt )(?<!query )(?<!performance )(?<!sql )(?<!process )(?<!engine )(?<!code )(?<!-specific )(?<!inference )optimi[sz]ation|operations research|linear programming|integer programming"),
 ("ML & statistics","recommendation systems",r"recommend(?:er|ation) (?:system|engine|model)|recommenders?\b|next best action|ranking models?"),
 # Churn is a business metric; only survival wording is the method.
 ("ML & statistics","survival analysis",r"survival analysis|survival models?|time.to.event|hazard models?"),
 ("ML & statistics","Bayesian methods",r"bayesian"),
-("ML & statistics","mathematics (linear algebra, calculus)",r"linear algebra|calculus|mathematic"),
+("ML & statistics","mathematics (linear algebra, calculus)",r"linear algebra|calculus|mathematic|numerical (?:methods|analysis|computing)"),
 ("ML & statistics","data mining",r"data mining"),
 ("ML & statistics","quantitative analysis",r"quantitative"),
 # Business tools
@@ -270,6 +291,10 @@ T = [
 ("AI tools","Cursor",r"(?-i)\bCursor\b"),
 ("AI tools","Codex",r"\bcodex\b"),
 ("AI tools","Gemini",r"(?-i)\bGemini\b"),
+# The practice of coding with an AI assistant or agent; the named products above are their own skills.
+("AI tools","AI-assisted coding",r"ai.(?:assisted|powered|augmented) (?:coding|development|software development|programming)"
+ r"|ai (?:coding|development) (?:tools|assistants?|agents?)|coding (?:assistants?|agents?)"
+ r"|agentic (?:coding|development|software development)|ai.generated code|ai pair.programm|vibe.coding"),
 ("Business tools","Microsoft Office",r"microsoft office|ms office|office 365|microsoft 365|word, excel|powerpoint"),
 ("Business tools","Agile/Scrum",r"\bagile\b|scrum|kanban|sprint"),
 ("Business tools","project management",r"project management|project manager|pmp|pmbok|\bcapm\b"),
@@ -284,7 +309,7 @@ T = [
 # The terminal and data, not the company: "At Bloomberg, we..." isn't a skill.
 ("Business tools","Bloomberg",r"bloomberg (?:terminal|bql|api|data license)|(?-i:(?<!At )(?<!at )\bBloomberg\b(?=[,)]| (?:and|or|is (?:desired|an asset|required|preferred))\b))"
  r"|(?<=, )bloomberg\b|(?<=and )bloomberg\b"),
-("Business tools","GIS",r"\bgis\b|arcgis|geospatial"),
+("Business tools","GIS",r"\bgis\b|arcgis|\bqgis\b|geospatial"),
 ("BI & analytics","Amazon QuickSight",r"quicksight"),
 ("Business tools","SharePoint",r"sharepoint"),
 ("Data platforms","GraphQL",r"graphql"),
@@ -305,10 +330,17 @@ T = [
 ("Data platforms","semantic layer / metrics layer",r"semantic (?:layers?|models?|views)|governed metrics|metrics? (?:layer|store|registry)|metric (?:definitions|governance)"),
 ("Data platforms","data reconciliation",r"data reconciliation|reconcil(?:e|ing) (?:data|numbers|figures|across)"),
 ("Data platforms","relational databases / database design",r"(?<!non-)(?<!non)relational (?:databases?|tables?)|primary (?:and|&|/) foreign keys?|foreign keys?|database design|database (?:management|development|administration)|\brdbms\b|schema design"),
+("Data platforms","data ingestion",r"data ingestion|ingestion pipelines?|ingest(?:s|ed|ing|ion)? (?:\w+ ){0,2}data\b"),
+# Batch named as a processing mode, usually opposite streaming ("real time and batch").
+("Data platforms","batch processing",r"batch (?:processing|pipelines?|jobs|data|workloads|loads)"
+ r"|(?:streaming|real.time|stream) (?:or|and|/) batch|batch (?:or|and|/) (?:streaming|stream|real.time)"),
 ("Data platforms","real-time / streaming data",r"real.time (?:data|analytics|processing|pipelines?|streaming|ingestion)|stream processing|streaming (?:data|pipelines?|analytics)"),
 ("Languages","SQL window functions / CTEs",r"window functions?|\bctes?\b|common table expressions?"),
 ("Languages","SQL stored procedures",r"stored procedures?|stored procs?\b"),
 ("Languages","object-oriented programming",r"object.oriented|(?-i:\bOOP\b)|\boo design"),
+# Software design, not UX/UI design patterns.
+("Languages","software design patterns",r"(?<!ux )(?<!ui )(?<!interaction )(?<!visual )(?:design|architecture|architectural) patterns"
+ r"|clean architecture|hexagonal architecture|domain.driven design"),
 # The CS fundamentals. "Create and populate data structures using schema definition languages" is data modelling.
 ("Languages","data structures / algorithms",r"data structures(?=[^.\n]{0,40}algorithm)|algorithms?[^.\n]{0,30}data structures"
  r"|(?:knowledge|foundation|understanding|fundamentals) (?:of |in )?data structures"),
@@ -335,6 +367,9 @@ T = [
 # The practice. "Azure DevOps" is the CI/CD product (above).
 ("Cloud & DevOps","DevOps",r"(?<!azure )\bdevops\b"),
 ("Cloud & DevOps","serverless",r"serverless"),
+("Cloud & DevOps","command line / CLI",r"command.line|(?-i:\bCLIs?\b)"),
+# Uppercase PoC only: "POC" is also "point of contact".
+("Cloud & DevOps","prototyping / proof of concept",r"proof.of.concepts?|(?-i:\bPoCs?\b)|prototyp"),
 ("Cloud & DevOps","IAM (identity and access management)",r"(?-i:\bIAM\b)|identity and access management"),
 ("Cloud & DevOps","GPU computing / CUDA",r"\bcuda\b|\bgpus?\b|\btpus?\b"),
 # Google Cloud's data products, each its own skill (as with AWS).
@@ -362,6 +397,7 @@ T = [
 ("ML & statistics","named entity recognition / entity resolution",r"named entity|entity (?:resolution|linking|extraction|recognition)|(?-i:\bNER\b)"),
 ("ML & statistics","model serving / inference optimization",r"model serving|serving models|inference (?:optimi[sz]ation|serving|latency|endpoints?)|quantization|(?:model|knowledge) distillation"),
 ("ML & statistics","search / information retrieval",r"information retrieval|retrieval systems|re-?rank(?:ing|ers?)\b|hybrid search|vector search|semantic search|search relevance|retrieval.based"),
+("ML & statistics","context engineering",r"context engineering"),
 ("ML & statistics","text-to-SQL / conversational analytics",r"text.to.sql|natural language (?:to sql|queries|querying)|conversational analytics"),
 ("Business tools","requirements gathering",r"requirements? gathering|gather(?:ing)?(?: and document(?:ing)?)? (?:the )?(?:business |data |reporting |user |stakeholder )?requirements|(?:business|data|reporting|analytical|analytics|user|functional) requirements|business analysis"),
 # Business Process Outsourcing is an industry (call centres), not process work.
@@ -376,6 +412,10 @@ T = [
 # B2B marketing's lead funnel. Uppercase MQL only; "SQLs" is left out, it reads as the language.
 ("Domain knowledge","demand generation / lead funnel (MQLs)",r"demand gen(?:eration)?\b|(?-i:\bMQLs?\b)|marketing.qualified leads?"
  r"|(?:marketing|sales|lead) funnels?"),
+# Export-control wording is left out: it is mostly the ITAR/EAR eligibility notice, not a skill.
+("Domain knowledge","international trade / customs",r"global trade (?:compliance|regulations)|trade compliance(?! regulations)"
+ r"|import/export (?:processes|regulations|compliance|documentation|operations)"
+ r"|customs (?:brokerage|regulations|compliance|clearance|tariffs|valuation)|tariff classifications?|\bincoterms\b|harmoni[sz]ed (?:system|tariff)"),
 ("Domain knowledge","epidemiology / biostatistics",r"epidemiolog|biostatistic"),
 # Uppercase IoT: "NYSE: IOT" is a ticker.
 ("Domain knowledge","IoT / sensor data",r"(?-i:\bIoT\b)|internet of things|sensor data"),
@@ -423,6 +463,9 @@ T = [
 # "MS" before a Microsoft product ("MS SQL", "MS Office") is Microsoft, not a Master of Science.
 ("Credentials","Master's degree",r"master'?s|\bm\.?sc\b|\bms\b(?![ -]?(?:sql|office|excel|word|access|teams|project|dynamics|azure|365|outlook|powerpoint|visio|sharepoint|fabric|power))|graduate degree"),
 ("Credentials","PhD",r"\bph\.?d"),
+# French as a working language, not "a small French enterprise". Bare "bilingual" can mean any pair.
+("Credentials","French",r"(?-i)\bFrench\b(?=[^.\n]{0,40}\b(?:asset|plus|required|preferred|fluen|proficien))|\bFrench\s*(?:/|and|&)\s*English"
+ r"|English\s*(?:/|and|&)\s*French\b|[Bb]i-?lingu\w*[^.\n]{0,30}\bFrench\b|\b(?:in|of|speak\w*) French\b|\b[Ff]ran[çc]ais\b"),
 ("Credentials","degree in CS",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)(?:(?!experience)[^.;]){0,80}computer science|computer science[^.;]{0,30}degree"),
 ("Credentials","degree in statistics/math",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)(?:(?!experience)[^.;]){0,80}(?:statistics|mathematics|math)\b"),
 ("Credentials","degree in engineering",r"(?:degree|bachelor|master|diploma|b\.?sc|ph\.?d|post-secondary|education)(?:(?!experience)[^.;]){0,80}engineering"),
@@ -445,7 +488,10 @@ RELATED = {"AWS S3": "AWS", "AWS Lambda": "AWS", "Amazon SageMaker": "AWS", "Ama
            "SQL stored procedures": "SQL", "Amazon SQS / SNS": "AWS", "Amazon ECS": "AWS",
            "Delta Lake": "Databricks", "Unity Catalog": "Databricks", "Snowflake Cortex": "Snowflake",
            "Dataform": "GCP", "Agentforce": "Salesforce/CRM", "ELK Stack": "Elasticsearch",
-           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)"}
+           "SOQL": "Salesforce/CRM", "Acumatica": "ERP (SAP/Oracle/Workday)",
+           "React Native": "React", "Redux": "React", "Next.js": "React", "Express.js": "Node.js",
+           "Ruby on Rails": "Ruby", "CrewAI": "AI agents / agentic AI / MCP", "gRPC": "APIs / REST",
+           "context engineering": "LLMs / generative AI", "Entity Framework": "C#/.NET"}
 
 # The kind of tool each one is. An open list ("e.g. Tableau, QuickSight", "or similar tools")
 # takes its type from the tools it names, so any tool of that type can stand in. Excel isn't a
@@ -456,13 +502,14 @@ _TYPES = {
                              "Rust", "MATLAB", "SAS", "PHP", "kdb+/q", "SOQL"],
     "statistical software": ["SAS", "SPSS", "Stata", "MATLAB", "R", "Python", "Julia"],
     "ML framework": ["PyTorch", "TensorFlow/Keras", "JAX", "scikit-learn", "XGBoost/LightGBM", "Hugging Face",
-                     "LangChain/LlamaIndex", "spaCy / NLTK", "vLLM"],
+                     "LangChain/LlamaIndex", "spaCy / NLTK", "vLLM", "CrewAI"],
     "data library": ["pandas", "NumPy", "scikit-learn", "matplotlib/seaborn/plotly", "Jupyter"],
-    "web framework": ["React", "FastAPI/Flask/Django", "Angular", "Vue", "Spring", "Node.js"],
+    "web framework": ["React", "FastAPI/Flask/Django", "Angular", "Vue", "Spring", "Node.js", "React Native", "Redux",
+                      "Next.js", "Express.js", "Ruby on Rails", "Entity Framework"],
     "AI assistant": ["Claude / Claude Code", "ChatGPT", "GitHub Copilot", "Microsoft Copilot", "Cursor", "Codex",
                      "Gemini"],
     "BI / visualization tool": ["Power BI", "Tableau", "Looker", "Looker Studio", "Qlik", "Superset", "Metabase",
-                                "Sigma", "MicroStrategy", "Cognos", "Amazon QuickSight", "SSIS/SSRS", "Hex"],
+                                "Sigma", "MicroStrategy", "Cognos", "Amazon QuickSight", "SSIS/SSRS", "Hex", "ThoughtSpot"],
     "product analytics": ["Google Analytics", "Amplitude / Mixpanel", "Statsig"],
     "data warehouse": ["Snowflake", "Databricks", "BigQuery", "Redshift", "Microsoft Fabric / Azure Synapse / ADF"],
     "table format": ["Delta Lake", "Apache Iceberg"],
@@ -470,7 +517,7 @@ _TYPES = {
     "database": ["SQL", "NoSQL", "MongoDB", "DynamoDB", "Cassandra", "Cosmos DB", "Redis", "Elasticsearch",
                  "vector databases", "Supabase"],
     "big data / streaming": ["Spark/PySpark", "Kafka", "Flink", "Hadoop/Hive", "Amazon Kinesis", "Databricks",
-                             "Amazon EMR", "Confluent"],
+                             "Amazon EMR", "Confluent", "RabbitMQ"],
     "data warehouse / query engine": ["Amazon Athena", "Presto/Trino"],
     "orchestration / ETL tool": ["Airflow", "Prefect", "Dagster", "dbt", "Fivetran", "SSIS/SSRS", "Alteryx", "AWS Glue",
                                  "Google Cloud Composer",
@@ -484,7 +531,7 @@ _TYPES = {
     "ML / AI platform": ["Amazon SageMaker", "Azure Machine Learning", "Vertex AI", "MLflow", "Databricks",
                          "Amazon Bedrock", "Snowflake Cortex", "Dataiku", "Azure OpenAI"],
     "DevOps tool": ["Docker", "Kubernetes", "CI/CD", "Git", "Terraform/IaC", "Linux/Unix", "Datadog", "Ansible / Puppet",
-                    "AWS CloudFormation", "Grafana", "Prometheus", "ELK Stack"],
+                    "AWS CloudFormation", "Grafana", "Prometheus", "ELK Stack", "OpenTelemetry"],
     "business software": ["Salesforce/CRM", "ERP (SAP/Oracle/Workday)", "Jira/Confluence", "Visio / diagramming",
                           "Microsoft Access", "Microsoft Word", "Microsoft Office", "SharePoint", "Excel",
                           "Microsoft Outlook", "Microsoft PowerPoint", "Microsoft Teams", "Google Sheets / Workspace",
