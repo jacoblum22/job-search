@@ -26,8 +26,9 @@ T = [
  r"(?![^.;\n]{0,80}" + _BUSINESS_SYSTEMS + r")(?<!sap, oracle)(?<!sap or oracle)(?<!sap/oracle)"),
 ("Languages","Python",r"\bpython\b"),
 ("Languages","R",r"(?-i)\bR\b(?![&-])(?!\s?&)|\bRStudio\b|\btidyverse\b"),
-("Languages","Java",r"\bjava\b(?!script)"),
-("Languages","JavaScript",r"javascript"),
+# "Java scripting" is JavaScript written as two words.
+("Languages","Java",r"\bjava\b(?! ?script)"),
+("Languages","JavaScript",r"java ?script"),
 # Node.js is a server runtime: front-end JavaScript or TypeScript doesn't show it. RELATED links it to JavaScript.
 ("Libraries","Node.js",r"\bnode\.?js\b|\bnodejs\b"),
 ("Languages","TypeScript",r"typescript"),
@@ -132,7 +133,7 @@ T = [
 ("Data platforms","data warehouse",r"data warehous|warehouse|data lake|lakehouse"),
 ("Data platforms","data modeling",r"data model|dimensional model|star schema|fact (?:and|&) dimension|(?:fact|dimension) tables?|slowly changing dimension"),
 ("Data platforms","data quality / validation",r"data quality|data integrity|data validation|data cleans|data cleaning"
- r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b"),
+ r"|\bdata qa\b|\bvalidated\b[^.;]{0,100}\bdata\b|validat(?:e|es|ing) (?:the )?data\b"),
 ("Data platforms","data governance",r"data governance|data stewardship|metadata"),
 # Relational databases (PostgreSQL, MySQL, SQL Server, SQLite) stay under SQL: SQL skill carries
 # over between them. NoSQL databases each work differently, so each is its own skill (Jake, Oct 18 2026).
@@ -211,7 +212,8 @@ T = [
  r"|\bcorrelations?\b(?! rules)|\bquartiles?\b|trendline"),
 ("ML & statistics","predictive modeling",r"predictive|forecast"),
 ("ML & statistics","regression",r"regression(?! test| suites?)(?!,? (?:acceptance|integration|system|unit|smoke)\b)"),
-("ML & statistics","classification",r"classification|classifier"),
+# Tariff, export-control, job and data-governance classifications aren't the ML method.
+("ML & statistics","classification",r"(?<!tariff )(?<!control )(?<!job )(?<!data )(?<!security )classification|classifier"),
 # Kubernetes, Hadoop and "clustered data processing" clusters are compute, not the method.
 ("ML & statistics","clustering/segmentation",r"clustering(?! (?:and|or) (?:high availability|replication|failover))|cluster analysis|k.means|segmentation"),
 ("ML & statistics","deep learning / neural nets",r"deep learning|neural net|\bcnns?\b|convolutional|autoencoders?|transformer(?: |-based )(?:models?|architectures?)|transformer-based|vision transformers?|\brnns?\b|\blstms?\b"),
@@ -243,7 +245,7 @@ T = [
 ("Business tools","ERP (SAP/Oracle/Workday)",r"\berp\b|(?<!× )(?<!\bx )\bsap\b(?! ?(?:datathon|hackathon|challenge|customer|competition))|s/4 ?hana"
  r"|oracle ?(?:erp|fusion|e-?business|netsuite|cloud erp|financials|hcm)|netsuite"
  r"|\boracle\b(?=[^.;\n]{0,80}" + _BUSINESS_SYSTEMS + r")|(?<=sap, )oracle|(?<=sap or )oracle|(?<=sap/)oracle"
- r"|workday (?:hcm|financials|adaptive|prism)"),
+ r"|workday (?:hcm|financials|adaptive|prism)|\binfor (?:ln|m3|cloudsuite|syteline)\b"),
 ("Business tools","Jira/Confluence",r"\bjira\b|confluence(?! cloud)"),
 ("Business tools","Visio / diagramming",r"\bvisio\b|lucidchart|draw\.io|\bmiro\b"),
 # A bare "Access" or "Word" only counts as the Microsoft tool when it is the whole term
@@ -367,6 +369,8 @@ T = [
 # Business Process Outsourcing is an industry (call centres), not process work.
 ("Business tools","process improvement",r"process improvements?|business process(?:es)?(?! outsourcing)|process mapping|improv(?:e|ing) (?:business |existing |internal )?processes|process (?:optimi[sz]ation|re-?engineering)"),
 ("Business tools","Lean / Six Sigma",r"six sigma|lean six|(?-i:\bLEAN\b)|\blean\b(?= (?:methodolog|principles|management|practices|certification|thinking))|\bkaizen\b"),
+# "Adhere to all requirements of the Quality Management System" is a generic duty.
+("Business tools","quality management systems (ISO 9001 / CMMI)",r"(?<!of the )quality management systems?|\biso ?9001\b|\bqms\b|\bcmmi\b|capability maturity model"),
 # Domain knowledge.
 ("Domain knowledge","healthcare knowledge",r"health ?care (?:data|systems?|terminology|environment|sector|settings?|experience|industry|operations)|clinical (?:data|terminology|systems?|workflows?)|health (?:information|records|data)|electronic (?:health|medical) records?|(?-i:\b(?:HL7|EHR|CIHI)\b)|\bcerner\b|medical terminology|healthcare analytics"),
 ("Domain knowledge","financial analysis / FP&A",r"financial (?:analysis|modell?ing|planning|statements)|fp&a|variance analysis|unit economics|budget(?:ing)? and forecast"),
@@ -379,6 +383,11 @@ T = [
 ("Domain knowledge","epidemiology / biostatistics",r"epidemiolog|biostatistic"),
 # Uppercase IoT: "NYSE: IOT" is a ticker.
 ("Domain knowledge","IoT / sensor data",r"(?-i:\bIoT\b)|internet of things|sensor data"),
+# Import/export trade. The ITAR "Arms Export Control Act" notice is boilerplate, and "trade support"
+# in investment postings is securities trading.
+("Domain knowledge","international trade / customs",r"tariff classifications?|\beccns?\b|customs (?:brokerage|regulations|compliance|tariffs|valuation|clearance)"
+ r"|international trade|global trade (?:compliance|regulations|data|team)|import/export (?:processes|regulations|compliance|operations)"
+ r"|(?<!export control and )trade compliance"),
 # soft skills
 ("Soft skills","communication",r"communicat"),
 ("Soft skills","collaboration/teamwork",r"collaborat|team ?work|cross.functional|team player|(?:works?|interact) well with others"),
@@ -397,7 +406,7 @@ T = [
 ("Soft skills","adaptability",r"adaptab|fast.paced|ambiguity"),
 ("Soft skills","ownership / accountability",r"(?<!home )(?<!employee )(?<!share)\bownership\b|accountab|own (?:the|your) (?:work|outcomes?|projects?|results|deliverables)"),
 ("Soft skills","customer / client focus",r"(?:customer|client|user|patient).(?:first|centric|centred|centered|focused|facing|obsessed)|customer (?:service|satisfaction)|client service|service (?:mentality|orientation)"),
-("Soft skills","teaching / knowledge sharing",r"knowledge (?:sharing|transfer)|shar(?:e|es|ing) (?:your |their |our )?knowledge|(?:provide|deliver|conduct)\w* training|train(?:ing)? (?:users|staff|colleagues|others|team members|end users)|training (?:materials|sessions)|educat(?:e|ing) (?:users|stakeholders|teams|others)|\bteach|\bcoach"),
+("Soft skills","teaching / knowledge sharing",r"knowledge (?:sharing|transfer)|shar(?:e|es|ing) (?:your |their |our )?knowledge|(?:provide|deliver|conduct)\w* training|\b(?:end.)?user training\b|train(?:ing)? (?:users|staff|colleagues|others|team members|end users)|training (?:materials|sessions)|educat(?:e|ing) (?:users|stakeholders|teams|others)|\bteach|\bcoach"),
 ("Soft skills","judgment",r"\bjudge?ments?\b|critically (?:evaluate|assess|review)|challenge assumptions|discernment"),
 ("Soft skills","integrity / trustworthiness",r"(?<!data )\bintegrity\b(?! of)|trustworth|\bhonest|ethical (?:conduct|standards|behaviou?r)"),
 ("Soft skills","discretion / confidentiality",r"\bdiscretion\b|confidentiality|(?:handl|maintain)\w* (?:sensitive|confidential)"),
@@ -410,7 +419,7 @@ T = [
 ("Soft skills","continuous improvement",r"continuous(?:ly)? improv|improvement mindset"),
 ("Soft skills","creativity / innovation",r"creativ|innovative (?:solutions|ideas|thinking|approaches)|out.of.the.box|think outside"),
 ("Soft skills","strategic thinking",r"strategic (?:thinking|thinker|mindset)|think strategically"),
-("Soft skills","organization",r"organi[sz]ational skills|(?:well|highly|very|extremely|stay) organi[sz]ed|strong organi[sz]ation"),
+("Soft skills","organization",r"organi[sz]ational (?:and [\w-]+ (?:management )?)?skills|(?:well|highly|very|extremely|stay) organi[sz]ed|strong organi[sz]ation"),
 ("Soft skills","empathy / compassion",r"empath|compassion"),
 ("Soft skills","interpersonal skills",r"interpersonal"),
 # Credentials
